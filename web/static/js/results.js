@@ -3009,7 +3009,6 @@
   // ========================================================================
   function ResultsApp() {
     const validSections = [
-      "info",
       "charts",
       "refutations",
       "efficiency",
@@ -3142,19 +3141,7 @@
             e(
               "nav",
               { className: "sidebar-nav-list" },
-              // 1st Item in Sidebar: Overview (not default open)
-              e(
-                "button",
-                {
-                  type: "button",
-                  title: "Overview",
-                  className: `sidebar-nav-btn ${activeSection === "info" ? "active" : ""}`,
-                  onClick: () => handleSectionChange("info"),
-                },
-                e("span", { className: "sidebar-num-pill" }, "i"),
-                !sidebarCollapsed ? e("span", null, "Overview") : null
-              ),
-              // Analysis Sections 1 through 7 (1. Bar Charts is default open)
+              // Analysis Sections 1 through 6 (1. Bar Charts is default open)
               ANALYSIS_SECTIONS.map((sec) =>
                 e(
                   "button",
@@ -3186,23 +3173,16 @@
               : e(
                   "div",
                   null,
-                  activeSection !== "info" && currentSectionMeta
+                  currentSectionMeta
                     ? e(
                         "div",
                         { className: "section-header-bar" },
                         e("h2", null, `${currentSectionMeta.num}. ${currentSectionMeta.title}`),
                         e("p", null, currentSectionMeta.desc)
                       )
-                    : e(
-                        "div",
-                        { className: "section-header-bar" },
-                        e("h2", null, "Overview: Evaluation Benchmarks & Tools"),
-                        e("p", null, "Summary of benchmark suites, provenance, and evaluated tools.")
-                      ),
+                    : null,
 
-                  activeSection === "info"
-                    ? e(InfoOverviewSection, { onSelectSection: handleSectionChange })
-                    : activeSection === "charts"
+                  activeSection === "charts"
                     ? e(BenchmarkChartsSection, { summary })
                     : activeSection === "refutations"
                     ? e(RefutationsSection, { summary })
@@ -3212,9 +3192,7 @@
                     ? e(LlmTokensCostSection, { summary })
                     : activeSection === "strategies"
                     ? e(StrategiesSection, { summary })
-                    : activeSection === "status"
-                    ? e(StatusSection, { summary })
-                    : e(LassoExclusiveQueriesSection, { summary })
+                    : e(StatusSection, { summary })
                 )
           )
         )
