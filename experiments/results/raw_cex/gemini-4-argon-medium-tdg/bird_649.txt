@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- Tests basic join, column projections (T1.Id vs T2.Id, date columns), 1-to-many join multiplicity, and duplicate LastEditDate values (kills DISTINCT).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'User1');
+
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, CreaionDate, Score, ViewCount, Body, OwnerUserId, LasActivityDate, Title, LastEditorUserId, LastEditDate, CommunityOwnedDate, ParentId, ClosedDate)
+VALUES (100, 1, 200, '2020-01-01 00:00:00', 10, 100, 'Question body', 1, '2020-01-02 00:00:00', 'What is the best introductory Bayesian statistics textbook?', 1, '2020-01-03 00:00:00', '2020-01-04 00:00:00', 300, '2020-01-05 00:00:00');
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, CreationDate, UserId, Text, Comment)
+VALUES (10, 2, 100, '2020-01-06 00:00:00', 1, 'Initial text', 'Initial comment');
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, CreationDate, UserId, Text, Comment)
+VALUES (20, 5, 100, '2020-01-07 00:00:00', 1, 'Edited text', 'Edited comment');
+```
+
+```sql
+-- DATASET 2
+-- Tests join condition mistakes (e.g., T1.Id = T2.Id, T1.UserId = T2.OwnerUserId, T1.PostHistoryTypeId = T2.PostTypeId, T1.PostId = T2.ParentId, Cross Join).
+INSERT INTO users (Id, DisplayName) VALUES (5, 'SharedUser');
+
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, Title, LastEditDate, ParentId, AcceptedAnswerId)
+VALUES (1, 1, 5, 'Other Post Matching History Id', '2021-01-01 00:00:00', 10, 10);
+
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, Title, LastEditDate, ParentId, AcceptedAnswerId)
+VALUES (2, 1, 5, 'What is the best introductory Bayesian statistics textbook?', '2021-02-02 00:00:00', 99, 99);
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId, CreationDate, Text)
+VALUES (1, 1, 2, 5, '2021-03-03 00:00:00', 'Valid history for Post 2, but its Id is 1');
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId, CreationDate, Text)
+VALUES (2, 1, 1, 5, '2021-04-04 00:00:00', 'History for Post 1, but its Id is 2 and shares UserId/PostTypeId with Post 2');
+```
+
+```sql
+-- DATASET 3
+-- Tests outer join mutants (LEFT/RIGHT JOIN), NULL handling in FK (PostId) and projected column (LastEditDate).
+INSERT INTO posts (Id, Title, LastEditDate)
+VALUES (10, 'What is the best introductory Bayesian statistics textbook?', NULL);
+
+INSERT INTO posts (Id, Title, LastEditDate)
+VALUES (20, 'What is the best introductory Bayesian statistics textbook?', '2022-05-05 00:00:00');
+
+INSERT INTO postHistory (Id, PostId, CreationDate, Text)
+VALUES (101, 10, '2022-01-01 00:00:00', 'History for Post 10 which has NULL LastEditDate');
+
+INSERT INTO postHistory (Id, PostId, CreationDate, Text)
+VALUES (102, NULL, '2022-01-02 00:00:00', 'Orphan history with NULL PostId');
+```
+
+```sql
+-- DATASET 4
+-- Tests WHERE clause predicate mutations (LIKE '%...%', case sensitivity, wrong column checked such as T2.Body, T1.Text, T1.Comment, or inequality !=).
+INSERT INTO posts (Id, Title, Body, LastEditDate)
+VALUES (1, 'What is the best introductory Bayesian statistics textbook?', 'Normal body', '2023-01-01 10:00:00');
+
+INSERT INTO posts (Id, Title, Body, LastEditDate)
+VALUES (2, 'what is the best introductory bayesian statistics textbook?', 'Lowercase title', '2023-01-02 10:00:00');
+
+INSERT INTO posts (Id, Title, Body, LastEditDate)
+VALUES (3, 'Prefix What is the best introductory Bayesian statistics textbook? Suffix', 'Substring title', '2023-01-03 10:00:00');
+
+INSERT INTO posts (Id, Title, Body, LastEditDate)
+VALUES (4, 'Unrelated Title', 'What is the best introductory Bayesian statistics textbook?', '2023-01-04 10:00:00');
+
+INSERT INTO posts (Id, Title, Body, LastEditDate)
+VALUES (5, NULL, 'Null title', '2023-01-05 10:00:00');
+
+INSERT INTO postHistory (Id, PostId, Text, Comment, CreationDate)
+VALUES (11, 1, 'Normal history', 'Normal comment', '2023-01-01 11:00:00');
+
+INSERT INTO postHistory (Id, PostId, Text, Comment, CreationDate)
+VALUES (12, 2, 'Normal history', 'Normal comment', '2023-01-02 11:00:00');
+
+INSERT INTO postHistory (Id, PostId, Text, Comment, CreationDate)
+VALUES (13, 3, 'Normal history', 'Normal comment', '2023-01-03 11:00:00');
+
+INSERT INTO postHistory (Id, PostId, Text, Comment, CreationDate)
+VALUES (14, 4, 'What is the best introductory Bayesian statistics textbook?', 'What is the best introductory Bayesian statistics textbook?', '2023-01-04 11:00:00');
+
+INSERT INTO postHistory (Id, PostId, Text, Comment, CreationDate)
+VALUES (15, 5, 'Normal history', 'Normal comment', '2023-01-05 11:00:00');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple matching posts with out-of-order IDs and dates, and kills mutants that add implicit GROUP BY, ORDER BY, or LIMIT 1, or confuse postHistory with comments/votes.
+INSERT INTO posts (Id, Title, LastEditDate, Score, ViewCount)
+VALUES (50, 'What is the best introductory Bayesian statistics textbook?', '2020-12-31 23:59:59', 0, 0);
+
+INSERT INTO posts (Id, Title, LastEditDate, Score, ViewCount)
+VALUES (10, 'What is the best introductory Bayesian statistics textbook?', '2024-01-01 00:00:00', -5, 10);
+
+INSERT INTO postHistory (Id, PostId, CreationDate)
+VALUES (500, 10, '2024-01-01 00:00:00');
+
+INSERT INTO postHistory (Id, PostId, CreationDate)
+VALUES (100, 50, '2020-12-31 23:59:59');
+
+INSERT INTO comments (Id, PostId, Text, CreationDate)
+VALUES (999, 50, 'What is the best introductory Bayesian statistics textbook?', '2021-01-01 00:00:00');
+
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate)
+VALUES (888, 10, 2, '2024-01-02');
+```

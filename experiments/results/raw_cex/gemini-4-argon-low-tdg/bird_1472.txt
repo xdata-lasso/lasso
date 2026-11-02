@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (Segment = 'LAM'), INNER JOIN vs LEFT JOIN, and SUM vs MIN/MAX/AVG/COUNT
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'LAM', 'EUR');
+
+-- Customer 1: SUM = 30.0, AVG = 10.0, MIN = 10.0, MAX = 10.0, COUNT = 3
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201203', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201204', 10.0);
+
+-- Customer 2: SUM = 25.0 (Winner for SUM ASC), AVG = 12.5, MIN = 2.0, MAX = 23.0, COUNT = 2
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201205', 2.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 23.0);
+
+-- Customer 3: Segment is 'SME' (not 'LAM'), but has tiny Consumption (SUM = 1.0)
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201205', 1.0);
+-- Customer 4 has no yearmonth records (tests INNER JOIN vs LEFT JOIN)
+```
+
+```sql
+-- DATASET 2
+-- Tests inclusive boundaries of BETWEEN 201201 AND 201212 vs strict inequalities (> / <) and out-of-bounds dates
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'LAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'LAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (30, 'LAM', 'CZK');
+INSERT INTO customers (CustomerID, Date, Consumption) VALUES (40, 'LAM', 'CZK');
+
+-- Customer 10: Only on lower boundary '201201', SUM = 5.0 (Winner if '201201' is included)
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201201', 5.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201112', -100.0);
+
+-- Customer 20: Only on upper boundary '201212', SUM = 8.0
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201212', 8.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201301', -100.0);
+
+-- Customer 30: Strictly inside range, SUM = 15.0
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (30, '201206', 15.0);
+
+-- Customer 40: Only outside range, tiny consumption
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (40, '201112', 1.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (40, '201301', 1.0);
+```
+
+```sql
+-- DATASET 3
+-- Specifically tests upper boundary '201212' inclusion (< 201212 vs <= 201212) and tie-breaking on CustomerID ASC
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (100, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (200, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (300, 'LAM', 'EUR');
+
+-- Customer 300: Only on '201212', SUM = 5.0. If '201212' is excluded, Customer 300 drops out.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (300, '201212', 5.0);
+
+-- Customer 100 & 200: Tie on SUM = 10.0 inside range (tests tie-breaker CustomerID ASC)
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (100, '201205', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (200, '201205', 10.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests tie-breaking on CustomerID ASC when SUM(Consumption) is identical, and tests SUM(DISTINCT Consumption) vs SUM(Consumption)
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (50, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (60, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (70, 'LAM', 'EUR');
+
+-- Customer 50: Two identical consumptions of 10.0 -> SUM = 20.0, SUM(DISTINCT) = 10.0
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (50, '201203', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (50, '201204', 10.0);
+
+-- Customer 60: Distinct consumptions 7.0 + 8.0 = 15.0 (Winner for true SUM = 15.0)
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (60, '201203', 7.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (60, '201204', 8.0);
+
+-- Customer 70: Also SUM = 15.0, ties with Customer 60, loses on CustomerID ASC (60 < 70)
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (70, '201205', 15.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests missing GROUP BY (single row vs multi-row aggregation), negative/zero consumption, and NULL consumption handling
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (11, 'LAM', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (22, 'LAM', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (33, 'LAM', 'USD');
+
+-- Customer 11: Has single minimum row (-5.0), but high total SUM (-5.0 + 50.0 = 45.0)
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (11, '201202', -5.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (11, '201208', 50.0);
+
+-- Customer 22: Lowest total SUM (2.0 + 3.0 = 5.0) -> True Winner
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (22, '201203', 2.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (22, '201207', 3.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (22, '201209', NULL);
+
+-- Customer 33: Only NULL consumption (SUM is NULL; in SQLite NULL orders first in ASC unless filtered or handled)
+-- Also tests case-sensitivity or Segment variations if any
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (44, 'lam', 'USD');
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (44, '201205', -100.0);
+```

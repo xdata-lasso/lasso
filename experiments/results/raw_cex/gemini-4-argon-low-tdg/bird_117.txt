@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- 1. Tests SUM(amount) vs COUNT(loan_id) by having varying loan amounts across statuses.
+-- 2. Tests integer division vs floating-point division (numerator 150 * 100 / 800 = 18.75).
+-- 3. Tests SUM(DISTINCT amount) mutants by including duplicate amounts (100) for status 'A'.
+-- 4. Tests column confusion mutants (amount vs duration vs payments vs loan_id).
+-- 5. Tests unnecessary JOINs (e.g., joining client/disp/card/trans/order) by having an account with multiple loans, an account with no loans, and an account with no clients/cards/orders/trans.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '10', '10', '10', 1, 1, 50.5, 10000, 1.5, 2.5, 100, 100, 200);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK TYDNE', '1995-02-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 1, 'POPLATEK PO OBRATU', '1995-03-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 1, 'OWNER');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 1, '1996-01-01', 100, 12, 8.33, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 1, '1996-02-01', 100, 24, 4.17, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (3, 2, '1996-03-01', 250, 36, 6.94, 'B');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (4, 2, '1996-04-01', 350, 48, 7.29, 'C');
+```
+
+```sql
+-- DATASET 2
+-- Boundary condition: Zero rows with status = 'A', non-zero rows with other statuses.
+-- Tests ELSE 0 vs ELSE NULL (which makes the numerator NULL instead of 0.0).
+-- Tests WHERE status = 'A' mutant (which would result in division by zero / NULL instead of 0.0).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '10', '10', '10', 1, 1, 50.5, 10000, 1.5, 2.5, 100, 100, 200);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 1, '1996-01-01', 400, 12, 33.33, 'B');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 1, '1996-02-01', 600, 24, 25.00, 'D');
+```
+
+```sql
+-- DATASET 3
+-- Boundary condition: All rows have status = 'A' (100% result).
+-- Tests mutants that use '<>' or '!=' instead of '=', or 'B'/'C'/'D' instead of 'A'.
+-- Also includes duplicate amounts across different accounts to test DISTINCT / GROUP BY account_id mutants.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '10', '10', '10', 1, 1, 50.5, 10000, 1.5, 2.5, 100, 100, 200);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK MESICNE', '1995-02-01');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 1, '1996-01-01', 500, 12, 41.67, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 2, '1996-02-01', 500, 24, 20.83, 'A');
+```
+
+```sql
+-- DATASET 4
+-- String matching and case sensitivity test:
+-- Includes lowercase 'a', 'A ', and other statuses.
+-- Kills mutants using LIKE '%A%', UPPER(status) = 'A', or status >= 'A'.
+-- Also tests precision where (numerator * 100) / denominator < 1 (e.g., 1 * 100 / 1000 = 0.1, integer division gives 0).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '10', '10', '10', 1, 1, 50.5, 10000, 1.5, 2.5, 100, 100, 200);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 1, '1996-01-01', 1, 12, 1.0, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 1, '1996-02-01', 499, 24, 20.0, 'a');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (3, 1, '1996-03-01', 500, 36, 15.0, 'B');
+```
+
+```sql
+-- DATASET 5
+-- Cross-table column confusion and fan-out JOIN trap:
+-- Populates "order" and trans tables with status/amount-like values and multiple rows per account.
+-- If a mutant queries trans.amount or "order".amount, or joins loan with trans/"order"/disp/client, the fan-out will skew the sums.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '10', '10', '10', 1, 1, 50.5, 10000, 1.5, 2.5, 100, 100, 200);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK MESICNE', '1995-02-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1975-01-01', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 1, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 2, 1, 'DISPONENT');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (3, 2, 2, 'OWNER');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (1, 1, 'classic', '1997-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (2, 2, 'gold', '1997-01-01');
+INSERT INTO "order" (order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (1, 1, 'AB', 12345, 9999.0, 'SIPO');
+INSERT INTO "order" (order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (2, 1, 'CD', 67890, 8888.0, 'UVER');
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 1, '1996-01-01', 'PRIJEM', 'VKLAD', 50000, 50000, 'A', 'AB', 111);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 1, '1996-01-02', 'VYDAJ', 'VYBER', 20000, 30000, 'B', 'CD', 222);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (3, 2, '1996-01-03', 'PRIJEM', 'VKLAD', 10000, 10000, 'A', 'EF', 333);
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 1, '1996-05-01', 300, 12, 25.0, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 2, '1996-06-01', 700, 36, 19.44, 'B');
+```
+
+```sql
+-- DATASET 6
+-- Empty loan table boundary test:
+-- Tests behavior when loan table has 0 rows (SUM is NULL, result should be NULL, not 0).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '10', '10', '10', 1, 1, 50.5, 10000, 1.5, 2.5, 100, 100, 200);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+```

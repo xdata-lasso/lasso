@@ -1,0 +1,53 @@
+-- Schema DDL
+CREATE TABLE circuits (circuitId INTEGER PRIMARY KEY AUTOINCREMENT, circuitRef TEXT DEFAULT '' NOT NULL, name TEXT DEFAULT '' NOT NULL, location TEXT, country TEXT, lat REAL, lng REAL, alt INTEGER, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE constructors (constructorId INTEGER PRIMARY KEY AUTOINCREMENT, constructorRef TEXT DEFAULT '' NOT NULL, name TEXT DEFAULT '' NOT NULL UNIQUE, nationality TEXT, url TEXT DEFAULT '' NOT NULL);
+
+CREATE TABLE drivers (driverId INTEGER PRIMARY KEY AUTOINCREMENT, driverRef TEXT DEFAULT '' NOT NULL, number INTEGER, code TEXT, forename TEXT DEFAULT '' NOT NULL, surname TEXT DEFAULT '' NOT NULL, dob DATE, nationality TEXT, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE seasons (year INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE races (raceId INTEGER PRIMARY KEY AUTOINCREMENT, year INTEGER DEFAULT 0 NOT NULL, round INTEGER DEFAULT 0 NOT NULL, circuitId INTEGER DEFAULT 0 NOT NULL, name TEXT DEFAULT '' NOT NULL, date DATE DEFAULT '0000-00-00' NOT NULL, time TEXT, url TEXT UNIQUE, FOREIGN KEY (year) REFERENCES seasons (year), FOREIGN KEY (circuitId) REFERENCES circuits (circuitId));
+
+CREATE TABLE constructorResults (constructorResultsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, points REAL, status TEXT, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE constructorStandings (constructorStandingsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT, wins INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE driverStandings (driverStandingsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT, wins INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE lapTimes (raceId INTEGER NOT NULL, driverId INTEGER NOT NULL, lap INTEGER NOT NULL, position INTEGER, time TEXT, milliseconds INTEGER, PRIMARY KEY (raceId, driverId, lap), FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE pitStops (raceId INTEGER NOT NULL, driverId INTEGER NOT NULL, stop INTEGER NOT NULL, lap INTEGER NOT NULL, time TEXT NOT NULL, duration TEXT, milliseconds INTEGER, PRIMARY KEY (raceId, driverId, stop), FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE qualifying (qualifyId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, number INTEGER DEFAULT 0 NOT NULL, position INTEGER, q1 TEXT, q2 TEXT, q3 TEXT, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE status (statusId INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT DEFAULT '' NOT NULL);
+
+CREATE TABLE results (resultId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, number INTEGER, grid INTEGER DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT DEFAULT '' NOT NULL, positionOrder INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, laps INTEGER DEFAULT 0 NOT NULL, time TEXT, milliseconds INTEGER, fastestLap INTEGER, rank INTEGER DEFAULT 0, fastestLapTime TEXT, fastestLapSpeed TEXT, statusId INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId), FOREIGN KEY (statusId) REFERENCES status (statusId));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO status (statusid, status) VALUES (3, 'Accident'), (1, 'Canadian Grand Prix'), (4, 'Canadian Grand Prix'), (0, 'Accident'), (2, 'Accident'), (5, 'default1'), (6, 'Accident'), (7, 'Canadian Grand Prix'), (8, 'Accident'), (9, 'Canadian Grand Prix'), (10, 'Accident');
+INSERT INTO seasons (year, url) VALUES (4, 'default2'), (0, 'default1'), (3, 'Canadian Grand Prix'), (1, 'Accident'), (2, 'unique_4'), (5, 'unique_5'), (6, 'unique_6'), (7, 'unique_7'), (8, 'unique_8'), (9, 'unique_9'), (10, 'unique_10'), (11, 'unique_11'), (12, 'unique_12'), (13, 'unique_13'), (14, 'unique_14'), (15, 'unique_15');
+INSERT INTO drivers (driverid, driverref, number, code, forename, surname, dob, nationality, url) VALUES (2, 'default2', 2, 'Canadian Grand Prix', 'default1', 'default2', '2023-01-02', NULL, 'Canadian Grand Prix'), (4, 'Canadian Grand Prix', NULL, NULL, 'Canadian Grand Prix', 'default1', '2023-01-02', 'Canadian Grand Prix', 'default2'), (3, 'default1', 3, 'Accident', 'default2', 'Canadian Grand Prix', '2023-01-01', 'default1', 'default1'), (1, 'Canadian Grand Prix', 3, 'Canadian Grand Prix', 'Canadian Grand Prix', 'Accident', '2023-01-02', 'default1', 'Accident'), (0, 'Canadian Grand Prix', 4, 'default1', 'Canadian Grand Prix', 'default1', NULL, 'default1', 'unique_4'), (5, 'default1', NULL, 'default1', 'Canadian Grand Prix', 'Canadian Grand Prix', '2023-01-02', 'Canadian Grand Prix', 'unique_5'), (6, 'default1', 2, NULL, 'Canadian Grand Prix', 'Accident', '2023-01-01', 'default2', 'unique_6'), (7, 'Accident', 1, 'Canadian Grand Prix', 'Canadian Grand Prix', 'Canadian Grand Prix', '2023-01-02', 'default2', 'unique_7'), (8, 'Canadian Grand Prix', 3, 'Accident', 'default2', 'default1', NULL, 'Canadian Grand Prix', 'unique_8'), (9, 'Canadian Grand Prix', NULL, 'Accident', 'default1', 'Canadian Grand Prix', '2023-01-01', NULL, 'unique_9'), (10, 'Canadian Grand Prix', 0, 'default2', 'default1', 'Canadian Grand Prix', '2023-01-02', NULL, 'unique_10'), (11, 'Canadian Grand Prix', NULL, 'default1', 'Accident', 'Accident', '2023-01-02', 'Canadian Grand Prix', 'unique_11'), (12, 'Canadian Grand Prix', 2, 'Accident', 'Canadian Grand Prix', 'default1', '2023-01-01', 'Accident', 'unique_12'), (13, 'Canadian Grand Prix', 2, 'Accident', 'default2', 'Canadian Grand Prix', '2023-01-02', 'default1', 'unique_13'), (14, 'default1', 0, NULL, 'default1', 'default1', '2023-01-02', 'default1', 'unique_14');
+INSERT INTO constructors (constructorid, constructorref, name, nationality, url) VALUES (3, 'Accident', 'default2', 'Canadian Grand Prix', 'Accident'), (1, 'default2', 'Canadian Grand Prix', 'Accident', 'default1'), (4, 'Canadian Grand Prix', 'Accident', NULL, 'default2'), (0, 'Canadian Grand Prix', 'default1', 'Accident', 'default2');
+INSERT INTO circuits (circuitid, circuitref, name, location, country, lat, lng, alt, url) VALUES (3, 'default1', 'default2', 'Accident', 'Accident', 3.0, 3.0, NULL, 'Canadian Grand Prix'), (1, 'default2', 'default2', NULL, NULL, 2.0, 2.0, NULL, 'default2'), (4, 'Accident', 'default2', 'Canadian Grand Prix', NULL, NULL, 2.0, 2, 'Accident'), (0, 'Accident', 'Accident', 'Canadian Grand Prix', 'default2', 1.0, 1.0, 0, 'default1'), (2, 'Accident', 'Accident', 'Accident', 'Canadian Grand Prix', 0.0, 0.0, NULL, 'unique_4'), (5, 'Accident', 'Canadian Grand Prix', 'Accident', 'Accident', NULL, 3.0, 1, 'unique_5'), (6, 'default1', 'default2', 'Canadian Grand Prix', 'default1', NULL, 2.0, NULL, 'unique_6');
+INSERT INTO races (raceid, year, circuitid, round, name, date, time, url) VALUES (0, 10, 2, 4, 'default2', '2023-01-01', 'default1', 'Canadian Grand Prix'), (1, 3, 3, 0, 'default1', '2023-01-02', 'Canadian Grand Prix', 'default2'), (2, 8, 0, 2, 'Canadian Grand Prix', '2023-01-02', NULL, NULL), (4, 8, 2, 1, 'Canadian Grand Prix', '2023-01-01', 'Canadian Grand Prix', 'default1'), (3, 8, 5, 2, 'Canadian Grand Prix', '2023-01-01', NULL, 'Accident'), (5, 12, 4, 2, 'Accident', '2023-01-01', 'Canadian Grand Prix', 'unique_5'), (6, 9, 4, 3, 'default2', '2023-01-02', 'Canadian Grand Prix', 'unique_6');
+INSERT INTO results (resultid, raceid, driverid, constructorid, statusid, number, grid, position, positiontext, positionorder, points, laps, time, milliseconds, fastestlap, rank, fastestlaptime, fastestlapspeed) VALUES (0, 6, 12, 4, 8, NULL, 4, 2, 'default1', 0, 3.0, 2, 'Canadian Grand Prix', 1, 4, NULL, 'Accident', NULL), (4, 3, 10, 1, 6, 0, 1, 3, 'Canadian Grand Prix', 4, 2.0, 2, 'Canadian Grand Prix', 2, 0, NULL, 'default2', 'Accident'), (2, 1, 14, 0, 1, 2, 3, 3, 'Accident', 4, 3.0, 1, 'default1', NULL, 0, 0, 'default1', 'Canadian Grand Prix'), (3, 2, 6, 0, 10, 0, 4, 0, 'Canadian Grand Prix', 1, 3.0, 0, 'default1', 1, 1, 4, 'Canadian Grand Prix', 'default2'), (1, 5, 14, 4, 2, 4, 3, 0, 'default2', 2, 4.0, 3, 'default2', 0, 3, 4, 'default2', 'default1'), (5, 5, 6, 0, 2, 3, 2, 1, 'default2', 2, 2.0, 1, 'Accident', 1, 0, 0, 'default2', 'default2'), (6, 2, 2, 3, 5, 0, 2, NULL, 'default1', 4, 0.0, 2, 'default1', 3, 1, 3, NULL, NULL), (7, 3, 10, 4, 1, 3, 2, NULL, 'default2', 0, 4.0, 2, 'Canadian Grand Prix', 3, 2, 4, 'Canadian Grand Prix', 'default1'), (8, 6, 12, 3, 9, NULL, 0, 3, 'Canadian Grand Prix', 0, 4.0, 3, 'Accident', NULL, NULL, NULL, 'Accident', 'default2'), (9, 3, 9, 3, 6, 1, 3, 3, 'Accident', 3, 3.0, 3, NULL, 1, 2, 3, NULL, 'default2'), (10, 1, 11, 0, 9, 3, 3, NULL, 'Accident', 3, 3.0, 4, 'default1', NULL, 2, 3, 'Canadian Grand Prix', 'default1'), (11, 0, 9, 1, 8, 2, 1, 3, 'default2', 3, 4.0, 1, 'Canadian Grand Prix', 0, 1, 4, 'Accident', 'default2');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT COUNT(T1.driverId) FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId INNER JOIN status AS T3 ON T1.statusId = T3.statusId WHERE T3.statusId = 3 AND T2.name = 'Canadian Grand Prix' GROUP BY T1.driverId ORDER BY COUNT(T1.driverId) DESC LIMIT 1;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT COUNT("results"."statusId") FROM "results" INNER JOIN "races" ON "results"."raceId" = "races"."raceId" INNER JOIN "status" ON "results"."statusId" = "status"."statusId" WHERE "races"."name" = 'Canadian Grand Prix' AND "status"."status" = 'Accident' GROUP BY "results"."driverId" ORDER BY COUNT("results"."statusId") DESC LIMIT 1;
+
+/*
+Prediction Result:
+(1,)
+*/

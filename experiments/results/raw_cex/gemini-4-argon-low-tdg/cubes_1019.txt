@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Multiple rows with duplicate 'enr' values, duplicate 'state' values, and distinct 'cName'.
+-- Tests:
+-- 1. Missing DISTINCT (window function returns N rows instead of 1).
+-- 2. SUM(DISTINCT enr) vs SUM(enr) (15000 is repeated).
+-- 3. Incorrect PARTITION BY state or PARTITION BY cName or PARTITION BY enr.
+-- 4. Incorrect ORDER BY inside OVER(...) causing running totals instead of total sum.
+-- 5. Wrong aggregate function (AVG, MIN, MAX, COUNT instead of SUM).
+-- 6. Wrong column from other tables (Player.HS) or join mutations (College C3 has no Tryout, C1 has multiple).
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Stanford', 'CA', 15000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Berkeley', 'CA', 15000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('MIT', 'MA', 10000);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (1, 'Alice', 'no', 1000);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (2, 'Bob', 'yes', 2000);
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'Stanford', 'goalie', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (2, 'Stanford', 'mid', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'Berkeley', 'goalie', 'no');
+```
+
+```sql
+-- DATASET 2
+-- Empty College table (while Player has rows).
+-- Tests:
+-- 1. Window function `SELECT DISTINCT SUM(enr) OVER () FROM college` on empty table returns 0 rows.
+-- 2. Non-window aggregate `SELECT SUM(enr) FROM college` on empty table returns 1 row with NULL!
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (1, 'Alice', 'no', 1000);
+```
+
+```sql
+-- DATASET 3
+-- Mix of NULL and non-NULL 'enr' values, including 0 and negative/float edge cases.
+-- Tests:
+-- 1. Handling of NULLs in SUM vs COUNT.
+-- 2. Filtering out NULL rows erroneously (e.g. WHERE enr IS NOT NULL when all are NULL, or affecting row count if DISTINCT is missing).
+-- 3. Arithmetic precision with REAL numbers.
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Yale', 'CT', NULL);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Harvard', 'MA', 20000.5);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Brown', 'RI', 0);
+```
+
+```sql
+-- DATASET 4
+-- All rows in College have NULL 'enr'.
+-- Tests:
+-- 1. Query should return 1 row with NULL (since table is not empty).
+-- 2. Mutants adding `WHERE enr IS NOT NULL` will return 0 rows.
+-- 3. Mutants using COALESCE(SUM(enr), 0) will return 0 instead of NULL.
+-- 4. Mutants missing DISTINCT will return 2 rows of NULL.
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C1', 'NY', NULL);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C2', 'NY', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Single row in College with enr = 1.
+-- Tests:
+-- 1. Boundary condition where COUNT(*) = SUM(enr) = AVG(enr) = MIN(enr) = MAX(enr) is avoided in other datasets, 
+--    here we use a single row with enr = 500 to distinguish COUNT(*) (1) from SUM(enr) (500) on a 1-row table.
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('SoloU', 'TX', 500);
+```

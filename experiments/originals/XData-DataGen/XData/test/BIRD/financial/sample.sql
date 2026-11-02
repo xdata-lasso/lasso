@@ -1,0 +1,87 @@
+INSERT INTO district (district_id, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) VALUES (1, 'Praha', 'Prague', '1204953', '0', '0', '0', 1, 1, 100.0, 12541, 0.2, 0.43, 167, 85677, 99107);
+INSERT INTO district (district_id, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) VALUES (2, 'Benesov', 'Bohemia', '88884', '80', '26', '6', 2, 5, 46.7, 8507, 1.6, 1.85, 132, 2159, 2674);
+INSERT INTO district (district_id, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) VALUES (3, 'Beroun', 'Bohemia', '75232', '55', '26', '4', 1, 5, 41.7, 8980, 1.9, 2.21, 111, 2824, 2813);
+INSERT INTO district (district_id, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) VALUES (4, 'Kladno', 'Bohemia', '149893', '63', '29', '6', 2, 6, 67.4, 9753, 4.6, 5.05, 109, 5244, 5892);
+INSERT INTO district (district_id, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) VALUES (5, 'Kolin', 'Bohemia', '95616', '65', '30', '4', 1, 6, 51.4, 9307, 3.8, 4.43, 118, 2616, 3040);
+INSERT INTO district (district_id, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) VALUES (6, 'Kutna', 'Prague', '77963', '60', '23', '4', 2, 4, 51.5, 8546, 2.9, 4.02, 126, 2640, 3120);
+INSERT INTO district (district_id, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) VALUES (7, 'Melnik', 'Bohemia', '94725', '38', '28', '1', 3, 6, 63.4, 9920, 2.2, 2.87, 130, 4289, 4846);
+INSERT INTO district (district_id, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) VALUES (8, 'Mlada', 'Prague', '112065', '95', '19', '7', 1, 8, 69.4, 11277, 1.2, 1.44, 127, 5179, 4987);
+INSERT INTO district (district_id, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) VALUES (9, 'Nymburk', 'Bohemia', '81344', '61', '23', '4', 2, 6, 55.3, 8899, 3.3, 3.97, 149, 2987, 2487);
+INSERT INTO district (district_id, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) VALUES (10, 'Praha', 'Bohemia', '92084', '55', '29', '4', 3, 5, 46.7, 10124, 0.5, 0.54, 141, 3810, 4316);
+
+INSERT into accounts (account_id, district_id, frequency, acc_date) VALUES (1, 1, 'MONTHLY', '1995-03-24');
+INSERT into accounts (account_id, district_id, frequency, acc_date) VALUES (2, 2, 'MONTHLY', '1993-02-26');
+INSERT into accounts (account_id, district_id, frequency, acc_date) VALUES (3, 3, 'MONTHLY', '1997-07-07');
+INSERT into accounts (account_id, district_id, frequency, acc_date) VALUES (4, 4, 'MONTHLY', '1996-02-21');
+INSERT into accounts (account_id, district_id, frequency, acc_date) VALUES (5, 5, 'MONTHLY', '1997-05-30');
+INSERT into accounts (account_id, district_id, frequency, acc_date) VALUES (6, 6, 'MONTHLY', '1994-09-27');
+INSERT into accounts (account_id, district_id, frequency, acc_date) VALUES (7, 7, 'MONTHLY', '1996-11-24');
+INSERT into accounts (account_id, district_id, frequency, acc_date) VALUES (8, 8, 'MONTHLY', '1995-09-21');
+INSERT into accounts (account_id, district_id, frequency, acc_date) VALUES (9, 9, 'MONTHLY', '1993-01-27');
+INSERT into accounts (account_id, district_id, frequency, acc_date) VALUES (10, 10, 'MONTHLY', '1996-08-28');
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1970-12-13', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'M', '1945-02-04', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'F', '1940-10-09', 3);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'M', '1956-12-01', 4);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (5, 'F', '1960-07-03', 5);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (6, 'M', '1919-09-22', 6);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (7, 'M', '1929-01-25', 7);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (8, 'F', '1938-02-21', 8);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (9, 'M', '1935-10-16', 9);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'M', '1943-05-01', 10);
+
+INSERT INTO disp (disp_id, client_id, account_id, disp_type) VALUES (1, 1, 1, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, disp_type) VALUES (2, 2, 2, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, disp_type) VALUES (3, 3, 2, 'DISPONENT');
+INSERT INTO disp (disp_id, client_id, account_id, disp_type) VALUES (4, 4, 3, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, disp_type) VALUES (5, 5, 3, 'DISPONENT');
+INSERT INTO disp (disp_id, client_id, account_id, disp_type) VALUES (6, 6, 4, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, disp_type) VALUES (7, 7, 5, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, disp_type) VALUES (8, 8, 6, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, disp_type) VALUES (9, 9, 7, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, disp_type) VALUES (10, 10, 8, 'OWNER');
+
+INSERT INTO card (card_id, disp_id, card_type, issued) VALUES (1, 1, 'gold', '1998-10-16');
+INSERT INTO card (card_id, disp_id, card_type, issued) VALUES (2, 2, 'classic', '1998-03-13');
+INSERT INTO card (card_id, disp_id, card_type, issued) VALUES (3, 3, 'gold', '1995-09-03');
+INSERT INTO card (card_id, disp_id, card_type, issued) VALUES (4, 4, 'classic', '1998-11-26');
+INSERT INTO card (card_id, disp_id, card_type, issued) VALUES (5, 5, 'junior', '1995-04-24');
+INSERT INTO card (card_id, disp_id, card_type, issued) VALUES (6, 6, 'classic', '1998-06-11');
+INSERT INTO card (card_id, disp_id, card_type, issued) VALUES (7, 7, 'junior', '1998-05-20');
+INSERT INTO card (card_id, disp_id, card_type, issued) VALUES (8, 8, 'classic', '1997-10-25');
+INSERT INTO card (card_id, disp_id, card_type, issued) VALUES (9, 9, 'classic', '1996-12-07');
+INSERT INTO card (card_id, disp_id, card_type, issued) VALUES (10, 10, 'gold', '1997-10-25');
+
+INSERT into loans (loan_id, account_id, loan_date, amount, duration, payments, status) VALUES (4959, 1, '1994-01-05', 80952, 24, 3373.0, 'A');
+INSERT into loans (loan_id, account_id, loan_date, amount, duration, payments, status) VALUES (4961, 2, '1996-04-29', 30276, 12, 2523.0, 'B');
+INSERT into loans (loan_id, account_id, loan_date, amount, duration, payments, status) VALUES (4962, 3, '1997-12-08', 30276, 12, 2523.0, 'A');
+INSERT into loans (loan_id, account_id, loan_date, amount, duration, payments, status) VALUES (4967, 4, '1998-10-14', 318480, 60, 5308.0, 'D');
+INSERT into loans (loan_id, account_id, loan_date, amount, duration, payments, status) VALUES (4968, 5, '1998-04-19', 110736, 48, 2307.0, 'C');
+INSERT into loans (loan_id, account_id, loan_date, amount, duration, payments, status) VALUES (4973, 6, '1996-05-02', 165960, 24, 6915.0, 'A');
+INSERT into loans (loan_id, account_id, loan_date, amount, duration, payments, status) VALUES (4986, 7, '1997-08-10', 102876, 12, 8573.0, 'A');
+INSERT into loans (loan_id, account_id, loan_date, amount, duration, payments, status) VALUES (4988, 8, '1997-12-06', 265320, 36, 7370.0, 'D');
+INSERT into loans (loan_id, account_id, loan_date, amount, duration, payments, status) VALUES (4989, 9, '1998-12-05', 352704, 48, 7348.0, 'C');
+INSERT into loans (loan_id, account_id, loan_date, amount, duration, payments, status) VALUES (4990, 10, '1997-09-08', 162576, 36, 4516.0, 'C');
+
+INSERT INTO orders(order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (29401, 1, 'YZ', 87144583, 2452.0, 'SIPO');
+INSERT INTO orders(order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (29402, 2, 'ST', 89597016, 3372.7, 'UVER');
+INSERT INTO orders(order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (29403, 2, 'QR', 13943797, 7266.0, 'SIPO');
+INSERT INTO orders(order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (29404, 3, 'WX', 83084338, 1135.0, 'SIPO');
+INSERT INTO orders(order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (29405, 3, 'CD', 24485939, 327.0, '');
+INSERT INTO orders(order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (29406, 3, 'AB', 59972357, 3539.0, 'POJISTNE');
+INSERT INTO orders(order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (29407, 4, 'UV', 26693541, 2078.0, 'SIPO');
+INSERT INTO orders(order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (29408, 4, 'UV', 5848086, 1285.0, 'SIPO');
+INSERT INTO orders(order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (29409, 5, 'GH', 37390208, 2668.0, 'SIPO');
+INSERT INTO orders(order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (29410, 6, 'AB', 44486999, 3954.0, 'SIPO');
+
+INSERT into transacs (trans_id, account_id, trans_date, trans_type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 1, '1995-03-24', 'PRIJEM', 'VKLAD', 1000, 1000, NULL, NULL, NULL);
+INSERT into transacs (trans_id, account_id, trans_date, trans_type, operation, amount, balance, k_symbol, bank, account) VALUES (5, 2, '1995-04-13', 'PRIJEM', 'PREVOD Z UCTU', 3679, 4679, NULL, 'AB', 41403269);
+INSERT into transacs (trans_id, account_id, trans_date, trans_type, operation, amount, balance, k_symbol, bank, account) VALUES (6, 3, '1995-05-13', 'PRIJEM', 'PREVOD Z UCTU', 3679, 20977, NULL, 'AB', 41403269);
+INSERT into transacs (trans_id, account_id, trans_date, trans_type, operation, amount, balance, k_symbol, bank, account) VALUES (7, 4, '1995-06-13', 'PRIJEM', 'PREVOD Z UCTU', 3679, 26835, NULL, 'AB', 41403269);
+INSERT into transacs (trans_id, account_id, trans_date, trans_type, operation, amount, balance, k_symbol, bank, account) VALUES (8, 5, '1995-07-13', 'PRIJEM', 'PREVOD Z UCTU', 3679, 30415, NULL, 'AB', 41403269);
+INSERT into transacs (trans_id, account_id, trans_date, trans_type, operation, amount, balance, k_symbol, bank, account) VALUES (9, 6, '1995-08-13', 'PRIJEM', 'PREVOD Z UCTU', 3679, 28903, NULL, 'AB', 41403269);
+INSERT into transacs (trans_id, account_id, trans_date, trans_type, operation, amount, balance, k_symbol, bank, account) VALUES (10, 7, '1995-09-13', 'PRIJEM', 'PREVOD Z UCTU', 3679, 22714, NULL, 'AB', 41403269);
+INSERT into transacs (trans_id, account_id, trans_date, trans_type, operation, amount, balance, k_symbol, bank, account) VALUES (11, 8, '1995-10-13', 'PRIJEM', 'PREVOD Z UCTU', 3679, 23318, NULL, 'AB', 41403269);
+INSERT into transacs (trans_id, account_id, trans_date, trans_type, operation, amount, balance, k_symbol, bank, account) VALUES (12, 9, '1995-11-13', 'PRIJEM', 'PREVOD Z UCTU', 3679, 21721, NULL, 'AB', 41403269);
+INSERT into transacs (trans_id, account_id, trans_date, trans_type, operation, amount, balance, k_symbol, bank, account) VALUES (13, 10, '1995-12-13', 'PRIJEM', 'PREVOD Z UCTU', 3679, 20249, NULL, 'AB', 41403269);

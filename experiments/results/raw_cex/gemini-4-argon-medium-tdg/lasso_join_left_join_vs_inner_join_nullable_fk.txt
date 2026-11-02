@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests basic scenarios:
+-- 1. Customer with no contacts (tests LEFT JOIN Customers-Contacts and SUM returning 0 vs NULL)
+-- 2. Customer with mix of trusted and untrusted contacts
+-- 3. Customer with only untrusted contacts
+-- 4. Customer with no invoices
+-- 5. Ordering of invoices
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (1, 'Alice', 'alice@example.com');
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (2, 'Bob', 'bob@example.com');
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (3, 'Charlie', 'charlie@example.com');
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (4, 'David', 'david@example.com');
+
+INSERT INTO CONTACTS (USER_ID, CONTACT_EMAIL, CONTACT_NAME) VALUES (2, 'alice@example.com', 'Alice');
+INSERT INTO CONTACTS (USER_ID, CONTACT_EMAIL, CONTACT_NAME) VALUES (2, 'unknown@example.com', 'Unknown');
+INSERT INTO CONTACTS (USER_ID, CONTACT_EMAIL, CONTACT_NAME) VALUES (3, 'stranger1@example.com', 'Stranger1');
+INSERT INTO CONTACTS (USER_ID, CONTACT_EMAIL, CONTACT_NAME) VALUES (3, 'stranger2@example.com', 'Stranger2');
+
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (102, 1, 500);
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (101, 2, 300);
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (103, 3, 700);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling and aggregation edge cases:
+-- 1. Invoice with NULL USER_ID (tests LEFT JOIN Invoices-T vs INNER JOIN)
+-- 2. Contact with NULL CONTACT_NAME (tests COUNT(CONTACT_NAME) vs COUNT(*) or COUNT(CONTACT_EMAIL))
+-- 3. Duplicate CONTACT_NAME for the same user (tests COUNT(CONTACT_NAME) vs COUNT(DISTINCT CONTACT_NAME))
+-- 4. Duplicate EMAIL in CUSTOMERS (tests IN subquery vs INNER JOIN onto CUSTOMERS which would multiply rows)
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (1, 'Alice', 'shared@example.com');
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (2, 'Bob', 'shared@example.com');
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (3, 'Charlie', NULL);
+
+INSERT INTO CONTACTS (USER_ID, CONTACT_EMAIL, CONTACT_NAME) VALUES (1, 'shared@example.com', 'Friend');
+INSERT INTO CONTACTS (USER_ID, CONTACT_EMAIL, CONTACT_NAME) VALUES (1, 'other@example.com', 'Friend');
+INSERT INTO CONTACTS (USER_ID, CONTACT_EMAIL, CONTACT_NAME) VALUES (2, 'shared@example.com', NULL);
+
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (10, 1, 100);
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (20, 2, 200);
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (30, NULL, 300);
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY and JOIN conditions:
+-- 1. Two customers with the exact same CUSTOMER_NAME (tests GROUP BY CUSTOMER_ID, CUSTOMER_NAME vs GROUP BY CUSTOMER_NAME)
+-- 2. Customer having multiple invoices (tests 1-to-many join with Invoices)
+-- 3. Contact matching via CONTACT_NAME = CUSTOMER_NAME but CONTACT_EMAIL not in CUSTOMERS.EMAIL (tests matching on email vs name)
+-- 4. Contact matching via CONTACT_EMAIL in CUSTOMERS.EMAIL but CONTACT_NAME != CUSTOMER_NAME (tests matching on email only, not both email and name)
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (1, 'John Doe', 'john1@example.com');
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (2, 'John Doe', 'john2@example.com');
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (3, 'Jane', 'jane@example.com');
+
+INSERT INTO CONTACTS (USER_ID, CONTACT_EMAIL, CONTACT_NAME) VALUES (1, 'jane@example.com', 'WrongNameForJane');
+INSERT INTO CONTACTS (USER_ID, CONTACT_EMAIL, CONTACT_NAME) VALUES (2, 'not_jane@example.com', 'Jane');
+
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (5, 1, 50);
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (2, 1, 150);
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (8, 2, 250);
+```
+
+```sql
+-- DATASET 4
+-- Tests self-contact, empty/NULL values in CUSTOMERS, and invoice ordering:
+-- 1. Customer whose contact is their own email
+-- 2. Customer with NULL CUSTOMER_NAME
+-- 3. Invoice with NULL PRICE
+-- 4. Negative and zero INVOICE_IDs to strictly test ORDER BY INVOICE_ID ASC
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (1, NULL, 'self@example.com');
+INSERT INTO CUSTOMERS (CUSTOMER_ID, CUSTOMER_NAME, EMAIL) VALUES (2, 'EmptyContacts', 'empty@example.com');
+
+INSERT INTO CONTACTS (USER_ID, CONTACT_EMAIL, CONTACT_NAME) VALUES (1, 'self@example.com', 'Myself');
+
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (0, 1, NULL);
+INSERT INTO INVOICES (INVOICE_ID, USER_ID, PRICE) VALUES (-5, 2, 0);
+```

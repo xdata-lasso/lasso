@@ -1,0 +1,33 @@
+-- Schema DDL
+CREATE TABLE frpm (CDSCode TEXT NOT NULL PRIMARY KEY, "Academic Year" TEXT NULL, "County Code" TEXT NULL, "District Code" INTEGER NULL, "School Code" TEXT NULL, "County Name" TEXT NULL, "District Name" TEXT NULL, "School Name" TEXT NULL, "District Type" TEXT NULL, "School Type" TEXT NULL, "Educational Option Type" TEXT NULL, "NSLP Provision Status" TEXT NULL, "Charter School (Y/N)" INTEGER NULL, "Charter School Number" TEXT NULL, "Charter Funding Type" TEXT NULL, IRC INTEGER NULL, "Low Grade" TEXT NULL, "High Grade" TEXT NULL, "Enrollment (K-12)" REAL NULL, "Free Meal Count (K-12)" REAL NULL, "Percent (%) Eligible Free (K-12)" REAL NULL, "FRPM Count (K-12)" REAL NULL, "Percent (%) Eligible FRPM (K-12)" REAL NULL, "Enrollment (Ages 5-17)" REAL NULL, "Free Meal Count (Ages 5-17)" REAL NULL, "Percent (%) Eligible Free (Ages 5-17)" REAL NULL, "FRPM Count (Ages 5-17)" REAL NULL, "Percent (%) Eligible FRPM (Ages 5-17)" REAL NULL, "2013-14 CALPADS Fall 1 Certification Status" INTEGER NULL, FOREIGN KEY (CDSCode) REFERENCES schools (CDSCode));
+
+CREATE TABLE satscores (cds TEXT NOT NULL PRIMARY KEY, rtype TEXT NOT NULL, sname TEXT NULL, dname TEXT NULL, cname TEXT NULL, enroll12 INTEGER NOT NULL, NumTstTakr INTEGER NOT NULL, AvgScrRead INTEGER NULL, AvgScrMath INTEGER NULL, AvgScrWrite INTEGER NULL, NumGE1500 INTEGER NULL, FOREIGN KEY (cds) REFERENCES schools (CDSCode));
+
+CREATE TABLE schools (CDSCode TEXT NOT NULL PRIMARY KEY, NCESDist TEXT NULL, NCESSchool TEXT NULL, StatusType TEXT NOT NULL, County TEXT NOT NULL, District TEXT NOT NULL, School TEXT NULL, Street TEXT NULL, StreetAbr TEXT NULL, City TEXT NULL, Zip TEXT NULL, State TEXT NULL, MailStreet TEXT NULL, MailStrAbr TEXT NULL, MailCity TEXT NULL, MailZip TEXT NULL, MailState TEXT NULL, Phone TEXT NULL, Ext TEXT NULL, Website TEXT NULL, OpenDate DATE NULL, ClosedDate DATE NULL, Charter INTEGER NULL, CharterNum TEXT NULL, FundingType TEXT NULL, DOC TEXT NOT NULL, DOCType TEXT NOT NULL, SOC TEXT NULL, SOCType TEXT NULL, EdOpsCode TEXT NULL, EdOpsName TEXT NULL, EILCode TEXT NULL, EILName TEXT NULL, GSoffered TEXT NULL, GSserved TEXT NULL, Virtual TEXT NULL, Magnet INTEGER NULL, Latitude REAL NULL, Longitude REAL NULL, AdmFName1 TEXT NULL, AdmLName1 TEXT NULL, AdmEmail1 TEXT NULL, AdmFName2 TEXT NULL, AdmLName2 TEXT NULL, AdmEmail2 TEXT NULL, AdmFName3 TEXT NULL, AdmLName3 TEXT NULL, AdmEmail3 TEXT NULL, LastUpdate DATE NOT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "frpm" ("cdscode", "academic year", "county code", "district code", "school code", "county name", "district name", "school name", "district type", "school type", "educational option type", "nslp provision status", "charter school (y/n)", "charter school number", "charter funding type", "irc", "low grade", "high grade", "enrollment (k-12)", "free meal count (k-12)", "percent (%) eligible free (k-12)", "frpm count (k-12)", "percent (%) eligible frpm (k-12)", "enrollment (ages 5-17)", "free meal count (ages 5-17)", "percent (%) eligible free (ages 5-17)", "frpm count (ages 5-17)", "percent (%) eligible frpm (ages 5-17)", "2013-14 calpads fall 1 certification status") VALUES ('Avetik172', 'Atoian173', 'Avetik174', 175, 'Avetik176', 'Atoian177', 'Avetik178', 'Atoian179', 'Avetik180', 'Atoian181', 'Avetik182', 'Atoian183', 184, 'Atoian185', 'Avetik186', 187, 'Avetik188', 'Atoian189', 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200);
+INSERT INTO "satscores" ("cds", "rtype", "sname", "dname", "cname", "enroll12", "numtsttakr", "avgscrread", "avgscrmath", "avgscrwrite", "numge1500") VALUES ('Avetik78', 'Avetik202', 'Avetik202', 'Avetik202', 'Avetik202', 202, 202, 202, 202, 202, 202);
+INSERT INTO "satscores" ("cds", "rtype", "sname", "dname", "cname", "enroll12", "numtsttakr", "avgscrread", "avgscrmath", "avgscrwrite", "numge1500") VALUES ('Avetik172', 'Avetik202', 'Avetik202', 'Avetik202', 'Avetik202', 202, 202, 202, 202, 202, 202);
+INSERT INTO "schools" ("cdscode", "ncesdist", "ncesschool", "statustype", "county", "district", "school", "street", "streetabr", "city", "zip", "state", "mailstreet", "mailstrabr", "mailcity", "mailzip", "mailstate", "phone", "ext", "website", "opendate", "closeddate", "charter", "charternum", "fundingtype", "doc", "doctype", "soc", "soctype", "edopscode", "edopsname", "eilcode", "eilname", "gsoffered", "gsserved", "virtual", "magnet", "latitude", "longitude", "admfname1", "admlname1", "admemail1", "admfname2", "admlname2", "admemail2", "admfname3", "admlname3", "admemail3", "lastupdate") VALUES ('Avetik172', 'Atoian129', 'Avetik128', 'Avetik130', 'Atoian131', 'Avetik132', NULL, 'Atoian133', 'Avetik134', 'Atoian135', 'Avetik136', 'Atoian137', 'Avetik138', 'Atoian139', 'Avetik140', 'Avetik202', 'Atoian141', 'Avetik142', 'Atoian143', 'Avetik144', '1000-05-26', '1000-05-27', 147, 'Avetik148', 'Atoian149', 'Avetik150', 'Atoian151', 'Avetik152', 'Atoian153', 'Avetik154', 'Atoian155', 'Avetik156', 'Atoian157', 'Avetik158', 'Atoian159', 'Avetik160', 161, 162, 163, 'Avetik', 'Atoian', 'Avetik164', 'Atoian165', 'Avetik166', 'Atoian167', 'Avetik168', 'Atoian169', 'Avetik170', '1000-06-21');
+INSERT INTO "schools" ("cdscode", "ncesdist", "ncesschool", "statustype", "county", "district", "school", "street", "streetabr", "city", "zip", "state", "mailstreet", "mailstrabr", "mailcity", "mailzip", "mailstate", "phone", "ext", "website", "opendate", "closeddate", "charter", "charternum", "fundingtype", "doc", "doctype", "soc", "soctype", "edopscode", "edopsname", "eilcode", "eilname", "gsoffered", "gsserved", "virtual", "magnet", "latitude", "longitude", "admfname1", "admlname1", "admemail1", "admfname2", "admlname2", "admemail2", "admfname3", "admlname3", "admemail3", "lastupdate") VALUES ('Avetik78', 'Atoian79', 'Avetik80', 'Atoian81', 'Avetik82', 'Atoian83', NULL, NULL, NULL, 'Atoian87', NULL, NULL, 'Avetik90', 'Atoian91', 'Avetik92', 'Avetik202', 'Atoian93', 'Avetik94', 'Atoian95', 'Avetik96', '1000-04-08', '1000-04-09', 99, 'Avetik100', 'Atoian101', 'Avetik102', 'Atoian103', 'Avetik104', 'Atoian105', 'Avetik106', 'Atoian107', 'Avetik108', 'Atoian109', 'Avetik110', 'Atoian111', 'Avetik112', 113, 114, 115, 'Avetik', 'Atoian', 'Avetik116', 'Atoian117', 'Avetik118', 'Atoian119', 'Avetik120', 'Atoian121', 'Avetik122', '1000-05-04');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT School, MailZip FROM schools WHERE AdmFName1 = 'Avetik' AND AdmLName1 = 'Atoian';
+
+/*
+Gold Result:
+(None, 'Avetik202')
+(None, 'Avetik202')
+*/
+
+-- Prediction Query
+SELECT T1.School, T1.MailZip FROM schools AS T1 JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode WHERE T1.AdmFName1 = 'Avetik' AND T1.AdmLName1 = 'Atoian';
+
+/*
+Prediction Result:
+(None, 'Avetik202')
+*/

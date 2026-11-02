@@ -1,0 +1,29 @@
+-- Schema DDL
+CREATE TABLE "EMPLOYEE" (
+    "EMPLOYEE_ID" INT,
+    "DEPARTMENT_ID" INT,
+    "PRIMARY_FLAG" TEXT,
+    PRIMARY KEY ("EMPLOYEE_ID", "DEPARTMENT_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO EMPLOYEE VALUES (0, 0, 5);
+INSERT INTO EMPLOYEE VALUES (0, 1, 176961742975074882);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT e.employee_id, e.department_id FROM employee AS e WHERE e.primary_flag = 'Y' OR e.employee_id IN (SELECT employee_id FROM employee GROUP BY employee_id HAVING COUNT(DISTINCT department_id) = 1);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH CTE AS (SELECT EMPLOYEE_ID, MAX(PRIMARY_FLAG) AS PRIMARY_FLAG FROM EMPLOYEE GROUP BY EMPLOYEE_ID) SELECT EMP.EMPLOYEE_ID, EMP.DEPARTMENT_ID FROM CTE JOIN EMPLOYEE AS EMP ON CTE.PRIMARY_FLAG = EMP.PRIMARY_FLAG AND CTE.EMPLOYEE_ID = EMP.EMPLOYEE_ID;
+
+/*
+Prediction Result:
+(0, 0)
+*/

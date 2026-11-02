@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests standard scenario: multiple distinct invoice numbers, multiple transactions per invoice, unused parent invoices, and different account_id values.
+-- Gold query returns 2.
+-- Catches mutants returning total transaction count (4), total invoices in Invoices table (3), count of distinct account_ids (1), or per-invoice counts (3, 1).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Alice');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (1, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (101, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (102, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (103, 1);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (500, 1);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (500, 101, 1, 10.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (500, 101, 2, 20.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (500, 101, 3, 30.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (500, 102, 4, 40.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY vs COUNT(DISTINCT invoice_number).
+-- Gold query groups by invoice_number (including the NULL group) and counts the groups, returning 2.
+-- Catches mutants using SELECT COUNT(DISTINCT invoice_number) FROM Financial_Transactions, which ignores NULL and returns 1.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Bob');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (1, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (201, 1);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (600, 1);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (600, 201, 1, 50.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (600, NULL, 2, 60.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (600, NULL, 3, 70.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty Financial_Transactions table while parent tables are populated.
+-- Gold query returns 0 (one row with value 0).
+-- Catches mutants without the outer aggregation (returning 0 rows) or mutants querying parent tables (Accounts, Invoices).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Charlie');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (1, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (301, 1);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (700, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple accounts linked to a single invoice, and checks if mutants group by account_id or transaction_id instead of invoice_number.
+-- Gold query returns 1 (only 1 distinct invoice_number in Financial_Transactions).
+-- Catches mutants grouping by account_id (returns 3) or transaction_type (returns 2).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Diana');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (1, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (401, 1);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (801, 1);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (802, 1);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (803, 1);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type") VALUES (801, 401, 1, 'PAYMENT');
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type") VALUES (802, 401, 2, 'REFUND');
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type") VALUES (803, 401, 3, 'PAYMENT');
+```
+
+```sql
+-- DATASET 5
+-- Tests scenario where multiple invoices have the exact same transaction count.
+-- Gold query returns 3 (3 invoice groups).
+-- Catches mutants doing COUNT(DISTINCT n) in the middle/outer query (which would return 1 because all 3 invoices have count n=2) or SUM(n) (which would return 6).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Evan');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (1, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (501, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (502, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (503, 1);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (901, 1);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (901, 501, 1);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (901, 501, 2);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (901, 502, 3);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (901, 502, 4);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (901, 503, 5);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (901, 503, 6);
+```

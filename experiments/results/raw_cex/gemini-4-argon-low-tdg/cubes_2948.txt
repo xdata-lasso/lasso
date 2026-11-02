@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (out-of-order insertion, negative, zero, positive IDs),
+-- opposing sort order on cmi_details to catch wrong ORDER BY column or DESC,
+-- and empty child tables to catch unnecessary INNER JOINs.
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (10, 'Alpha');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (2, 'Zulu');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (-5, 'Omega');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (0, 'Middle');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in cmi_details, duplicate values in cmi_details (to catch GROUP BY cmi_details),
+-- and 0-to-many relationships in child tables (Customer 1 has multiple cross-refs, Customer 2 has one, Customer 3 has none)
+-- to catch queries that improperly JOIN with CMI_Cross_References or other tables without DISTINCT, or filter out unreferenced customers.
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (1, 'SameDetail');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (2, 'SameDetail');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (3, NULL);
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (4, '');
+
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (101, 1, 'SYS_A');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (102, 1, 'SYS_B');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (103, 2, 'SYS_A');
+
+INSERT INTO Council_Tax (council_tax_id, cmi_cross_ref_id) VALUES (1001, 101);
+INSERT INTO Council_Tax (council_tax_id, cmi_cross_ref_id) VALUES (1002, 102);
+INSERT INTO Business_Rates (business_rates_id, cmi_cross_ref_id) VALUES (2001, 101);
+INSERT INTO Benefits_Overpayments (council_tax_id, cmi_cross_ref_id) VALUES (3001, 101);
+INSERT INTO Parking_Fines (council_tax_id, cmi_cross_ref_id) VALUES (4001, 101);
+INSERT INTO Rent_Arrears (council_tax_id, cmi_cross_ref_id) VALUES (5001, 101);
+INSERT INTO Electoral_Register (electoral_register_id, cmi_cross_ref_id) VALUES (6001, 101);
+```
+
+```sql
+-- DATASET 3
+-- Tests numeric vs lexicographical sorting (e.g., if master_customer_id is cast to TEXT before sorting: '10' < '2')
+-- and checks if cmi_details with numeric strings confuses column selection.
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (2, '100');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (10, '20');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (1, '300');
+
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (10, 2, '999');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (2, 10, '111');
+```
+
+```sql
+-- DATASET 4
+-- Tests larger dataset with > 5 rows to catch arbitrary LIMIT 1 or LIMIT 5 mutants,
+-- and includes orphan records in CMI_Cross_References (where master_customer_id is NULL)
+-- to catch RIGHT/FULL JOINs or queries selecting from CMI_Cross_References instead.
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (60, 'Cust 60');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (50, 'Cust 50');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (40, 'Cust 40');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (30, 'Cust 30');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (20, 'Cust 20');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (10, 'Cust 10');
+
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (1, NULL, 'ORPHAN');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (2, 10, 'Tax');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (3, 20, 'Rates');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (4, 30, 'Benefits');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (5, 40, 'Parking');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (6, 50, 'Rent');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (7, 60, 'Electoral');
+```

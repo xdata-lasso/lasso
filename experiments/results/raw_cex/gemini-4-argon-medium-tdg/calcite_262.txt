@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Subquery duplication (multiple employees with EMPNO < 20 in the same department) -> catches INNER JOIN without DISTINCT mutants.
+-- 2. Propagation of department qualification to an employee with EMPNO >= 20 and SAL >= 100 -> catches mutants that replace the subquery with simple "EMPNO < 20".
+-- 3. Boundary value EMPNO = 20 (should NOT trigger EMPNO < 20) -> catches "<=" mutants.
+-- 4. Boundary value SAL = 100 (should NOT trigger SAL < 100) -> catches "<=" mutants.
+-- 5. Employee qualifying ONLY via SAL < 100 -> catches "AND" instead of "OR" mutants, or missing SAL condition.
+-- 6. Employee qualifying via BOTH conditions -> tests UNION ALL vs OR duplicate handling.
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (10, 'ACCOUNTING');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (20, 'RESEARCH');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (30, 'SALES');
+
+-- Dept 10: Two employees with EMPNO < 20 (10 and 19). 
+-- Emp 10 has SAL >= 100 (qualifies only via DEPTNO IN).
+-- Emp 19 has SAL < 100 (qualifies via both DEPTNO IN and SAL < 100).
+-- Emp 25 has EMPNO >= 20 and SAL = 100 (qualifies via Dept 10 being in subquery, tests SAL = 100 boundary).
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (10, 10, 'CLARK', 'MANAGER', NULL, '2020-01-01', 150, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (19, 10, 'MILLER', 'CLERK', 10, '2020-01-02', 99, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (25, 10, 'KING', 'PRESIDENT', NULL, '2020-01-03', 100, 0, 0);
+
+-- Dept 20: Boundary test EMPNO = 20, SAL = 100. Neither condition holds. Should NOT be in output.
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (20, 20, 'SMITH', 'CLERK', NULL, '2020-01-04', 100, 0, 0);
+
+-- Dept 30: No employee with EMPNO < 20.
+-- Emp 30 has SAL = 99 (qualifies ONLY via SAL < 100).
+-- Emp 31 has SAL = 200 (does NOT qualify, even though Dept 30 has Emp 30 with SAL < 100 -> catches mutants that put SAL < 100 inside the subquery).
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (30, 30, 'ALLEN', 'SALESMAN', NULL, '2020-01-05', 99, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (31, 30, 'WARD', 'SALESMAN', 30, '2020-01-06', 200, 0, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- Empty subquery result (no employee has EMPNO < 20).
+-- Verifies that the OR branch (SAL < 100) still functions when the IN subquery returns an empty set, and catches mutants using INNER JOIN with the subquery.
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (10, 'ACCOUNTING');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (20, 'RESEARCH');
+
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (20, 10, 'JONES', 'MANAGER', NULL, '2020-02-01', 50, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (21, 10, 'SCOTT', 'ANALYST', 20, '2020-02-02', 100, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (22, 20, 'FORD', 'ANALYST', 20, '2020-02-03', 99, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (23, 20, 'ADAMS', 'CLERK', 22, '2020-02-04', 101, 0, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- Confusion between EMPNO, DEPTNO, and SAL column references or constants (20 vs 100).
+-- Specifically tests cases where DEPTNO < 20 vs DEPTNO >= 20, EMPNO between 20 and 100, and negative/zero values.
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (5, 'HR');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (50, 'IT');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (150, 'OPERATIONS');
+
+-- Dept 5 (DEPTNO < 20): No employee has EMPNO < 20 (EMPNO is 50). Catches mutants where subquery is "WHERE DEPTNO < 20" instead of "WHERE EMPNO < 20".
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (50, 5, 'BLAKE', 'MANAGER', NULL, '2020-03-01', 500, 0, 0);
+
+-- Dept 50 (DEPTNO >= 20, < 100): Has an employee with EMPNO = 15 (< 20) and an employee with EMPNO = 60 (< 100, >= 20).
+-- Also tests negative EMPNO and SAL = 0.
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (15, 50, 'TURNER', 'SALESMAN', NULL, '2020-03-02', 500, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (60, 50, 'MARTIN', 'SALESMAN', 15, '2020-03-03', 500, 0, 0);
+
+-- Dept 150 (DEPTNO > 100): Has an employee with EMPNO = 80 (between 20 and 100) and SAL = 150 (>= 100).
+-- Catches mutants that swap constants 20 and 100 (e.g. EMPNO < 100 OR SAL < 20).
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (80, 150, 'JAMES', 'CLERK', NULL, '2020-03-04', 150, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (90, 150, 'WHITE', 'CLERK', 80, '2020-03-05', 15, 0, 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- Mutants that query the wrong table (e.g., EMPNULLABLES, EMPNULLABLES_20, EMP_B, BONUS, or DEPT) in the outer query or subquery.
+-- EMP is populated with specific rows while other tables have different/conflicting data.
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (10, 'ACCOUNTING');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (20, 'RESEARCH');
+
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (19, 10, 'EMP_ONE', 'CLERK', NULL, '2020-04-01', 200, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (25, 20, 'EMP_TWO', 'CLERK', NULL, '2020-04-02', 200, 0, 0);
+
+INSERT INTO EMPNULLABLES (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (1, 20, 'NULL_ONE', 'CLERK', NULL, '2020-04-01', 10, 0, 0);
+INSERT INTO EMPNULLABLES_20 (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (2, 20, 'NULL20_ONE', 'CLERK', NULL, '2020-04-01', 10, 0, 0);
+INSERT INTO EMP_B (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER, BIRTHDATE) VALUES (3, 20, 'EMPB_ONE', 'CLERK', NULL, '2020-04-01', 10, 0, 0, '1990-01-01');
+INSERT INTO BONUS (ENAME, JOB, SAL, COMM) VALUES ('BONUS_ONE', 'CLERK', 10, 0);
+```

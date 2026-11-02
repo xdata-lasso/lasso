@@ -1,0 +1,110 @@
+```sql
+-- DATASET 1
+-- Tests basic positive case, distinct column names across tables (School Name vs sname vs School), and boundary conditions (> 0.1 vs >= 0.1, > 0 vs >= 0).
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('1001', 'Active', 'Alameda', 'DistA', 'Schools_Name_1', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('1002', 'Active', 'Alameda', 'DistA', 'Schools_Name_2', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('1003', 'Active', 'Alameda', 'DistA', 'Schools_Name_3', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('1004', 'Active', 'Alameda', 'DistA', 'Schools_Name_4', '00', 'District', '2023-01-01');
+
+-- 1001: Matches all conditions (Ratio = 0.25 > 0.1, NumGE1500 = 1 > 0)
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('1001', 'FRPM_Target_School', 25.0, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('1001', 'S', 'SAT_School_1', 100, 50, 1);
+
+-- 1002: Boundary fail on ratio (Ratio = 0.1, which is NOT > 0.1, NumGE1500 = 5 > 0)
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('1002', 'FRPM_Boundary_Ratio', 10.0, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('1002', 'S', 'SAT_School_2', 100, 50, 5);
+
+-- 1003: Boundary fail on NumGE1500 (Ratio = 0.5 > 0.1, NumGE1500 = 0, which is NOT > 0)
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('1003', 'FRPM_Boundary_NumGE', 50.0, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('1003', 'S', 'SAT_School_3', 100, 50, 0);
+
+-- 1004: Fails both conditions (Ratio = 0.05 < 0.1, NumGE1500 = -1 < 0)
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('1004', 'FRPM_Fail_Both', 5.0, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('1004', 'S', 'SAT_School_4', 100, 50, -1);
+```
+
+```sql
+-- DATASET 2
+-- Tests column confusion mutants: K-12 vs Ages 5-17, Free Meal vs FRPM, Computed Ratio vs Pre-calculated Percent column (e.g., > 0.1 vs > 10), and NumGE1500 vs NumTstTakr/enroll12.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('2001', 'Active', 'Butte', 'DistB', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('2002', 'Active', 'Butte', 'DistB', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('2003', 'Active', 'Butte', 'DistB', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('2004', 'Active', 'Butte', 'DistB', '00', 'District', '2023-01-01');
+
+-- 2001: True match for K-12 Free Meal (20/100 = 0.2 > 0.1). All other FRPM columns set to 0 or low values to kill mutants using wrong FRPM columns.
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)", "Percent (%) Eligible Free (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible FRPM (K-12)", "Free Meal Count (Ages 5-17)", "Enrollment (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") 
+VALUES ('2001', 'True_Match_School', 20.0, 100.0, 0.05, 5.0, 0.05, 5.0, 100.0, 0.05, 5.0, 0.05);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) 
+VALUES ('2001', 'S', 'True_Match_SAT', 0, 0, 0, 0, 0, 10);
+
+-- 2002: Decoy for FRPM Count (K-12) and Percent columns. Free Meal (K-12) ratio is 5/100 = 0.05 (Fails), but FRPM Count is 50/100 = 0.5 and Percent is 20.0.
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)", "Percent (%) Eligible Free (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible FRPM (K-12)", "Free Meal Count (Ages 5-17)", "Enrollment (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") 
+VALUES ('2002', 'Decoy_FRPM_And_Percent', 5.0, 100.0, 20.0, 50.0, 50.0, 5.0, 100.0, 5.0, 5.0, 5.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) 
+VALUES ('2002', 'S', 'Decoy_SAT_2', 100, 50, 500, 500, 500, 10);
+
+-- 2003: Decoy for Ages 5-17 columns. K-12 ratio is 5/100 = 0.05 (Fails), but Ages 5-17 ratio is 50/100 = 0.5.
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)", "Percent (%) Eligible Free (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible FRPM (K-12)", "Free Meal Count (Ages 5-17)", "Enrollment (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") 
+VALUES ('2003', 'Decoy_Ages_5_17', 5.0, 100.0, 0.05, 5.0, 0.05, 50.0, 100.0, 50.0, 50.0, 50.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) 
+VALUES ('2003', 'S', 'Decoy_SAT_3', 100, 50, 500, 500, 500, 10);
+
+-- 2004: Decoy for satscores columns. K-12 ratio is 50/100 = 0.5 (Passes), NumGE1500 is 0 (Fails), but NumTstTakr and enroll12 are > 0.
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") 
+VALUES ('2004', 'Decoy_SAT_Cols', 50.0, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) 
+VALUES ('2004', 'S', 'Decoy_SAT_4', 100, 50, 600, 600, 600, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests duplicates (DISTINCT vs non-DISTINCT), NULL handling, and outer join vs inner join behavior.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('3001', 'Active', 'Colusa', 'DistC', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('3002', 'Active', 'Colusa', 'DistC', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('3003', 'Active', 'Colusa', 'DistC', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('3004', 'Active', 'Colusa', 'DistC', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('3005', 'Active', 'Colusa', 'DistC', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('3006', 'Active', 'Colusa', 'DistC', '00', 'District', '2023-01-01');
+
+-- 3001 & 3002: Two different CDSCodes with the EXACT SAME "School Name" that both match criteria.
+-- Reference query has no DISTINCT, so 'Duplicate_High_School' must be output twice.
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('3001', 'Duplicate_High_School', 30.0, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('3001', 'S', 'Dup_1', 100, 50, 5);
+
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('3002', 'Duplicate_High_School', 40.0, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('3002', 'S', 'Dup_2', 100, 50, 15);
+
+-- 3003: Unmatched row in frpm (no corresponding satscores row). Tests INNER JOIN vs LEFT/RIGHT JOIN.
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('3003', 'Unmatched_FRPM_School', 50.0, 100.0);
+
+-- 3004: Unmatched row in satscores (no corresponding frpm row).
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('3004', 'S', 'Unmatched_SAT_School', 100, 50, 20);
+
+-- 3005: NULL in Free Meal Count and NumGE1500.
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('3005', 'Null_Values_School', NULL, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('3005', 'S', 'Null_SAT_School', 100, 50, NULL);
+
+-- 3006: Matching row where "School Name" itself is NULL (should output NULL row if matched).
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('3006', NULL, 50.0, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('3006', 'S', 'Valid_SAT_Null_FRPM_Name', 100, 50, 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests arithmetic precision, division by zero, and inverted division (Enrollment / Free Meal Count vs Free Meal Count / Enrollment).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('4001', 'Active', 'Del Norte', 'DistD', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('4002', 'Active', 'Del Norte', 'DistD', '00', 'District', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('4003', 'Active', 'Del Norte', 'DistD', '00', 'District', '2023-01-01');
+
+-- 4001: Just barely above 0.1 (10.1 / 100.0 = 0.101 > 0.1) and fractional $< 1$ if integer division were somehow forced (e.g. CAST AS INT / INT = 0).
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('4001', 'Precision_Pass_School', 10.1, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('4001', 'S', 'Precision_Pass', 100, 50, 1);
+
+-- 4002: Just barely below 0.1 (9.9 / 100.0 = 0.099 < 0.1). Note that if division is inverted (100 / 9.9 = 10.1 > 0.1), this would falsely pass.
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('4002', 'Precision_Fail_School', 9.9, 100.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('4002', 'S', 'Precision_Fail', 100, 50, 1);
+
+-- 4003: Division by zero (Enrollment = 0.0). In SQLite, X / 0.0 evaluates to NULL, which fails > 0.1.
+INSERT INTO frpm (CDSCode, "School Name", "Free Meal Count (K-12)", "Enrollment (K-12)") VALUES ('4003', 'Zero_Enrollment_School', 15.0, 0.0);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, NumGE1500) VALUES ('4003', 'S', 'Zero_Enrollment', 100, 50, 10);
+```

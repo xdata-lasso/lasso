@@ -1,0 +1,54 @@
+-- Schema DDL
+CREATE TABLE "Addresses" ("address_id" INTEGER PRIMARY KEY, "line_1_number_building" TEXT(80), "town_city" TEXT(50), "zip_postcode" TEXT(20), "state_province_county" TEXT(50), "country" TEXT(50));
+
+CREATE TABLE "Services" ("service_id" INTEGER PRIMARY KEY, "service_type_code" TEXT(15), "service_name" TEXT(80), "service_descriptio" TEXT(255));
+
+CREATE TABLE "Forms" ("form_id" INTEGER PRIMARY KEY, "service_id" INTEGER, "form_type_code" TEXT(15), "form_number" TEXT(50), "form_name" TEXT(80), "form_description" TEXT(255), FOREIGN KEY ("service_id") REFERENCES "Services" ("service_id"));
+
+CREATE TABLE "Individuals" ("individual_id" INTEGER PRIMARY KEY, "individual_first_name" TEXT(80), "individual_middle_name" TEXT(80), "inidividual_phone" TEXT(80), "individual_email" TEXT(80), "individual_address" TEXT(255), "individual_last_name" TEXT(80));
+
+CREATE TABLE "Organizations" ("organization_id" INTEGER PRIMARY KEY, "date_formed" DATETIME, "organization_name" TEXT(255), "uk_vat_number" TEXT(20));
+
+CREATE TABLE "Parties" ("party_id" INTEGER PRIMARY KEY, "payment_method_code" TEXT(15), "party_phone" TEXT(80), "party_email" TEXT(80));
+
+CREATE TABLE "Organization_Contact_Individuals" ("individual_id" INTEGER, "organization_id" INTEGER, "date_contact_from" DATETIME, "date_contact_to" DATETIME, PRIMARY KEY ("individual_id", "organization_id"), FOREIGN KEY ("individual_id") REFERENCES "Individuals" ("individual_id"), FOREIGN KEY ("organization_id") REFERENCES "Organizations" ("organization_id"));
+
+CREATE TABLE "Party_Addresses" ("party_id" INTEGER, "address_id" INTEGER, "date_address_from" DATETIME, "address_type_code" TEXT(15), "date_address_to" DATETIME, PRIMARY KEY ("party_id", "address_id"), FOREIGN KEY ("party_id") REFERENCES "Parties" ("party_id"), FOREIGN KEY ("address_id") REFERENCES "Addresses" ("address_id"));
+
+CREATE TABLE "Party_Forms" ("party_id" INTEGER, "form_id" INTEGER, "date_completion_started" DATETIME, "form_status_code" TEXT(15), "date_fully_completed" DATETIME, PRIMARY KEY ("party_id", "form_id"), FOREIGN KEY ("form_id") REFERENCES "Forms" ("form_id"), FOREIGN KEY ("party_id") REFERENCES "Parties" ("party_id"));
+
+CREATE TABLE "Party_Services" ("customer_id" INTEGER, "service_id" INTEGER, "booking_id" INTEGER, "service_datetime" DATETIME, "booking_made_date" DATETIME, FOREIGN KEY ("customer_id") REFERENCES "Parties" ("party_id"), FOREIGN KEY ("service_id") REFERENCES "Services" ("service_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "town_city", "zip_postcode", "state_province_county", "country") VALUES (19, '-24', '-24', '-24', '-24', '-24');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "town_city", "zip_postcode", "state_province_county", "country") VALUES (18, '-24', '-24', '-24', '-24', '-24');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (20, '-24', '-24', '-24');
+INSERT INTO "Forms" ("form_id", "service_id", "form_type_code", "form_number", "form_name", "form_description") VALUES (21, 20, '-24', '-24', '-24', '-24');
+INSERT INTO "Individuals" ("individual_id", "individual_first_name", "individual_middle_name", "inidividual_phone", "individual_email", "individual_address", "individual_last_name") VALUES (23, '-24', '-24', '-24', '-24', '-24', '-24');
+INSERT INTO "Individuals" ("individual_id", "individual_first_name", "individual_middle_name", "inidividual_phone", "individual_email", "individual_address", "individual_last_name") VALUES (22, '-24', '-24', '-24', '-24', '-24', '-24');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (25, -24, NULL, NULL);
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (24, -24, NULL, '-24');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (26, '-24', '-24', '-24');
+INSERT INTO "Organization_Contact_Individuals" ("individual_id", "organization_id", "date_contact_from", "date_contact_to") VALUES (22, 24, -24, -24);
+INSERT INTO "Party_Addresses" ("party_id", "address_id", "date_address_from", "address_type_code", "date_address_to") VALUES (26, 18, -24, '-24', -24);
+INSERT INTO "Party_Forms" ("party_id", "form_id", "date_completion_started", "form_status_code", "date_fully_completed") VALUES (26, 21, -24, '-24', -24);
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (26, 20, -24, -24, -24);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT organization_name FROM (SELECT LHS.organization_id AS organization_id, LHS.date_formed AS date_formed, LHS.organization_name AS organization_name, LHS.uk_vat_number AS uk_vat_number, LHS.maxdate_formed AS maxdate_formed, RHS.organization_id AS organization_id_other, RHS.date_formed AS date_formed_other, RHS.organization_name AS organization_name_other, RHS.uk_vat_number AS uk_vat_number_other, RHS.maxdate_formed AS maxdate_formed_other FROM (SELECT organization_id, date_formed, organization_name, uk_vat_number, MAX(date_formed) OVER () AS maxdate_formed FROM organizations) AS LHS CROSS JOIN (SELECT organization_id, date_formed, organization_name, uk_vat_number, MAX(date_formed) OVER () AS maxdate_formed FROM organizations) AS RHS) WHERE (date_formed >= maxdate_formed_other AND maxdate_formed >= maxdate_formed_other) ORDER BY organization_name;
+
+/*
+Gold Result:
+(None,)
+*/
+
+-- Prediction Query
+SELECT organization_name FROM organizations ORDER BY date_formed DESC, organizations.organization_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+(None,)
+*/

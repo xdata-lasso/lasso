@@ -1,0 +1,117 @@
+```sql
+-- DATASET 1
+-- Tests basic join direction (f1 = uid vs f2 = uid), boundary conditions for n > 1 (n=0, n=1, n=2, n=3), and distinct vs non-distinct counts.
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'Alice', 'alice@test.com', 1, 5);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'Bob', 'bob@test.com', 1, 0);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'Charlie', 'charlie@test.com', 2, 10);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (4, 'David', 'david@test.com', 2, 1);
+
+-- Alice (1) follows 2 people -> n = 2 (Should be included)
+INSERT INTO follows (f1, f2) VALUES (1, 2);
+INSERT INTO follows (f1, f2) VALUES (1, 3);
+
+-- Bob (2) follows 1 person -> n = 1 (Boundary condition for n > 1 vs n >= 1, should be excluded)
+INSERT INTO follows (f1, f2) VALUES (2, 1);
+
+-- Charlie (3) follows 3 people -> n = 3 (Tests n > 1 vs n = 2 or n > 2, should be included)
+INSERT INTO follows (f1, f2) VALUES (3, 1);
+INSERT INTO follows (f1, f2) VALUES (3, 2);
+INSERT INTO follows (f1, f2) VALUES (3, 4);
+
+-- David (4) follows 0 people, but is followed by 2 people (1 -> 4 below, and 3 -> 4 above).
+-- Tests inner join vs right/left join, and f1=uid vs f2=uid.
+INSERT INTO follows (f1, f2) VALUES (1, 4);
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY (email, name) vs GROUP BY (uid).
+-- Two distinct users share the exact same name and email, each following only 1 person.
+-- Combined under GROUP BY (email, name), their count n = 2. Under GROUP BY uid, each has n = 1.
+-- Also tests two users with same name but different emails, and same email but different names.
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'SameName', 'same@test.com', 1, 10);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'SameName', 'same@test.com', 2, 20);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'SameName', 'diff@test.com', 1, 5);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (4, 'DiffName', 'same@test.com', 1, 5);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (5, 'Target1', 't1@test.com', 1, 0);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (6, 'Target2', 't2@test.com', 1, 0);
+
+-- uid 1 follows 1 person, uid 2 follows 1 person. Together ('SameName', 'same@test.com') has n = 2.
+INSERT INTO follows (f1, f2) VALUES (1, 5);
+INSERT INTO follows (f1, f2) VALUES (2, 6);
+
+-- uid 3 has SameName but different email (follows 1 person -> n=1 if grouped by both, n=3 if grouped only by name)
+INSERT INTO follows (f1, f2) VALUES (3, 5);
+
+-- uid 4 has different name but same@test.com (follows 1 person -> n=1 if grouped by both, n=3 if grouped only by email)
+INSERT INTO follows (f1, f2) VALUES (4, 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in GROUP BY, COUNT(*) vs COUNT(name)/COUNT(email), and ORDER BY name, email NULLS LAST.
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'Alice', NULL, 1, 2);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'Alice', 'a@test.com', 1, 2);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'Alice', 'b@test.com', 1, 2);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (4, NULL, 'nullname@test.com', 1, 2);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (5, NULL, NULL, 1, 2);
+
+-- Every user follows 2 people so all groups have n = 2 > 1
+INSERT INTO follows (f1, f2) VALUES (1, 2);
+INSERT INTO follows (f1, f2) VALUES (1, 3);
+
+INSERT INTO follows (f1, f2) VALUES (2, 1);
+INSERT INTO follows (f1, f2) VALUES (2, 3);
+
+INSERT INTO follows (f1, f2) VALUES (3, 1);
+INSERT INTO follows (f1, f2) VALUES (3, 2);
+
+INSERT INTO follows (f1, f2) VALUES (4, 1);
+INSERT INTO follows (f1, f2) VALUES (4, 2);
+
+INSERT INTO follows (f1, f2) VALUES (5, 1);
+INSERT INTO follows (f1, f2) VALUES (5, 2);
+```
+
+```sql
+-- DATASET 4
+-- Tests ORDER BY direction (ASC vs DESC) and column priority (ORDER BY name, email vs ORDER BY email, name or ORDER BY n).
+-- Also ensures queries falsely using user_profiles.followers > 1 or tweets count instead of follows count are caught.
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'Zack', 'a_first_email@test.com', 1, 0);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'Aaron', 'z_last_email@test.com', 1, 0);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'Aaron', 'm_mid_email@test.com', 1, 0);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (4, 'FakePopular', 'fake@test.com', 1, 999);
+
+-- Zack (uid 1) has n = 4 follows
+INSERT INTO follows (f1, f2) VALUES (1, 1);
+INSERT INTO follows (f1, f2) VALUES (1, 2);
+INSERT INTO follows (f1, f2) VALUES (1, 3);
+INSERT INTO follows (f1, f2) VALUES (1, 4);
+
+-- Aaron z_last (uid 2) has n = 3 follows
+INSERT INTO follows (f1, f2) VALUES (2, 1);
+INSERT INTO follows (f1, f2) VALUES (2, 3);
+INSERT INTO follows (f1, f2) VALUES (2, 4);
+
+-- Aaron m_mid (uid 3) has n = 2 follows
+INSERT INTO follows (f1, f2) VALUES (3, 1);
+INSERT INTO follows (f1, f2) VALUES (3, 2);
+
+-- FakePopular (uid 4) has followers=999 in profile and 3 tweets, but only 1 follow in follows table (should be excluded)
+INSERT INTO follows (f1, f2) VALUES (4, 1);
+INSERT INTO tweets (id, uid, text, createdate) VALUES (101, 4, 'Tweet 1', '2023-01-01 10:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (102, 4, 'Tweet 2', '2023-01-02 10:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (103, 4, 'Tweet 3', '2023-01-03 10:00:00');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when follows exist (all users have at most 1 follow) and checks against accidental cross joins or missing WHERE (n > 1).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'UserOne', 'u1@test.com', 1, 10);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'UserTwo', 'u2@test.com', 2, 20);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'UserThree', 'u3@test.com', 3, 30);
+
+INSERT INTO follows (f1, f2) VALUES (1, 2);
+INSERT INTO follows (f1, f2) VALUES (2, 3);
+INSERT INTO follows (f1, f2) VALUES (3, 1);
+```

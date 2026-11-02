@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, join keys, and ensures non-matching Country or Segment='CZE' or Currency='CZE' are excluded.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZE');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 100, 'CZE', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 200, 'SVK', 'CZE');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (30, 300, NULL, 'Premium');
+
+INSERT INTO products (ProductID, Description) VALUES (101, 'Diesel');
+INSERT INTO products (ProductID, Description) VALUES (102, 'Natural 95');
+INSERT INTO products (ProductID, Description) VALUES (103, 'AdBlue');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-24', '09:00:00', 1, 1001, 10, 101, 50, 1500.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-24', '10:00:00', 2, 1002, 20, 102, 40, 1200.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-24', '11:00:00', 1, 1001, 30, 103, 10, 300.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate output preservation (kills DISTINCT / GROUP BY mutants) and ensures products with no transactions or transactions only in non-CZE stations are excluded (kills RIGHT/LEFT JOIN and IN/EXISTS subquery mutants).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 1, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 2, 'DEU', 'Premium');
+
+INSERT INTO products (ProductID, Description) VALUES (1, 'Diesel');
+INSERT INTO products (ProductID, Description) VALUES (2, 'Unused Product');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '12:00:00', 10, 500, 1, 1, 30, 900.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '13:00:00', 20, 501, 2, 1, 20, 600.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '14:00:00', 30, 502, 3, 1, 25, 750.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN on transactions_1k -> products and transactions_1k -> gasstations (dangling foreign keys and NULLs), and tests NULL product descriptions.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 1, 'CZE', 'Other');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 2, 'CZE', 'Other');
+
+INSERT INTO products (ProductID, Description) VALUES (100, NULL);
+INSERT INTO products (ProductID, Description) VALUES (200, 'Car Wash');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-26', '08:00:00', 1, 1, 10, 999, 1, 10.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-26', '08:30:00', 1, 1, 10, NULL, 1, 10.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-26', '09:00:00', 1, 1, 999, 200, 1, 10.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-26', '09:30:00', 1, 1, NULL, 200, 1, 10.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-26', '10:00:00', 1, 1, 20, 100, 1, 10.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (6, '2012-08-26', '10:30:00', 1, 1, 20, 200, 1, 10.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong join conditions (e.g., joining on ChainID, CustomerID, CardID, TransactionID, or GasStationID = ProductID).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'LAM', 'CZK');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (5, 6, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (6, 5, 'CZE', 'Premium');
+
+INSERT INTO products (ProductID, Description) VALUES (5, 'Wrong Product By Station Or Customer ID');
+INSERT INTO products (ProductID, Description) VALUES (6, 'Wrong Product By Station ID');
+INSERT INTO products (ProductID, Description) VALUES (7, 'Correct Product');
+INSERT INTO products (ProductID, Description) VALUES (8, 'Wrong Product By Chain ID Match');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-27', '15:00:00', 5, 5, 6, 7, 5, 5.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (6, '2012-08-27', '16:00:00', 5, 5, 5, 8, 5, 5.0);
+
+INSERT INTO "yearmonth" (CustomerID, Date, Consumption) VALUES (5, '201208', 500.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests string matching sensitivity (case sensitivity, LIKE '%CZE%', leading/trailing spaces) and unnecessary joins with customers or yearmonth tables.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 10, 'cze', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 10, 'CZE ', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 10, 'CZECH', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 10, 'CZE', 'Discount');
+
+INSERT INTO products (ProductID, Description) VALUES (10, 'Lowercase Country Product');
+INSERT INTO products (ProductID, Description) VALUES (20, 'Trailing Space Country Product');
+INSERT INTO products (ProductID, Description) VALUES (30, 'Prefix Match Country Product');
+INSERT INTO products (ProductID, Description) VALUES (40, 'Exact Match Country Product With Missing Customer');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-28', '10:00:00', 1, 100, 1, 10, 10, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-28', '11:00:00', 1, 100, 2, 20, 10, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-28', '12:00:00', 1, 100, 3, 30, 10, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-28', '13:00:00', 999, 100, 4, 40, 0, 0.0);
+```

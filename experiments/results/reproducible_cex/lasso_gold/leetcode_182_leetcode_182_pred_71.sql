@@ -1,0 +1,28 @@
+-- Schema DDL
+CREATE TABLE "Person" ("Id" INTEGER PRIMARY KEY, "Email" TEXT(255));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "person" ("id", "email") VALUES (1010, 'jesseguzman@example.net');
+INSERT INTO "person" ("id", "email") VALUES (1011, 'jesseguzman@example.net');
+INSERT INTO "person" ("id", "email") VALUES (1012, NULL);
+INSERT INTO "person" ("id", "email") VALUES (1013, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT email AS Email FROM Person GROUP BY email HAVING COUNT(email) > 1;
+
+/*
+Gold Result:
+('jesseguzman@example.net',)
+*/
+
+-- Prediction Query
+SELECT DISTINCT A.EMAIL FROM (SELECT EMAIL, COUNT(ID) AS NEMAIL FROM PERSON GROUP BY EMAIL HAVING NEMAIL >= 2) AS A;
+
+/*
+Prediction Result:
+(None,)
+('jesseguzman@example.net',)
+*/

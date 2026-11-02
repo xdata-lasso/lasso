@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by End ASC vs Start ASC, End DESC, AppointmentID ASC/DESC, and insertion order.
+INSERT INTO Physician (EmployeeID, Name, Position, SSN) VALUES (1, 'Dr. Alice', 'Staff Internist', 111111111);
+INSERT INTO Physician (EmployeeID, Name, Position, SSN) VALUES (2, 'Dr. Bob', 'Attending Physician', 222222222);
+INSERT INTO Nurse (EmployeeID, Name, Position, Registered, SSN) VALUES (1, 'Nurse Clara', 'Head Nurse', 1, 333333333);
+INSERT INTO Patient (SSN, PCP, Name, Address, Phone, InsuranceID) VALUES (1001, 1, 'Patient Zero', '100 Main St', '555-0100', 9001);
+INSERT INTO Patient (SSN, PCP, Name, Address, Phone, InsuranceID) VALUES (1002, 2, 'Patient One', '101 Main St', '555-0101', 9002);
+
+-- Inserted first, lowest AppointmentID, earliest Start, but latest End.
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (10, 2, 1, 1002, '2023-05-01 08:00:00', '2023-05-01 12:00:00', 'Room Z');
+-- Inserted second, middle AppointmentID, latest Start, but earliest End (Expected Winner: 20).
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (20, 1, 1, 1001, '2023-05-01 10:00:00', '2023-05-01 10:30:00', 'Room B');
+-- Inserted third, highest AppointmentID, middle Start, middle End, lowest ExaminationRoom.
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (30, 1, 1, 1001, '2023-05-01 09:00:00', '2023-05-01 11:00:00', 'Room A');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on the minimum End time using AppointmentID ASC (vs AppointmentID DESC or Start time or insertion order).
+INSERT INTO Physician (EmployeeID, Name, Position, SSN) VALUES (1, 'Dr. Alice', 'Staff Internist', 111111111);
+INSERT INTO Nurse (EmployeeID, Name, Position, Registered, SSN) VALUES (1, 'Nurse Clara', 'Head Nurse', 1, 333333333);
+INSERT INTO Patient (SSN, PCP, Name, Address, Phone, InsuranceID) VALUES (1001, 1, 'Patient Zero', '100 Main St', '555-0100', 9001);
+
+-- Inserted first, tied for earliest End, higher AppointmentID, earlier Start.
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (50, 1, 1, 1001, '2023-06-10 08:00:00', '2023-06-10 09:00:00', 'Room A');
+-- Inserted second, tied for earliest End, lower AppointmentID, later Start (Expected Winner: 25).
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (25, 1, 1, 1001, '2023-06-10 08:30:00', '2023-06-10 09:00:00', 'Room B');
+-- Inserted third, later End, lowest AppointmentID overall.
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (5, 1, 1, 1001, '2023-06-10 07:00:00', '2023-06-10 10:00:00', 'Room C');
+```
+
+```sql
+-- DATASET 3
+-- Tests handling of NULL values in End column (in SQLite, NULLs sort first in ASC order) and NULLS in foreign key columns (PrepNurse).
+INSERT INTO Physician (EmployeeID, Name, Position, SSN) VALUES (1, 'Dr. Alice', 'Staff Internist', 111111111);
+INSERT INTO Patient (SSN, PCP, Name, Address, Phone, InsuranceID) VALUES (1001, 1, 'Patient Zero', '100 Main St', '555-0100', 9001);
+
+-- Non-null End, lowest AppointmentID.
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (1, 1, NULL, 1001, '2023-01-01 08:00:00', '2023-01-01 09:00:00', 'Room A');
+-- NULL End, higher AppointmentID among NULLs.
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (30, 1, NULL, 1001, '2023-01-01 09:00:00', NULL, 'Room B');
+-- NULL End, lower AppointmentID among NULLs (Expected Winner: 20).
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (20, 1, NULL, 1001, '2023-01-01 10:00:00', NULL, 'Room C');
+```
+
+```sql
+-- DATASET 4
+-- Tests inner joins vs direct table scan: Winner Appointment has NULL Physician, PrepNurse, and Patient, and is not referenced in Prescribes.
+INSERT INTO Physician (EmployeeID, Name, Position, SSN) VALUES (10, 'Dr. Smith', 'Surgeon', 444444444);
+INSERT INTO Nurse (EmployeeID, Name, Position, Registered, SSN) VALUES (20, 'Nurse Joy', 'RN', 1, 555555555);
+INSERT INTO Patient (SSN, PCP, Name, Address, Phone, InsuranceID) VALUES (9999, 10, 'John Doe', '123 Elm St', '555-9999', 8888);
+INSERT INTO Medication (Code, Name, Brand, Description) VALUES (101, 'MedA', 'BrandX', 'Painkiller');
+
+-- Fully populated appointment with a Prescription, but has a later End time.
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (100, 10, 20, 9999, '2023-07-01 08:00:00', '2023-07-01 10:00:00', 'Room 1');
+INSERT INTO Prescribes (Physician, Patient, Medication, Date, Appointment, Dose) VALUES (10, 9999, 101, '2023-07-01 09:00:00', 100, '10mg');
+
+-- Appointment with NULL foreign keys and no Prescribes entry, but has the earliest End time (Expected Winner: 200).
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (200, NULL, NULL, NULL, '2023-07-01 08:30:00', '2023-07-01 09:00:00', 'Room 2');
+```
+
+```sql
+-- DATASET 5
+-- Tests cross-date/cross-month chronological ordering vs time-of-day ordering, and negative/zero AppointmentIDs.
+INSERT INTO Physician (EmployeeID, Name, Position, SSN) VALUES (1, 'Dr. Who', 'Time Lord', 999999999);
+INSERT INTO Nurse (EmployeeID, Name, Position, Registered, SSN) VALUES (1, 'Nurse Rory', 'Nurse', 1, 888888888);
+INSERT INTO Patient (SSN, PCP, Name, Address, Phone, InsuranceID) VALUES (1, 1, 'Amy Pond', 'Leadworth', '555-1234', 1111);
+
+-- Earlier time-of-day (01:00:00), but later date (2023-12-01).
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (1, 1, 1, 1, '2023-12-01 00:30:00', '2023-12-01 01:00:00', 'TARDIS');
+-- Later time-of-day (23:59:59), but earlier date (2023-01-15) and negative ID (Expected Winner: -5).
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (-5, 1, 1, 1, '2023-01-15 23:00:00', '2023-01-15 23:59:59', 'TARDIS');
+-- Same earliest End date/time (2023-01-15 23:59:59), but ID is 0 (loses tie-breaker to -5).
+INSERT INTO Appointment (AppointmentID, Physician, PrepNurse, Patient, Start, End, ExaminationRoom) VALUES (0, 1, 1, 1, '2023-01-15 22:00:00', '2023-01-15 23:59:59', 'TARDIS');
+```

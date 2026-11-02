@@ -1,0 +1,107 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset: Tests DISTINCT, AVG over all procedures (including untrained ones), 
+-- duplicate procedure costs, and filtering out 'John Wen'.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Wen', 'Surgeon', 1001);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Alice Smith', 'Intern', 1002);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (3, 'Bob Jones', 'Chief', 1003);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'ProcA', 100.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'ProcB', 100.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (30, 'ProcC', 400.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (40, 'ProcD', NULL);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 10, '2020-01-01', '2025-01-01');
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (2, 20, '2021-01-01', '2026-01-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result when the only physician in the database is 'John Wen', 
+-- even though Trained_In and Procedures are populated.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Wen', 'Surgeon', 1001);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'ProcA', 250.0);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 10, '2020-01-01', '2025-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests empty result when Trained_In is empty, even though valid Physicians and Procedures exist.
+-- Catches mutants that omit the join with Trained_In.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Alice Smith', 'Intern', 1002);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'ProcA', 500.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'ProcB', 1500.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests CROSS JOIN semantics vs INNER JOIN between Trained_In and Physician.
+-- Here, 'John Wen' is the ONLY physician in Trained_In, while 'Alice Smith' is NOT in Trained_In.
+-- Because of the CROSS JOIN, the query must still return the average cost.
+-- Mutants that join Trained_In.Physician = Physician.EmployeeID will falsely return empty.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Wen', 'Surgeon', 1001);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Alice Smith', 'Intern', 1002);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'ProcA', 120.5);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'ProcB', 300.0);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 10, '2020-01-01', '2025-01-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests SQL NULL handling in WHERE ("name" <> 'John Wen') and in AVG("cost").
+-- Physician has a NULL Name (which filters out in <> 'John Wen'), so this dataset should return empty.
+-- Also tests all NULL costs in Procedures.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Wen', 'Surgeon', 1001);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, NULL, 'Intern', 1002);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'ProcA', NULL);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 10, '2020-01-01', '2025-01-01');
+```
+
+```sql
+-- DATASET 6
+-- Tests when all Procedure costs are NULL, but valid Trained_In and Physician rows exist.
+-- The query should return a single row containing NULL.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Alice Smith', 'Intern', 1002);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'ProcA', NULL);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'ProcB', NULL);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 10, '2020-01-01', '2025-01-01');
+```
+
+```sql
+-- DATASET 7
+-- Tests skew in Trained_In vs Procedures: A procedure is trained in multiple times by multiple physicians.
+-- If a mutant joins Procedures with Trained_In before computing AVG(Cost), the average will be weighted and wrong.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Alice Smith', 'Intern', 1002);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Bob Jones', 'Chief', 1003);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (3, 'Charlie Brown', 'Resident', 1004);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'CheapProc', 10.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'ExpensiveProc', 90.0);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 10, '2020-01-01', '2025-01-01');
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (2, 10, '2020-01-01', '2025-01-01');
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (3, 10, '2020-01-01', '2025-01-01');
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 20, '2020-01-01', '2025-01-01');
+```
+
+```sql
+-- DATASET 8
+-- Tests string comparison edge cases (case sensitivity, whitespace) on 'John Wen',
+-- and zero/negative/fractional values in Cost.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'john wen', 'Surgeon', 1001);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'ProcZero', 0.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'ProcFrac', 33.33);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (30, 'ProcNeg', -10.0);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 10, '2020-01-01', '2025-01-01');
+```

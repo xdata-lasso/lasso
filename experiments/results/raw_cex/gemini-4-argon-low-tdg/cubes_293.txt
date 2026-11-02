@@ -1,0 +1,59 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (out-of-order insertion, negative, zero, positive IDs), 
+-- opposite sorting trends between columns (to catch wrong ORDER BY column or DESC),
+-- and unused parent rows in Ref_Template_Types (to catch incorrect RIGHT/FULL OUTER JOINs).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_A', 'Alpha Type');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_B', 'Beta Type');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_UNUSED', 'Unused Type');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'TYPE_A', 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Details 10');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (-5, 'TYPE_B', 100, '2019-01-01 00:00:00', '2024-01-01 00:00:00', 'Details -5');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (0, 'TYPE_A', 50, '2021-01-01 00:00:00', '2026-01-01 00:00:00', 'Details 0');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in projected and non-projected columns (catches unnecessary INNER JOINs 
+-- with Ref_Template_Types or IS NOT NULL filters) and 0:N / 1:N relationships with Documents 
+-- (catches unnecessary INNER JOINs or duplicate rows from un-grouped JOINs with Documents).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2022-01-01 00:00:00', '2023-01-01 00:00:00', 'Has 2 Docs');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (3, 'T1', 0, '2022-05-01 00:00:00', NULL, 'Has 0 Docs');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (101, 1, 'Doc 1A', 'Desc 1A', 'Other 1A');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (102, 1, 'Doc 1B', 'Desc 1B', 'Other 1B');
+
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (1001, 101, 'Para 1', 'Details');
+```
+
+```sql
+-- DATASET 3
+-- Tests duplicate values in non-PK projected columns (Version_Number, Template_Type_Code) 
+-- to catch mutants that drop Template_ID and apply DISTINCT or GROUP BY, 
+-- and tests string vs integer sorting anomalies (e.g., 2 vs 10) to catch CAST(template_id AS TEXT) in ORDER BY.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('SAME_CODE', 'Same Code Description');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'SAME_CODE', 5, '2023-01-01 00:00:00', '2023-12-31 00:00:00', 'Same');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'SAME_CODE', 5, '2023-01-01 00:00:00', '2023-12-31 00:00:00', 'Same');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'SAME_CODE', 5, '2023-01-01 00:00:00', '2023-12-31 00:00:00', 'Same');
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary conditions (LIMIT 1, LIMIT 2, etc.) and column confusion (e.g., selecting 
+-- Template_Details instead of Template_Type_Code, or Document_ID instead of Template_ID).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('C1', 'Desc C1');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('C2', 'Desc C2');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('C3', 'Desc C3');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('C4', 'Desc C4');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (40, 'C4', 10, '2020-04-01 00:00:00', '2021-04-01 00:00:00', 'C1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'C1', 40, '2020-01-01 00:00:00', '2021-01-01 00:00:00', 'C4');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (30, 'C3', 20, '2020-03-01 00:00:00', '2021-03-01 00:00:00', 'C2');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (20, 'C2', 30, '2020-02-01 00:00:00', '2021-02-01 00:00:00', 'C3');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (999, 10, 'Doc999', 'Desc999', 'Other999');
+```

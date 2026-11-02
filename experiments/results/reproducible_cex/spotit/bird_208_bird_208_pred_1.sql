@@ -1,0 +1,56 @@
+-- Schema DDL
+CREATE TABLE "ATOM" (
+    "ATOM_ID" TEXT,
+    "MOLECULE_ID" TEXT,
+    "ELEMENT" TEXT,
+    PRIMARY KEY ("ATOM_ID"),
+    FOREIGN KEY ("MOLECULE_ID") REFERENCES "MOLECULE"("MOLECULE_ID")
+);
+CREATE TABLE "BOND" (
+    "BOND_ID" TEXT,
+    "MOLECULE_ID" TEXT,
+    "BOND_TYPE" TEXT,
+    PRIMARY KEY ("BOND_ID"),
+    FOREIGN KEY ("MOLECULE_ID") REFERENCES "MOLECULE"("MOLECULE_ID")
+);
+CREATE TABLE "CONNECTED" (
+    "ATOM_ID" TEXT,
+    "ATOM_ID2" TEXT,
+    "BOND_ID" TEXT,
+    PRIMARY KEY ("ATOM_ID", "ATOM_ID2"),
+    FOREIGN KEY ("ATOM_ID") REFERENCES "ATOM"("ATOM_ID"),
+    FOREIGN KEY ("ATOM_ID2") REFERENCES "ATOM"("ATOM_ID"),
+    FOREIGN KEY ("BOND_ID") REFERENCES "BOND"("BOND_ID")
+);
+CREATE TABLE "MOLECULE" (
+    "MOLECULE_ID" TEXT,
+    "LABEL" TEXT,
+    PRIMARY KEY ("MOLECULE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ATOM VALUES (4, 9, 1741780799062758878);
+INSERT INTO ATOM VALUES (5, 8, 1741780799062758878);
+INSERT INTO BOND VALUES (6, 8, 0);
+INSERT INTO BOND VALUES (7, 9, 0);
+INSERT INTO CONNECTED VALUES (5, 4, 6);
+INSERT INTO CONNECTED VALUES (4, 4, 6);
+INSERT INTO MOLECULE VALUES (8, 1);
+INSERT INTO MOLECULE VALUES (9, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T.label FROM (SELECT T2.label, COUNT(T2.molecule_id) FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.element = 'h' GROUP BY T2.label ORDER BY COUNT(T2.molecule_id) DESC, T2.label NULLS LAST LIMIT 1) AS t;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT molecule.label FROM atom JOIN molecule ON atom.molecule_id = molecule.molecule_id WHERE atom.element = 'h' GROUP BY molecule.label ORDER BY COUNT(molecule.label) DESC, molecule.label NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+*/

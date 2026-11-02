@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests basic floating-point division (CAST AS REAL), 100x scaling, WHERE T2.label = '+' filtering, and non-'cl' element handling.
+-- Expected result: 1 / 3 * 100 = 33.333333333333336 (kills integer division, missing * 100, and missing label filter).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', NULL);
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm2', 'cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a5', 'm2', 'cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a6', 'm3', 'cl');
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(T1.element) vs COUNT(*) or COUNT(T1.atom_id) in denominator, and INNER JOIN vs LEFT/RIGHT JOIN.
+-- Includes an atom with NULL element in a '+' molecule, a '+' molecule with no atoms, and an atom with NULL molecule_id.
+-- Expected result: 1 / 2 * 100 = 50.0 (if COUNT(*) is used in denominator, result becomes 1/3 * 100 or 1/4 * 100).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', NULL, 'cl');
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY / DISTINCT mutations across multiple '+' molecules and multiple 'cl' atoms per molecule.
+-- Expected result: 3 / 5 * 100 = 60.0 (kills mutants that group by molecule_id or use COUNT(DISTINCT ...)).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm2', 'cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a5', 'm2', 'n');
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary condition where numerator is 0 (no 'cl' elements in '+' molecules) and case/substring sensitivity ('CL', 'c', 'cl2').
+-- Expected result: 0.0 (kills mutants using LIKE '%cl%', UPPER/LOWER, or filtering WHERE element = 'cl' in the outer query which would cause 0/0 = NULL).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'CL');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', 'cl2');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm2', 'cl');
+```
+
+```sql
+-- DATASET 5
+-- Tests unnecessary joins with 'bond' or 'connected' tables (multiplying rows or filtering out unconnected atoms/molecules).
+-- Expected result: 1 / 2 * 100 = 50.0 (if joined with bond/connected, 'a1' is duplicated or 'a2' is dropped).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'c');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '=');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a1', 'b1');
+```
+
+```sql
+-- DATASET 6
+-- Tests boundary condition where all matching elements are 'cl' (100.0%) and verifies join key (T1.molecule_id = T2.molecule_id vs accidental cross join or wrong column join).
+-- Expected result: 2 / 2 * 100 = 100.0.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('m2', 'm1', 'cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('m1', 'm2', 'c');
+```

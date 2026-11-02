@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality, 1-to-many join duplication (multiple boxes referencing the same chest), 
+-- boxes with NULL chest_id (should be included in first branch, excluded from second branch),
+-- and chests with no referencing boxes (should be excluded completely).
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (1, 10, 20);
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (2, 100, 200);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (1, 10, 1, 2);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (1, 20, 3, 4);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (NULL, 30, 5, 6);
+```
+
+```sql
+-- DATASET 2
+-- Tests UNION ALL vs UNION by ensuring the sum of boxes equals the sum of joined chests.
+-- A mutant using UNION instead of UNION ALL will deduplicate the two identical rows before the outer SUM.
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (1, 10, 20);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (1, 100, 10, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests when all boxes have NULL chest_id.
+-- The first subquery branch returns (5, 15), while the second branch (INNER JOIN) returns (NULL, NULL).
+-- The outer SUM must ignore the NULLs and still return (5, 15), killing single-query INNER JOIN mutants or raw '+' addition without COALESCE.
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (1, 50, 60);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (NULL, 1, 2, 7);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (NULL, 2, 3, 8);
+```
+
+```sql
+-- DATASET 4
+-- Tests when the Boxes table is completely empty.
+-- Both branches of the UNION ALL should evaluate to (NULL, NULL), and the outer query should return (NULL, NULL).
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (1, 15, 25);
+```
+
+```sql
+-- DATASET 5
+-- Tests handling of NULL values inside apple_count and orange_count columns across both tables,
+-- as well as 0 boundary values and NULL chest_id in Chests.
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (1, NULL, 10);
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (2, 20, NULL);
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (NULL, 100, 100);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (1, 1, 5, NULL);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (2, 2, NULL, 15);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (1, 3, 0, 0);
+```
+
+```sql
+-- DATASET 6
+-- Tests accidental join conditions (e.g., B.box_id = C.chest_id instead of B.chest_id = C.chest_id)
+-- and ensures distinct values for every column and table to catch column/table swap mutations.
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (10, 2, 3);
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (20, 5, 7);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (10, 20, 11, 13);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (NULL, 10, 17, 19);
+```
+
+```sql
+-- DATASET 7
+-- Tests SUM(DISTINCT ...) mutations by having duplicate non-zero apple_count and orange_count values across different rows.
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (1, 10, 20);
+INSERT INTO Chests (chest_id, apple_count, orange_count) VALUES (2, 10, 20);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (1, 1, 5, 8);
+INSERT INTO Boxes (chest_id, box_id, apple_count, orange_count) VALUES (2, 2, 5, 8);
+```

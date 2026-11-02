@@ -1,0 +1,34 @@
+-- Schema DDL
+CREATE TABLE "Allergy_Type" ("Allergy" TEXT(20) PRIMARY KEY, "AllergyType" TEXT(20));
+
+CREATE TABLE "Has_Allergy" ("Allergy" TEXT(20), "StuID" INTEGER, FOREIGN KEY ("Allergy") REFERENCES "Allergy_Type" ("Allergy"), FOREIGN KEY ("StuID") REFERENCES "Student" ("StuID"));
+
+CREATE TABLE "Student" ("StuID" INTEGER PRIMARY KEY, "LName" TEXT(12), "Fname" TEXT(12), "Age" INTEGER, "Sex" TEXT(1), "Major" INTEGER, "Advisor" INTEGER, "city_code" TEXT(3));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 2
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Pollen', 'environmental');
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Peanuts', 'food');
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Unknown', NULL);
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Smith', 'John', 20, 'M', 101, 201, 'NYC');
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Pollen', 1);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Unknown', 1);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES (NULL, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT COUNT(*) OVER () AS "count___" FROM (SELECT * FROM "has_allergy" AS "LHS" WHERE EXISTS(SELECT 1 FROM (SELECT * FROM "allergy_type" WHERE ("allergytype" = 'food')) AS RHS WHERE (LHS.allergy = RHS.allergy))) ORDER BY count___;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT COUNT(*) FROM Has_allergy AS T1 JOIN Allergy_type AS T2 ON T1.allergy = T2.allergy WHERE T2.allergytype = 'food';
+
+/*
+Prediction Result:
+(0,)
+*/

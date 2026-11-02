@@ -1,0 +1,50 @@
+-- Schema DDL
+CREATE TABLE "Activity" ("actid" INTEGER PRIMARY KEY, "activity_name" TEXT(25));
+
+CREATE TABLE "Participates_in" ("actid" INTEGER, "stuid" INTEGER, FOREIGN KEY ("actid") REFERENCES "Activity" ("actid"), FOREIGN KEY ("stuid") REFERENCES "Student" ("StuID"));
+
+CREATE TABLE "Faculty_Participates_in" ("actid" INTEGER, "FacID" INTEGER, FOREIGN KEY ("actid") REFERENCES "Activity" ("actid"), FOREIGN KEY ("FacID") REFERENCES "Faculty" ("FacID"));
+
+CREATE TABLE "Student" ("StuID" INTEGER PRIMARY KEY, "LName" TEXT(12), "Fname" TEXT(12), "Age" INTEGER, "Sex" TEXT(1), "Major" INTEGER, "Advisor" INTEGER, "city_code" TEXT(3));
+
+CREATE TABLE "Faculty" ("FacID" INTEGER PRIMARY KEY, "Lname" TEXT(15), "Fname" TEXT(15), "Rank" TEXT(15), "Sex" TEXT(1), "Phone" INTEGER, "Room" TEXT(5), "Building" TEXT(13));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO Activity (actid, activity_name) VALUES (1, 'Debate');
+INSERT INTO Activity (actid, activity_name) VALUES (2, 'Chess');
+INSERT INTO Activity (actid, activity_name) VALUES (3, 'Chess');
+INSERT INTO Activity (actid, activity_name) VALUES (4, 'Archery');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (101, 'Smith', 'John', 'Prof', 'M', 1111, '101A', 'Main');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (102, 'Doe', 'Jane', 'AssocProf', 'F', 2222, '102B', 'Sci');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (103, 'Brown', 'Bob', 'AsstProf', 'M', 3333, '103C', 'Art');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (201, 'Green', 'Alice', 20, 'F', 10, 101, 'NYC');
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (1, 101);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (2, 101);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (2, 102);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (2, 103);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (3, 101);
+INSERT INTO Participates_in (actid, stuid) VALUES (4, 201);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT activity_name, n AS count___ FROM (SELECT LHS.actid AS actid, LHS.n AS n, RHS.activity_name AS activity_name FROM (SELECT actid, COUNT(*) AS n FROM faculty_participates_in GROUP BY actid) AS LHS LEFT JOIN activity AS RHS ON (LHS.actid = RHS.actid)) ORDER BY activity_name, count___ NULLS LAST;
+
+/*
+Gold Result:
+('Chess', 1)
+('Chess', 3)
+('Debate', 1)
+*/
+
+-- Prediction Query
+SELECT T1.activity_name, COUNT(*) FROM Activity AS T1 JOIN Faculty_participates_in AS T2 ON T1.actID = T2.actID GROUP BY T1.actID;
+
+/*
+Prediction Result:
+('Debate', 1)
+('Chess', 3)
+('Chess', 1)
+*/

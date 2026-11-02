@@ -1,0 +1,108 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT T1.ID) vs COUNT(*) or COUNT(T1.ID) when a single qualifying patient has multiple qualifying laboratory records.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', '2010-05-15');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2023-01-01', '1.5');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2023-01-02', '2.5');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2023-01-03', '3.0');
+```
+
+```sql
+-- DATASET 2
+-- Tests CRP boundary values: exact boundary '1.0' (should match >= 1.0, fail > 1.0) and '0.9' (should fail >= 1.0).
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'M', '2012-03-10');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '2014-07-22');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2023-05-01', '1.0');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (2, '2023-05-01', '0.9');
+```
+
+```sql
+-- DATASET 3
+-- Tests SQLite type affinity and string vs numeric comparison on TEXT column CRP (e.g., T2.CRP >= 1.0 vs T2.CRP >= '1.0' or CAST(T2.CRP AS REAL) >= 1.0).
+-- In SQLite, TEXT columnCRP compared to 1.0 converts 1.0 to '1.0' and performs lexicographical comparison:
+-- '0.95' < '1.0', '2.0' >= '1.0', '05.0' < '1.0', '+' < '1.0', '++' < '1.0'.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'M', '2015-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '2015-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'M', '2015-01-01');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2023-01-01', '05.0');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (2, '2023-01-01', '+');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (3, '2023-01-01', '2.0');
+```
+
+```sql
+-- DATASET 4
+-- Tests explicit exclusion of '-' and '+-' as well as other non-numeric CRP values ('+', '++') and NULLs.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', '2011-11-11');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'M', '2011-11-11');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'F', '2011-11-11');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (4, 'M', '2011-11-11');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2023-02-01', '-');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (2, '2023-02-01', '+-');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (3, '2023-02-01', NULL);
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (4, '2023-02-01', '1.2');
+```
+
+```sql
+-- DATASET 5
+-- Tests Age calculation boundary: 2025 - BirthYear < 18 (Note: integer subtraction compared to '18' uses NUMERIC affinity on INTEGER-like expression, or standard < 18).
+-- Year 2007 -> 2025 - 2007 = 18 (not < 18).
+-- Year 2008 -> 2025 - 2008 = 17 (< 18).
+-- Year 2006 -> 2025 - 2006 = 19 (not < 18).
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'M', '2007-12-31');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '2008-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'M', '2006-06-15');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2023-06-01', '4.5');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (2, '2023-06-01', '4.5');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (3, '2023-06-01', '4.5');
+```
+
+```sql
+-- DATASET 6
+-- Tests exact date diff vs birth year diff (e.g., someone born in late 2007 is < 18 years old by exact days on 2025-01-01, namely 17.005 years old, but 2025 - 2007 = 18).
+-- Also tests using wrong date column in Patient (Description or "First Date" instead of Birthday) or Laboratory.Date.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (1, 'F', '2007-12-30', '2015-01-01', '2015-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (2, 'M', '1990-01-01', '2015-01-01', '2015-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (3, 'F', '2010-01-01', '1990-01-01', '1990-01-01');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2015-01-01', '2.1');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (2, '2015-01-01', '2.1');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (3, '1990-01-01', '2.1');
+```
+
+```sql
+-- DATASET 7
+-- Tests INNER JOIN vs LEFT JOIN and presence of Examination table (in case a mutant joins Examination instead of or in addition to Laboratory).
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'M', '2012-05-05');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '2013-08-08');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'M', '2014-09-09');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2023-01-01', '1.8');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (2, '2023-01-01', '3.2');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '2023-01-01', 'Normal');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (3, '2023-01-01', 'Normal');
+```
+
+```sql
+-- DATASET 8
+-- Tests NULL handling in Birthday and CRP, and mixed valid/invalid laboratory records for the same patient.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', NULL);
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'M', '2016-04-01');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2023-03-01', '5.0');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (2, '2023-03-01', '-');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (2, '2023-03-02', '0.4');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (2, '2023-03-03', '1.0');
+```
+
+```sql
+-- DATASET 9
+-- Tests lexicographical comparison quirk in SQLite:
+-- In SQLite, STRFTIME('%Y', ...) - STRFTIME('%Y', ...) yields an INTEGER (since '-' is an arithmetic operator).
+-- An INTEGER has NO affinity, so comparing `INTEGER < '18'` converts '18' to NUMERIC (18), resulting in numeric comparison!
+-- However, if a mutant omits the subtraction or formats as TEXT, or if CRP (which has TEXT affinity) is compared to 1.0 (which converts 1.0 to '1.0'):
+-- For CRP: '10.0' >= '1.0' is TRUE, '0.9' >= '1.0' is FALSE, '1' >= '1.0' is FALSE (because '1' < '1.0' lexicographically!).
+-- Let's include CRP = '1' and CRP = '10.0' and age = 9 (which is < 18 numerically, but '9' > '18' lexicographically if cast to text).
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'M', '2016-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '2010-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'M', '2010-01-01');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (1, '2023-01-01', '2.0');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (2, '2023-01-01', '1');
+INSERT INTO Laboratory (ID, Date, CRP) VALUES (3, '2023-01-01', '10.0');
+```

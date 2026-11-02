@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Basic case where AVG(A13) > AVG(A12) -> returns '1996'.
+-- Also tests DISTINCT if a mutant forgets AVG() and evaluates per-row (row 1: 13>12, row 2: 13<12).
+-- SUM(A13) = 15, AVG(A13) = 7.5; SUM(A12) = 12, AVG(A12) = 6.0.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 8000, 2.0, 10.0, 100, 10, 20);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '2000', '2', '2', '2', 2, 2, 60.0, 9000, 10.0, 5.0, 110, 15, 25);
+```
+
+```sql
+-- DATASET 2
+-- Basic case where AVG(A13) < AVG(A12) -> returns '1995'.
+-- Tests the false branch and non-aggregated mutants (both rows have A13 < A12, checking if DISTINCT is missing on multi-row output).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 8000, 8.0, 4.0, 100, 10, 20);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '2000', '2', '2', '2', 2, 2, 60.0, 9000, 12.0, 6.0, 110, 15, 25);
+```
+
+```sql
+-- DATASET 3
+-- Boundary condition: AVG(A13) == AVG(A12) -> returns '1995'.
+-- Kills mutants replacing '>' with '>=' or '!='.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 8000, 5.0, 7.0, 100, 10, 20);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '2000', '2', '2', '2', 2, 2, 60.0, 9000, 7.0, 5.0, 110, 15, 25);
+```
+
+```sql
+-- DATASET 4
+-- NULL handling in A12: AVG(A12) > AVG(A13), but SUM(A12) < SUM(A13) and SUM(A12)/COUNT(*) < AVG(A13).
+-- Kills mutants using SUM instead of AVG, or COALESCE(A12, 0).
+-- A13: (6.0 + 6.0) / 2 = 6.0, SUM = 12.0.
+-- A12: (10.0) / 1 = 10.0, SUM = 10.0, COALESCE AVG = 5.0.
+-- Gold: 6.0 > 10.0 is False -> '1995'. Mutant (SUM or COALESCE): 12 > 10 or 6 > 5 is True -> '1996'.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 8000, 10.0, 6.0, 100, 10, 20);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '2000', '2', '2', '2', 2, 2, 60.0, 9000, NULL, 6.0, 110, 15, 25);
+```
+
+```sql
+-- DATASET 5
+-- NULL handling in A12: AVG(A13) > AVG(A12), where non-null row has A13 < A12.
+-- Kills mutants filtering with WHERE A12 IS NOT NULL.
+-- Row 1: A12=10, A13=5. Row 2: A12=NULL, A13=20.
+-- Gold: AVG(A13) = 12.5, AVG(A12) = 10.0 -> 12.5 > 10.0 is True ('1996').
+-- Mutant with WHERE A12 IS NOT NULL: AVG(A13) = 5.0, AVG(A12) = 10.0 -> False ('1995').
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 8000, 10.0, 5.0, 100, 10, 20);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '2000', '2', '2', '2', 2, 2, 60.0, 9000, NULL, 20.0, 110, 15, 25);
+```
+
+```sql
+-- DATASET 6
+-- All A12 values are NULL. AVG(A12) evaluates to NULL.
+-- In SQL, AVG(A13) > NULL is UNKNOWN (falsy in IIF), so it must return '1995'.
+-- Kills mutants that coalesce A12 to 0 (which would compare 5.0 > 0.0 -> '1996').
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 8000, NULL, 5.0, 100, NULL, 20);
+```
+
+```sql
+-- DATASET 7
+-- Kills AVG(DISTINCT ...) mutants and MIN/MAX mutants.
+-- A13 values: 10.0, 10.0, 1.0 -> AVG(A13) = 7.0, AVG(DISTINCT A13) = 5.5, MIN(A13) = 1.0, MAX(A13) = 10.0.
+-- A12 values: 2.0, 10.0, 6.0  -> AVG(A12) = 6.0, AVG(DISTINCT A12) = 6.0, MIN(A12) = 2.0, MAX(A12) = 10.0.
+-- Gold: 7.0 > 6.0 -> '1996'.
+-- Mutant AVG(DISTINCT): 5.5 > 6.0 -> '1995'.
+-- Mutant MIN: 1.0 > 2.0 -> '1995'.
+-- Mutant MAX: 10.0 > 10.0 -> '1995'.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 8000, 2.0, 10.0, 100, 10, 20);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '2000', '2', '2', '2', 2, 2, 60.0, 9000, 10.0, 10.0, 110, 15, 25);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D3', 'R3', '3000', '3', '3', '3', 3, 3, 70.0, 7000, 6.0, 1.0, 120, 20, 30);
+```
+
+```sql
+-- DATASET 8
+-- Kills mutants with unnecessary INNER JOINs to child tables (account, client, etc.) and column swaps (A10, A11, A15, A16).
+-- District 1 has accounts and clients; District 2 has none.
+-- District 1: A12 = 10.0, A13 = 2.0.
+-- District 2: A12 = 2.0, A13 = 20.0.
+-- Gold (all districts): AVG(A13) = 11.0, AVG(A12) = 6.0 -> '1996'.
+-- Mutant (joined with account or client): only District 1 is included -> AVG(A13) = 2.0, AVG(A12) = 10.0 -> '1995'.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 100.0, 100, 10.0, 2.0, 100, 100, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '2000', '2', '2', '2', 2, 2, 100.0, 100, 2.0, 20.0, 100, 100, 100);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 1, 'OWNER');
+```
+
+```sql
+-- DATASET 9
+-- Floating point precision and integer division test.
+-- A13: 1.5, 1.6 -> AVG = 1.55 (If cast to INT before/after: 1).
+-- A12: 1.4, 1.4 -> AVG = 1.40 (If cast to INT before/after: 1).
+-- Gold: 1.55 > 1.40 -> '1996'.
+-- Mutant with integer casting/division: 1 > 1 (False) -> '1995'.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 8000, 1.4, 1.5, 100, 10, 20);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '2000', '2', '2', '2', 2, 2, 60.0, 9000, 1.4, 1.6, 110, 15, 25);
+```

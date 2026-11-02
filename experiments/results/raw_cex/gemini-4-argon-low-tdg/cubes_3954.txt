@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality:
+-- 1. Most frequent role ('R_MOST', n=3) is NOT assigned to project_id=maxn (3).
+-- 2. Less frequent role ('R_LESS', n=1) IS assigned to project_id=maxn (3).
+-- 3. Another role ('R_MOD', n=2) is assigned to project_id=n (2) to kill mutants joining on LHS.n = RHS.project_id.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('OT1', 'Org Type 1');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'OT1', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Project 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (2, 1, 'Project 2');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (3, 1, 'Project 3');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_MOST', 'Most Frequent Role');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_LESS', 'Less Frequent Role');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_MOD', 'Moderate Frequent Role');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, 'R_MOST', 1, '2020-01-01', '2020-12-31', 'D1');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, 'R_MOST', 1, '2020-01-01', '2020-12-31', 'D2');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (3.0, 'R_MOST', 2, '2020-01-01', '2020-12-31', 'D3');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (4.0, 'R_LESS', 3, '2020-01-01', '2020-12-31', 'D4');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (5.0, 'R_MOD', 2, '2020-01-01', '2020-12-31', 'D5');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (6.0, 'R_MOD', 1, '2020-01-01', '2020-12-31', 'D6');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate preservation (SELECT vs SELECT DISTINCT), ordering (ORDER BY role_code),
+-- and multiple roles matching project_id = maxn.
+-- maxn = 3 (from 'R_Z'). Both 'R_Z' (twice) and 'R_A' (once) appear in project_id = 3.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('OT1', 'Org Type 1');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'OT1', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Project 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (3, 1, 'Project 3');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_Z', 'Role Z');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_A', 'Role A');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (10.0, 'R_Z', 3, '2021-01-01', '2021-06-01', 'Z1');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (20.0, 'R_Z', 3, '2021-01-01', '2021-06-01', 'Z2');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (30.0, 'R_Z', 1, '2021-01-01', '2021-06-01', 'Z3');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (40.0, 'R_A', 3, '2021-01-01', '2021-06-01', 'A1');
+```
+
+```sql
+-- DATASET 3
+-- Tests COUNT(*) vs COUNT(column) with NULLs in nullable columns (project_id, date_from, date_to, other_details),
+-- and tests staff_id vs project_id confusion in the join condition.
+-- 'R_NULLS' has 3 rows (2 with NULL project_id), so COUNT(*) = 3, making maxn = 3.
+-- If COUNT(project_id) or WHERE project_id IS NOT NULL is used, maxn becomes 2.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('OT1', 'Org Type 1');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'OT1', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Project 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (2, 1, 'Project 2');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (3, 1, 'Project 3');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_NULLS', 'Role with NULLs');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_TWO', 'Role with 2 rows');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_THREE', 'Role in Project 3');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (100.0, 'R_NULLS', 1, NULL, NULL, NULL);
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (101.0, 'R_NULLS', NULL, NULL, NULL, NULL);
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (102.0, 'R_NULLS', NULL, NULL, NULL, NULL);
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (3.0, 'R_TWO', 2, '2022-01-01', '2022-12-31', 'Staff ID is 3 (maxn), Project ID is 2');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (104.0, 'R_TWO', 1, '2022-01-01', '2022-12-31', 'Second row for R_TWO');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (105.0, 'R_THREE', 3, '2022-01-01', '2022-12-31', 'Target row in Project 3');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when no row in Project_Staff has project_id = maxn,
+-- while unreferenced Projects and Staff_Roles exist in parent tables (kills OUTER JOIN mutants).
+-- maxn = 2, but all Project_Staff rows are in project_id = 1 or 5.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('OT1', 'Org Type 1');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'OT1', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Project 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (2, 1, 'Project 2 (Empty)');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (5, 1, 'Project 5');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R1', 'Role 1');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R2', 'Role 2');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_UNUSED', 'Unused Role');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, 'R1', 1, '2020-01-01', '2020-12-31', 'D1');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, 'R1', 5, '2020-01-01', '2020-12-31', 'D2');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (3.0, 'R2', 5, '2020-01-01', '2020-12-31', 'D3');
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL role_code handling in GROUP BY and INNER JOIN (NULL = NULL is false in SQL JOIN).
+-- The NULL role_code group has 3 rows, so maxn = 3.
+-- Also tests that a row with NULL role_code and project_id = 3 is NOT joined by LHS.role_code = RHS.role_code.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('OT1', 'Org Type 1');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'OT1', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Project 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (2, 1, 'Project 2');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (3, 1, 'Project 3');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_VALID1', 'Valid Role 1');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R_VALID2', 'Valid Role 2');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, NULL, 1, '2020-01-01', '2020-12-31', 'Null Role 1');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, NULL, 1, '2020-01-01', '2020-12-31', 'Null Role 2');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (3.0, NULL, 3, '2020-01-01', '2020-12-31', 'Null Role in Project 3');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (4.0, 'R_VALID1', 2, '2020-01-01', '2020-12-31', 'Valid Role 1 Row 1');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (5.0, 'R_VALID1', 2, '2020-01-01', '2020-12-31', 'Valid Role 1 Row 2');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (6.0, 'R_VALID2', 3, '2020-01-01', '2020-12-31', 'Valid Role 2 in Project 3');
+```

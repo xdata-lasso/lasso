@@ -1,0 +1,124 @@
+-- Schema DDL
+CREATE TABLE event (event_id TEXT CONSTRAINT event_pk PRIMARY KEY, event_name TEXT, event_date TEXT, type TEXT, notes TEXT, location TEXT, status TEXT);
+
+CREATE TABLE major (major_id TEXT CONSTRAINT major_pk PRIMARY KEY, major_name TEXT, department TEXT, college TEXT);
+
+CREATE TABLE zip_code (zip_code INTEGER CONSTRAINT zip_code_pk PRIMARY KEY, type TEXT, city TEXT, county TEXT, state TEXT, short_state TEXT);
+
+CREATE TABLE "attendance" (link_to_event TEXT, link_to_member TEXT, PRIMARY KEY (link_to_event, link_to_member), FOREIGN KEY (link_to_event) REFERENCES event (event_id), FOREIGN KEY (link_to_member) REFERENCES member (member_id));
+
+CREATE TABLE "budget" (budget_id TEXT PRIMARY KEY, category TEXT, spent REAL, remaining REAL, amount INTEGER, event_status TEXT, link_to_event TEXT, FOREIGN KEY (link_to_event) REFERENCES event (event_id));
+
+CREATE TABLE "expense" (expense_id TEXT PRIMARY KEY, expense_description TEXT, expense_date TEXT, cost REAL, approved TEXT, link_to_member TEXT, link_to_budget TEXT, FOREIGN KEY (link_to_budget) REFERENCES budget (budget_id), FOREIGN KEY (link_to_member) REFERENCES member (member_id));
+
+CREATE TABLE "income" (income_id TEXT CONSTRAINT income_pk PRIMARY KEY, date_received TEXT, amount INTEGER, source TEXT, notes TEXT, link_to_member TEXT, FOREIGN KEY (link_to_member) REFERENCES member (member_id));
+
+CREATE TABLE "member" (member_id TEXT CONSTRAINT member_pk PRIMARY KEY, first_name TEXT, last_name TEXT, email TEXT, position TEXT, t_shirt_size TEXT, phone TEXT, zip INTEGER, link_to_major TEXT, FOREIGN KEY (link_to_major) REFERENCES major (major_id), FOREIGN KEY (zip) REFERENCES zip_code (zip_code));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: member --
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('member_id_1', 'Tyler', 'Hewitt', 'tti', 'bnp', 'mdpos', 'ie5', -2147483648, 't1__b8ea59');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('member_id_2', 'Tyler', 'Hewitt', 'e', '76nium52', 'zbuo4nrqrof', 'qyp5s5bbp0', -2147483648, 't1__b8ea59');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('member_id_3', 'Tyler', 'Hewitt', 'lex', '4ji7zwa', '2dwyrq', '3pyu78d', -2147483648, 't1__2cbb10');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('member_id_4', 'Tyler', 'Hewitt', 'y9uxj4', 'wb', 'v', 'ph2', -2147483648, '_');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('member_id_5', 'Tyler', 'Hewitt', '9fjgq8n2f', 'dqv0gcb9', 'ozk3zbily', 'kn6vc', -2147483648, 'G');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('member_id_6', 'Tyler', 'Hewitt', 'a7ryfd', 'z16ni', 'jai', 'dh5ogrgj', -2147483648, 'Q');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('I', 'Tyler', 'Hewitt', 'yzt1afgog', 'itsj3', 'y', 'p1q430', -2147483648, 't1__b8ea59');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('A', 'Tyler', 'Hewitt', 'jh3den8c68', '8vacx7', 'f', '5w1of7', -2147483648, 't1__b8ea59');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('G', 'Tyler', 'Hewitt', 'o72ctdc', 'mfg62', '0v', 'q8qdjpe1', -2147483648, 't1__b8ea59');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('O', 'Tyler', 'Hewitt', '278507cv', 'jpttg', 'bnou5zi36', '4', -2147483648, 't1__b8ea59');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('member_id_11', 't1__cea999', 'Hewitt', 'foa', 'cd07z2zezjo7', 'wgxd5ysxcm', '0oztd', -2147483648, 't1__b8ea59');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('member_id_12', 'Tyler', 't1__dd0f3e', '5i3', 'q5l', 'pim5', '58q', -2147483648, 't1__b8ea59');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('member_id_13', 'Tyler', 'Hewitt', '8uttmu', 'ne578lfv', 'yz7zzbe8yvk', 'v42q7sx58b4p', -2147483648, 't1__b8ea59');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('C', 'Tyler', NULL, 'u7', 'fe4hri', 'a2ypuzhsrwbb', 'p6luhvdlttil', -2147483648, '@');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('@', 't1__cea999', 't1__dd0f3e', 'nw6klf', 'a9000t5c4eci', 'gce376nium52', 'zbuo4nrqrof', -2147483648, 'B');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('B', 't1__cea999', NULL, '72k', 'ex1', 'ji7zwau2', 'dwyrq13pyu78', -2147483648, 'E');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('`', NULL, 'Hewitt', 'x58pz0f8je', 'd2', 'vy9uxj4', 'wb', -2147483648, 'C');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('D', NULL, 't1__dd0f3e', 'nqcx5h', 'cprj', 'u0dz7', 'fjgq8n2f3', -2147483648, '`');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('c', NULL, NULL, 'lq7xb7', '2fxa7ryfdrz', '16nijjai5dh', 'ogrgjd8y', -2147483648, '$');
+
+INSERT INTO "member" ("member_id", "first_name", "last_name", "email", "position", "t_shirt_size", "phone", "zip", "link_to_major") VALUES ('a', 'Tyler', 'Hewitt', 'ia2yp', 'uzhsrwbbp6lu', 'hvdlttilbnpr', 'dpos', -2147483648, 'D');
+
+-- Inserting into table: major --
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('t1__b8ea59', '5k5swwqcgs', '9n8', 't2__6971ef');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('major_id_2', 'nw6klf', 'a9000t5c4eci', 't2__6971ef');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('t1__2cbb10', '2eutliqa11r', 'ytoo3o9', 'l7');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('A', '9rljsl0b4', 'p5qi2rk', 't2__6971ef');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('_', '9v', 'x58pz', 'f8jegd2');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('G', 'nd', 'wnqcx', '5hncprjtu0d');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('Q', '6ah', 'f8jswwl', '7xb72');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('t2__6ced52', 's27p2r94gth2', 'najj', 'a3o');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('@', '5k5swwqcgs', '9n8', '4');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('B', 'n', 'rmdp', 'siie');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('E', 'qyp5s5bbp0', '2eutliqa11r', 'ytoo3o9');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('C', '9', 'rljsl0b4y', 'p5qi2rkf9v');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('`', 'v', 'ph2', 'nd');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('$', 'dqv0gcb98ozk', 'zbilyrkn', '6vck6ah0f8js');
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('major_id_15', '5k5swwqcgs', '9n8', NULL);
+
+INSERT INTO "major" ("major_id", "major_name", "department", "college") VALUES ('D', '4', 'gu7v', 'e4');
+
+-- Inserting into table: zip_code --
+INSERT INTO "zip_code" ("zip_code", "type", "city", "county", "state", "short_state") VALUES (-2147483648, '4', 'gu7v', 'e4', 'hria2ypuzhs', 'rwbbp6luhvd');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T2.college FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T1.first_name = 'Tyler' AND T1.last_name = 'Hewitt';
+
+/*
+Gold Result:
+('t2__6971ef',)
+('t2__6971ef',)
+('l7',)
+('f8jegd2',)
+('5hncprjtu0d',)
+('7xb72',)
+('t2__6971ef',)
+('t2__6971ef',)
+('t2__6971ef',)
+('t2__6971ef',)
+('t2__6971ef',)
+('e4',)
+*/
+
+-- Prediction Query
+SELECT college FROM major WHERE major_id = (SELECT link_to_major FROM member WHERE first_name = 'Tyler' AND last_name = 'Hewitt');
+
+/*
+Prediction Result:
+('t2__6971ef',)
+*/

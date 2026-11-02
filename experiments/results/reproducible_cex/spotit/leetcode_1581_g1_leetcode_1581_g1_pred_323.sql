@@ -1,0 +1,38 @@
+-- Schema DDL
+CREATE TABLE "VISITS" (
+    "VISIT_ID" INT,
+    "CUSTOMER_ID" INT,
+    UNIQUE ("VISIT_ID")
+);
+CREATE TABLE "TRANSACTIONS" (
+    "TRANSACTION_ID" INT,
+    "VISIT_ID" INT,
+    "AMOUNT" INT,
+    UNIQUE ("TRANSACTION_ID"),
+    FOREIGN KEY ("VISIT_ID") REFERENCES "VISITS"("VISIT_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO VISITS VALUES (NULL, 0);
+INSERT INTO VISITS VALUES (0, 0);
+INSERT INTO TRANSACTIONS VALUES (NULL, 0, 0);
+INSERT INTO TRANSACTIONS VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT customer_id, COUNT(V.visit_id) AS count_no_trans FROM Visits AS V LEFT JOIN Transactions AS T ON V.visit_id = T.visit_id WHERE T.transaction_id IS NULL GROUP BY customer_id;
+
+/*
+Gold Result:
+(0, 1)
+*/
+
+-- Prediction Query
+SELECT CUSTOMER_ID, COUNT(1) AS COUNT_NO_TRANS FROM VISITS NATURAL LEFT JOIN TRANSACTIONS WHERE TRANSACTION_ID IS NULL GROUP BY CUSTOMER_ID;
+
+/*
+Prediction Result:
+(0, 2)
+*/

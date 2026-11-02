@@ -1,0 +1,102 @@
+```sql
+-- DATASET 1
+-- Tests basic predicate matching ('sint' vs non-matching, substring, case sensitivity, NULL), 
+-- duplicate elimination (SELECT vs SELECT DISTINCT), ordering (ASC vs DESC), and NULLS LAST vs NULLS FIRST.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('TYPE1', 'Org Type 1');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'TYPE1', 'sint');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (2, 'TYPE1', 'other');
+
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (10, 2, 'sint');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (20, 2, 'sint');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (30, 1, 'SINT');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (40, 1, 'sint_extra');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (50, 1, NULL);
+
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('OC1', 'Zebra');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('OC2', 'Alpha');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('OC3', NULL);
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('OC4', 'Unmatched_Project');
+
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('OC1', 10, 'Det 1');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('OC2', 10, 'Det 2');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('OC2', 20, 'Det 3');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('OC3', 20, 'Det 4');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('OC4', 30, 'sint');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('OC4', 40, 'sint');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('OC4', 50, 'sint');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOINs (dangling rows in Projects, Research_Outcomes, and NULL FKs in Project_Outcomes),
+-- and wrong join column mutations (e.g. joining project_id with organisation_id, or outcome_code with outcome_details).
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'T1', 'Org 1');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (2, 'T1', 'Org 2');
+
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 2, 'wrong_project_matched_by_org_id');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (2, 1, 'sint');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (3, 1, 'sint');
+
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('A', 'Valid_Outcome');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('B', 'Decoy_Outcome_Matched_By_Details');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('C', 'Unused_Outcome_For_Outer_Join');
+
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('A', 2, 'B');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES (NULL, 2, 'A');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('B', NULL, 'sint');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('B', 1, 'sint');
+```
+
+```sql
+-- DATASET 3
+-- Tests column projection confusion (outcome_description vs outcome_code vs outcome_details vs project_details)
+-- and sorting tie-breakers / secondary sort mutations (where outcome_description is identical or prefix-related, 
+-- while outcome_code and project_id are ordered inversely).
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (100, NULL, 'sint');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (200, NULL, 'sint');
+
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('CODE_Z', 'Desc_1');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('CODE_M', 'Desc_2');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('CODE_A', 'Desc_3');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('sint', 'Desc_0');
+
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('CODE_Z', 200, 'Details_X');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('CODE_M', 100, 'Details_Y');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('CODE_A', 100, 'Details_Z');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('sint', 200, 'sint');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when 'sint' is present in every possible text column EXCEPT Projects.project_details,
+-- and when Projects.project_details is 'sint' but has no linked Project_Outcomes.
+INSERT INTO "Document_Types" ("document_type_code", "document_description") VALUES ('sint', 'sint');
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('sint', 'sint');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'sint', 'sint');
+
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'not_s_i_n_t');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (2, 1, 'sint');
+
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('sint', 'sint');
+
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('sint', 1, 'sint');
+```
+
+```sql
+-- DATASET 5
+-- Tests 1-to-many fanout across both joins (same project having multiple identical outcomes, 
+-- different outcomes having identical descriptions, and NULL outcome_description sorting at the end).
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, NULL, 'sint');
+
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('O1', NULL);
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('O2', 'Same_Desc');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('O3', 'Same_Desc');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('O4', '');
+
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('O1', 1, 'D1');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('O2', 1, 'D2');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('O2', 1, 'D3');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('O3', 1, 'D4');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('O4', 1, 'D5');
+```

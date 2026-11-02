@@ -1,0 +1,117 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. HAVING boundary condition: COUNT(T4.Id) = 5 (passes > 4) vs COUNT(T4.Id) = 4 (fails > 4, tests >= 4 mutant).
+-- 2. GROUP BY T2.PostId, T4.Id vs GROUP BY T2.PostId alone (Post 101 has 2 votes, each with 4 postHistory records; grouped by both, count is 4 (excluded); grouped only by PostId, count is 8 (included)).
+-- 3. COUNT(T1.Id) vs COUNT(DISTINCT T1.Id) or COUNT(DISTINCT T4.Id) (since 1 user and 1 vote per group, DISTINCT would return 1 instead of 5).
+-- 4. Correct join condition T1.Id = T2.UserId vs T1.Id = T3.OwnerUserId or T1.Id = T4.UserId.
+-- 5. WHERE T1.DisplayName = 'Matt Parker' filter vs other users.
+
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Matt Parker');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Other User');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId) VALUES (100, 2, 2);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId) VALUES (101, 2, 2);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId) VALUES (102, 1, 1);
+
+-- Post 100: 5 postHistory records by Matt Parker (User 1).
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1001, 100, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1002, 100, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1003, 100, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1004, 100, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1005, 100, 1);
+-- 1 extra postHistory on Post 100 by User 2 (tests WHERE filter).
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1006, 100, 2);
+
+-- Post 101: 4 postHistory records by Matt Parker (User 1) (boundary test for > 4).
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1011, 101, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1012, 101, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1013, 101, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1014, 101, 1);
+
+-- Post 102: Owned by Matt Parker (User 1), but postHistory is by User 2 (tests join on T2.UserId vs T3.OwnerUserId).
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1021, 102, 2);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1022, 102, 2);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1023, 102, 2);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1024, 102, 2);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1025, 102, 2);
+
+-- Votes:
+-- Vote 200 on Post 100 -> forms a group (100, 200) of size 5 for Matt Parker.
+INSERT INTO votes (Id, PostId, UserId) VALUES (200, 100, 2);
+
+-- Votes 201 and 202 on Post 101 -> forms two groups (101, 201) and (101, 202) of size 4 each.
+INSERT INTO votes (Id, PostId, UserId) VALUES (201, 101, 2);
+INSERT INTO votes (Id, PostId, UserId) VALUES (202, 101, 2);
+
+-- Vote 203 on Post 102 -> forms group (102, 203) of size 5 for User 2.
+INSERT INTO votes (Id, PostId, UserId) VALUES (203, 102, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Multiple users named 'Matt Parker' contributing to the same PostId and VoteId.
+-- 2. Kills mutants that add T1.Id to GROUP BY (which would split the 3+3=6 count into two groups of 3, failing > 4).
+-- 3. Kills mutants that use COUNT(DISTINCT T1.Id) in SELECT or HAVING (which would evaluate to 2 instead of 6).
+-- 4. Multiple qualifying groups returning multiple rows with different counts (6 and 5).
+
+INSERT INTO users (Id, DisplayName) VALUES (10, 'Matt Parker');
+INSERT INTO users (Id, DisplayName) VALUES (11, 'Matt Parker');
+
+INSERT INTO posts (Id, OwnerUserId) VALUES (200, 10);
+
+-- 3 postHistory rows by User 10, and 3 by User 11 on Post 200 (Total 6 for Post 200).
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2001, 200, 10);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2002, 200, 10);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2003, 200, 10);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2004, 200, 11);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2005, 200, 11);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2006, 200, 11);
+
+-- Two votes on Post 200 -> creates two distinct groups (200, 301) and (200, 302), each with count 6.
+INSERT INTO votes (Id, PostId, UserId) VALUES (301, 200, 10);
+INSERT INTO votes (Id, PostId, UserId) VALUES (302, 200, 11);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Inner join with votes (T4) vs LEFT JOIN (Post 300 has 5 postHistory records by Matt Parker, but 0 votes).
+-- 2. Join condition T2.PostId = T3.Id and T4.PostId = T3.Id vs accidental cross-joins or joining on wrong IDs (e.g. T4.Id = T3.Id).
+-- 3. Case sensitivity / exact match of 'Matt Parker' vs 'matt parker' or 'Matt Parker '.
+-- 4. NULL values in optional columns of joined tables (ensuring COUNT(T1.Id) / COUNT(T4.Id) isn't replaced by COUNT(nullable_col)).
+
+INSERT INTO users (Id, DisplayName, Reputation, WebsiteUrl) VALUES (1, 'Matt Parker', NULL, NULL);
+INSERT INTO users (Id, DisplayName, Reputation, WebsiteUrl) VALUES (2, 'matt parker', 100, 'http://example.com');
+
+INSERT INTO posts (Id, OwnerUserId, AcceptedAnswerId, ParentId) VALUES (300, NULL, NULL, NULL);
+INSERT INTO posts (Id, OwnerUserId, AcceptedAnswerId, ParentId) VALUES (301, NULL, NULL, NULL);
+INSERT INTO posts (Id, OwnerUserId, AcceptedAnswerId, ParentId) VALUES (302, NULL, NULL, NULL);
+
+-- Post 300 has 5 postHistory records by User 1, but NO votes.
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (1, 300, 1, NULL, NULL);
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (2, 300, 1, NULL, NULL);
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (3, 300, 1, NULL, NULL);
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (4, 300, 1, NULL, NULL);
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (5, 300, 1, NULL, NULL);
+
+-- Post 301 has 6 postHistory records by User 1, and 1 vote (Id=300, which matches Post 300's Id to trap T4.Id = T3.Id mutants, but its PostId is 301).
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (6, 301, 1, NULL, NULL);
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (7, 301, 1, NULL, NULL);
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (8, 301, 1, NULL, NULL);
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (9, 301, 1, NULL, NULL);
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (10, 301, 1, NULL, NULL);
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (11, 301, 1, NULL, NULL);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (300, 301, NULL, NULL, NULL);
+
+-- Post 302 has 5 postHistory records by User 2 ('matt parker'), and 1 vote.
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (12, 302, 2, 'text', 'comment');
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (13, 302, 2, 'text', 'comment');
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (14, 302, 2, 'text', 'comment');
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (15, 302, 2, 'text', 'comment');
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (16, 302, 2, 'text', 'comment');
+
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (301, 302, 1, 2, 50);
+```

@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, exact match, prefix/suffix wildcards, non-matching values, and NULL handling.
+-- Also kills COUNT(CASE ... ELSE 0 END) and COUNT(*) without WHERE.
+INSERT INTO cards (id, uuid, name, availability) VALUES (1, 'uuid-101', 'Alpha Card', 'arena,mtgo');
+INSERT INTO cards (id, uuid, name, availability) VALUES (2, 'uuid-102', 'Beta Card', 'arena,mtgo,paper');
+INSERT INTO cards (id, uuid, name, availability) VALUES (3, 'uuid-103', 'Gamma Card', 'dreamcast,arena,mtgo');
+INSERT INTO cards (id, uuid, name, availability) VALUES (4, 'uuid-104', 'Delta Card', 'dreamcast,arena,mtgo,paper');
+INSERT INTO cards (id, uuid, name, availability) VALUES (5, 'uuid-105', 'Epsilon Card', 'arena');
+INSERT INTO cards (id, uuid, name, availability) VALUES (6, 'uuid-106', 'Zeta Card', 'mtgo');
+INSERT INTO cards (id, uuid, name, availability) VALUES (7, 'uuid-107', 'Eta Card', 'paper');
+INSERT INTO cards (id, uuid, name, availability) VALUES (8, 'uuid-108', 'Theta Card', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests order sensitivity, spacing, separator variations, and OR vs AND logic.
+-- Kills mutants like: availability LIKE '%arena%' AND availability LIKE '%mtgo%', or LIKE '%mtgo,arena%', or LIKE '%arena, mtgo%'.
+INSERT INTO cards (id, uuid, name, availability) VALUES (1, 'uuid-201', 'Order Reversed', 'mtgo,arena');
+INSERT INTO cards (id, uuid, name, availability) VALUES (2, 'uuid-202', 'Separated By Other', 'arena,paper,mtgo');
+INSERT INTO cards (id, uuid, name, availability) VALUES (3, 'uuid-203', 'Space In Between', 'arena, mtgo');
+INSERT INTO cards (id, uuid, name, availability) VALUES (4, 'uuid-204', 'Valid Match', 'arena,mtgo');
+```
+
+```sql
+-- DATASET 3
+-- Tests zero-match behavior.
+-- Kills mutants using SUM(CASE WHEN ... THEN 1 ELSE NULL END) which returns NULL instead of 0 when no rows match.
+-- Also kills mutants omitting the ELSE NULL (which implicitly defaults to NULL, still returning NULL for SUM) or using ELSE 0 with COUNT.
+INSERT INTO cards (id, uuid, name, availability) VALUES (1, 'uuid-301', 'Paper Only', 'paper');
+INSERT INTO cards (id, uuid, name, availability) VALUES (2, 'uuid-302', 'Arena Only', 'arena');
+INSERT INTO cards (id, uuid, name, availability) VALUES (3, 'uuid-303', 'Null Availability', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests duplicate values, identical rows (except PK/UUID), and potential unintended INNER JOINs with related tables.
+-- Kills mutants using COUNT(DISTINCT availability), COUNT(DISTINCT name), or joining with sets/legalities/rulings/foreign_data.
+INSERT INTO sets (id, code, name) VALUES (1, 'SET1', 'Test Set 1');
+
+INSERT INTO cards (id, uuid, name, availability, setCode) VALUES (1, 'uuid-401', 'Twin Card', 'arena,mtgo', 'SET1');
+INSERT INTO cards (id, uuid, name, availability, setCode) VALUES (2, 'uuid-402', 'Twin Card', 'arena,mtgo', 'SET1');
+INSERT INTO cards (id, uuid, name, availability, setCode) VALUES (3, 'uuid-403', 'Orphan Card', 'arena,mtgo,paper', NULL);
+INSERT INTO cards (id, uuid, name, availability, setCode) VALUES (4, 'uuid-404', 'Duplicate Availability', 'arena,mtgo,paper', 'NON_EXISTENT_SET');
+
+INSERT INTO legalities (id, uuid, format, status) VALUES (1, 'uuid-401', 'standard', 'Legal');
+INSERT INTO legalities (id, uuid, format, status) VALUES (2, 'uuid-401', 'historic', 'Legal');
+
+INSERT INTO rulings (id, uuid, date, text) VALUES (1, 'uuid-401', '2020-01-01', 'Ruling 1');
+INSERT INTO rulings (id, uuid, date, text) VALUES (2, 'uuid-401', '2020-01-02', 'Ruling 2');
+
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (1, 'uuid-401', 'German', 'Zwillingskarte');
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (2, 'uuid-401', 'French', 'Carte Jumelle');
+```
+
+```sql
+-- DATASET 5
+-- Tests SQLite LIKE case-insensitivity vs GLOB/exact case-sensitive comparisons, and boolean flags (isOnlineOnly, mtgArenaId, mtgoId).
+-- Kills mutants using GLOB '*arena,mtgo*', instr(availability, 'arena,mtgo') > 0, or checking mtgArenaId IS NOT NULL AND mtgoId IS NOT NULL.
+INSERT INTO cards (id, uuid, name, availability, isOnlineOnly, mtgArenaId, mtgoId) VALUES (1, 'uuid-501', 'Upper Case Match', 'ARENA,MTGO', 0, NULL, NULL);
+INSERT INTO cards (id, uuid, name, availability, isOnlineOnly, mtgArenaId, mtgoId) VALUES (2, 'uuid-502', 'Mixed Case Match', 'Paper,Arena,Mtgo', 0, NULL, NULL);
+INSERT INTO cards (id, uuid, name, availability, isOnlineOnly, mtgArenaId, mtgoId) VALUES (3, 'uuid-503', 'False Flag Trap', 'paper', 1, '12345', '67890');
+INSERT INTO cards (id, uuid, name, availability, isOnlineOnly, mtgArenaId, mtgoId) VALUES (4, 'uuid-504', 'Standard Match With IDs', 'arena,mtgo', 1, '111', '222');
+```

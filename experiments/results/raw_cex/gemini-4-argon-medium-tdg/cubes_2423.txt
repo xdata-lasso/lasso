@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests self-join on non-PK columns (date_became_customer, other_customer_details) vs PK join (customer_id),
+-- and tests whether LHS.payment_method or RHS.payment_method is returned when a customer without orders matches a customer with orders.
+INSERT INTO "Products" ("product_id", "product_details") VALUES (1, 'Laptop');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Credit Card', 'Alice', '2020-01-01', 'VIP');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'PayPal', 'Bob', '2020-01-01', 'VIP');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (101, 1, 'Completed', '2020-02-01', 'First Order');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (101, 1, '1');
+```
+
+```sql
+-- DATASET 2
+-- Tests partial matches on the compound join condition (LHS.date_became_customer = RHS.date_became_customer AND LHS.other_customer_details = RHS.other_customer_details).
+-- Catches mutants that use OR instead of AND, or omit one of the two join conditions.
+INSERT INTO "Products" ("product_id", "product_details") VALUES (1, 'Mouse');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Cash', 'Charlie', '2021-05-05', 'Regular');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Debit', 'David', '2021-05-05', 'Premium');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Wire', 'Eve', '2022-06-06', 'Regular');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (201, 1, 'Shipped', '2021-05-10', 'Order 201');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (201, 1, '2');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN constraints across Customer_Orders and Order_Items, plus multiplicity (duplicate elimination vs preservation) and ORDER BY sorting.
+-- Customer 1 has an order with no items (should be excluded).
+-- Customer 2 has an order with multiple items (should produce duplicate payment_method rows).
+-- Customer 3 has no orders at all (should be excluded).
+INSERT INTO "Products" ("product_id", "product_details") VALUES (1, 'Keyboard');
+INSERT INTO "Products" ("product_id", "product_details") VALUES (2, 'Monitor');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Zelle', 'Frank', '2019-03-15', 'Tier1');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'ApplePay', 'Grace', '2019-04-20', 'Tier2');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Crypto', 'Heidi', '2019-05-25', 'Tier3');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (301, 1, 'Pending', '2019-03-20', 'No items order');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (302, 2, 'Completed', '2019-04-25', 'Two items order');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (302, 1, '1');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (302, 2, '3');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in the join columns (date_became_customer and other_customer_details) and ordering with multiple distinct payment methods.
+-- Customers with NULL in either join column must not match even themselves in standard SQL equality joins.
+INSERT INTO "Products" ("product_id", "product_details") VALUES (1, 'Desk');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Check', 'Ivan', NULL, 'NotesA');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Voucher', 'Judy', '2023-01-01', NULL);
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'MasterCard', 'Karl', '2023-01-01', 'Valid');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (4, 'Amex', 'Liam', '2023-02-02', 'Valid2');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (401, 1, 'New', '2023-01-05', 'D1');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (402, 2, 'New', '2023-01-06', 'D2');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (403, 3, 'New', '2023-01-07', 'D3');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (404, 4, 'New', '2023-02-08', 'D4');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (401, 1, '1');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (402, 1, '1');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (403, 1, '1');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (404, 1, '1');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple orders for the same customer and cross-matching with other customers who also have orders,
+-- ensuring exact join cardinality and proper sorting (ASC vs DESC vs unsorted).
+INSERT INTO "Products" ("product_id", "product_details") VALUES (10, 'Chair');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (10, 'Visa', 'Mallory', '2018-10-10', 'GroupX');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (20, 'Discover', 'Niaj', '2018-10-10', 'GroupX');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (30, 'Bitcoin', 'Olivia', '2018-11-11', 'GroupY');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (501, 10, 'Paid', '2018-12-01', 'O1');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (502, 10, 'Paid', '2018-12-02', 'O2');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (503, 30, 'Paid', '2018-12-03', 'O3');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (501, 10, '5');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (502, 10, '2');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (503, 10, '1');
+```

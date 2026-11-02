@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Floating point vs integer division (1 French out of 3 total -> 33.3333... vs 33)
+-- 2. 1-to-many join cardinality (COUNT(T1.id) vs COUNT(DISTINCT T1.id))
+-- 3. Filtering on T1.isStorySpotlight = 1 vs 0 or missing WHERE clause
+-- 4. INNER JOIN vs LEFT JOIN (card with no foreign_data)
+-- 5. Handling of NULL and non-French languages in CASE WHEN
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (1, 'uuid-1', 1, 'Story Card With Multiple Foreign Data');
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (2, 'uuid-2', 1, 'Story Card Without Foreign Data');
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (3, 'uuid-3', 0, 'Non-Story Card With French');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (1, 'French', 'uuid-1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (2, 'German', 'uuid-1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (3, NULL, 'uuid-1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (4, 'French', 'uuid-3');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Duplicate 'French' entries for the same card (tests SUM(CASE...) vs COUNT(DISTINCT CASE...))
+-- 2. Boundary condition where isStorySpotlight takes values other than 0 or 1 (e.g., 2)
+-- 3. Case sensitivity / exact match on 'French' vs 'french'
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (10, 'uuid-10', 1, 'Story Card 1');
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (20, 'uuid-20', 1, 'Story Card 2');
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (30, 'uuid-30', 2, 'Invalid Spotlight Value Card');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (10, 'French', 'uuid-10');
+INSERT INTO foreign_data (id, language, uuid) VALUES (11, 'French', 'uuid-10');
+INSERT INTO foreign_data (id, language, uuid) VALUES (12, 'french', 'uuid-20');
+INSERT INTO foreign_data (id, language, uuid) VALUES (13, 'Spanish', 'uuid-20');
+INSERT INTO foreign_data (id, language, uuid) VALUES (14, 'French', 'uuid-30');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Zero 'French' matches when valid joined rows exist (SUM evaluates to 0, not NULL)
+-- 2. Distinguishes CASE WHEN ... THEN 1 ELSE 0 END from CASE WHEN ... THEN 1 END (which would return NULL)
+-- 3. Tests foreign_data row with NULL uuid (INNER JOIN vs RIGHT JOIN)
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (100, 'uuid-100', 1, 'Story Card No French');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (100, 'Japanese', 'uuid-100');
+INSERT INTO foreign_data (id, language, uuid) VALUES (101, 'Russian', 'uuid-100');
+INSERT INTO foreign_data (id, language, uuid) VALUES (102, 'French', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. 100% French matches for Story Spotlight cards
+-- 2. Distractor tables (sets, set_translations) with 'French' language to catch queries joining the wrong translation table
+INSERT INTO sets (id, code, name) VALUES (1, 'SET1', 'Test Set');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'French', 'SET1', 'Ensemble de test');
+
+INSERT INTO cards (id, uuid, isStorySpotlight, setCode, name) VALUES (1, 'c1', 1, 'SET1', 'Card 1');
+INSERT INTO cards (id, uuid, isStorySpotlight, setCode, name) VALUES (2, 'c2', 1, 'SET1', 'Card 2');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (1, 'French', 'c1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (2, 'French', 'c2');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Empty join result for isStorySpotlight = 1 (Division by zero / NULL result handling)
+-- 2. Ensures queries without WHERE T1.isStorySpotlight = 1 fail by returning a number instead of NULL
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (1, 'u1', 0, 'Non-Story Card 1');
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (2, 'u2', 0, 'Non-Story Card 2');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (1, 'French', 'u1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (2, 'Italian', 'u2');
+```
+
+```sql
+-- DATASET 6
+-- Tests:
+-- 1. Accidental join on id (T1.id = T2.id) instead of uuid (T1.uuid = T2.uuid)
+-- 2. Disjoint IDs vs matching UUIDs
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (1, 'uuid-A', 1, 'Story Card A');
+INSERT INTO cards (id, uuid, isStorySpotlight, name) VALUES (2, 'uuid-B', 0, 'Non-Story Card B');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (2, 'French', 'uuid-A');
+INSERT INTO foreign_data (id, language, uuid) VALUES (1, 'German', 'uuid-B');
+INSERT INTO foreign_data (id, language, uuid) VALUES (3, 'Spanish', 'uuid-A');
+```

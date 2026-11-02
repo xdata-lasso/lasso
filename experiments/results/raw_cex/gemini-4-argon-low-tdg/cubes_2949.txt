@@ -1,0 +1,110 @@
+```sql
+-- DATASET 1
+-- Core anti-join, column mix-up (council_tax_id vs cmi_cross_ref_id), 1:N multiplicity, and ordering tests
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (1, 'Customer A');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (2, 'Customer B');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (10, 'Customer C');
+
+-- Unmatched cross-ref, but ID 100 appears as council_tax_id in Parking_Fines (tests wrong join column)
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (100, 1, 'SYS1');
+
+-- Matched cross-ref with multiple parking fines (tests 1:N join multiplicity vs EXISTS/IN)
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (10, 2, 'SYS2');
+
+-- Unmatched cross-ref with no relation to any fine, ID 5 tests ASC vs DESC ordering against 100
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (5, 10, 'SYS3');
+
+-- Matched cross-ref where master_customer_id is NULL
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (50, NULL, 'SYS4');
+
+-- Unmatched cross-ref where master_customer_id is NULL (tests unneeded INNER JOIN to Customer_Master_Index)
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (25, NULL, 'SYS5');
+
+INSERT INTO Parking_Fines (council_tax_id, cmi_cross_ref_id) VALUES (100, 10);
+INSERT INTO Parking_Fines (council_tax_id, cmi_cross_ref_id) VALUES (101, 10);
+INSERT INTO Parking_Fines (council_tax_id, cmi_cross_ref_id) VALUES (5, 50);
+```
+
+```sql
+-- DATASET 2
+-- NULL handling in subquery (NOT IN vs NOT EXISTS)
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (1, 'Cust 1');
+
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (1, 1, 'A');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (2, 1, 'B');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (3, 1, 'C');
+
+-- Row with valid foreign key
+INSERT INTO Parking_Fines (council_tax_id, cmi_cross_ref_id) VALUES (10, 1);
+
+-- Row with NULL foreign key (causes NOT IN (SELECT cmi_cross_ref_id FROM Parking_Fines) to return 0 rows)
+INSERT INTO Parking_Fines (council_tax_id, cmi_cross_ref_id) VALUES (20, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Sibling table confusion (queries using Council_Tax, Rent_Arrears, etc., instead of Parking_Fines)
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (1, 'Cust 1');
+
+-- Cross-ref 1: Only in Parking_Fines (Should be excluded)
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (1, 1, 'PF_ONLY');
+-- Cross-ref 2: In Council_Tax only (Should be included)
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (2, 1, 'CT_ONLY');
+-- Cross-ref 3: In Business_Rates only (Should be included)
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (3, 1, 'BR_ONLY');
+-- Cross-ref 4: In Benefits_Overpayments only (Should be included)
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (4, 1, 'BO_ONLY');
+-- Cross-ref 5: In Rent_Arrears only (Should be included)
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (5, 1, 'RA_ONLY');
+-- Cross-ref 6: In Electoral_Register only (Should be included)
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (6, 1, 'ER_ONLY');
+-- Cross-ref 7: In none of the child tables (Should be included)
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (7, 1, 'NONE');
+
+INSERT INTO Parking_Fines (council_tax_id, cmi_cross_ref_id) VALUES (101, 1);
+INSERT INTO Council_Tax (council_tax_id, cmi_cross_ref_id) VALUES (102, 2);
+INSERT INTO Business_Rates (business_rates_id, cmi_cross_ref_id) VALUES (103, 3);
+INSERT INTO Benefits_Overpayments (council_tax_id, cmi_cross_ref_id) VALUES (104, 4);
+INSERT INTO Rent_Arrears (council_tax_id, cmi_cross_ref_id) VALUES (105, 5);
+INSERT INTO Electoral_Register (electoral_register_id, cmi_cross_ref_id) VALUES (106, 6);
+```
+
+```sql
+-- DATASET 4
+-- Empty Parking_Fines table (Boundary condition: all CMI_Cross_References should be returned)
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (10, 'Master 10');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (20, 'Master 20');
+
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (30, 10, 'S1');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (10, 20, 'S2');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (20, 10, 'S3');
+```
+
+```sql
+-- DATASET 5
+-- Full coverage in Parking_Fines (Boundary condition: empty result set expected)
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (1, 'Master 1');
+
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (10, 1, 'S1');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (20, 1, 'S2');
+
+INSERT INTO Parking_Fines (council_tax_id, cmi_cross_ref_id) VALUES (1, 10);
+INSERT INTO Parking_Fines (council_tax_id, cmi_cross_ref_id) VALUES (2, 20);
+```
+
+```sql
+-- DATASET 6
+-- Negative, zero, and boundary integer values + sorting order verification vs insertion order and other column orders
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (100, 'Cust Z');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (50, 'Cust A');
+INSERT INTO Customer_Master_Index (master_customer_id, cmi_details) VALUES (1, 'Cust M');
+
+-- Inserted out of order; master_customer_id and source_system_code are inversely ordered compared to cmi_cross_ref_id
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (0, 50, 'B_SYS');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (-10, 100, 'Z_SYS');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (5, 1, 'A_SYS');
+INSERT INTO CMI_Cross_References (cmi_cross_ref_id, master_customer_id, source_system_code) VALUES (-5, 50, 'M_SYS');
+
+-- Exclude -5 so remaining are -10, 0, 5
+INSERT INTO Parking_Fines (council_tax_id, cmi_cross_ref_id) VALUES (99, -5);
+```

@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests DISTINCT requirement and filtering on bond_id.
+-- Multiple atoms from the same molecule (TR001) connected via the target bond ('TR001_1_7').
+-- Also includes a different molecule/bond to kill mutants that omit the WHERE clause.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_1', 'TR001', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_7', 'TR001', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR002_1', 'TR002', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR002_2', 'TR002', 'o');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR001_1_7', 'TR001', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR002_1_2', 'TR002', '2');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR001_1', 'TR001_7', 'TR001_1_7');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR001_7', 'TR001_1', 'TR001_1_7');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR002_1', 'TR002_2', 'TR002_1_2');
+```
+
+```sql
+-- DATASET 2
+-- Tests asymmetric join condition (T1.atom_id = T2.atom_id vs T1.atom_id = T2.atom_id2)
+-- and tests querying atom.molecule_id vs bond.molecule_id.
+-- Here, atom_id belongs to M_ATOM1, atom_id2 belongs to M_ATOM2, and the bond itself belongs to M_BOND.
+-- Also includes an unconnected atom (M_UNCONN) to kill LEFT JOIN mutants.
+INSERT INTO molecule (molecule_id, label) VALUES ('M_ATOM1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_ATOM2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_BOND', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_UNCONN', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M_ATOM1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M_ATOM2', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M_UNCONN', 'o');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR001_1_7', 'M_BOND', '1');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'TR001_1_7');
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary conditions on the WHERE predicate (case sensitivity, substring/LIKE matches, NULLs)
+-- when the target 'TR001_1_7' is NOT present in the database (expected result: empty set).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M3', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M4', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M2', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M3', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M4', 'c');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('tr001_1_7', 'M1', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR001_1_70', 'M2', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR001_1', 'M3', '1');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'tr001_1_7');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'TR001_1_70');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A4', 'TR001_1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A4', 'A1', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in the projected column (atom.molecule_id IS NULL)
+-- and multiple distinct molecules connected to the same target bond_id.
+-- Kills mutants that inner join with the `molecule` table or filter out NULL molecule_ids.
+INSERT INTO molecule (molecule_id, label) VALUES ('M_VALID', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_NULL_1', NULL, 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_NULL_2', NULL, 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_VALID', 'M_VALID', 'o');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR001_1_7', 'M_VALID', '1');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A_NULL_1', 'A_VALID', 'TR001_1_7');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A_NULL_2', 'A_VALID', 'TR001_1_7');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A_VALID', 'A_NULL_1', 'TR001_1_7');
+```
+
+```sql
+-- DATASET 5
+-- Tests scenario where 'TR001_1_7' exists in the `bond` table, and atoms exist for that molecule,
+-- but there are no corresponding rows in `connected` for 'TR001_1_7'.
+-- Kills mutants that join `atom` directly with `bond` on `molecule_id` instead of using `connected`.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_1', 'TR001', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_2', 'TR001', 'h');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR001_1_7', 'TR001', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR001_1_2', 'TR001', '1');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR001_1', 'TR001_2', 'TR001_1_2');
+```

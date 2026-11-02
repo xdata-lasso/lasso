@@ -1,0 +1,54 @@
+```sql
+-- DATASET 1
+-- Comprehensive dataset: tests COUNT(*) vs COUNT(city), COUNT(DISTINCT city), NULL handling across columns, and INNER/LEFT JOIN with PersonFriend (isolated nodes, 1-to-1, and 1-to-many relationships).
+-- Gold Query returns: 5
+-- Mutant COUNT(city) returns: 4
+-- Mutant COUNT(DISTINCT city) returns: 3
+-- Mutant COUNT(*) with INNER JOIN PersonFriend returns: 3
+-- Mutant COUNT(*) with LEFT JOIN PersonFriend returns: 6
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Alice', 25, 'New York', 'F', 'Engineer');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Bob', 30, 'New York', 'M', 'Doctor');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Charlie', 35, 'Boston', 'M', NULL);
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('David', 40, NULL, 'M', 'Artist');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Eve', NULL, 'Chicago', NULL, 'Lawyer');
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Bob', 'Alice', 2018);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Charlie', 'Alice', 2019);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('David', 'Bob', 2020);
+```
+
+```sql
+-- DATASET 2
+-- Boundary condition: Single person with NULLs in all non-PK columns and no friendships.
+-- Gold Query returns: 1
+-- Mutant COUNT(city) / COUNT(age) / COUNT(gender) / COUNT(job) returns: 0
+-- Mutant with INNER JOIN PersonFriend returns: 0
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Solo', NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Grouping & Filtering trap: All persons share the exact same city, gender, job, and age (with negative/zero values to test predicates).
+-- Gold Query returns: 3
+-- Mutant with GROUP BY city returns: 1 row with value 3 (indistinguishable here, caught in Dataset 4)
+-- Mutant with COUNT(DISTINCT city/age/gender/job) returns: 1
+-- Mutant with WHERE age > 0 returns: 1
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('P1', 0, 'Austin', 'F', 'Dev');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('P2', -5, 'Austin', 'F', 'Dev');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('P3', 20, 'Austin', 'F', 'Dev');
+```
+
+```sql
+-- DATASET 4
+-- GROUP BY & Aggregation trap: Multiple cities with varying counts.
+-- Gold Query returns: 1 row (value: 6)
+-- Mutant with GROUP BY city returns: 3 rows (values: 1, 2, 3)
+-- Mutant querying PersonFriend instead of Person returns: 1 row (value: 2)
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('U1', 21, 'Seattle', 'M', 'A');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('U2', 22, 'Seattle', 'F', 'B');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('U3', 23, 'Seattle', 'M', 'C');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('U4', 24, 'Miami', 'F', 'D');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('U5', 25, 'Miami', 'M', 'E');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('U6', 26, 'Denver', 'F', 'F');
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('U2', 'U1', 2021);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('U4', 'U3', 2022);
+```

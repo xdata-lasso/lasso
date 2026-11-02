@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE "insurance" ("PID" INTEGER PRIMARY KEY, "TIV_2015" REAL, "TIV_2016" REAL, "LAT" REAL, "LON" REAL, CHECK ("tiv_2015" >= 0), CHECK ("tiv_2016" >= 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1191, 1193.5, 1194.5, 1196.5, 1198.5);
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1192, 1193.5, 1201.5, 1196.51, 198.5);
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1200, 1193.5, 1202.5, 1196.51, 198.5);
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1201, 1193.5, 1209.5, 1196.51, 198.5);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ROUND(SUM(TIV_2016), 2) AS TIV_2016 FROM INSURANCE WHERE TIV_2015 IN (SELECT TIV_2015 FROM INSURANCE GROUP BY TIV_2015 HAVING COUNT(*) > 1) AND (LAT, LON) IN (SELECT LAT, LON FROM INSURANCE GROUP BY LAT, LON HAVING COUNT(*) = 1);
+
+/*
+Gold Result:
+(1194.5,)
+*/
+
+-- Prediction Query
+SELECT ROUND(SUM(TIV_2016), 2) AS TIV_2016 FROM INSURANCE WHERE TIV_2015 IN (SELECT TIV_2015 FROM INSURANCE GROUP BY TIV_2015 HAVING COUNT(TIV_2015) > 1) AND LAT || LON IN (SELECT LAT || LON FROM INSURANCE GROUP BY LAT || LON HAVING COUNT(*) = 1);
+
+/*
+Prediction Result:
+(None,)
+*/

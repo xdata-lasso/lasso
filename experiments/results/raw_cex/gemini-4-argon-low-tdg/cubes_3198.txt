@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Basic scenario: Distinct roomNames, uncorrelated with other attributes (beds, basePrice, RoomId) and with no Reservations.
+-- Catches mutants that sort by DESC, wrong columns, or use INNER JOIN with Reservations when Reservations is empty.
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R3', 'Alpha Suite', 3, 'Queen', 6, 300, 'Modern');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R1', 'Beta Room', 1, 'King', 2, 100, 'Rustic');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R2', 'Gamma Hall', 2, 'Double', 4, 200, 'Traditional');
+```
+
+```sql
+-- DATASET 2
+-- NULL handling in roomName: Includes a row with NULL roomName.
+-- In SQLite, NULLs are considered smaller than any non-NULL value in ASC order (default NULLS FIRST).
+-- Catches mutants that add WHERE roomName IS NOT NULL, use MIN(roomName), or specify NULLS LAST on roomName.
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R1', 'Alpha', 1, 'King', 2, 100, 'Modern');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R2', NULL, 2, 'Queen', 4, 150, 'Rustic');
+```
+
+```sql
+-- DATASET 3
+-- Tie-breaking on RoomId with NULL roomName: Two rows have NULL roomName, differing by RoomId.
+-- Although the output is roomName (both NULL), this tests mutants that project RoomId or fail on secondary sort with NULLs.
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R2', NULL, 2, 'Queen', 4, 150, 'Rustic');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R1', NULL, 1, 'King', 2, 100, 'Modern');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R3', 'Alpha', 1, 'King', 2, 100, 'Modern');
+```
+
+```sql
+-- DATASET 4
+-- Tie-breaking on RoomId (with NULL RoomId): In SQLite, TEXT PRIMARY KEY allows NULL values.
+-- The query specifies `rooms.roomid NULLS LAST`.
+-- If two rooms share the lowest roomName, one with RoomId = NULL and one with RoomId = 'R1', 'R1' comes first because of NULLS LAST.
+-- Catches mutants that omit NULLS LAST on roomid and simultaneously leak/project other columns or filter differently.
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES (NULL, 'A_Room', 1, 'King', 2, 100, 'Modern');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R1', 'A_Room', 2, 'Queen', 4, 200, 'Rustic');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R2', 'B_Room', 3, 'Double', 6, 300, 'Traditional');
+```
+
+```sql
+-- DATASET 5
+-- Unnecessary Join Trap: The room with the alphabetically first roomName has NO reservations, while the second room has reservations.
+-- Catches mutants that erroneously INNER JOIN with the Reservations table.
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R1', 'aardvark', 1, 'King', 2, 100, 'Modern');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R2', 'Zebra', 2, 'Queen', 4, 200, 'Rustic');
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (101, 'R2', '2023-01-01', '2023-01-05', 200.0, 'Smith', 'John', 2, 0);
+```
+
+```sql
+-- DATASET 6
+-- Case-sensitivity and ASCII ordering test: 'Zebra' vs 'aardvark'.
+-- In standard SQLite BINARY collation, uppercase 'Z' (ASCII 90) comes before lowercase 'a' (ASCII 97).
+-- Catches mutants that apply LOWER()/UPPER() or COLLATE NOCASE in ORDER BY or SELECT.
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R1', 'aardvark', 1, 'King', 2, 100, 'Modern');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R2', 'Zebra', 2, 'Queen', 4, 200, 'Rustic');
+```
+
+```sql
+-- DATASET 7
+-- Duplicate minimum roomName values: Multiple rooms share the exact same minimum roomName.
+-- Catches mutants that replace `LIMIT 1` with `WHERE roomName = (SELECT MIN(roomName) FROM Rooms)` without `LIMIT 1` or `DISTINCT`.
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R1', 'DuplicateName', 1, 'King', 2, 100, 'Modern');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R2', 'DuplicateName', 2, 'Queen', 4, 200, 'Rustic');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R3', 'OtherName', 3, 'Double', 6, 300, 'Traditional');
+```
+
+```sql
+-- DATASET 8
+-- Empty strings vs Spaces vs Alphanumeric characters.
+-- Tests strict lexicographical ordering where empty string '' < ' ' < 'A'.
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R1', 'A', 1, 'King', 2, 100, 'Modern');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R2', '', 2, 'Queen', 4, 200, 'Rustic');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R3', ' ', 3, 'Double', 6, 300, 'Traditional');
+```
+
+```sql
+-- DATASET 9
+-- Single row table vs OFFSET mutants:
+-- If a mutant has `LIMIT 1 OFFSET 1` or `WHERE ... > ...`, a 1-row dataset will return empty instead of 1 row.
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R1', 'OnlyRoom', 1, 'King', 2, 100, 'Modern');
+```
+
+```sql
+-- DATASET 10
+-- Numeric strings in roomName and RoomId:
+-- '10' comes before '2' in TEXT sorting, whereas 2 comes before 10 in INTEGER sorting.
+-- Catches mutants that CAST columns to INTEGER/REAL during sorting.
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('2', '2', 1, 'King', 2, 100, 'Modern');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('10', '10', 2, 'Queen', 4, 200, 'Rustic');
+```

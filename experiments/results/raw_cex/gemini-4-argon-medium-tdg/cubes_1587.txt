@@ -1,0 +1,113 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE document_id = 7 vs >, <, !=, >=, <=, or missing WHERE
+-- 2. SELECT DISTINCT vs SELECT (duplicate mailing_dates for document_id = 7)
+-- 3. ORDER BY mailing_date ASC vs DESC (unsorted insertion order)
+-- 4. NULL handling in mailing_date
+-- 5. Confounding columns (receipt_date in Documents, address_id = 7 in Addresses)
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, '100 Main St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (2, '200 Main St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (3, '300 Main St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (4, '400 Main St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (7, '700 Main St');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (6, 'A1', 'S1', 'T1', '2023-01-06', 'R6', 'Doc 6');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (7, 'A1', 'S1', 'T1', '2023-01-07', 'R7', 'Doc 7');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (8, 'A1', 'S1', 'T1', '2023-01-08', 'R8', 'Doc 8');
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (6, 1, '2023-05-01');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (6, 7, '2023-05-02');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 1, '2023-05-20');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 2, '2023-05-10');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 3, '2023-05-10');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 4, NULL);
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (8, 1, '2023-05-30');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Unnecessary INNER JOINs with child tables (Document_Drafts, Draft_Copies, Circulation_History) where Document 7 has no drafts/copies/history
+-- 2. Unnecessary INNER JOINs with lookup tables (Ref_Shipping_Agents, Ref_Document_Status, Ref_Document_Types) when foreign keys in Documents are NULL
+-- 3. Multiple distinct non-null dates to catch aggregation mutants (e.g., MAX, MIN, COUNT, LIMIT 1)
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('R1', 'Role 1');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (1, 'R1', 'Emp 1', 'Details');
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (10, 'Address 10');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (20, 'Address 20');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (30, 'Address 30');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (1, 'A1', 'S1', 'T1', '2022-01-01', '7', '7');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (7, NULL, NULL, NULL, '2022-02-02', 'R700', 'Details 700');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (1, 7, 'Draft 7 for Doc 1');
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (1, 7, 7);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (1, 7, 7, 1);
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (1, 10, '2022-03-01');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 10, '2022-12-31');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 20, '2022-01-15');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 30, '2022-06-15');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty result set when document_id = 7 exists in Documents, Document_Drafts, Draft_Copies, Circulation_History, and Addresses (as id 7), but NOT in Documents_Mailed
+-- 2. Refutes LEFT JOIN mutants starting from Documents or other tables
+-- 3. Refutes mutants filtering on mailed_to_address_id = 7 or other columns = 7
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('R1', 'Role 1');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (7, 'R1', 'Emp 7', 'Details');
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (7, 'Address 7');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (8, 'Address 8');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (5, 'A1', 'S1', 'T1', '2021-05-05', 'R5', 'Doc 5');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (7, 'A1', 'S1', 'T1', '2021-07-07', 'R7', 'Doc 7');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (7, 1, 'Draft 1 for Doc 7');
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (7, 1, 1);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (7, 1, 1, 7);
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (5, 7, '2021-08-01');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (5, 8, '2021-08-02');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Unnecessary JOINs with Circulation_History when Document 7 has multiple Circulation_History rows (causing row multiplication if joined without DISTINCT)
+-- 2. Timestamp precision sorting in mailing_date (same date, different times)
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('R1', 'Role 1');
+
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (1, 'R1', 'Emp 1', 'D1');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (2, 'R1', 'Emp 2', 'D2');
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, 'Addr 1');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (2, 'Addr 2');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (7, 'A1', 'S1', 'T1', '2020-01-01 00:00:00', 'R7', 'Doc 7');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (7, 1, 'Draft 1');
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (7, 1, 1);
+
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (7, 1, 1, 1);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (7, 1, 1, 2);
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 1, '2020-05-01 14:30:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 2, '2020-05-01 09:15:00');
+```

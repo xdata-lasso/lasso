@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN (Part 4 has no entries in Asset_Parts).
+-- 2. GROUP BY part_name vs GROUP BY part_id (Parts 1 and 2 share the name 'Bolt' and should be grouped together).
+-- 3. COUNT(*) vs COUNT(DISTINCT part_id) or COUNT(DISTINCT asset_id) (Part 3 'Axle' is linked to Asset 1 twice, and Part 1 'Bolt' is linked to Asset 1 and Asset 2).
+-- 4. ORDER BY part_name ASC vs DESC or insertion order ('Bolt' inserted before 'Axle', counts differ from alphabetical order).
+-- 5. Confusing Asset_Parts with Part_Faults (Part 4 is in Part_Faults, Part 1 has different counts in Part_Faults).
+-- 6. Confusing COUNT(*) with SUM(chargeable_amount) or filtering by chargeable_yn.
+
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'Supp', 'Acme Corp', '123 Main St', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2023-01-01 00:00:00', '2024-01-01 00:00:00', 'Standard');
+
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Generator', 'GenCo', 'X1', '2023-02-01 00:00:00', '2025-02-01 00:00:00', 'Good');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (2, 1, 1, 'Compressor', 'CompCo', 'C2', '2023-03-01 00:00:00', '2025-03-01 00:00:00', 'Fair');
+
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Bolt', 0, 10, 'M8');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Bolt', 1, 20, 'M10');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (3, 'Axle', 1, 100, 'Rear');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (4, 'Washer', 0, 5, 'Flat');
+
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (1, 1);
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (2, 1);
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (1, 2);
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (1, 3);
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (1, 3);
+
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (1, 4, 'Rust', 'Rusted washer', 'Replace');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (2, 3, 'Bent', 'Bent axle', 'Repair');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Handling of NULL values in Asset_Parts.asset_id (COUNT(*) vs COUNT(asset_id) vs joining with Assets table).
+-- 2. Handling of NULL values in Parts columns (chargeable_yn, chargeable_amount, other_part_details) to kill COUNT(column) mutants.
+-- 3. Incorrect join condition (e.g., Parts.part_id = Asset_Parts.asset_id).
+-- 4. Filtering out parts with count = 1 (e.g., HAVING COUNT(*) > 1).
+
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (10, 'Maint', 'Beta LLC', '456 Oak Ave', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (10, 10, '2022-01-01 00:00:00', '2023-01-01 00:00:00', 'Premium');
+
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (10, 10, 10, 'Pump', 'PumpIt', 'P100', '2022-05-01 00:00:00', NULL, NULL);
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (20, 10, 10, 'Valve', 'FlowCo', 'V200', '2022-06-01 00:00:00', NULL, NULL);
+
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (10, 'Z-Gear', NULL, NULL, NULL);
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (20, 'A-Spring', 1, 50, 'Heavy');
+
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (NULL, 10);
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (20, 10);
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (10, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Handling of NULL part_name in GROUP BY and ORDER BY (COUNT(*) vs COUNT(part_name), and WHERE part_name IS NOT NULL mutants).
+-- 2. Ties in counts with multiple distinct parts to ensure strict sorting by part_name rather than count.
+
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'Supp', 'Gamma Inc', '789 Pine Rd', 'Details');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2021-01-01 00:00:00', '2022-01-01 00:00:00', 'Basic');
+
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (100, 1, 1, 'Turbine', 'WindCo', 'T1', '2021-02-01 00:00:00', NULL, NULL);
+
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, NULL, 1, 15, 'Unnamed Part');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Motor', 1, 500, 'Main Motor');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (3, 'Belt', 0, 25, 'Rubber Belt');
+
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (100, 1);
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (100, 2);
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (100, 3);
+```

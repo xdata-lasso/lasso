@@ -1,0 +1,75 @@
+-- Schema DDL
+CREATE TABLE badges (Id INTEGER NOT NULL PRIMARY KEY, UserId INTEGER NULL, Name TEXT NULL, Date DATETIME NULL, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE comments (Id INTEGER NOT NULL PRIMARY KEY, PostId INTEGER NULL, Score INTEGER NULL, Text TEXT NULL, CreationDate DATETIME NULL, UserId INTEGER NULL, UserDisplayName TEXT NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE postHistory (Id INTEGER NOT NULL UNIQUE PRIMARY KEY, PostHistoryTypeId INTEGER NULL, PostId INTEGER NULL, RevisionGUID TEXT NULL, CreationDate DATETIME NULL, UserId INTEGER NULL, Text TEXT NULL, Comment TEXT NULL, UserDisplayName TEXT NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE postLinks (Id INTEGER NOT NULL PRIMARY KEY, CreationDate DATETIME NULL, PostId INTEGER NULL, RelatedPostId INTEGER NULL, LinkTypeId INTEGER NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (RelatedPostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE posts (Id INTEGER NOT NULL UNIQUE PRIMARY KEY, PostTypeId INTEGER NULL, AcceptedAnswerId INTEGER NULL, CreaionDate DATETIME NULL, Score INTEGER NULL, ViewCount INTEGER NULL, Body TEXT NULL, OwnerUserId INTEGER NULL, LasActivityDate DATETIME NULL, Title TEXT NULL, Tags TEXT NULL, AnswerCount INTEGER NULL, CommentCount INTEGER NULL, FavoriteCount INTEGER NULL, LastEditorUserId INTEGER NULL, LastEditDate DATETIME NULL, CommunityOwnedDate DATETIME NULL, ParentId INTEGER NULL, ClosedDate DATETIME NULL, OwnerDisplayName TEXT NULL, LastEditorDisplayName TEXT NULL, FOREIGN KEY (LastEditorUserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (OwnerUserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE tags (Id INTEGER NOT NULL PRIMARY KEY, TagName TEXT NULL, Count INTEGER NULL, ExcerptPostId INTEGER NULL, WikiPostId INTEGER NULL, FOREIGN KEY (ExcerptPostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE users (Id INTEGER NOT NULL UNIQUE PRIMARY KEY, Reputation INTEGER NULL, CreationDate DATETIME NULL, DisplayName TEXT NULL, LastAccessDate DATETIME NULL, WebsiteUrl TEXT NULL, Location TEXT NULL, AboutMe TEXT NULL, Views INTEGER NULL, UpVotes INTEGER NULL, DownVotes INTEGER NULL, AccountId INTEGER NULL, Age INTEGER NULL, ProfileImageUrl TEXT NULL);
+
+CREATE TABLE votes (Id INTEGER NOT NULL PRIMARY KEY, PostId INTEGER NULL, VoteTypeId INTEGER NULL, CreationDate DATE NULL, UserId INTEGER NULL, BountyAmount INTEGER NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: posts --
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (1, 2122220075, 1072996612, '2024-04-12 00:38:47+00:00', -1349201381, 1019800248, 'dlttil', 183, '2020-03-11 00:23:16+00:00', 'nprmdposii', '5u', 1861536320, 44952191, 1151980946, 183, '2020-09-15 12:11:12+00:00', '2020-01-18 08:28:25+00:00', 1419861592, '2025-08-21 21:00:40+00:00', 'ecigce37', 'nium52zbu');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483647, 364869063, -953437896, '2023-09-08 22:37:16+00:00', 392822403, 2142703426, 'u78d99r', 3, '2021-07-21 20:51:39+00:00', 'sl0', '4', 1649269347, -1116181514, 1255852738, 183, '2021-03-04 06:15:13+00:00', '2023-10-21 02:54:45+00:00', -975213201, '2020-10-15 10:13:01+00:00', 'vqx58pz0f', '8jegd21vy9ux');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483646, -1748371085, -1742081330, '2024-08-10 07:57:32+00:00', -1255130038, -1762857309, 'dqv0gcb98ozk', 183, '2023-12-12 02:47:46+00:00', 'bilyrkn', '6vck6ah0f8js', -658391922, -1388029300, -566887085, 4, '1970-01-01 00:00:00+00:00', '2025-02-02 06:02:30+00:00', -541746689, '2024-12-20 11:42:02+00:00', 'ryfdrz16n', 'jja');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483645, 1360271423, 1583472758, '2020-10-22 21:08:07+00:00', -977470238, -1478247928, 'yzt1afgog', 183, '2022-05-19 02:17:07+00:00', 'tsj', 'ayxp1q43', 1235416111, 1923912467, 518609210, 3, '1970-01-01 00:00:00+00:00', '2021-01-17 17:19:55+00:00', -163600466, '2020-08-20 06:07:09+00:00', '8c68', '8vacx7');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483644, -47052816, 645287482, '2021-11-22 07:38:31+00:00', 76996700, -435350511, '72ctdctmfg62', 183, '2020-10-18 11:14:36+00:00', 'v5q8qdj', 'e1io', -241848752, 2004147439, -691774480, 183, '1969-12-31 23:59:59+00:00', '2021-03-27 11:42:11+00:00', -847293924, '2024-05-07 03:46:17+00:00', 'n', 'u5zi');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483643, 1944978593, 1722106924, '2020-02-23 23:54:56+00:00', -1776877925, 1201273976, 'oacd07z2zez', 183, '2021-04-04 14:38:19+00:00', '7wgx', '5', -526612570, -546516406, -405743609, 4, '1970-01-01 00:00:00+00:00', '2020-06-02 03:52:50+00:00', -1699185893, '2025-12-26 14:53:02+00:00', 'i3lq5lnp', 'm5k');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483642, -1125548818, 1497321728, '2024-09-21 04:14:02+00:00', 988954859, -1719383707, '2m', 183, '2021-10-18 07:51:02+00:00', 'ajjla3okv8u', 'tmu2n', -1817527403, -1402164108, 2123471885, 4, '1969-12-31 23:59:59+00:00', '2025-08-19 19:51:44+00:00', -526633767, '2024-06-27 07:12:45+00:00', 'zzbe8yvkv4', 'q7sx58b4');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483641, -1122409769, 1849819405, '2025-11-25 02:19:30+00:00', 319284352, 1164790775, 'auvmkrpd', 183, '2021-03-23 21:08:32+00:00', 'wzw5chn9mo70', 'a9n0jxfo', -1793230843, -441521858, 2015094998, 4, '2023-11-02 10:05:42+00:00', '2023-05-26 04:07:05+00:00', 270415200, '2020-02-24 22:37:14+00:00', '0', '0k32o');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483640, 440115543, 292557306, '2025-08-28 09:25:40+00:00', -1177989415, -1352968577, 'ngc1dj9', 183, '2020-08-08 18:51:00+00:00', 'rhizgk1yoey', 'o6l0hdt6fu', -477129795, -1418927432, -30041412, 3, '2023-09-14 18:35:43+00:00', '2020-11-29 19:49:13+00:00', -670154354, '2021-07-02 13:56:51+00:00', 's', 'elboeowii');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483639, -564679000, -251205568, '2023-10-18 11:51:31+00:00', 1244279905, -1396673167, 'otow9oaawg', 183, '2024-09-22 16:04:20+00:00', 'aqb0tbind', '39tajz9', -841516418, 152478847, -625404808, 3, '2020-11-23 15:43:29+00:00', '2022-09-05 12:39:02+00:00', -1275298282, '2020-04-18 15:13:13+00:00', '3tdu6bd0w960', 'vzxw1rxe');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483638, -505019168, 1968783602, '2024-07-02 05:26:35+00:00', -1046720861, 643589729, 'h55y', 183, '2023-12-22 00:30:51+00:00', 'o', 'vu', 1654100852, 30861410, -438741674, 4, '2023-12-12 21:29:29+00:00', '2024-02-16 12:52:03+00:00', 729449685, '2021-05-25 07:37:07+00:00', 'io18ri2hy08', 'tp');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483637, -646944990, -1051623642, '2023-01-28 06:02:52+00:00', 1664452437, -1485875026, 'bymzn2mfx7h3', 183, '2023-11-11 00:49:07+00:00', '6sto', 'cj8sh5k', 1106724223, 1966809332, 1487347213, 183, '2023-03-15 00:23:20+00:00', '2025-09-13 12:59:23+00:00', 1328948152, '2020-06-11 08:05:04+00:00', 'jmgjach', 'qta8y3a17');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483636, -735270562, 614314115, '2020-10-26 00:26:32+00:00', -2081662466, -1941472821, 'uap96rntdqr', 183, '2020-12-10 17:13:46+00:00', '5wli', '7', 899787662, 594760660, 833568923, 4, '1969-12-31 23:59:59+00:00', '2024-02-01 00:27:26+00:00', 379651188, '2023-01-30 04:40:49+00:00', 'm', 'sqtgelcuqb');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483635, 1374676344, 238243966, '2023-10-20 18:15:15+00:00', 277649518, 908468929, 'kjq1qu', 183, '2021-02-17 14:55:24+00:00', '1yh', '0', 166124233, 1862197286, 1040753276, 4, '1969-12-31 23:59:59+00:00', '2023-08-12 01:29:22+00:00', 2101986789, '2021-12-09 20:20:01+00:00', 'iztv', '6');
+
+INSERT INTO "posts" ("id", "posttypeid", "acceptedanswerid", "creaiondate", "score", "viewcount", "body", "owneruserid", "lasactivitydate", "title", "tags", "answercount", "commentcount", "favoritecount", "lasteditoruserid", "lasteditdate", "communityowneddate", "parentid", "closeddate", "ownerdisplayname", "lasteditordisplayname") VALUES (-2147483634, -1558272216, 195316816, '2022-02-18 17:04:18+00:00', -1043357093, -753065777, 'ftb8r9114', 183, '2022-02-27 13:50:36+00:00', 'r', '6b', -1537647691, 364280973, 1592061050, 3, '1969-12-31 23:59:59+00:00', '2022-12-10 16:57:51+00:00', 2134937984, '2021-04-16 22:22:11+00:00', 'kjh85wpxl', 'vrisurz0ka');
+
+-- Inserting into table: users --
+INSERT INTO "users" ("id", "reputation", "creationdate", "displayname", "lastaccessdate", "websiteurl", "location", "aboutme", "views", "upvotes", "downvotes", "accountid", "age", "profileimageurl") VALUES (183, -55602865, '2024-02-19 01:18:26+00:00', 't2__dcb29e', '2022-06-06 02:35:43+00:00', 'wqcgsk', 't2__f47e27', '9n8c4pgu7v', -1865039888, 1160656988, -992890117, 1914020640, 1268590800, 'puzhsrw');
+
+INSERT INTO "users" ("id", "reputation", "creationdate", "displayname", "lastaccessdate", "websiteurl", "location", "aboutme", "views", "upvotes", "downvotes", "accountid", "age", "profileimageurl") VALUES (3, 1119186446, '2025-01-09 01:18:18+00:00', 'rqrofqyp5s5b', '2020-03-11 14:09:37+00:00', '02eu', 'liqa1', 'ryytoo3', -1666765085, 1178636309, -1390245819, 1055976837, 1775126557, 'ji7zwau2');
+
+INSERT INTO "users" ("id", "reputation", "creationdate", "displayname", "lastaccessdate", "websiteurl", "location", "aboutme", "views", "upvotes", "downvotes", "accountid", "age", "profileimageurl") VALUES (4, -87647544, '2023-01-02 20:56:29+00:00', 'd', '2022-10-17 07:55:28+00:00', 'ph2', 'nd', 'wnqcx', 722884590, 580968159, -1245312912, 1575412235, -988981234, 'u0dz7');
+
+INSERT INTO "users" ("id", "reputation", "creationdate", "displayname", "lastaccessdate", "websiteurl", "location", "aboutme", "views", "upvotes", "downvotes", "accountid", "age", "profileimageurl") VALUES (1, 1384307628, '2022-08-19 06:04:31+00:00', 't2__dcb29e', '2024-12-16 15:00:57+00:00', 'ncgc8s3b7v8', 't2__f47e27', 'kwdmdbdht', 103252327, -556370776, 1144507576, -343920305, 460471995, 'han');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T2.DisplayName, T2.Location FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id WHERE T2.Id = 183 ORDER BY T1.LastEditDate DESC, T1.id NULLS LAST, T2.id NULLS LAST LIMIT 1;
+
+/*
+Gold Result:
+('t2__dcb29e', 't2__f47e27')
+*/
+
+-- Prediction Query
+SELECT u.DisplayName, u.Location FROM users AS u JOIN posts AS p ON u.Id = p.LastEditorUserId WHERE p.Id = 183;
+
+/*
+Prediction Result:
+*/

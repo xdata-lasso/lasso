@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions on UA (> 6.5 vs >= 6.5 vs < 6.5)
+-- 2. Floating-point division (CAST(... AS REAL)) vs integer division (1 * 100 / 3 = 33.333... vs 33)
+-- 3. Multiple Laboratory records per Patient (COUNT(T1.ID) vs COUNT(DISTINCT T1.ID))
+-- 4. Filtering on T1.SEX = 'F' (excluding 'M' and NULL)
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, NULL);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (1, '2023-01-01', 6.5);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (1, '2023-01-02', 6.6);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (1, '2023-01-03', 5.0);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (2, '2023-01-01', 8.0);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (3, '2023-01-01', 9.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL values in T2.UA (COUNT(T1.ID) vs COUNT(T2.UA) in denominator, and ELSE 0 in CASE)
+-- 2. Unmatched Patient rows (INNER JOIN vs LEFT JOIN on Patient)
+-- 3. Unrelated Examination table records (verifies no accidental joins to Examination)
+INSERT INTO Patient (ID, SEX) VALUES (10, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (20, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (30, 'F');
+INSERT INTO Laboratory (ID, Date, UA) VALUES (10, '2023-02-01', 7.2);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (10, '2023-02-02', NULL);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (20, '2023-02-01', 6.4);
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (10, '2023-02-01', 'Test1');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (10, '2023-02-02', 'Test2');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. All matching female laboratory records have UA <= 6.5 (SUM evaluates to 0; tests ELSE 0 vs ELSE NULL or WHERE T2.UA > 6.5 filtering)
+-- 2. Male patient has UA > 6.5 (tests missing or inverted WHERE T1.SEX = 'F' clause)
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'M');
+INSERT INTO Laboratory (ID, Date, UA) VALUES (1, '2023-03-01', 6.5);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (2, '2023-03-01', 4.2);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (3, '2023-03-01', 7.8);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Multiple female patients where one has multiple laboratory rows > 6.5 (kills COUNT(DISTINCT T2.UA), SUM(DISTINCT ...), and GROUP BY T1.ID mutations)
+-- 2. Exact fractional percentage (3 * 100 / 7 = 42.857142857142854)
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+INSERT INTO Laboratory (ID, Date, UA) VALUES (1, '2023-04-01', 7.0);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (1, '2023-04-02', 7.0);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (2, '2023-04-01', 8.1);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (2, '2023-04-02', 6.0);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (2, '2023-04-03', 5.5);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (3, '2023-04-01', 6.5);
+INSERT INTO Laboratory (ID, Date, UA) VALUES (3, '2023-04-02', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Zero matching rows for T1.SEX = 'F' (Division by zero / NULL result handling when COUNT is 0)
+INSERT INTO Patient (ID, SEX) VALUES (1, 'M');
+INSERT INTO Laboratory (ID, Date, UA) VALUES (1, '2023-05-01', 7.5);
+```
+
+```sql
+-- DATASET 6
+-- Tests:
+-- 1. Case sensitivity and exact string match on SEX = 'F' (e.g., 'f', 'Female')
+-- 2. Confusion between UA and other REAL columns in Laboratory (e.g., TP, ALB, CRE, "T-BIL")
+-- 3. 100% matching rate for valid rows when distractions are excluded, vs <100% if distractions are included
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'f');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'Female');
+INSERT INTO Laboratory (ID, Date, UA, TP, ALB, CRE) VALUES (1, '2023-06-01', 6.51, 5.0, 4.0, 1.0);
+INSERT INTO Laboratory (ID, Date, UA, TP, ALB, CRE) VALUES (1, '2023-06-02', 6.49, 8.0, 8.0, 8.0);
+INSERT INTO Laboratory (ID, Date, UA, TP, ALB, CRE) VALUES (2, '2023-06-01', 9.0, 7.0, 7.0, 7.0);
+INSERT INTO Laboratory (ID, Date, UA, TP, ALB, CRE) VALUES (3, '2023-06-01', 9.0, 7.0, 7.0, 7.0);
+```

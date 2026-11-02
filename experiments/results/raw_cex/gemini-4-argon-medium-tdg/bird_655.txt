@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests basic join direction (PostId vs RelatedPostId), projection (T3.Title vs T1.Title), and WHERE clause filtering on T1.Title vs T3.Title.
+INSERT INTO posts (Id, Title) VALUES (1, 'What are principal component scores?');
+INSERT INTO posts (Id, Title) VALUES (2, 'Understanding PCA');
+INSERT INTO posts (Id, Title) VALUES (3, 'Unrelated Post');
+
+-- Valid match: T1 is 1, T3 is 2
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (10, 1, 2, 1);
+-- Reverse link: T1 is 3, T3 is 1 (Should NOT be returned, catches swapped PostId/RelatedPostId or WHERE T3.Title = ...)
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (11, 3, 1, 3);
+-- Link between non-matching posts (Catches missing WHERE clause)
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (12, 2, 3, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests OUTER JOIN mutants (LEFT/RIGHT JOIN) and NULL handling in join keys and projected columns.
+INSERT INTO posts (Id, Title) VALUES (1, 'What are principal component scores?');
+INSERT INTO posts (Id, Title) VALUES (2, 'What are principal component scores?');
+INSERT INTO posts (Id, Title) VALUES (3, NULL);
+INSERT INTO posts (Id, Title) VALUES (4, 'Valid Related Post');
+
+-- Post 1 has a link, but RelatedPostId is NULL (Catches LEFT JOIN on T3)
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (10, 1, NULL, 1);
+-- Post 2 has NO links in postLinks at all (Catches LEFT JOIN on T2)
+-- Link with NULL PostId pointing to a valid post (Catches RIGHT JOIN on T1)
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (11, NULL, 4, 2);
+-- Post 1 links to Post 3 which has a NULL Title, and LinkTypeId is NULL (Tests NULL projection vs INNER JOIN filtering)
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (12, 1, 3, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests DISTINCT vs ALL (duplicate output rows), multiple matches, and string matching edge cases (case sensitivity, substrings).
+INSERT INTO posts (Id, Title) VALUES (1, 'What are principal component scores?');
+INSERT INTO posts (Id, Title) VALUES (2, 'What are principal component scores?');
+INSERT INTO posts (Id, Title) VALUES (3, 'what are principal component scores?');
+INSERT INTO posts (Id, Title) VALUES (4, 'What are principal component scores? ');
+INSERT INTO posts (Id, Title) VALUES (5, 'Shared Target Post');
+
+-- Two different posts with the exact target title linking to the same target post with the same LinkTypeId.
+-- Produces duplicate rows (5, 'Shared Target Post', 1). Catches erroneous SELECT DISTINCT.
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (100, 1, 5, 1);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (101, 2, 5, 1);
+
+-- Links from posts with lowercase or trailing-space titles (Catches LIKE, ILIKE, TRIM, or case-insensitive mutants)
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (102, 3, 5, 2);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (103, 4, 5, 3);
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong join key mutants (e.g., joining on T1.Id = T2.Id, T3.Id = T2.Id, or T2.LinkTypeId = T3.Id).
+INSERT INTO posts (Id, Title) VALUES (1, 'What are principal component scores?');
+INSERT INTO posts (Id, Title) VALUES (2, 'Target Post Two');
+INSERT INTO posts (Id, Title) VALUES (3, 'Target Post Three');
+
+-- Here, postLinks.Id is 1 (matches T1.Id), PostId is 2, RelatedPostId is 3, LinkTypeId is 1.
+-- Correct query returns nothing because PostId=2 does not have the target title.
+-- Mutants joining on T1.Id = T2.Id or T1.Id = T2.LinkTypeId will falsely match this row.
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (1, 2, 3, 1);
+
+-- Here, postLinks.Id is 2, PostId is 1 (matches T1.Id), RelatedPostId is 3, LinkTypeId is 2.
+-- Mutants joining T3 on T3.Id = T2.Id or T3.Id = T2.LinkTypeId will return 'Target Post Two' instead of 'Target Post Three'.
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (2, 1, 3, 2);
+```
+
+```sql
+-- DATASET 5
+-- Tests wrong column projections (e.g., selecting Score, PostTypeId, ViewCount, or ParentId instead of LinkTypeId or Title).
+INSERT INTO posts (Id, PostTypeId, Score, ViewCount, Title, Body, Tags) VALUES (10, 1, 100, 500, 'What are principal component scores?', 'Body 10', '<pca>');
+INSERT INTO posts (Id, PostTypeId, Score, ViewCount, Title, Body, Tags) VALUES (20, 2, 200, 600, 'Related PCA Question', 'Body 20', '<stats>');
+
+-- Ensure LinkTypeId (3) is completely distinct from all IDs (10, 20, 30), PostTypeIds (1, 2), and Scores (100, 200).
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (30, 10, 20, 3);
+```

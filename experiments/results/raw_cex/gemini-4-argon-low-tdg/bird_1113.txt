@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. SUBSTRING vs exact date equality (date has timestamp '2015-09-10 00:00:00').
+-- 2. Correct projection of chanceCreationShootingClass vs other class columns.
+-- 3. Filtering on team_long_name vs team_short_name.
+-- 4. Filtering on date prefix (excludes '2015-09-11', '2014-09-10', and non-prefix 'X2015-09-10').
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 9904, 241, 'Hannover 96', 'HAN');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 8178, 32, 'Bayer 04 Leverkusen', 'Hannover 96');
+
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, buildUpPlaySpeedClass, buildUpPlayDribblingClass, buildUpPlayPassingClass, buildUpPlayPositioningClass, chanceCreationPassingClass, chanceCreationCrossingClass, chanceCreationShooting, chanceCreationShootingClass, chanceCreationPositioningClass, defencePressureClass, defenceAggressionClass, defenceTeamWidthClass, defenceDefenderLineClass) VALUES (1, 241, 9904, '2015-09-10 00:00:00', 'Balanced', 'Little', 'Mixed', 'Organised', 'Normal', 'Normal', 55, 'Lots', 'Organised', 'Medium', 'Press', 'Normal', 'Cover');
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (2, 241, 9904, '2015-09-11 00:00:00', 'WrongDateDay');
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (3, 241, 9904, '2014-09-10 00:00:00', 'WrongDateYear');
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (4, 241, 9904, 'X2015-09-10 00:00:00', 'WrongSubstringOffset');
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (5, 32, 8178, '2015-09-10 00:00:00', 'WrongTeam');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Join condition: t1.team_api_id = t2.team_api_id vs t1.team_fifa_api_id = t2.team_fifa_api_id or t1.id = t2.id.
+-- Note: Team_Attributes.team_fifa_api_id has a FK to Team.team_fifa_api_id, so both FIFA IDs must exist in Team.
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (10, 1001, 2001, 'Hannover 96', 'HAN');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (20, 1002, 2002, 'Other Team', 'OTH');
+
+-- Row 10 matches on team_api_id (1001), but its team_fifa_api_id points to Team 20 (2002), and its id is 99.
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (99, 2002, 1001, '2015-09-10', 'CorrectJoinOnApiId');
+-- Row 10 matches Team 10 on id (10) and team_fifa_api_id (2001), but has wrong team_api_id (1002).
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (10, 2001, 1002, '2015-09-10', 'WrongJoinOnFifaIdOrId');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Duplicate handling (SELECT vs SELECT DISTINCT) and multiple matching records (kills LIMIT 1).
+-- 2. Exact 10-character date string vs longer timestamp string.
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 500, 600, 'Hannover 96', 'H96');
+
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (1, 600, 500, '2015-09-10', 'Normal');
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (2, 600, 500, '2015-09-10 12:30:00', 'Normal');
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (3, 600, 500, '2015-09-10 23:59:59', 'Lots');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN (Team 'Hannover 96' exists, but has no matching Team_Attributes for that date).
+-- 2. AND vs OR in WHERE clause (Other team has '2015-09-10', Hannover 96 has a different date).
+-- 3. String comparison / LIKE wildcards on 'Hannover 96' (e.g. 'Hannover 96 II').
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 111, 222, 'Hannover 96', 'HAN');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 333, 444, 'Hannover 96 II', 'HA2');
+
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (1, 222, 111, '2015-09-01 00:00:00', 'WrongDateForHannover');
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (2, 444, 333, '2015-09-10 00:00:00', 'WrongTeamPrefixMatch');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. SUBSTRING length boundary (e.g. SUBSTRING(date, 1, 9) = '2015-09-1' or >/< comparisons on date).
+-- 2. NULL handling in target column and filter columns.
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 777, 888, 'Hannover 96', 'HAN');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 778, 889, NULL, 'HAN');
+
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (1, 888, 777, '2015-09-10', NULL);
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (2, 888, 777, '2015-09-100', 'Little');
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (3, 888, 777, '2015-09-1', 'ShortDate');
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (4, 888, 777, NULL, 'NullDate');
+INSERT INTO Team_Attributes (id, team_fifa_api_id, team_api_id, date, chanceCreationShootingClass) VALUES (5, 889, 778, '2015-09-10', 'NullTeamName');
+```

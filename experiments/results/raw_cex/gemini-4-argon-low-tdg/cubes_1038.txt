@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Tests boundary values for bikes_available (11, 12, 13, NULL), column swap traps (docks_available > 12, dock_count > 12), and unmatched parent rows (LEFT JOIN vs INNER JOIN).
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (1, 'Station_Exact_12', 37.7, -122.4, 20, 'San Francisco', '2013-08-01');
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (2, 'Station_Pass_13', 37.7, -122.4, 10, 'San Francisco', '2013-08-02');
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (3, 'Station_Fail_11', 37.7, -122.4, 25, 'San Francisco', '2013-08-03');
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (4, 'Station_Null_Bikes', 37.7, -122.4, 30, 'San Francisco', '2013-08-04');
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (5, 'Station_No_Status', 37.7, -122.4, 15, 'San Francisco', '2013-08-05');
+
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (1, 12, 15, '2013-08-29 12:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (2, 13, 5, '2013-08-29 12:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (3, 11, 20, '2013-08-29 12:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (4, NULL, 18, '2013-08-29 12:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT enforcement (multiple matching status rows per station), ordering (inserted out of id order), NULLS LAST handling, and duplicate station names across different IDs.
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (30, 'Central_Depot', 37.3, -121.9, 15, 'San Jose', '2013-08-10');
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (10, NULL, 37.3, -121.9, 15, 'San Jose', '2013-08-11');
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (20, 'Central_Depot', 37.3, -121.9, 15, 'San Jose', '2013-08-12');
+
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (30, 14, 1, '2013-08-29 10:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (30, 20, 0, '2013-08-29 11:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (10, 15, 0, '2013-08-29 10:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (20, 13, 2, '2013-08-29 10:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (20, 8, 7, '2013-08-29 11:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests aggregate/HAVING traps (where SUM(bikes_available) > 12 or MAX/MIN/AVG differs from individual row > 12) and wrong table join traps (joining trip table instead of status).
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (101, 'Sum_Trap_Station', 37.5, -122.3, 20, 'Redwood City', '2013-08-15');
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (102, 'Avg_Min_Trap_Station', 37.5, -122.3, 20, 'Redwood City', '2013-08-16');
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (103, 'Trip_Trap_Station', 37.5, -122.3, 20, 'Redwood City', '2013-08-17');
+
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (101, 7, 13, '2013-08-29 08:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (101, 8, 12, '2013-08-29 09:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (102, 2, 18, '2013-08-29 08:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (102, 15, 5, '2013-08-29 09:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (103, 5, 15, '2013-08-29 08:00:00');
+
+INSERT INTO trip (id, duration, start_date, start_station_name, start_station_id, end_date, end_station_name, end_station_id, bike_id, subscription_type, zip_code) VALUES (1, 500, '2013-08-29 08:00:00', 'Trip_Trap_Station', 103, '2013-08-29 08:10:00', 'Trip_Trap_Station', 103, 25, 'Subscriber', 94063);
+```
+
+```sql
+-- DATASET 4
+-- Tests join condition mutations (e.g., LHS.id = RHS.bikes_available, missing ON clause / Cartesian join, or NULL station_id in status).
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (14, 'ID_14_No_Valid_Status', 37.4, -122.1, 15, 'Palo Alto', '2013-08-20');
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (15, 'ID_15_Valid_Status', 37.4, -122.1, 15, 'Palo Alto', '2013-08-21');
+
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (14, 3, 12, '2013-08-29 14:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (15, 14, 1, '2013-08-29 14:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (NULL, 25, 0, '2013-08-29 14:00:00');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set handling when tables are populated but no status row satisfies bikes_available > 12 (including negative and zero values).
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (1, 'Zero_Bikes_Station', 37.8, -122.4, 15, 'Mountain View', '2013-08-25');
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES (2, 'Twelve_Bikes_Station', 37.8, -122.4, 15, 'Mountain View', '2013-08-26');
+
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (1, 0, 15, '2013-08-29 18:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (1, -15, 15, '2013-08-29 19:00:00');
+INSERT INTO status (station_id, bikes_available, docks_available, time) VALUES (2, 12, 3, '2013-08-29 18:00:00');
+```

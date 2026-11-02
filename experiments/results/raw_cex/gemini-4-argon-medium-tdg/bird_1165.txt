@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary condition on TG (199, 200, 201, NULL) and join filtering.
+-- Only patients 1 and 2 qualify (1990 - 1960 = 30).
+-- Catches mutants like TG > 200, TG >= 199, TG <= 200, missing WHERE clause, or LEFT JOIN on Patient.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'M', '1960-05-15', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'F', '1990-08-20', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'M', '1940-01-01', '2000-01-01', '2000-01-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (4, 'F', '2010-12-31', '2000-01-01', '2000-01-01', '-', 'APS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (5, 'F', '1920-03-10', '2000-01-01', '2000-01-01', '+', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, TG) VALUES (1, '2005-01-01', 200);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (2, '2005-02-01', 201);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (3, '2005-03-01', 199);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (4, '2005-04-01', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests date column confusion and table confusion.
+-- Birthday gives 1995 - 1975 = 20.
+-- Description gives 2015 - 1980 = 35.
+-- "First Date" gives 2020 - 1985 = 35.
+-- Laboratory.Date gives 2018 - 2002 = 16.
+-- Examination."Examination Date" gives 2019 - 2001 = 18.
+-- Also tests JULIANDAY/DATEDIFF vs STRFTIME('%Y'): 1975-12-31 to 1995-01-01 is 20 calendar years, but ~19.003 actual years.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'M', '1975-12-31', '2015-06-01', '1985-06-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'F', '1995-01-01', '1980-06-01', '2020-06-01', '-', 'RA');
+
+INSERT INTO Laboratory (ID, Date, TG) VALUES (1, '2002-03-15', 250);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (2, '2018-11-20', 300);
+
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2001-05-05', 200);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2019-09-09', 250);
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple intermediate rows, duplicate Lab records per patient, NULL Birthdays, and non-matching column values (e.g. T-CHO >= 200 when TG < 200).
+-- Qualifying Birthdays: 1955, 1970, 1988, NULL -> MAX is 1988, MIN is 1955 -> 1988 - 1955 = 33.
+-- Catches AVG, SUM, COUNT mutants, and column substitution mutants (e.g., T-CHO, GOT, GPT instead of TG).
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (10, 'M', '1955-04-10', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (20, 'F', '1970-07-22', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (30, 'M', '1988-11-05', '2000-01-01', '2000-01-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (40, 'F', NULL, '2000-01-01', '2000-01-01', '-', 'APS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (50, 'M', '1930-01-01', '2000-01-01', '2000-01-01', '+', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, TG, "T-CHO", GOT, GPT) VALUES (10, '2010-01-01', 210, 150, 100, 100);
+INSERT INTO Laboratory (ID, Date, TG, "T-CHO", GOT, GPT) VALUES (10, '2010-06-01', 150, 250, 250, 250);
+INSERT INTO Laboratory (ID, Date, TG, "T-CHO", GOT, GPT) VALUES (20, '2011-02-01', 400, 180, 50, 50);
+INSERT INTO Laboratory (ID, Date, TG, "T-CHO", GOT, GPT) VALUES (20, '2011-08-01', 450, 190, 60, 60);
+INSERT INTO Laboratory (ID, Date, TG, "T-CHO", GOT, GPT) VALUES (30, '2012-03-01', 200, 120, 40, 40);
+INSERT INTO Laboratory (ID, Date, TG, "T-CHO", GOT, GPT) VALUES (40, '2013-04-01', 300, 220, 30, 30);
+INSERT INTO Laboratory (ID, Date, TG, "T-CHO", GOT, GPT) VALUES (50, '2014-05-01', 100, 300, 220, 210);
+```
+
+```sql
+-- DATASET 4
+-- Tests MAX(Birthday) vs MAX(STRFTIME('%Y', Birthday)) when multiple records exist in the same boundary years,
+-- and tests improper GROUP BY (e.g., GROUP BY T1.ID or GROUP BY T1.SEX).
+-- Qualifying Birthdays: 1965-02-10, 1965-11-25, 1992-03-14, 1992-09-30.
+-- Expected result: 1992 - 1965 = 27.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'M', '1965-02-10', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'F', '1965-11-25', '2000-01-01', '2000-01-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'M', '1992-03-14', '2000-01-01', '2000-01-01', '+', 'APS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (4, 'F', '1992-09-30', '2000-01-01', '2000-01-01', '-', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, TG) VALUES (1, '2001-01-01', 220);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (2, '2001-01-02', 200);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (3, '2001-01-03', 310);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (4, '2001-01-04', 500);
+```
+
+```sql
+-- DATASET 5
+-- Tests single qualifying patient (result should be 0) while other patients do not qualify.
+-- Catches mutants that omit join condition (cartesian product), invert WHERE condition (TG < 200), or use hardcoded offsets.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (101, 'F', '1983-06-15', '2005-01-01', '2005-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (102, 'M', '1950-01-01', '2005-01-01', '2005-01-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (103, 'F', '2000-12-12', '2005-01-01', '2005-01-01', '+', 'APS');
+
+INSERT INTO Laboratory (ID, Date, TG) VALUES (101, '2010-10-10', 205);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (102, '2010-10-11', 199);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (103, '2010-10-12', 50);
+```

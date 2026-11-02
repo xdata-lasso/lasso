@@ -1,0 +1,58 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. LIKE '%...%' vs '=' vs 'LIKE ...%' vs 'LIKE %...' (prefix and suffix characters exist around the target substring).
+-- 2. DISTINCT requirement (multiple matching foreign_data rows and multiple matching cards for the same artist).
+-- 3. Filtering out non-matching foreign_data rows and cards with no foreign_data (INNER JOIN vs LEFT JOIN).
+-- 4. Checking T2.flavorText vs T1.flavorText or T2.text (decoy strings placed in wrong columns).
+INSERT INTO cards (id, artist, flavorText, text, uuid) VALUES 
+(1, 'Artist_Match', 'Unrelated flavor', 'Unrelated text', 'uuid-1'),
+(2, 'Artist_Match', 'Unrelated flavor 2', 'Unrelated text 2', 'uuid-2'),
+(3, 'Artist_Decoy_CardFlavor', 'Prefix DAS perfekte Gegenmittel zu einer dichten Formation Suffix', 'Unrelated', 'uuid-3'),
+(4, 'Artist_Decoy_FDText', 'Unrelated', 'Unrelated', 'uuid-4'),
+(5, 'Artist_No_FD', 'DAS perfekte Gegenmittel zu einer dichten Formation', 'Unrelated', 'uuid-5');
+
+INSERT INTO foreign_data (id, flavorText, text, language, uuid) VALUES 
+(1, 'Intro: "DAS perfekte Gegenmittel zu einer dichten Formation!" - Outro', 'Some text', 'German', 'uuid-1'),
+(2, 'Second print: DAS perfekte Gegenmittel zu einer dichten Formation.', 'Some text', 'German', 'uuid-1'),
+(3, 'Another card: DAS perfekte Gegenmittel zu einer dichten Formation!', 'Some text', 'German', 'uuid-2'),
+(4, 'Wrong foreign flavor text', 'Some text', 'German', 'uuid-3'),
+(5, 'Wrong foreign flavor text', 'Prefix DAS perfekte Gegenmittel zu einer dichten Formation Suffix', 'German', 'uuid-4');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Exact string match (where LIKE '%...%' and '=' both match, ensuring basic functionality) vs prefix-only or suffix-only mismatches.
+-- 2. Join condition integrity: T1.uuid = T2.uuid vs accidental T1.id = T2.id or cross join.
+-- 3. Handling of NULL artist and NULL flavorText.
+INSERT INTO cards (id, artist, uuid) VALUES 
+(10, 'Artist_Wrong_ID_Match', 'uuid-10'),
+(20, 'Artist_Correct_UUID_Match', 'uuid-20'),
+(30, NULL, 'uuid-30'),
+(40, 'Artist_Null_Flavor', 'uuid-40');
+
+INSERT INTO foreign_data (id, flavorText, uuid) VALUES 
+(10, 'DAS perfekte Gegenmittel zu einer dichten Formation', 'uuid-20'),
+(20, 'Completely different text', 'uuid-10'),
+(30, 'Prefix only DAS perfekte Gegenmittel zu einer dichten Formation', 'uuid-30'),
+(40, NULL, 'uuid-40');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Substring boundary mutations (e.g., missing words or typos in the LIKE pattern, suffix-only match).
+-- 2. Multiple distinct artists returned (ensuring no LIMIT 1 or improper aggregation).
+-- 3. Orphaned foreign_data row (NULL uuid) with matching flavorText (tests INNER JOIN vs RIGHT JOIN / cross join).
+INSERT INTO cards (id, artist, name, uuid) VALUES 
+(1, 'Artist_Alpha', 'Card A', 'uuid-a'),
+(2, 'Artist_Beta', 'Card B', 'uuid-b'),
+(3, 'Artist_Gamma_NonMatch', 'Card C', 'uuid-c');
+
+INSERT INTO foreign_data (id, flavorText, name, uuid) VALUES 
+(1, 'DAS perfekte Gegenmittel zu einer dichten Formation SuffixOnly', 'FD A', 'uuid-a'),
+(2, 'DAS perfekte Gegenmittel zu einer dichten Formation', 'FD B', 'uuid-b'),
+(3, 'DAS perfekte Gegenmittel zu einer dichten', 'FD C', 'uuid-c'),
+(4, 'DAS perfekte Gegenmittel zu einer dichten Formation', 'FD Orphan', NULL);
+```

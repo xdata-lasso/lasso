@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions around SAL = 11 (10, 11, 12) to kill < vs <=, >, >=, = mutations.
+-- 2. Negative SAL values (-5, -15) to kill ABS(EMP.SAL) mutations or -1 * EMP.SAL mutations.
+-- 3. Collision in CASE expression: SAL = -15 (becomes 15) and SAL = 15 (stays 15) must group together, killing GROUP BY EMP.SAL mutations.
+-- 4. EMP.SAL vs BONUS.SAL discrepancy to kill column reference mutations.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'ALICE', 'CLERK', NULL, '2020-01-01', 10, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 10, 'BOB', 'CLERK', 1, '2020-01-02', 11, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 10, 'CHARLIE', 'MANAGER', 1, '2020-01-03', 12, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 10, 'DAVID', 'ANALYST', 3, '2020-01-04', -5, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 10, 'EVE', 'SALESMAN', 3, '2020-01-05', -15, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (6, 10, 'FRANK', 'SALESMAN', 3, '2020-01-06', 15, 0, 0);
+
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('ALICE', 'CLERK', 999, 100);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('BOB', 'CLERK', 999, 100);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('CHARLIE', 'MANAGER', 999, 100);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('DAVID', 'ANALYST', 999, 100);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('EVE', 'SALESMAN', 999, 100);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('FRANK', 'SALESMAN', 999, 100);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. INNER JOIN vs LEFT/RIGHT/FULL OUTER JOIN (unmatched rows in EMP and BONUS).
+-- 2. Join condition mutations (e.g. joining on JOB, SAL, or COMM instead of ENAME, or natural join on all common columns).
+-- 3. 1-to-Many / Many-to-Many join multiplicity (duplicate ENAMEs in EMP and BONUS) to kill COUNT(DISTINCT ...) mutations.
+-- 4. NULL values in nullable column (EMP.MGR) to kill COUNT(EMP.MGR) mutations.
+-- 5. SAL = 0 edge case.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (101, 20, 'MATCH_DUPE', 'JOB_A', NULL, '2021-01-01', 5, 10, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (102, 20, 'MATCH_DUPE', 'JOB_B', 101, '2021-01-02', 5, 20, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (103, 20, 'ZERO_SAL', 'JOB_C', NULL, '2021-01-03', 0, 30, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (104, 20, 'EMP_ONLY', 'JOB_D', NULL, '2021-01-04', 8, 40, 0);
+
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('MATCH_DUPE', 'DIFF_JOB_1', 500, 99);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('MATCH_DUPE', 'DIFF_JOB_2', 600, 88);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('ZERO_SAL', 'DIFF_JOB_3', 700, 77);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('BONUS_ONLY', 'JOB_D', 8, 40);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple employees with different ENAMEs and different original SALs (-20 and 20, -11 and 11) collapsing into the same group.
+-- 2. Kills mutations that group by ENAME, EMPNO, or un-transformed SAL.
+-- 3. Tests boundary SAL = -11 (since -11 < 11, becomes +11, grouping with SAL = 11 which stays +11).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'SALES');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (201, 30, 'G1_NEG', 'SALES', NULL, '2022-03-01', -11, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (202, 30, 'G1_POS', 'SALES', 201, '2022-03-02', 11, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (203, 30, 'G2_A', 'SALES', 201, '2022-03-03', 1, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (204, 30, 'G2_B', 'SALES', 201, '2022-03-04', 1, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (205, 30, 'G3_NEG', 'SALES', 201, '2022-03-05', -20, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (206, 30, 'G3_POS', 'SALES', 201, '2022-03-06', 20, 0, 0);
+
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('G1_NEG', 'SALES', 11, 0);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('G1_POS', 'SALES', -11, 0);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('G2_A', 'SALES', 100, 0);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('G2_B', 'SALES', 200, 0);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('G3_NEG', 'SALES', 20, 0);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('G3_POS', 'SALES', 20, 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty join result (rows exist in both tables, but no matching ENAME).
+-- 2. Kills mutations that omit GROUP BY (which in SQL returns 1 row with COUNT=0 instead of 0 rows on an empty set) or use cross join / wrong join predicates.
+-- 3. Populates other tables (EMPNULLABLES, EMP_B) to kill table name substitution mutants.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (40, 'OPERATIONS');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (301, 40, 'NO_MATCH_1', 'CLERK', NULL, '2023-01-01', 5, 50, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (302, 40, 'NO_MATCH_2', 'MANAGER', 301, '2023-01-02', 15, 50, 1);
+
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('OTHER_1', 'CLERK', 5, 50);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('OTHER_2', 'MANAGER', 15, 50);
+
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (401, 40, 'OTHER_1', 'CLERK', NULL, '2023-01-01', 5, 50, 0);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (501, 40, 'OTHER_2', 'MANAGER', NULL, '2023-01-02', 15, 50, 1, '1990-01-01');
+```

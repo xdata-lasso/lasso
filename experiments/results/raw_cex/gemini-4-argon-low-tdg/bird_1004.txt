@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality, SUM vs MAX/MIN/COUNT/AVG, ORDER BY dob ASC vs DESC, and LIMIT 1.
+-- Also includes an unmatched driver with an even older dob to kill LEFT/RIGHT JOIN mutations.
+INSERT INTO seasons (year, url) VALUES (2020, 'http://s1.com');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Race 1', '2020-01-01', 'http://r1.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2020, 2, 1, 'Race 2', '2020-01-08', 'http://r2.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (1, 'd1', 'John', 'Doe', '1970-01-01', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (2, 'd2', 'Jane', 'Smith', '1980-05-05', 'http://d2.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (3, 'd3', 'Old', 'Unmatched', '1950-01-01', 'http://d3.com');
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (1, 1, 1, 10.0, 2, 2);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (2, 2, 1, 15.0, 3, 2);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (3, 1, 2, 25.0, 1, 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaker in ORDER BY: multiple drivers with the exact same earliest dob, differing in SUM(wins).
+-- Kills mutations that drop SUM(T1.wins) from ORDER BY or sort it DESC instead of ASC.
+-- Also tests SUM(DISTINCT wins) vs SUM(wins) by having identical win counts across rows for the winning group.
+INSERT INTO seasons (year, url) VALUES (2020, 'http://s1.com');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Race 1', '2020-01-01', 'http://r1.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2020, 2, 1, 'Race 2', '2020-01-08', 'http://r2.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (1, 'd1', 'Alpha', 'One', '1980-01-01', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (2, 'd2', 'Beta', 'Two', '1980-01-01', 'http://d2.com');
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (1, 1, 1, 50.0, 1, 20);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (2, 1, 2, 10.0, 2, 3);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (3, 2, 2, 10.0, 2, 3);
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY clause variations:
+-- 1) Two distinct drivers (different driverId) with the exact same forename and surname (tests GROUP BY forename, surname vs GROUP BY driverId).
+-- 2) Drivers sharing only forename or only surname with earlier dob (tests GROUP BY forename vs GROUP BY surname vs GROUP BY both).
+INSERT INTO seasons (year, url) VALUES (2020, 'http://s1.com');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Race 1', '2020-01-01', 'http://r1.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (1, 'd1', 'Alex', 'Taylor', '1970-01-01', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (2, 'd2', 'Alex', 'Taylor', '1970-01-01', 'http://d2.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (3, 'd3', 'Alex', 'Zeta', '1960-01-01', 'http://d3.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (4, 'd4', 'Bob', 'Taylor', '1965-01-01', 'http://d4.com');
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (1, 1, 1, 10.0, 1, 4);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (2, 1, 2, 10.0, 2, 5);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (3, 1, 3, 10.0, 3, 100);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (4, 1, 4, 10.0, 4, 50);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in ORDER BY T2.dob ASC.
+-- In SQLite, NULLs are considered smaller than any non-NULL value in ASC order (NULLS FIRST by default).
+-- Kills mutations that add NULLS LAST to T2.dob or filter out NULL dob (WHERE dob IS NOT NULL).
+INSERT INTO seasons (year, url) VALUES (2020, 'http://s1.com');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Race 1', '2020-01-01', 'http://r1.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (1, 'd1', 'Null', 'Dob1', NULL, 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (2, 'd2', 'Null', 'Dob2', NULL, 'http://d2.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (3, 'd3', 'Valid', 'Dob', '1950-01-01', 'http://d3.com');
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (1, 1, 1, 10.0, 1, 15);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (2, 1, 2, 10.0, 2, 7);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (3, 1, 3, 10.0, 3, 99);
+```
+
+```sql
+-- DATASET 5
+-- Tests 0 wins vs positive wins, and ensures mutations swapping T1.wins with T1.points, T1.position, or T1.raceId are killed.
+-- Also tests cross-table confusion (e.g., querying results or constructorStandings instead of driverStandings).
+INSERT INTO seasons (year, url) VALUES (2020, 'http://s1.com');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Race 1', '2020-01-01', 'http://r1.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (1, 'd1', 'Zero', 'Wins', '1975-01-01', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (2, 'd2', 'Many', 'Wins', '1985-01-01', 'http://d2.com');
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (1, 1, 1, 18.0, 2, 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (2, 1, 2, 25.0, 1, 5);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionOrder, points, laps, statusId) VALUES (1, 1, 1, 1, 1, 1, 25.0, 50, 1);
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, wins) VALUES (1, 1, 1, 43.0, 1, 5);
+```

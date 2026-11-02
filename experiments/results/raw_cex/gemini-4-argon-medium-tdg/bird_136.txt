@@ -1,0 +1,71 @@
+```sql
+-- DATASET 1
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Valid match: date inside range, frequency matches, amount > 250000
+-- Note: T1.date is outside range to kill mutants filtering on T1.date instead of T2.date
+-- Also has 2 valid loans for the same account to kill COUNT(DISTINCT T1.account_id) mutants
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1993-05-05');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 1, '1996-06-15', 250001, 12, 1000.0, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 1, '1995-01-01', 300000, 24, 2000.0, 'B');
+
+-- Boundary test: T2.date on upper inclusive boundary '1997-12-31'
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK MESICNE', '1999-01-01');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (3, 2, '1997-12-31', 500000, 36, 1500.0, 'A');
+
+-- Boundary failure: T2.amount = 250000 (kills >= 250000 mutant)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 1, 'POPLATEK MESICNE', '1996-01-01');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (4, 3, '1996-06-15', 250000, 12, 1000.0, 'A');
+
+-- Boundary failure: T2.date just before range '1994-12-31' (while T1.date is inside range)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (4, 1, 'POPLATEK MESICNE', '1996-06-15');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (5, 4, '1994-12-31', 300000, 12, 1000.0, 'A');
+
+-- Boundary failure: T2.date just after range '1998-01-01' (while T1.date is inside range)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (5, 1, 'POPLATEK MESICNE', '1996-06-15');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (6, 5, '1998-01-01', 300000, 12, 1000.0, 'A');
+
+-- Predicate failure: T1.frequency mismatch ('POPLATEK TYDNE')
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (6, 1, 'POPLATEK TYDNE', '1996-06-15');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (7, 6, '1996-06-15', 300000, 12, 1000.0, 'A');
+```
+
+```sql
+-- DATASET 2
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Account without any loan (kills LEFT JOIN mutants if WHERE clauses are pushed to ON)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 10, 'POPLATEK MESICNE', '1996-05-05');
+
+-- Account with valid frequency, but loan fails amount (< 250000)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 10, 'POPLATEK MESICNE', '1996-05-05');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (200, 20, '1996-05-05', 100000, 12, 500.0, 'C');
+
+-- Account with invalid frequency ('POPLATEK PO OBRATU'), loan has valid date and amount
+-- Note: loan_id=10 matches account_id=10 above to kill mutants joining on T1.account_id = T2.loan_id
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (30, 10, 'POPLATEK PO OBRATU', '1996-05-05');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (10, 30, '1996-05-05', 400000, 24, 1500.0, 'D');
+
+-- Account with valid frequency and valid loan amount, but loan date outside range
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (40, 10, 'POPLATEK MESICNE', '1996-05-05');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (400, 40, '1993-01-01', 400000, 24, 1500.0, 'A');
+```
+
+```sql
+-- DATASET 3
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Tests strict boundary of 1995-01-01 (kills > '1995-01-01' mutant)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (501, 101, '1995-01-01', 250001, 12, 20833.4, 'A');
+
+-- Tests strict boundary of 1997-12-31 (kills < '1997-12-31' mutant)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 2, 'POPLATEK MESICNE', '1997-12-31');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (502, 102, '1997-12-31', 250001, 12, 20833.4, 'A');
+
+-- Tests trans and order tables having matching values to kill mutants querying wrong tables (trans or "order" instead of loan)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (103, 1, 'POPLATEK MESICNE', '1996-01-01');
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 103, '1996-06-01', 'PRIJEM', 'VKLAD', 300000, 300000, NULL, NULL, NULL);
+INSERT INTO "order" (order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (1, 103, 'AB', 999, 300000.0, 'SIPO');
+```

@@ -1,0 +1,53 @@
+```sql
+-- DATASET 1
+-- Tests basic matching row, floating point division (1.0 / 12 vs integer division 1 / 12 = 0),
+-- COUNT(School) vs COUNT(*) when School is NULL, and COUNT(School) vs COUNT(DISTINCT School).
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS001', 'Active', 'Alameda', 'District A', 'Lincoln High', '1980-01-15', '52', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS002', 'Active', 'Alameda', 'District A', 'Lincoln High', '1980-06-30', '52', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS003', 'Active', 'Alameda', 'District A', NULL, '1980-12-31', '52', 'Unified', '2020-01-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests predicates individually (DOC = 52, County = 'Alameda', STRFTIME('%Y', OpenDate) = '1980')
+-- and boundary conditions on dates and DOC values to catch off-by-one, OR vs AND, or missing WHERE clauses.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS101', 'Active', 'Alameda', 'District A', 'School Valid', '1980-05-20', '52', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS102', 'Active', 'Alameda', 'District A', 'School Wrong DOC 1', '1980-05-20', '51', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS103', 'Active', 'Alameda', 'District A', 'School Wrong DOC 2', '1980-05-20', '53', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS104', 'Active', 'Contra Costa', 'District B', 'School Wrong County', '1980-05-20', '52', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS105', 'Active', 'Alameda', 'District A', 'School Wrong Year Before', '1979-12-31', '52', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS106', 'Active', 'Alameda', 'District A', 'School Wrong Year After', '1981-01-01', '52', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS107', 'Active', 'Alameda', 'District A', 'School Null Date', NULL, '52', 'Unified', '2020-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests join-inducing mutations (e.g. mutants that inner join with frpm or satscores)
+-- and date string manipulation mutations (e.g. LIKE '%1980%' vs STRFTIME('%Y', OpenDate) = '1980').
+-- Here the matching school in `schools` has NO corresponding record in `frpm` or `satscores`.
+-- Meanwhile, a non-matching school (wrong year, wrong county, etc.) DOES have child records.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS201', 'Active', 'Alameda', 'District A', 'Standalone School 1', '1980-03-10', '52', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS202', 'Active', 'Alameda', 'District A', 'Joined School Wrong Year', '1990-01-01', '52', 'Unified', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "District Code", "School Name") VALUES ('CDS202', 'Alameda', 52, 'Joined School Wrong Year');
+INSERT INTO satscores (cds, rtype, sname, cname, enroll12, NumTstTakr) VALUES ('CDS202', 'S', 'Joined School Wrong Year', 'Alameda', 100, 50);
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between columns across tables or within the same table:
+-- e.g.,ClosedDate vs OpenDate, LastUpdate vs OpenDate, SOC vs DOC, CharterNum vs DOC, District vs County.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, ClosedDate, DOC, DOCType, SOC, LastUpdate) VALUES ('CDS301', 'Active', 'Alameda', 'Alameda', 'Target School', '1980-07-04', '1995-06-01', '52', 'Unified', '60', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, ClosedDate, DOC, DOCType, SOC, LastUpdate) VALUES ('CDS302', 'Closed', 'Alameda', 'District X', 'Trap Closed 1980', '1970-01-01', '1980-06-01', '52', 'Unified', '52', '1980-06-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, ClosedDate, DOC, DOCType, SOC, LastUpdate) VALUES ('CDS303', 'Active', 'Alameda', 'District X', 'Trap SOC 52', '1980-05-01', NULL, '00', 'Unified', '52', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, ClosedDate, DOC, DOCType, SOC, LastUpdate) VALUES ('CDS304', 'Active', 'Sacramento', 'Alameda', 'Trap District Alameda', '1980-05-01', NULL, '52', 'Unified', '60', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Academic Year", "County Code", "District Code", "County Name", "School Name") VALUES ('CDS301', '1980', '52', 52, 'Alameda', 'Target School');
+INSERT INTO satscores (cds, rtype, sname, cname, enroll12, NumTstTakr) VALUES ('CDS301', 'S', 'Target School', 'Alameda', 52, 1980);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set / 0 count behavior (e.g., COUNT returns 0 -> 0.0, whereas SUM/AVG might return NULL).
+INSERT INTO schools (CDSCode, StatusType, County, District, School, OpenDate, DOC, DOCType, LastUpdate) VALUES ('CDS401', 'Active', 'Los Angeles', 'LAUSD', 'Some School', '2000-01-01', '01', 'Unified', '2020-01-01');
+```

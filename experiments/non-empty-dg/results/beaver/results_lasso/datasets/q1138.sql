@@ -1,0 +1,12 @@
+INSERT INTO "mit_student_directory" ("first_name", "middle_name", "last_name", "full_name", "office_location", "office_phone", "email_address", "department", "department_name", "student_year", "full_name_uppercase", "warehouse_load_date") VALUES ('Danielle', 'Noah Rhodes', 'Johnson', 'Connie Lawrence', 'USNV Garcia
+FPO AA 13177', '(748)535-0305x6413', 'djames@example.net', 'learn', 'Nathan Cortez', 'G', 'Pamela Romero', '1970-01-01');
+INSERT INTO "mit_student_directory" ("first_name", "middle_name", "last_name", "full_name", "office_location", "office_phone", "email_address", "department", "department_name", "student_year", "full_name_uppercase", "warehouse_load_date") VALUES ('Angel', 'Angie Henderson', 'Gonzalez', 'Abigail Shaffer', '407 Teresa Lane Apt. 849
+Barbaraland, AZ 87174', '+1-876-772-4238x8496', 'tasha01@example.net', 'coach', 'Nathan Cortez', 'G', 'Mario Skinner', '1970-01-02');
+INSERT INTO "mit_student_directory" ("first_name", "middle_name", "last_name", "full_name", "office_location", "office_phone", "email_address", "department", "department_name", "student_year", "full_name_uppercase", "warehouse_load_date") VALUES ('Joshua', 'Daniel Wagner', 'Santos', 'Gina Moore', '31647 Martin Knoll Apt. 419
+New Jessica, GA 61090', '828.371.0122', 'kayla51@example.com', 'long', 'Nathan Cortez', 'G', 'Christina Brooks', '1970-01-03');
+INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('color', 'Tamara George', 'Connie Lawrence', 'our', 'Chartered certified accountant', 'Y', 'Unit 8227 Box 8248
+DPO AP 55962', 'Lewis-Anderson', 'Ryan', 'Daniel', 'James Morgan', 'enjoy');
+INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('notice', 'Brian Cox DVM', 'Abigail Shaffer', 'your', 'Radiographer, diagnostic', 'Y', 'Unit 8346 Box 5787
+DPO AE 32994', 'Johnston, Sanchez and Kennedy', 'Rodney', 'Nunez', 'Danielle Lee', 'two');
+INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('start', 'Cynthia Allen', 'Gina Moore', 'bar', 'Broadcast presenter', 'Y', '98393 Chad Roads Apt. 310
+Chadbury, KY 88185', 'Lee-Davis', 'Stuart', 'Joyce', 'Javier Ramirez', 'wind');

@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Tests floating-point division (CAST AS REAL) vs integer division, ASC vs DESC, and ORDER BY NumGE1500 vs ratio.
+-- In integer division, both S1 (10/100) and S2 (1/2) evaluate to 0, tying on S1/S2.
+-- In real division, S1 is 0.1 and S2 is 0.5.
+-- S1 has higher raw NumGE1500 (10) than S2 (1), killing mutants that order by NumGE1500 instead of the ratio.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S1', 'Active', 'County1', 'Dist1', '00', 'Type1', '2020-01-01', '100 First St', 'CityA', '90001', 'CA');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S2', 'Active', 'County2', 'Dist2', '00', 'Type2', '2020-01-01', '200 Second St', 'CityB', '90002', 'CA');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S3', 'Active', 'County3', 'Dist3', '00', 'Type3', '2020-01-01', '300 Third St', 'CityC', '90003', 'CA');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('S2', 'S', 50, 2, 1);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('S1', 'S', 500, 100, 10);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('S3', 'S', 300, 100, 90);
+```
+
+```sql
+-- DATASET 2
+-- Tests handling of NULL values in division (NULLS FIRST in ASC order in SQLite) and division by zero (NumTstTakr = 0 produces NULL in SQLite).
+-- Also tests tie-breaking on T1.cds ASC when the ratio is NULL.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S2', 'Active', 'County2', 'Dist2', '00', 'Type2', '2020-01-01', '222 Oak St', 'TownB', '91002', 'CA');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S1', 'Active', 'County1', 'Dist1', '00', 'Type1', '2020-01-01', '111 Pine St', 'TownA', '91001', 'CA');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S3', 'Active', 'County3', 'Dist3', '00', 'Type3', '2020-01-01', '333 Maple St', 'TownC', '91003', 'CA');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('S2', 'S', 100, 50, NULL);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('S1', 'S', 100, 0, 0);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('S3', 'S', 100, 50, 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN on schools, and checks if frpm table is erroneously joined.
+-- S0 has no satscores (would appear first in LEFT JOIN schools->satscores because ratio is NULL).
+-- S1 has satscores with smallest ratio, but is NOT in frpm (would be excluded if INNER JOIN frpm is erroneously used).
+-- S2 is in all three tables with a higher ratio.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S0', 'Active', 'County0', 'Dist0', '00', 'Type0', '2020-01-01', '000 Zero St', 'Metro0', '92000', 'CA');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S1', 'Active', 'County1', 'Dist1', '00', 'Type1', '2020-01-01', '101 Main St', 'Metro1', '92001', 'CA');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S2', 'Active', 'County2', 'Dist2', '00', 'Type2', '2020-01-01', '202 High St', 'Metro2', '92002', 'CA');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('S1', 'S', 200, 100, 15);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('S2', 'S', 200, 100, 45);
+
+INSERT INTO frpm (CDSCode, "Academic Year") VALUES ('S0', '2013-2014');
+INSERT INTO frpm (CDSCode, "Academic Year") VALUES ('S2', '2013-2014');
+```
+
+```sql
+-- DATASET 4
+-- Tests exact ratio ties (1/4 = 0.25 vs 25/100 = 0.25) to verify secondary sorting (T1.cds ASC) and tests column selection (Street vs StreetAbr vs MailStreet, City vs MailCity, etc.).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, StreetAbr, MailStreet, City, MailCity, Zip, MailZip, State, MailState) VALUES ('B_CDS', 'Active', 'CountyB', 'DistB', '00', 'TypeB', '2020-01-01', '400 Broad Street', '400 Broad St', 'PO Box 400', 'RealCityB', 'MailCityB', '93002', '93992', 'CA', 'NV');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, StreetAbr, MailStreet, City, MailCity, Zip, MailZip, State, MailState) VALUES ('A_CDS', 'Active', 'CountyA', 'DistA', '00', 'TypeA', '2020-01-01', '500 Narrow Avenue', '500 Narrow Ave', 'PO Box 500', 'RealCityA', 'MailCityA', '93001', '93991', 'CA', 'OR');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('B_CDS', 'S', 100, 4, 1);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('A_CDS', 'S', 400, 100, 25);
+```
+
+```sql
+-- DATASET 5
+-- Tests division by enroll12 vs NumTstTakr, and tests rtype or StatusType filtering mutants (e.g. if a mutant filters WHERE rtype = 'S' or StatusType = 'Active').
+-- S1 has ratio NumGE1500/NumTstTakr = 20/100 = 0.20, but NumGE1500/enroll12 = 20/25 = 0.80.
+-- S2 has ratio NumGE1500/NumTstTakr = 30/100 = 0.30, but NumGE1500/enroll12 = 30/1000 = 0.03.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S1', 'Closed', 'County1', 'Dist1', '00', 'Type1', '2020-01-01', '777 Closed Way', 'GhostTown', '94001', 'CA');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Street, City, Zip, State) VALUES ('S2', 'Active', 'County2', 'Dist2', '00', 'Type2', '2020-01-01', '888 Open Blvd', 'LiveCity', '94002', 'CA');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('S1', 'D', 25, 100, 20);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('S2', 'S', 1000, 100, 30);
+```

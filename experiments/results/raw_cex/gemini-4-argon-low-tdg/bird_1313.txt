@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Multiple members in the SAME major (kills COUNT(DISTINCT major_id) or counting majors instead of members).
+-- 2. Multiple majors in 'College of Engineering' (kills queries limiting to 1 major).
+-- 3. A major in 'College of Engineering' with 0 members (kills RIGHT/LEFT JOINs counting majors or COUNT(*)).
+-- 4. Members in other colleges or where 'College of Engineering' is placed in department/major_name (kills wrong column filters or missing WHERE clause).
+-- 5. Member with NULL link_to_major (kills LEFT JOIN member ON major where COUNT(*) is used).
+-- 6. Member with NULL in non-key columns like first_name, zip, etc. (kills COUNT(first_name) or INNER JOIN zip_code).
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'STANDARD', 'New York', 'New York', 'New York', 'NY');
+
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Science', 'CS Dept', 'College of Engineering');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ2', 'Electrical Engineering', 'EE Dept', 'College of Engineering');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ3', 'Mechanical Engineering', 'ME Dept', 'College of Engineering');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ4', 'College of Engineering', 'College of Engineering', 'College of Arts');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ5', 'Biology', 'Bio Dept', NULL);
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'Alice', 'Smith', 'alice@example.com', 'Member', 'M', '111-222-3333', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM2', 'Alice', 'Smith', 'alice@example.com', 'Member', 'M', '111-222-3333', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM3', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'MAJ2');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM4', 'Bob', 'Jones', 'bob@example.com', 'President', 'L', '444-555-6666', 10001, 'MAJ4');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM5', 'Charlie', 'Brown', 'charlie@example.com', 'Treasurer', 'S', '777-888-9999', 10001, 'MAJ5');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM6', 'David', 'Wilson', 'david@example.com', 'Secretary', 'XL', '000-111-2222', 10001, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Unnecessary joins with other tables (attendance, income, expense) that either filter out valid members (0 rows in child tables) or multiply rows (multiple rows in child tables) when COUNT(member_id) without DISTINCT is used.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('EV1', 'Hackathon', '2023-01-01', 'Tech', 'Notes', 'Hall A', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('EV2', 'Meeting', '2023-01-02', 'General', 'Notes', 'Hall B', 'Closed');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 50.0, 50.0, 100, 'Open', 'EV1');
+
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Engineering', 'CE Dept', 'College of Engineering');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'Eve', 'Adams', 'eve@example.com', 'Member', 'M', '123-456-7890', NULL, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM2', 'Frank', 'Miller', 'frank@example.com', 'Member', 'L', '098-765-4321', NULL, 'MAJ1');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('EV1', 'MEM1');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('EV2', 'MEM1');
+
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2023-01-01', 10, 'Dues', 'Note1', 'MEM1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC2', '2023-01-02', 20, 'Fundraiser', 'Note2', 'MEM1');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Pizza', '2023-01-01', 25.0, 'Yes', 'MEM1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Drinks', '2023-01-01', 25.0, 'Yes', 'MEM1', 'B1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. String matching mutations (LIKE '%College of Engineering%', case sensitivity 'college of engineering', != 'College of Engineering').
+-- 2. Wrong join conditions (e.g. joining on T1.member_id = T2.major_id instead of T1.link_to_major = T2.major_id).
+-- 3. Zero result handling (Gold query returns 0; mutants using wrong join, LIKE, or case-insensitive match will return > 0).
+INSERT INTO major (major_id, major_name, department, college) VALUES ('ID_MATCH', 'Civil Engineering', 'Civil Dept', 'College of Engineering');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ_OTHER', 'Art History', 'Art Dept', 'College of Fine Arts');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ_CASE', 'Software Engineering', 'SE Dept', 'college of engineering');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ_LIKE', 'Chemical Engineering', 'Chem Dept', 'The College of Engineering and Science');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('ID_MATCH', 'Grace', 'Hopper', 'grace@example.com', 'Member', 'S', '111-111-1111', NULL, 'MAJ_OTHER');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM_CASE', 'Alan', 'Turing', 'alan@example.com', 'Member', 'M', '222-222-2222', NULL, 'MAJ_CASE');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM_LIKE', 'Ada', 'Lovelace', 'ada@example.com', 'Member', 'S', '333-333-3333', NULL, 'MAJ_LIKE');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Queries with GROUP BY (e.g. GROUP BY T2.major_id or GROUP BY T1.position) which would return multiple rows instead of a single scalar count.
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'Aerospace Engineering', 'Aero Dept', 'College of Engineering');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M2', 'Bioengineering', 'BioE Dept', 'College of Engineering');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('10', 'John', 'Doe', 'j1@example.com', 'Member', 'S', '111', NULL, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('20', 'Jane', 'Doe', 'j2@example.com', 'President', 'M', '222', NULL, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('30', 'Jim', 'Beam', 'j3@example.com', 'Treasurer', 'L', '333', NULL, 'M2');
+```

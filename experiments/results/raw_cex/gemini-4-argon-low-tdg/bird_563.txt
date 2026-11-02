@@ -1,0 +1,114 @@
+```sql
+-- DATASET 1
+-- Tests basic join, WHERE clause filtering (AND vs OR, missing predicates), and column confusion (FavoriteCount vs Score/CommentCount/ViewCount).
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (3025, 100, '2010-01-01 00:00:00.0', 'TargetUser');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (3026, 200, '2010-01-02 00:00:00.0', 'OtherUser');
+
+INSERT INTO posts (Id, PostTypeId, CreaionDate, Score, ViewCount, CommentCount, FavoriteCount, OwnerUserId) VALUES (1, 1, '2014-04-20 10:00:00.0', 99, 88, 77, 42, 3026);
+INSERT INTO posts (Id, PostTypeId, CreaionDate, Score, ViewCount, CommentCount, FavoriteCount, OwnerUserId) VALUES (2, 1, '2014-04-20 11:00:00.0', 10, 20, 30, 100, 3026);
+INSERT INTO posts (Id, PostTypeId, CreaionDate, Score, ViewCount, CommentCount, FavoriteCount, OwnerUserId) VALUES (3, 1, '2014-04-20 12:00:00.0', 15, 25, 35, 200, 3025);
+
+-- Exact match
+INSERT INTO comments (Id, PostId, Score, CreationDate, UserId) VALUES (10, 1, 5, '2014-04-23 20:29:39.0', 3025);
+-- Matches CreationDate, wrong UserId
+INSERT INTO comments (Id, PostId, Score, CreationDate, UserId) VALUES (11, 2, 5, '2014-04-23 20:29:39.0', 3026);
+-- Matches UserId, wrong CreationDate
+INSERT INTO comments (Id, PostId, Score, CreationDate, UserId) VALUES (12, 3, 5, '2014-04-23 20:29:40.0', 3025);
+```
+
+```sql
+-- DATASET 2
+-- Tests Wrong Join Key mutations (e.g., T1.OwnerUserId = T2.UserId, T1.Id = T2.Id, T1.Id = T2.UserId) and Wrong Table Column mutations (e.g., T1.CreaionDate = ... or T1.OwnerUserId = 3025).
+INSERT INTO users (Id, DisplayName) VALUES (3025, 'User3025');
+INSERT INTO users (Id, DisplayName) VALUES (100, 'User100');
+
+-- Post 500 is the true target (owned by 100, created on a different date)
+INSERT INTO posts (Id, CreaionDate, FavoriteCount, OwnerUserId, LastEditorUserId) VALUES (500, '2012-01-01 00:00:00.0', 777, 100, 100);
+
+-- Decoy Post 3025: traps T1.Id = T2.UserId or T1.OwnerUserId = 3025
+INSERT INTO posts (Id, CreaionDate, FavoriteCount, OwnerUserId, LastEditorUserId) VALUES (3025, '2014-04-23 20:29:39.0', 999, 3025, 3025);
+
+-- Decoy Post 600: traps T1.Id = T2.Id
+INSERT INTO posts (Id, CreaionDate, FavoriteCount, OwnerUserId, LastEditorUserId) VALUES (600, '2014-04-23 20:29:39.0', 888, 3025, 3025);
+
+-- Comment 600 links to Post 500
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (600, 500, '2014-04-23 20:29:39.0', 3025);
+```
+
+```sql
+-- DATASET 3
+-- Tests DISTINCT vs ALL, and Aggregations (SUM/COUNT/AVG/MAX/MIN of FavoriteCount).
+-- Multiple matching comments on different posts with the same FavoriteCount, plus different FavoriteCounts.
+INSERT INTO users (Id, DisplayName) VALUES (3025, 'User3025');
+
+INSERT INTO posts (Id, FavoriteCount) VALUES (10, 15);
+INSERT INTO posts (Id, FavoriteCount) VALUES (20, 15);
+INSERT INTO posts (Id, FavoriteCount) VALUES (30, 25);
+
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (1, 10, '2014-04-23 20:29:39.0', 3025);
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (2, 20, '2014-04-23 20:29:39.0', 3025);
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (3, 30, '2014-04-23 20:29:39.0', 3025);
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT JOIN / RIGHT JOIN, and NULL handling in FavoriteCount and Foreign Keys.
+INSERT INTO users (Id, DisplayName) VALUES (3025, 'User3025');
+
+-- Post with no comments (tests LEFT JOIN from posts to comments)
+INSERT INTO posts (Id, CreaionDate, FavoriteCount, OwnerUserId) VALUES (1, '2014-04-23 20:29:39.0', 50, 3025);
+
+-- Post with NULL FavoriteCount that matches the comment criteria
+INSERT INTO posts (Id, CreaionDate, FavoriteCount, OwnerUserId) VALUES (2, '2014-01-01 00:00:00.0', NULL, 3025);
+
+-- Post with 0 FavoriteCount that matches the comment criteria
+INSERT INTO posts (Id, CreaionDate, FavoriteCount, OwnerUserId) VALUES (3, '2014-01-01 00:00:00.0', 0, 3025);
+
+-- Comment with NULL PostId (tests RIGHT JOIN or unjoined filtering)
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (100, NULL, '2014-04-23 20:29:39.0', 3025);
+
+-- Valid matching comments
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (101, 2, '2014-04-23 20:29:39.0', 3025);
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (102, 3, '2014-04-23 20:29:39.0', 3025);
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary conditions on CreationDate (<=, >=, LIKE '2014-04-23%') and UserId (<, >, !=, 3024, 3026).
+INSERT INTO users (Id, DisplayName) VALUES (3024, 'User3024');
+INSERT INTO users (Id, DisplayName) VALUES (3025, 'User3025');
+INSERT INTO users (Id, DisplayName) VALUES (3026, 'User3026');
+
+INSERT INTO posts (Id, FavoriteCount) VALUES (1, 10);
+INSERT INTO posts (Id, FavoriteCount) VALUES (2, 20);
+INSERT INTO posts (Id, FavoriteCount) VALUES (3, 30);
+INSERT INTO posts (Id, FavoriteCount) VALUES (4, 40);
+INSERT INTO posts (Id, FavoriteCount) VALUES (5, 50);
+
+-- Exact match
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (1, 1, '2014-04-23 20:29:39.0', 3025);
+-- Timestamp 1 second earlier
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (2, 2, '2014-04-23 20:29:38.0', 3025);
+-- Timestamp 1 second later
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (3, 3, '2014-04-23 20:29:40.0', 3025);
+-- UserId - 1
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (4, 4, '2014-04-23 20:29:39.0', 3024);
+-- UserId + 1
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (5, 5, '2014-04-23 20:29:39.0', 3026);
+```
+
+```sql
+-- DATASET 6
+-- Tests Wrong Table Join mutations (e.g., joining posts with postHistory or votes instead of comments).
+INSERT INTO users (Id, DisplayName) VALUES (3025, 'User3025');
+
+INSERT INTO posts (Id, FavoriteCount) VALUES (1, 111);
+INSERT INTO posts (Id, FavoriteCount) VALUES (2, 222);
+
+-- Matching row in comments for Post 1
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (10, 1, '2014-04-23 20:29:39.0', 3025);
+
+-- Decoy rows in postHistory and votes for Post 2 with identical CreationDate and UserId
+INSERT INTO postHistory (Id, PostId, CreationDate, UserId) VALUES (10, 2, '2014-04-23 20:29:39.0', 3025);
+INSERT INTO votes (Id, PostId, CreationDate, UserId) VALUES (10, 2, '2014-04-23 20:29:39.0', 3025);
+```

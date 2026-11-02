@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests basic inner join, exclusion of physicians with 0 patients (catches LEFT JOIN mutants), and ordering by name vs count.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Zeke', 'Staff Internist', 111111111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Dr. Alice', 'Attending Physician', 222222222);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (3, 'Dr. Bob', 'Surgical Attending Physician', 333333333);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100000001, 1, 'Patient One', '101 Main St', '555-0101', 1001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100000002, 2, 'Patient Two', '102 Main St', '555-0102', 1002);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100000003, 2, 'Patient Three', '103 Main St', '555-0103', 1003);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100000004, 2, 'Patient Four', '104 Main St', '555-0104', 1004);
+```
+
+```sql
+-- DATASET 2
+-- Tests two physicians with the exact same Name but different EmployeeIDs and different patient counts.
+-- Catches mutants that GROUP BY Physician.Name instead of Physician.EmployeeID / Patient.PCP, or use SELECT DISTINCT.
+-- Also tests secondary sorting by count___ when names are identical.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. John Smith', 'General', 101010101);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. John Smith', 'Specialist', 202020202);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (30, 'Dr. Jane Doe', 'General', 303030303);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (200000001, 10, 'P1', 'Addr1', '555-1111', 2001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (200000002, 10, 'P2', 'Addr2', '555-2222', 2002);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (200000003, 10, 'P3', 'Addr3', '555-3333', 2003);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (200000004, 20, 'P4', 'Addr4', '555-4444', 2004);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (200000005, 30, 'P5', 'Addr5', '555-5555', 2005);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (200000006, 30, 'P6', 'Addr6', '555-6666', 2006);
+```
+
+```sql
+-- DATASET 3
+-- Tests two physicians with the exact same Name and the exact same patient count.
+-- Catches mutants that add DISTINCT to the outer SELECT (which would collapse the two identical output rows into one).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Duplicate', 'Resident', 111111111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Dr. Duplicate', 'Attending', 222222222);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (300000001, 1, 'Pat A', 'Addr A', '555-0001', 3001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (300000002, 1, 'Pat B', 'Addr B', '555-0002', 3002);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (300000003, 2, 'Pat C', 'Addr C', '555-0003', 3003);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (300000004, 2, 'Pat D', 'Addr D', '555-0004', 3004);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL values in Physician.Name, Patient.PCP, and non-key Patient attributes (Name, InsuranceID, etc.), plus duplicate Patient.Name.
+-- Catches mutants using COUNT(Name) or COUNT(DISTINCT Name) instead of COUNT(*), mutants mishandling NULL PCPs, and NULL ordering mutants.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, NULL, 'Senior Resident', 444444441);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Dr. Alpha', NULL, NULL);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (400000001, 1, NULL, NULL, NULL, NULL);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (400000002, 1, 'SamePatientName', 'Addr', '555-1234', 4001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (400000003, 1, 'SamePatientName', 'Addr', '555-1234', 4001);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (400000004, 2, NULL, NULL, NULL, NULL);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (400000005, NULL, 'Orphan Patient', 'No PCP St', '555-9999', 4005);
+```
+
+```sql
+-- DATASET 5
+-- Tests confusion between Physician.EmployeeID and Physician.SSN, and between Patient.PCP, Patient.SSN, and Appointment/Undergoes/Prescribes relationships.
+-- Catches mutants that join on Physician.SSN = Patient.PCP, or join via Appointment/Prescribes/Undergoes instead of Patient.PCP.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (100, 'Dr. RightJoin', 'Internist', 200);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (200, 'Dr. WrongJoinSSN', 'Surgeon', 100);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (300, 'Dr. AppointmentOnly', 'Psychiatrist', 300);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100, 100, 'Patient X', '123 St', '555-0010', 200);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (500, 100, 'Patient Y', '456 St', '555-0020', 200);
+
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'Nurse Joy', 'Head Nurse', 1, 999);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (1, 300, 1, 100, '2023-01-01 10:00:00', '2023-01-01 11:00:00', 'Room A');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (2, 300, 1, 500, '2023-01-02 10:00:00', '2023-01-02 11:00:00', 'Room B');
+
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (1, 'MedA', 'BrandA', 'DescA');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (300, 100, 1, '2023-01-01 10:30:00', 1, '10mg');
+```

@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. LEFT JOIN / OUTER JOIN mutants from College (Colleges with 0 tryouts must be excluded).
+-- 2. Primary ORDER BY count___ ASC vs DESC (counts 1 and 2).
+-- 3. Secondary ORDER BY cname ASC vs DESC (tie-breaker on count = 1 between 'MIT' and 'UCLA').
+-- 4. Mutants filtering by decision = 'yes'/'no' or yCard = 'yes'/'no' (mix of decisions and cards).
+-- 5. Mutants doing COUNT(DISTINCT pPos) or COUNT(decision) instead of COUNT(*) (NULLs and duplicate positions included).
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('MIT', 'MA', 10000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Stanford', 'CA', 15000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('UCLA', 'CA', 30000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Harvard', 'MA', 20000);
+
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (1, 'Alice', 'no', 1000);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (2, 'Bob', 'yes', 1200);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (3, 'Charlie', NULL, 800);
+
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'Stanford', 'goalie', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (2, 'Stanford', 'goalie', NULL);
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'UCLA', NULL, 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (3, 'MIT', 'striker', 'yes');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL cName handling in GROUP BY, COUNT(*) vs COUNT(cName), and ORDER BY cname NULLS LAST.
+--    (In SQLite, PRIMARY KEY columns without NOT NULL permit NULLs unless STRICT/INTEGER PK).
+-- 2. Tie-breaking between non-NULL cName and NULL cName with identical row counts (both have count = 2).
+-- 3. Mutants grouping by pPos or decision instead of cName.
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Alpha', 'NY', 5000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Beta', 'TX', 8000);
+
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (10, 'Dan', 'no', 500);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (20, 'Eve', 'yes', 600);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (30, 'Frank', 'no', 700);
+
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (10, NULL, 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (20, NULL, 'def', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (10, 'Alpha', 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (20, 'Alpha', 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (10, 'Beta', 'goalie', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (20, 'Beta', 'striker', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (30, 'Beta', 'mid', 'no');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Mutants missing GROUP BY cname (collapsing multiple colleges into a single aggregate row).
+-- 2. Order inversion between count___ and cname (where alphabetical order of cname is strictly opposite to count___ order: 'Zeta' has count 1, 'Mid' has count 2, 'Apex' has count 3).
+-- 3. Mutants using HAVING count > 1 or HAVING count < 3.
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Apex', 'WA', 12000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Mid', 'OR', 12000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Zeta', 'NV', 12000);
+
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (101, 'P1', 'no', 100);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (102, 'P2', 'no', 200);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (103, 'P3', 'no', 300);
+
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (101, 'Zeta', 'forward', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (101, 'Mid', 'forward', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (102, 'Mid', 'forward', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (101, 'Apex', 'forward', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (102, 'Apex', 'forward', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (103, 'Apex', 'forward', 'no');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty Tryout table with non-empty College and Player tables.
+-- 2. Refutes mutants that omit GROUP BY without empty-set handling (e.g. SELECT COUNT(*), cName FROM Tryout without GROUP BY returns 1 row (0, NULL) instead of 0 rows).
+-- 3. Refutes mutants that query College directly instead of Tryout.
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('EmptyU', 'FL', 9000);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (1, 'Solo', 'yes', 400);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Mutants that group by College.state or College.enr via an implicit/explicit join.
+--    (Two colleges share the exact same state 'CA' and enrollment 5000, and also have the same tryout count = 2 to test tie-breaking on cname when other attributes are identical).
+-- 2. Mutants that use DISTINCT on count___ (removing rows with duplicate counts).
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('CalTech', 'CA', 5000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('Berkeley', 'CA', 5000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('USC', 'CA', 5000);
+
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (1, 'P1', 'yes', 1000);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (2, 'P1', 'yes', 1000);
+
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'CalTech', 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (2, 'CalTech', 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'Berkeley', 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (2, 'Berkeley', 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'USC', 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (2, 'USC', 'mid', 'yes');
+```

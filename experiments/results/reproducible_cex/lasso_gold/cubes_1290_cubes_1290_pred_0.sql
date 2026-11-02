@@ -1,0 +1,31 @@
+-- Schema DDL
+CREATE TABLE "film" ("Film_ID" INTEGER PRIMARY KEY, "Rank_in_series" INTEGER, "Number_in_season" INTEGER, "Title" TEXT, "Directed_by" TEXT, "Original_air_date" TEXT, "Production_code" TEXT);
+
+CREATE TABLE "cinema" ("Cinema_ID" INTEGER PRIMARY KEY, "Name" TEXT, "Openning_year" INTEGER, "Capacity" INTEGER, "Location" TEXT);
+
+CREATE TABLE "schedule" ("Cinema_ID" INTEGER, "Film_ID" INTEGER, "Date" TEXT, "Show_times_per_day" INTEGER, "Price" REAL, PRIMARY KEY ("Cinema_ID", "Film_ID"), FOREIGN KEY ("Cinema_ID") REFERENCES "cinema" ("Cinema_ID"), FOREIGN KEY ("Film_ID") REFERENCES "film" ("Film_ID"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "film" ("film_id", "rank_in_series", "number_in_season", "title", "directed_by", "original_air_date", "production_code") VALUES (1008, 1009, 1010, 'Civil engineer, consulting', 'require', 'performance', 'knowledge');
+INSERT INTO "film" ("film_id", "rank_in_series", "number_in_season", "title", "directed_by", "original_air_date", "production_code") VALUES (1011, 1010, 1011, 'Sports administrator', 'almost', 'sit', 'wait');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT directed_by FROM film ORDER BY directed_by;
+
+/*
+Gold Result:
+('almost',)
+('require',)
+*/
+
+-- Prediction Query
+SELECT DISTINCT directed_by FROM film;
+
+/*
+Prediction Result:
+('require',)
+('almost',)
+*/

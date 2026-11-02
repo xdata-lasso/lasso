@@ -1,0 +1,56 @@
+-- Schema DDL
+CREATE TABLE "ATOM" (
+    "ATOM_ID" TEXT,
+    "MOLECULE_ID" TEXT,
+    "ELEMENT" TEXT,
+    PRIMARY KEY ("ATOM_ID"),
+    FOREIGN KEY ("MOLECULE_ID") REFERENCES "MOLECULE"("MOLECULE_ID")
+);
+CREATE TABLE "BOND" (
+    "BOND_ID" TEXT,
+    "MOLECULE_ID" TEXT,
+    "BOND_TYPE" TEXT,
+    PRIMARY KEY ("BOND_ID"),
+    FOREIGN KEY ("MOLECULE_ID") REFERENCES "MOLECULE"("MOLECULE_ID")
+);
+CREATE TABLE "CONNECTED" (
+    "ATOM_ID" TEXT,
+    "ATOM_ID2" TEXT,
+    "BOND_ID" TEXT,
+    PRIMARY KEY ("ATOM_ID", "ATOM_ID2"),
+    FOREIGN KEY ("ATOM_ID") REFERENCES "ATOM"("ATOM_ID"),
+    FOREIGN KEY ("ATOM_ID2") REFERENCES "ATOM"("ATOM_ID"),
+    FOREIGN KEY ("BOND_ID") REFERENCES "BOND"("BOND_ID")
+);
+CREATE TABLE "MOLECULE" (
+    "MOLECULE_ID" TEXT,
+    "LABEL" TEXT,
+    PRIMARY KEY ("MOLECULE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ATOM VALUES (2, 5, 0);
+INSERT INTO ATOM VALUES (3, 7, 0);
+INSERT INTO BOND VALUES (11, 7, 5168230570018857743);
+INSERT INTO BOND VALUES (4, 7, 6);
+INSERT INTO CONNECTED VALUES (3, 2, 11);
+INSERT INTO CONNECTED VALUES (2, 2, 4);
+INSERT INTO MOLECULE VALUES (7, 12);
+INSERT INTO MOLECULE VALUES (5, 13);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1.label FROM molecule AS T1 INNER JOIN (SELECT T.molecule_id, COUNT(T.bond_type) FROM bond AS T WHERE T.bond_type = '=' GROUP BY T.molecule_id ORDER BY COUNT(T.bond_type) DESC, T.molecule_id NULLS LAST LIMIT 1) AS T2 ON T1.molecule_id = T2.molecule_id;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT CASE WHEN T1.label = '+' THEN 'Yes' ELSE 'No' END AS Is_Carcinogenic FROM molecule AS T1 INNER JOIN (SELECT molecule_id, COUNT(bond_id) AS double_bonds FROM bond WHERE bond_type = '=' GROUP BY molecule_id ORDER BY double_bonds DESC, molecule_id NULLS LAST LIMIT 1) AS T2 ON T1.molecule_id = T2.molecule_id;
+
+/*
+Prediction Result:
+*/

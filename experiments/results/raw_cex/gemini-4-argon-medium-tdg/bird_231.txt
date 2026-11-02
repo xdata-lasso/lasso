@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests basic counting (DESC vs ASC), WHERE clause filtering ('TR018' vs others), and LIMIT 1.
+-- For TR018: '=' has count 2, '-' has count 1.
+-- Globally (without WHERE): '-' has count 4, '=' has count 2.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR018', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR019', '-');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'TR018', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR018', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'TR018', '-');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B4', 'TR019', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B5', 'TR019', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B6', 'TR019', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'TR018', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'TR018', 'c');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'B1');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on bond_type (ASC vs DESC) and NULLS LAST behavior when counts are equal.
+-- Also tests improper JOINs with 'connected' (B1 has multiple connections, B3/B4 have none).
+-- For TR018: NULL has count 2, '-' has count 2, '=' has count 2.
+-- Expected winner: '-' (count 2, '-' < '=' < NULL with NULLS LAST).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR018', '+');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'TR018', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR018', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'TR018', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B4', 'TR018', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B5', 'TR018', NULL);
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B6', 'TR018', NULL);
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'TR018', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'TR018', 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', 'TR018', 'h');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'B1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'A1', 'B1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A3', 'B1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A3', 'A1', 'B1');
+```
+
+```sql
+-- DATASET 3
+-- Tests COUNT(molecule_id) vs COUNT(bond_type) when NULL is the most frequent bond_type.
+-- For TR018: NULL has 3 rows (COUNT(molecule_id) = 3, COUNT(bond_type) = 0).
+-- '#' has 2 rows (COUNT(molecule_id) = 2, COUNT(bond_type) = 2).
+-- Expected winner: NULL (since COUNT(molecule_id) is 3 > 2).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR018', '+');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'TR018', NULL);
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR018', NULL);
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'TR018', NULL);
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B4', 'TR018', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B5', 'TR018', '#');
+```
+
+```sql
+-- DATASET 4
+-- Tests edge case where 'TR018' has no bonds in the bond table (empty result set vs non-empty).
+-- Also tests case-sensitivity ('tr018') and substring matching ('TR0180') mutations.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR018', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('tr018', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR0180', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'TR018', 'c');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'tr018', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR0180', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', NULL, '#');
+```
+
+```sql
+-- DATASET 5
+-- Tests HAVING count > 1 mutations and single-row behavior.
+-- Every bond_type in TR018 has a count of 1.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR018', '+');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'TR018', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR018', '#');
+```

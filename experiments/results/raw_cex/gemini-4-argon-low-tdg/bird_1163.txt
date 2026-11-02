@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- General case with anti-correlation: oldest patient (earliest Birthday) is NOT the youngest at "First Date", and earliest "First Date" is NOT the youngest at "First Date".
+-- Also tests INNER JOIN mutants (Patient 1 has no records in Examination or Laboratory) and GROUP BY SEX/Admission/Diagnosis mutants.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1990-12-31', '1995-01-01', '1995-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', '1950-01-01', '1990-01-01', '2000-01-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'F', '1970-06-15', '1985-06-15', '1985-06-15', '+', 'APS');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis, Thrombosis) VALUES (2, '1992-05-10', 'RA', 0);
+INSERT INTO Examination (ID, "Examination Date", Diagnosis, Thrombosis) VALUES (3, '1986-01-01', 'APS', 1);
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (2, '1992-05-10', 20, 25);
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (3, '1986-01-01', 30, 35);
+```
+
+```sql
+-- DATASET 2
+-- Tests exact day/month vs year-only difference (STRFTIME('%Y') vs julianday/datediff), Description vs "First Date" column confusion, and Examination Date vs "First Date" confusion.
+-- Patient 1: Year diff is 1 (1991 - 1990), even though less than 365 days apart (2 days apart).
+-- Patient 2: Year diff is 0 (1990 - 1990), nearly a full year apart.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'M', '1990-12-31', '1990-12-31', '1991-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'F', '1990-01-01', '1995-01-01', '1990-12-31', '-', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis, Thrombosis) VALUES (1, '1990-12-31', 'SLE', 0);
+INSERT INTO Examination (ID, "Examination Date", Diagnosis, Thrombosis) VALUES (2, '1995-01-01', 'SLE', 1);
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (1, '1990-12-31', 15, 18);
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (2, '1995-01-01', 22, 24);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in "First Date" and Birthday.
+-- Mutants using COALESCE/IFNULL(..., 0) or filtering out rows improperly will fail.
+-- If NULL is coalesced to 0, 0 - 1980 = -1980 (wrong min), or 2000 - 0 = 2000.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1980-05-10', '1990-05-10', NULL, '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', NULL, '1990-05-10', '2000-05-10', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'F', '1975-03-20', '1995-03-20', '1995-03-20', '+', 'APS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (4, 'M', '1960-01-01', '1990-01-01', '1990-01-01', '-', 'SLE');
+```
+
+```sql
+-- DATASET 4
+-- Tests duplicate minimum values and aggregate functions (MIN vs SUM, COUNT, AVG, MAX) and DISTINCT mutants.
+-- Also tests 1-to-many join duplication with Examination/Laboratory if someone uses SUM/AVG/COUNT with a JOIN.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1980-01-01', '1990-01-01', '1990-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', '1985-06-01', '1995-06-01', '1995-06-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'F', '1950-01-01', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis, Thrombosis) VALUES (1, '1990-02-01', 'SLE', 0);
+INSERT INTO Examination (ID, "Examination Date", Diagnosis, Thrombosis) VALUES (1, '1990-03-01', 'SLE', 1);
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (1, '1990-02-01', 10, 10);
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (1, '1990-03-01', 20, 20);
+```
+
+```sql
+-- DATASET 5
+-- Single row dataset where all columns are non-null, testing basic subtraction, sign reversal (Birthday - First Date), and off-by-one errors.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (10, NULL, '1965-08-15', '1992-04-10', '1988-11-20', NULL, NULL);
+```
+
+```sql
+-- DATASET 6
+-- Edge case: All rows have NULL in either Birthday or "First Date", so the query should evaluate to NULL (testing COUNT vs MIN, or COALESCE mutants).
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1970-01-01', '1990-01-01', NULL, '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', NULL, '1990-01-01', '1990-01-01', '-', 'RA');
+```
+
+```sql
+-- DATASET 7
+-- Tests string vs numeric ordering of the difference (e.g., if a mutant casts the difference to TEXT before MIN(): '10' < '9' lexicographically, whereas 9 < 10 numerically).
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1990-05-05', '1999-05-05', '1999-05-05', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', '1980-05-05', '1990-05-05', '1990-05-05', '-', 'RA');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis, Thrombosis) VALUES (1, '1999-05-05', 'SLE', 1);
+INSERT INTO Examination (ID, "Examination Date", Diagnosis, Thrombosis) VALUES (2, '1990-05-05', 'RA', 0);
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (1, '1999-05-05', 40, 45);
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (2, '1990-05-05', 50, 55);
+```

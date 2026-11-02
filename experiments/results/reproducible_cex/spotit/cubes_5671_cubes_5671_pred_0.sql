@@ -1,0 +1,69 @@
+-- Schema DDL
+CREATE TABLE "STUDENT" (
+    "STUID" INT,
+    "LNAME" TEXT,
+    "FNAME" TEXT,
+    "AGE" INT,
+    "SEX" TEXT,
+    "MAJOR" INT,
+    "ADVISOR" INT,
+    "CITY_CODE" TEXT,
+    PRIMARY KEY ("STUID")
+);
+CREATE TABLE "RESTAURANT" (
+    "RESID" INT,
+    "RESNAME" TEXT,
+    "ADDRESS" TEXT,
+    "RATING" INT,
+    PRIMARY KEY ("RESID")
+);
+CREATE TABLE "TYPE_OF_RESTAURANT" (
+    "RESTYPEID" INT,
+    "RESID" INT,
+    FOREIGN KEY ("RESTYPEID") REFERENCES "RESTAURANT_TYPE"("RESTYPEID"),
+    FOREIGN KEY ("RESID") REFERENCES "RESTAURANT"("RESID")
+);
+CREATE TABLE "RESTAURANT_TYPE" (
+    "RESTYPEID" INT,
+    "RESTYPENAME" TEXT,
+    "RESTYPEDESCRIPTION" TEXT,
+    PRIMARY KEY ("RESTYPEID")
+);
+CREATE TABLE "VISITS_RESTAURANT" (
+    "RESID" INT,
+    "STUID" INT,
+    "TIME" TIMESTAMPTZ,
+    "SPENT" FLOAT,
+    FOREIGN KEY ("RESID") REFERENCES "RESTAURANT"("RESID"),
+    FOREIGN KEY ("STUID") REFERENCES "STUDENT"("STUID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO STUDENT VALUES (1, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO STUDENT VALUES (0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO RESTAURANT VALUES (-1, 23, 24, NULL);
+INSERT INTO RESTAURANT VALUES (0, 25, 26, -1);
+INSERT INTO TYPE_OF_RESTAURANT VALUES (1, -1);
+INSERT INTO TYPE_OF_RESTAURANT VALUES (0, 0);
+INSERT INTO RESTAURANT_TYPE VALUES (1, 0, 0);
+INSERT INTO RESTAURANT_TYPE VALUES (0, 0, 0);
+INSERT INTO VISITS_RESTAURANT VALUES (0, 1, 0, 0);
+INSERT INTO VISITS_RESTAURANT VALUES (-1, 1, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT resname_other AS resname, rating_other AS rating FROM (SELECT LHS.resid AS resid, LHS.resname AS resname, LHS.address AS address, LHS.rating AS rating, RHS.resid AS resid_other, RHS.resname AS resname_other, RHS.address AS address_other, RHS.rating AS rating_other FROM restaurant AS LHS CROSS JOIN restaurant AS RHS) WHERE (rating < rating_other) ORDER BY resname, rating NULLS LAST;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT ResName, Rating FROM Restaurant ORDER BY Rating DESC, Restaurant.resid NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('25', -1)
+*/

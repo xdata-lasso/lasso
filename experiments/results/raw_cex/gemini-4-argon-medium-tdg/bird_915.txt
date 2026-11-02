@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE NOT dob IS NULL (In SQLite, NULL sorts before values in ASC; if the filter is omitted, driverId 1 with NULL dob will be returned first).
+-- 2. ORDER BY dob ASC vs DESC (Distinct oldest, middle, and youngest drivers).
+-- 3. Insertion order vs dob order (The oldest driver is not inserted first).
+-- 4. LIMIT 1 vs no limit (Multiple valid rows exist).
+-- 5. Unjoined tables (No rows in results/standings/qualifying/constructors, refuting queries that unnecessarily INNER JOIN other tables or query constructors.nationality).
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (1, 'null_dob_driver', 99, 'NUL', 'Null', 'Dob', NULL, 'Swiss', 'http://example.com/d1');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (2, 'youngest_driver', 33, 'YNG', 'Max', 'Young', '1997-09-30', 'Dutch', 'http://example.com/d2');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (3, 'oldest_driver', 10, 'OLD', 'Louis', 'Chiron', '1899-08-03', 'Monegasque', 'http://example.com/d3');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (4, 'middle_driver', 44, 'MID', 'Lewis', 'Middle', '1985-01-07', 'British', 'http://example.com/d4');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Tie-breaking on ORDER BY dob ASC, drivers.driverid ASC (Two drivers share the exact earliest dob '1950-05-13', with different nationalities and driverIds).
+-- 2. Subquery vs Order By Limit when multiple drivers share MIN(dob) (A query doing WHERE dob = (SELECT MIN(dob) FROM drivers) without LIMIT 1 will return 2 rows instead of 1).
+-- 3. Secondary sort direction (driverId 5 vs driverId 10).
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (10, 'tie_dob_higher_id', 12, 'TI2', 'Carlos', 'Second', '1950-05-13', 'Spanish', 'http://example.com/d10');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (5, 'tie_dob_lower_id', 11, 'TI1', 'Juan', 'First', '1950-05-13', 'Argentine', 'http://example.com/d5');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (1, 'later_dob_lowest_id', 1, 'LAT', 'Ayrton', 'Later', '1960-03-21', 'Brazilian', 'http://example.com/d1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Full date comparison vs Year-only comparison (e.g., STRFTIME('%Y', dob) or SUBSTR(dob, 1, 4)).
+-- 2. Three drivers born in the same earliest year (1952), where the one with the lowest driverId (driverId 1) has a later month/day ('1952-12-15'), another has the same month but later day ('1952-02-28'), and the true oldest has a higher driverId ('1952-02-01').
+-- 3. Also includes a constructor with a different nationality to catch queries touching constructors.
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'ferrari', 'Ferrari', 'Italian', 'http://example.com/c1');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (1, 'same_year_dec', 7, 'DEC', 'John', 'December', '1952-12-15', 'American', 'http://example.com/d1');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (2, 'same_year_feb_late', 8, 'FE2', 'Pierre', 'FebLate', '1952-02-28', 'French', 'http://example.com/d2');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (3, 'same_year_feb_early', 9, 'FE1', 'Hans', 'FebEarly', '1952-02-01', 'German', 'http://example.com/d3');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Handling of NULL nationality vs NULL dob (If a mutant mistakenly writes WHERE nationality IS NOT NULL instead of WHERE dob IS NOT NULL, or filters both when the oldest driver happens to have NULL nationality or another driver has NULL dob).
+-- 2. Here, the driver with the earliest dob has a valid nationality ('Japanese'), a driver with NULL dob has 'Canadian', and a younger driver has NULL nationality.
+-- 3. Also tests string vs integer sorting anomalies and DISTINCT nationality before ORDER BY pitfalls (two younger drivers share 'Japanese' or 'British').
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (1, 'null_dob', NULL, NULL, 'No', 'Birthday', NULL, 'Canadian', 'http://example.com/d1');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (2, 'young_null_nat', 20, 'YNN', 'No', 'Nation', '1940-01-01', NULL, 'http://example.com/d2');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (3, 'true_oldest', 30, 'OLD', 'Tazio', 'Oldest', '1945-06-01', 'Japanese', 'http://example.com/d3');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (4, 'younger_driver', 40, 'YNG', 'Jim', 'Younger', '1965-06-01', 'Australian', 'http://example.com/d4');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Mutants that mistakenly JOIN drivers with results, driverStandings, or races (e.g., finding the oldest driver who participated in a race).
+-- 2. In this dataset, driver 1 is the oldest overall ('1930-01-01', 'Finnish') but has NO entries in results or driverStandings.
+-- 3. Driver 2 is younger ('1940-01-01', 'Swedish') and has entries in results, driverStandings, qualifying, lapTimes, and pitStops.
+INSERT INTO seasons (year, url) VALUES (1970, 'http://example.com/s1970');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (1, 'monza', 'Monza', 'Monza', 'Italy', 45.6, 9.2, 162, 'http://example.com/c1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'lotus', 'Lotus', 'British', 'http://example.com/con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (1, 'unraced_oldest', 1, 'UNR', 'Keke', 'Oldest', '1930-01-01', 'Finnish', 'http://example.com/d1');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (2, 'raced_younger', 2, 'RAC', 'Ronnie', 'Younger', '1940-01-01', 'Swedish', 'http://example.com/d2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 1970, 1, 1, 'Italian GP', '1970-09-06', '14:00:00', 'http://example.com/r1');
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (1, 1, 2, 1, 2, 1, 1, '1', 1, 9.0, 68, '1:30:00', 5400000, 1, 1, '1:25.0', '240.0', 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (1, 1, 2, 9.0, 1, '1', 1);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 1, 2, 1, 2, 1, '1:24.0', '1:23.5', '1:23.0');
+```

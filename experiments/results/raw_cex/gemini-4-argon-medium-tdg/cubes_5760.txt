@@ -1,0 +1,42 @@
+```sql
+-- DATASET 1
+-- Tests basic MIN vs MAX, AVG, COUNT, and wrong column selection (asset_disposed_date, contract dates).
+-- Also includes rows with NULL foreign keys to catch unnecessary INNER JOINs to parent tables.
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'SUP', 'TechCorp', '123 Tech Lane', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2018-01-01 00:00:00', '2025-01-01 00:00:00', 'Standard');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Server A', 'Dell', 'R740', '2022-05-15 10:00:00', '2023-05-15 10:00:00', 'Active');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (2, NULL, NULL, 'Server B', 'HP', 'DL380', '2019-03-10 08:30:00', '2018-01-01 00:00:00', 'Disposed');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (3, 1, 1, 'Router C', 'Cisco', 'ISR4000', '2021-11-20 14:15:00', '2024-11-20 14:15:00', 'Active');
+```
+
+```sql
+-- DATASET 2
+-- Tests handling of NULL values in asset_acquired_date, duplicate minimum dates (catching missing MIN / GROUP BY / DISTINCT vs non-aggregated), and missing child table records (Fault_Log, Asset_Parts).
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (10, 'MAINT', 'FixItAll', '456 Repair Rd', '24/7');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (10, 10, '2020-01-01 00:00:00', '2023-01-01 00:00:00', 'Premium');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (101, 10, 10, 'Switch 1', 'Netgear', 'M4300', NULL, '2022-01-01 00:00:00', 'Unknown acquired date');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (102, 10, 10, 'Switch 2', 'Netgear', 'M4300', '2020-06-01 12:00:00', NULL, 'Batch 1');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (103, 10, 10, 'Switch 3', 'Netgear', 'M4300', '2020-06-01 12:00:00', '2021-06-01 12:00:00', 'Batch 1 duplicate date');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (104, 10, 10, 'Switch 4', 'Cisco', 'Catalyst', '2021-08-15 09:00:00', NULL, 'Batch 2');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Alice', 1, 'Admin');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (1, 1, 104, '2017-01-01 00:00:00', 'Power failure', 'Urgent');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'PSU', 1, 150, 'Power Supply');
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (104, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty Assets table behavior (MIN returns 1 row with NULL, whereas non-aggregated query or ORDER BY + LIMIT 1 returns 0 rows).
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'SUP', 'EmptyAssetsCo', '789 Void Ave', 'No assets');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2015-05-05 00:00:00', '2016-05-05 00:00:00', 'Expired');
+```
+
+```sql
+-- DATASET 4
+-- Tests sub-day timestamp precision (same date, different times) and ensures the earliest asset_acquired_date belongs to the largest asset_id (catching ORDER BY asset_id LIMIT 1 mutants).
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (5, 'BOTH', 'PrecisionInc', '101 Chrono St', 'Timing');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (5, 5, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Active');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 5, 5, 'Unit 1', 'MakeA', 'Mod1', '2020-01-01 23:59:59', '2021-01-01 00:00:00', 'Late day');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (2, 5, 5, 'Unit 2', 'MakeB', 'Mod2', '2020-01-01 12:30:00', '2021-01-01 00:00:00', 'Mid day');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (50, 5, 5, 'Unit 50', 'MakeA', 'Mod1', '2020-01-01 00:00:01', '2021-01-01 00:00:00', 'Early day');
+```

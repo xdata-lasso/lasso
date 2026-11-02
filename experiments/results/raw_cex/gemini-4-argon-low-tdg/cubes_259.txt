@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Comprehensive discrimination dataset:
+-- Tests anti-join (NOT EXISTS vs EXISTS/JOIN), ORDER BY column & direction, LIMIT 1, and NULL handling in Documents.Template_ID (NOT IN vs NOT EXISTS).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_USED_NEW', 'Newest overall, but has a document');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_UNUSED_MAX', 'Newest unused template (Expected Winner)');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_UNUSED_OLD', 'Oldest unused template, highest ID/Version/DateTo');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_UNUSED_NULL', 'Unused template with NULL effective date');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_ORPHAN_REF', 'Unused in Templates table altogether');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'TYPE_USED_NEW', 1, '2025-01-01 00:00:00', '2026-01-01 00:00:00', 'Has documents');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'TYPE_UNUSED_MAX', 2, '2023-06-15 12:00:00', '2024-01-01 00:00:00', 'Target row');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (3, 'TYPE_UNUSED_OLD', 99, '2020-01-01 00:00:00', '2030-01-01 00:00:00', 'Older date_from, but max ID, Version, and date_to');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (4, 'TYPE_UNUSED_NULL', 50, NULL, '2029-01-01 00:00:00', 'NULL date_effective_from');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (101, 1, 'Doc 1', 'Links to Template 1', 'Details 1');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (102, 1, 'Doc 2', 'Second doc for Template 1', 'Details 2');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (103, NULL, 'Doc 3', 'Null Template_ID to break NOT IN mutants', 'Details 3');
+
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (1001, 101, 'Paragraph for Doc 1', 'Other');
+```
+
+```sql
+-- DATASET 2
+-- Tests anti-join without NULLs in Documents.Template_ID, and tests tie-breaking / inverse ordering when Template_ID order opposes Date_Effective_From order.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('CODE_A', 'First Type');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('CODE_B', 'Second Type');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('CODE_C', 'Third Type');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('CODE_D', 'Fourth Type');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'CODE_A', 10, '2021-03-10 08:00:00', '2022-03-10 08:00:00', 'Unused, middle date');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (20, 'CODE_B', 5, '2022-11-20 09:30:00', '2023-11-20 09:30:00', 'Unused, newest date (Winner)');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (30, 'CODE_C', 20, '2019-05-01 00:00:00', '2025-05-01 00:00:00', 'Unused, oldest date');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (40, 'CODE_D', 1, '2024-01-01 00:00:00', '2024-12-31 00:00:00', 'Used, newest overall');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 40, 'Active Doc', 'Uses Template 40', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Edge case: All templates have associated documents (Expected result: Empty set).
+-- Catches mutants that use LEFT JOIN without filtering IS NULL, or omit the WHERE NOT EXISTS clause.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T2', 'Type 2');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2022-01-01', '2023-01-01', 'Used 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'T2', 2, '2023-01-01', '2024-01-01', 'Used 2');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (10, 1, 'Doc A', 'Desc A', 'Other A');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (20, 2, 'Doc B', 'Desc B', 'Other B');
+```
+
+```sql
+-- DATASET 4
+-- Edge case: Documents table is completely empty, and multiple templates share the same Template_Type_Code or have close dates (Intra-day timestamp precision).
+-- Catches mutants that use INNER JOIN or EXISTS, or truncate DATETIME to DATE.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('ALPHA', 'Alpha Type');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('BETA', 'Beta Type');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (100, 'ALPHA', 2, '2023-05-10 08:00:00', '2024-05-10 08:00:00', 'Morning');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (50, 'BETA', 1, '2023-05-10 18:30:00', '2023-12-31 00:00:00', 'Evening (Winner)');
+```
+
+```sql
+-- DATASET 5
+-- Tests correlation errors in subquery (e.g., LHS.template_id = LHS.template_id or RHS.template_id = RHS.template_id) and Document_ID vs Template_ID confusion.
+-- Here Document_ID values overlap with unused Template_ID values, while actual Documents.Template_ID points elsewhere.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('WRONG_JOIN_COL', 'Should not be excluded if joined properly on Template_ID');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('ACTUAL_USED', 'Actually used template');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('FALLBACK', 'Older unused template');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (5, 'WRONG_JOIN_COL', 1, '2024-08-01 00:00:00', '2025-08-01 00:00:00', 'Template_ID 5 matches Document_ID 5, but not Documents.Template_ID');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (6, 'ACTUAL_USED', 1, '2025-01-01 00:00:00', '2026-01-01 00:00:00', 'Template_ID 6 is used by Document_ID 5');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (7, 'FALLBACK', 1, '2020-01-01 00:00:00', '2021-01-01 00:00:00', 'Older unused');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 6, 'Doc ID 5', 'Uses Template 6, not 5', 'Test join condition');
+```

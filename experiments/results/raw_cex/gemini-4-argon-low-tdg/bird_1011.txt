@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Lexicographical vs Numerical sorting of `time` (e.g., '2:00.000' < '10:00.000' numerically, but '10:00.000' < '2:00.000' lexicographically).
+-- 2. Discrepancy between `time` string and `milliseconds` column (kills mutants using `milliseconds` instead of parsing `time`).
+-- 3. Orphan driver with NO lapTimes rows (kills LEFT JOIN mutants).
+-- 4. MIN vs MAX vs AVG vs SUM aggregations across multiple laps per driver.
+INSERT INTO seasons (year, url) VALUES (2023, 'http://en.wikipedia.org/wiki/2023_Formula_One_World_Championship');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (1, 'monza', 'Autodromo Nazionale di Monza', 'Monza', 'Italy', 45.6156, 9.28111, 162, 'http://en.wikipedia.org/wiki/Autodromo_Nazionale_di_Monza');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2023, 1, 1, 'Italian Grand Prix', '2023-09-03', '13:00:00', 'http://en.wikipedia.org/wiki/2023_Italian_Grand_Prix');
+
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (1, 'no_laps_driver', 99, 'NLD', 'Zero', 'Laps', '1990-01-01', 'British', 'http://example.com/driver1');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (2, 'true_fastest', 44, 'FAST', 'Lewis', 'Hamilton', '1985-01-07', 'British', 'http://example.com/driver2');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (3, 'lex_trap_and_ms_trap', 33, 'TRAP', 'Max', 'Verstappen', '1997-09-30', 'Dutch', 'http://example.com/driver3');
+
+-- Driver 2 has the true fastest time in seconds ('2:05.500' = 125.5s), but a huge milliseconds value (999999) and a second slow lap (to test AVG/SUM/MAX).
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 1, '2:05.500', 999999);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 2, 1, '59:59.999', 999999);
+
+-- Driver 3 has '10:00.000' (600.0s), which is lexicographically smaller than '2:05.500' ('1' < '2') and has a tiny milliseconds value (1000).
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 3, 1, 2, '10:00.000', 1000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 3, 2, 2, '10:01.000', 1000);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Tie-breaking in ORDER BY: `T1.min_time_in_seconds ASC, T2.driverid NULLS LAST`.
+-- 2. Sub-second floating point precision (`.005` vs `.500`, killing integer division or ms omission mutants).
+-- 3. Insertion order vs `driverId` tie-breaker order (Driver 20 inserted before Driver 10 with identical minimum lap time).
+INSERT INTO seasons (year, url) VALUES (2022, 'http://en.wikipedia.org/wiki/2022_Formula_One_World_Championship');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (10, 'spa', 'Circuit de Spa-Francorchamps', 'Spa', 'Belgium', 50.4372, 5.97139, 401, 'http://en.wikipedia.org/wiki/Circuit_de_Spa-Francorchamps');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (10, 2022, 1, 10, 'Belgian Grand Prix', '2022-08-28', '13:00:00', 'http://en.wikipedia.org/wiki/2022_Belgian_Grand_Prix');
+
+-- Insert Driver 20 first, then Driver 10, to ensure natural scan order differs from `driverId ASC`
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (20, 'alonso', 14, 'ALO', 'Fernando', 'Alonso', '1981-07-29', 'Spanish', 'http://example.com/driver20');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (10, 'leclerc', 16, 'LEC', 'Charles', 'Leclerc', '1997-10-16', 'Monegasque', 'http://example.com/driver10');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (5, 'sainz', 55, 'SAI', 'Carlos', 'Sainz', '1994-09-01', 'Spanish', 'http://example.com/driver5');
+
+-- Driver 20 and Driver 10 tie on min_time_in_seconds (75.050s). Driver 10 must win due to `T2.driverid` tie-breaker.
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 20, 1, 1, '1:15.050', 75050);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 10, 1, 2, '1:15.050', 75050);
+
+-- Driver 5 has a lower driverId (5), and same integer seconds (1:15), but slightly slower milliseconds ('1:15.500' = 75.500s).
+-- Kills mutants that truncate/ignore milliseconds or use integer division `/ 1000`.
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 5, 1, 3, '1:15.500', 75500);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. The complex CASE WHEN / INSTR / SUBSTRING logic for multi-colon time strings (HH:MM:SS.mmm vs MM:SS.mmm).
+-- 2. Handling of NULL `time` values alongside valid `time` values (ensuring MIN ignores NULLs properly).
+-- 3. Differentiating minutes vs seconds weighting (* 60 vs * 3600).
+INSERT INTO seasons (year, url) VALUES (2021, 'http://en.wikipedia.org/wiki/2021_Formula_One_World_Championship');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (20, 'silverstone', 'Silverstone Circuit', 'Silverstone', 'UK', 52.0786, -1.01694, 153, 'http://en.wikipedia.org/wiki/Silverstone_Circuit');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (20, 2021, 1, 20, 'British Grand Prix', '2021-07-18', '14:00:00', 'http://en.wikipedia.org/wiki/2021_British_Grand_Prix');
+
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (101, 'norris', 4, 'NOR', 'Lando', 'Norris', '1999-11-13', 'British', 'http://example.com/driver101');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (102, 'ricciardo', 3, 'RIC', 'Daniel', 'Ricciardo', '1989-07-01', 'Australian', 'http://example.com/driver102');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (103, 'bottas', 77, 'BOT', 'Valtteri', 'Bottas', '1989-08-28', 'Finnish', 'http://example.com/driver103');
+
+-- Driver 101 has a two-colon time '1:00:05.100' (1 hour, 0 mins, 5.1s -> 3605.1s in Gold Query).
+-- If a mutant omits the CASE WHEN hour * 3600 branch, this evaluates to 5.1s and falsely wins!
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (20, 101, 1, 1, '1:00:05.100', 3605100);
+
+-- Driver 102 has a NULL lap time and a valid lap time '1:30.250' (90.25s).
+-- Tests NULL handling in MIN() and ensures 90.25s beats Driver 101 (3605.1s) and Driver 103 (121.9s).
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (20, 102, 1, 2, NULL, NULL);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (20, 102, 2, 2, '1:30.250', 90250);
+
+-- Driver 103 has '2:01.900' (121.9s).
+-- If a mutant forgets `* 60` on minutes, '2:01.900' becomes 2 + 1.9 = 3.9s while '1:30.250' becomes 1 + 30.25 = 31.25s, flipping the winner to Driver 103!
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (20, 103, 1, 3, '2:01.900', 121900);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Driver with fastest time found in `results.fastestLapTime` or `qualifying.q1` or `pitStops.duration`, but NOT in `lapTimes` (kills mutants querying the wrong table).
+-- 2. Multiple races per driver (ensuring grouping is strictly by `driverId`, not `(raceId, driverId)`).
+-- 3. Boundary value where minutes = 0 ('0:55.123').
+INSERT INTO seasons (year, url) VALUES (2020, 'http://en.wikipedia.org/wiki/2020_Formula_One_World_Championship');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (30, 'bahrain', 'Bahrain International Circuit', 'Sakhir', 'Bahrain', 26.0325, 50.5106, 7, 'http://en.wikipedia.org/wiki/Bahrain_International_Circuit');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (30, 2020, 1, 30, 'Bahrain Grand Prix', '2020-11-29', '15:10:00', 'http://en.wikipedia.org/wiki/2020_Bahrain_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (31, 2020, 2, 30, 'Sakhir Grand Prix', '2020-12-06', '17:10:00', 'http://en.wikipedia.org/wiki/2020_Sakhir_Grand_Prix');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'mercedes', 'Mercedes', 'German', 'http://example.com/mercedes');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (201, 'russell', 63, 'RUS', 'George', 'Russell', '1998-02-15', 'British', 'http://example.com/driver201');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (202, 'perez', 11, 'PER', 'Sergio', 'Perez', '1990-01-26', 'Mexican', 'http://example.com/driver202');
+
+-- Driver 201 has a slower lap in lapTimes ('0:58.000'), but a super fast time in `results` and `qualifying` ('0:50.000').
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (30, 201, 1, 1, '0:58.000', 58000);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (1, 30, 201, 1, 63, 1, 1, '1', 1, 25.0, 50, '1:20:00.000', 4800000, 1, 1, '0:50.000', '230.5', 1);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 30, 201, 1, 63, 1, '0:50.000', '0:50.000', '0:50.000');
+
+-- Driver 202 has laps across two races: Race 30 ('1:25.000') and Race 31 ('0:55.123').
+-- Overall fastest in `lapTimes` is Driver 202 ('0:55.123' = 55.123s).
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (30, 202, 1, 2, '1:25.000', 85000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (31, 202, 1, 1, '0:55.123', 55123);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (2, 31, 202, 1, 11, 2, 2, '2', 2, 18.0, 50, '1:21:00.000', 4860000, 1, 2, '0:59.999', '220.0', 1);
+```

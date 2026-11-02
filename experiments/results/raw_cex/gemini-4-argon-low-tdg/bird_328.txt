@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, join multiplicity (duplicates vs DISTINCT), and direct connection vs molecule-level join.
+-- Atom 'a1' is NOT in 'connected', catching mutants that erroneously join through the 'connected' table.
+-- Multiple '=' bonds ('b1', 'b2') and identical elements ('c') test bag semantics (must return 4 'c's and 2 'h's).
+INSERT INTO molecule (molecule_id, label) VALUES ('TR024', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'TR024', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'TR024', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'TR024', 'h');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'TR024', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'TR024', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a3', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a2', 'b1');
+```
+
+```sql
+-- DATASET 2
+-- Tests missing join condition (Cartesian product) and wrong molecule_id filtering.
+-- 'TR024' has atoms, and 'TR025' has '=' bonds. The Reference Query must return 0 rows.
+-- Mutants omitting 'T1.molecule_id = T2.molecule_id' or filtering 'molecule_id' on the wrong table will fail.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR024', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR025', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'TR024', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'TR025', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'TR024', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'TR025', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a1', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a2', 'b2');
+```
+
+```sql
+-- DATASET 3
+-- Tests bond_type predicate accuracy and logical operator mutations (AND vs OR).
+-- 'TR024' only has single ('-'), triple ('#'), and NULL bonds, no '=' bonds. Reference Query returns 0 rows.
+-- Mutants relaxing 'bond_type = "="' or replacing AND with OR will return rows.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR024', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'TR024', 's');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'TR024', 'p');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'TR024', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'TR024', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'TR024', NULL);
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a1', 'b1');
+```
+
+```sql
+-- DATASET 4
+-- Tests OUTER JOIN mutants (LEFT JOIN vs INNER JOIN) and NULL handling.
+-- 'TR024' has atoms, but zero bonds in the 'bond' table.
+-- Reference Query returns 0 rows. A LEFT JOIN mutant where bond predicates are pushed into the ON clause will return 'cl'.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR024', NULL);
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'TR024', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', NULL, 'br');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', NULL, '=');
+```
+
+```sql
+-- DATASET 5
+-- Tests string literal variations (case sensitivity, substring matching, padding) and NULL element output.
+-- Includes an atom in 'TR024' with a NULL element (which SHOULD be returned by the Reference Query)
+-- and decoy molecules ('tr024', 'TR0240') with '=' bonds, plus 'TR024' bonds with '==' bond_type.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR024', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('tr024', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR0240', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'TR024', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'TR024', 'f');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'tr024', 'i');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'TR0240', 'b');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'TR024', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'TR024', '==');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'tr024', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b4', 'TR0240', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a1', 'b2');
+```
+
+```sql
+-- DATASET 6
+-- Tests cross-molecule bond connections and column swap mutations.
+-- Bond 'b1' belongs to 'TR024' with type '=', and 'b2' belongs to 'TR024' with type '-'.
+-- Atom 'a1' ('TR024') is only connected via the '-' bond ('b2'), while the '=' bond ('b1') connects atoms from 'TR999'.
+-- Also sets atom_id and bond_id values to '=' and 'TR024' to kill column-reference swap mutants.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR024', '=');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR999', 'TR024');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('=', 'TR024', 'na');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR024', 'TR999', 'k');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'TR024', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('=', 'TR024', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR024', 'TR999', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('=', '=', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR024', 'TR024', 'b1');
+```

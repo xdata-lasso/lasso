@@ -1,0 +1,203 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions on o_orderdate ('1993-12-31', '1994-01-01', '1994-12-31', '1995-01-01')
+-- 2. SUM(l_extendedprice) vs COUNT / AVG / MIN / MAX / SUM(DISTINCT) / SUM(l_extendedprice * (1 - l_discount))
+-- 3. Tie-breaking on ORDER BY (revenue DESC, n_name ASC) and multiple nations in 'AMERICA'
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'America region');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (10, 'BRAZIL', 1, 'Nation 10');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (11, 'CANADA', 1, 'Nation 11');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (12, 'ARGENTINA', 1, 'Nation 12');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part 1', 'Mfgr#1', 'Brand#1', 'Type 1', 10, 'SM BOX', 100.00, 'Comment');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (100, 'Supp Brazil', 'Addr 1', 10, '111-111', 500.00, 'Comment');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (101, 'Supp Canada', 'Addr 2', 11, '222-222', 500.00, 'Comment');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (102, 'Supp Argentina', 'Addr 3', 12, '333-333', 500.00, 'Comment');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (200, 'Cust Brazil', 'Addr 1', 10, '111-111', 500.00, 'AUTO', 'Comment');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (201, 'Cust Canada', 'Addr 2', 11, '222-222', 500.00, 'AUTO', 'Comment');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (202, 'Cust Argentina', 'Addr 3', 12, '333-333', 500.00, 'AUTO', 'Comment');
+
+-- Valid orders on exact boundary dates
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1000, 200, 'O', 999.00, '1994-01-01', '1-URGENT', 'Clerk#1', 0, 'Valid lower bound');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1001, 201, 'O', 888.00, '1994-12-31', '1-URGENT', 'Clerk#1', 0, 'Valid upper bound');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1002, 202, 'O', 777.00, '1994-06-15', '1-URGENT', 'Clerk#1', 0, 'Valid mid year');
+
+-- Invalid orders just outside boundaries
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1003, 200, 'O', 500.00, '1993-12-31', '1-URGENT', 'Clerk#1', 0, 'Too early');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1004, 200, 'O', 500.00, '1995-01-01', '1-URGENT', 'Clerk#1', 0, 'Too late');
+
+-- Lineitems for BRAZIL (Total = 300.00, duplicate extendedprice 150.00 to test SUM vs SUM(DISTINCT), non-zero discount to test discount formula mutants)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1000, 1, 100, 1, 5.00, 150.00, 0.10, 0.05, 'N', 'O', '1994-01-02', '1994-01-02', '1994-01-03', 'NONE', 'TRUCK', 'Line 1');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1000, 1, 100, 2, 10.00, 150.00, 0.20, 0.05, 'N', 'O', '1994-01-02', '1994-01-02', '1994-01-03', 'NONE', 'TRUCK', 'Line 2');
+
+-- Lineitems for CANADA (Total = 300.00, ties with BRAZIL on revenue to test secondary sort on n_name)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1001, 1, 101, 1, 1.00, 300.00, 0.00, 0.00, 'N', 'O', '1994-12-31', '1994-12-31', '1994-12-31', 'NONE', 'TRUCK', 'Line 3');
+
+-- Lineitems for ARGENTINA (Total = 500.00, highest revenue to test primary sort revenue DESC)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1002, 1, 102, 1, 2.00, 500.00, 0.05, 0.05, 'N', 'O', '1994-06-16', '1994-06-16', '1994-06-17', 'NONE', 'TRUCK', 'Line 4');
+
+-- Lineitems for out-of-range orders (Should be excluded)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1003, 1, 100, 1, 1.00, 1000.00, 0.00, 0.00, 'N', 'O', '1994-01-05', '1994-01-05', '1994-01-06', 'NONE', 'TRUCK', 'Excluded early');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1004, 1, 100, 1, 1.00, 2000.00, 0.00, 0.00, 'N', 'O', '1995-01-02', '1995-01-02', '1995-01-03', 'NONE', 'TRUCK', 'Excluded late');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Join condition c_nationkey = s_nationkey (customer and supplier in different nations of 'AMERICA' must be excluded)
+-- 2. Region filter r_name = 'AMERICA' (nations in 'EUROPE' or 'AMERICA ' must be excluded)
+-- 3. Join conditions l_suppkey = s_suppkey, c_custkey = o_custkey, l_orderkey = o_orderkey
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'Valid region');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (2, 'EUROPE', 'Invalid region');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (10, 'UNITED STATES', 1, 'US in America');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (11, 'PERU', 1, 'Peru in America');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (20, 'FRANCE', 2, 'France in Europe');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part 1', 'Mfgr#1', 'Brand#1', 'Type 1', 10, 'SM BOX', 100.00, 'Comment');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (100, 'Supp US', 'Addr 1', 10, '111-111', 100.00, 'Comment');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (101, 'Supp Peru', 'Addr 2', 11, '222-222', 100.00, 'Comment');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (200, 'Supp France', 'Addr 3', 20, '333-333', 100.00, 'Comment');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, s_phone, c_acctbal, c_mktsegment, c_comment) SELECT 1, 'Dummy', 'Dummy', 10, '1', 1, 'A', 'C' WHERE 0;
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (300, 'Cust US', 'Addr 1', 10, '111-111', 100.00, 'AUTO', 'Comment');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (301, 'Cust Peru', 'Addr 2', 11, '222-222', 100.00, 'AUTO', 'Comment');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (400, 'Cust France', 'Addr 3', 20, '333-333', 100.00, 'AUTO', 'Comment');
+
+-- Order 1: US Customer
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1, 300, 'O', 1000.00, '1994-05-01', '1-URGENT', 'Clerk#1', 0, 'Order by US Cust');
+-- Order 2: Peru Customer
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (2, 301, 'O', 1000.00, '1994-05-01', '1-URGENT', 'Clerk#1', 0, 'Order by Peru Cust');
+-- Order 3: France Customer
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (3, 400, 'O', 1000.00, '1994-05-01', '1-URGENT', 'Clerk#1', 0, 'Order by France Cust');
+
+-- Lineitem 1 on Order 1: US Cust (300) + US Supp (100) -> MATCH (UNITED STATES: 250.00)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 100, 1, 1.00, 250.00, 0.00, 0.00, 'N', 'O', '1994-05-02', '1994-05-02', '1994-05-03', 'NONE', 'TRUCK', 'Same nation in America');
+
+-- Lineitem 2 on Order 1: US Cust (300) + Peru Supp (101) -> MISMATCH c_nationkey != s_nationkey (Must be excluded)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 101, 2, 1.00, 900.00, 0.00, 0.00, 'N', 'O', '1994-05-02', '1994-05-02', '1994-05-03', 'NONE', 'TRUCK', 'Cross nation in America');
+
+-- Lineitem 1 on Order 2: Peru Cust (301) + US Supp (100) -> MISMATCH c_nationkey != s_nationkey (Must be excluded)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (2, 1, 100, 1, 1.00, 800.00, 0.00, 0.00, 'N', 'O', '1994-05-02', '1994-05-02', '1994-05-03', 'NONE', 'TRUCK', 'Cross nation in America 2');
+
+-- Lineitem 1 on Order 3: France Cust (400) + France Supp (200) -> MISMATCH r_name = 'EUROPE' (Must be excluded)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (3, 1, 200, 1, 1.00, 700.00, 0.00, 0.00, 'N', 'O', '1994-05-02', '1994-05-02', '1994-05-03', 'NONE', 'TRUCK', 'Same nation in Europe');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple nations with same n_name vs grouping by n_nationkey vs grouping by r_name
+-- 2. Nations in 'AMERICA' with 0 matching orders/lineitems (tests INNER JOIN vs LEFT JOIN / NULL revenue)
+-- 3. Lineitem shipdate vs orders orderdate (l_shipdate outside 1994 while o_orderdate inside 1994, and vice versa)
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'America 1');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (2, 'AMERICA', 'America 2');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'CHILE', 1, 'Chile 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'CHILE', 2, 'Chile 2 with same n_name');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (3, 'MEXICO', 1, 'Mexico with no orders');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part 1', 'Mfgr#1', 'Brand#1', 'Type 1', 10, 'SM BOX', 100.00, 'Comment');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (10, 'Supp Chile 1', 'Addr 1', 1, '111', 10.00, 'Comment');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (20, 'Supp Chile 2', 'Addr 2', 2, '222', 20.00, 'Comment');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (30, 'Supp Mexico', 'Addr 3', 3, '333', 30.00, 'Comment');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (10, 'Cust Chile 1', 'Addr 1', 1, '111', 10.00, 'AUTO', 'Comment');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (20, 'Cust Chile 2', 'Addr 2', 2, '222', 20.00, 'AUTO', 'Comment');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (30, 'Cust Mexico', 'Addr 3', 3, '333', 30.00, 'AUTO', 'Comment');
+
+-- Order in 1994, but lineitem shipped in 1995 (Should be INCLUDED because filter is on o_orderdate, not l_shipdate)
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (100, 10, 'O', 120.00, '1994-11-15', '1-URGENT', 'Clerk#1', 0, 'Order 1994');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (100, 1, 10, 1, 2.00, 120.00, 0.00, 0.00, 'N', 'O', '1995-02-10', '1995-02-01', '1995-02-15', 'NONE', 'TRUCK', 'Shipped in 1995');
+
+-- Second nation with same name 'CHILE' (Should be grouped together under n_name = 'CHILE' -> 120 + 80 = 200)
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (200, 20, 'O', 80.00, '1994-03-10', '1-URGENT', 'Clerk#1', 0, 'Order 1994 Chile 2');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (200, 1, 20, 1, 1.00, 80.00, 0.00, 0.00, 'N', 'O', '1994-03-15', '1994-03-12', '1994-03-20', 'NONE', 'TRUCK', 'Shipped in 1994');
+
+-- Order in 1993, but lineitem shipped/committed/received in 1994 (Should be EXCLUDED because o_orderdate is 1993)
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (300, 10, 'O', 500.00, '1993-12-20', '1-URGENT', 'Clerk#1', 0, 'Order 1993');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (300, 1, 10, 1, 5.00, 500.00, 0.00, 0.00, 'N', 'O', '1994-01-10', '1994-01-05', '1994-01-15', 'NONE', 'TRUCK', 'Shipped in 1994');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Negative and zero l_extendedprice values (tests ordering, ABS mutants, >0 filter mutants)
+-- 2. Multiple orders per customer and multiple lineitems per order
+-- 3. Floating point precision in SUM(l_extendedprice)
+-- 4. Unreferenced suppliers and customers in the same nation (ensures no Cartesian fan-out if a join predicate is dropped)
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'America');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'COLOMBIA', 1, 'Colombia');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'VENEZUELA', 1, 'Venezuela');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (3, 'ECUADOR', 1, 'Ecuador');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part 1', 'Mfgr#1', 'Brand#1', 'Type 1', 10, 'SM BOX', 100.00, 'Comment');
+
+-- Active suppliers
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'Supp Col 1', 'Addr', 1, '111', 10.00, 'Comment');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (2, 'Supp Ven 1', 'Addr', 2, '222', 10.00, 'Comment');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (3, 'Supp Ecu 1', 'Addr', 3, '333', 10.00, 'Comment');
+-- Extra supplier in Colombia with no lineitems (catches missing l_suppkey = s_suppkey)
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (4, 'Supp Col Unused', 'Addr', 1, '444', 10.00, 'Comment');
+
+-- Active customers
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Cust Col 1', 'Addr', 1, '111', 10.00, 'AUTO', 'Comment');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (2, 'Cust Ven 1', 'Addr', 2, '222', 10.00, 'AUTO', 'Comment');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (3, 'Cust Ecu 1', 'Addr', 3, '333', 10.00, 'AUTO', 'Comment');
+-- Extra customer in Colombia with no orders (catches missing c_custkey = o_custkey)
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (4, 'Cust Col Unused', 'Addr', 1, '444', 10.00, 'AUTO', 'Comment');
+
+-- Orders
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1, 1, 'F', 50.75, '1994-02-01', '1-URGENT', 'Clerk#1', 0, 'Col Order 1');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (2, 1, 'P', 25.50, '1994-08-01', '2-HIGH', 'Clerk#2', 0, 'Col Order 2');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (3, 2, 'O', 0.00, '1994-04-01', '3-MEDIUM', 'Clerk#3', 0, 'Ven Order 1');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (4, 3, 'O', -10.00, '1994-09-01', '4-NOT SPECIFIED', 'Clerk#4', 0, 'Ecu Order 1');
+
+-- Lineitems for Colombia: 30.25 + 20.50 + 25.50 = 76.25 (Also uses different returnflag/linestatus 'R'/'F', 'A'/'F', 'N'/'O' to kill filter mutants on status)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 1, 3.00, 30.25, 0.05, 0.02, 'R', 'F', '1994-02-10', '1994-02-05', '1994-02-12', 'DELIVER IN PERSON', 'AIR', 'Col L1');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 2, 2.00, 20.50, 0.00, 0.08, 'A', 'F', '1994-02-11', '1994-02-06', '1994-02-13', 'TAKE BACK RETURN', 'RAIL', 'Col L2');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (2, 1, 1, 1, 1.00, 25.50, 0.10, 0.00, 'N', 'O', '1994-08-10', '1994-08-05', '1994-08-12', 'COLLECT COD', 'SHIP', 'Col L3');
+
+-- Lineitem for Venezuela: 0.00
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (3, 1, 2, 1, 10.00, 0.00, 0.00, 0.00, 'N', 'O', '1994-04-10', '1994-04-05', '1994-04-12', 'NONE', 'MAIL', 'Ven L1');
+
+-- Lineitem for Ecuador: -10.50
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (4, 1, 3, 1, 1.00, -10.50, 0.00, 0.00, 'N', 'O', '1994-09-10', '1994-09-05', '1994-09-12', 'NONE', 'FOB', 'Ecu L1');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Case sensitivity and substring matching on r_name ('AMERICA' vs 'america' vs 'NORTH AMERICA' vs 'SOUTH AMERICA')
+-- 2. Empty result set behavior when only non-matching region names exist, vs exact match
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'america', 'Lowercase');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (2, 'NORTH AMERICA', 'Prefix');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (3, 'AMERICA', 'Exact match');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'NATION_LOWER', 1, 'Comment');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'NATION_PREFIX', 2, 'Comment');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (3, 'NATION_EXACT', 3, 'Comment');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part 1', 'Mfgr#1', 'Brand#1', 'Type 1', 10, 'SM BOX', 100.00, 'Comment');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'S1', 'A', 1, '1', 1.00, 'C');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (2, 'S2', 'A', 2, '2', 1.00, 'C');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (3, 'S3', 'A', 3, '3', 1.00, 'C');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'C1', 'A', 1, '1', 1.00, 'M', 'C');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (2, 'C2', 'A', 2, '2', 1.00, 'M', 'C');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (3, 'C3', 'A', 3, '3', 1.00, 'M', 'C');
+
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1, 1, 'O', 100.00, '1994-07-01', '1-URGENT', 'Clerk#1', 0, 'C');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (2, 2, 'O', 200.00, '1994-07-01', '1-URGENT', 'Clerk#1', 0, 'C');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (3, 3, 'O', 300.00, '1994-07-01', '1-URGENT', 'Clerk#1', 0, 'C');
+
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 1, 1.00, 100.00, 0.00, 0.00, 'N', 'O', '1994-07-02', '1994-07-02', '1994-07-03', 'NONE', 'TRUCK', 'C');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (2, 1, 2, 1, 1.00, 200.00, 0.00, 0.00, 'N', 'O', '1994-07-02', '1994-07-02', '1994-07-03', 'NONE', 'TRUCK', 'C');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (3, 1, 3, 1, 1.00, 300.00, 0.00, 0.00, 'N', 'O', '1994-07-02', '1994-07-02', '1994-07-03', 'NONE', 'TRUCK', 'C');
+```

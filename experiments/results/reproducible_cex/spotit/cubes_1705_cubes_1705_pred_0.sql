@@ -1,0 +1,60 @@
+-- Schema DDL
+CREATE TABLE "AIRPORT" (
+    "ID" INT,
+    "CITY" TEXT,
+    "COUNTRY" TEXT,
+    "IATA" TEXT,
+    "ICAO" TEXT,
+    "NAME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "OPERATE_COMPANY" (
+    "ID" INT,
+    "NAME" TEXT,
+    "TYPE" TEXT,
+    "PRINCIPAL_ACTIVITIES" TEXT,
+    "INCORPORATED_IN" TEXT,
+    "GROUP_EQUITY_SHAREHOLDING" FLOAT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "FLIGHT" (
+    "ID" INT,
+    "COMPANY_ID" INT,
+    "AIRPORT_ID" INT,
+    "VEHICLE_FLIGHT_NUMBER" TEXT,
+    "DATE" TEXT,
+    "PILOT" TEXT,
+    "VELOCITY" FLOAT,
+    "ALTITUDE" FLOAT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("COMPANY_ID") REFERENCES "OPERATE_COMPANY"("ID"),
+    FOREIGN KEY ("AIRPORT_ID") REFERENCES "AIRPORT"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO AIRPORT VALUES (1, 0, 0, 0, 0, 0);
+INSERT INTO AIRPORT VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO OPERATE_COMPANY VALUES (0, 10, 11, 12, 13, 14);
+INSERT INTO OPERATE_COMPANY VALUES (1, 19, 20, 21, 22, 23);
+INSERT INTO FLIGHT VALUES (-1, 0, 1, 15, 16, 17, 0, 18);
+INSERT INTO FLIGHT VALUES (0, 1, 1, 24, 25, 26, 0, 27);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT TYPE FROM (SELECT * FROM operate_company AS LHS WHERE NOT EXISTS(SELECT 1 FROM (SELECT * FROM flight WHERE (velocity <> 200.0)) AS RHS WHERE (LHS.id = RHS.id))) ORDER BY TYPE;
+
+/*
+Gold Result:
+('20',)
+*/
+
+-- Prediction Query
+SELECT DISTINCT T1.type FROM operate_company AS T1 JOIN flight AS t2 ON T1.id = T2.company_id WHERE T2.velocity < 200;
+
+/*
+Prediction Result:
+('11',)
+('20',)
+*/

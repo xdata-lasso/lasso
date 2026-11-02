@@ -1,0 +1,128 @@
+```sql
+-- DATASET 1
+-- Tests asymmetric cross-matching where LHS.transcript_id != LHS.n.
+-- Total transcripts (LHS.n) = 2.
+-- Transcript 2 has 1 content item (RHS.transcript_id = 2, RHS.n = 1).
+-- Transcript 1 has 1 content item (gives LHS.transcript_id = 1, matching RHS.n = 1 from Transcript 2).
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '123 Main St');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'CS');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (1, 1, 1, 'Alice');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'DB');
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, 1, 1);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, '2023-01-10', 'Matched LHS row');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, '2023-02-20', 'Matched RHS group');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple matches, ORDER BY transcript_date, tie-breaking by transcript_id, and NULLS LAST.
+-- Total transcripts (LHS.n) = 4.
+-- Transcript 4 has 2 content items (RHS.transcript_id = 4, RHS.n = 2), matching LHS.transcript_id = 2.
+-- We also need another match to test sorting. Since RHS.transcript_id must equal LHS.n (which is fixed at 4),
+-- RHS.transcript_id = 4 can only have one group count (RHS.n).
+-- Wait: if there are multiple rows in Transcript_Contents with NULL student_course_id, COUNT(*) vs COUNT(student_course_id) differs!
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '123 Main St');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'CS');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (1, 1, 1, 'Alice');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'DB');
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, 1, 1);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, '2023-05-01', 'T1');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, NULL, 'T2 - NULL date');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (3, '2023-01-01', 'T3 - No contents');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (3, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (3, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests symmetric single-row match (1 transcript, transcript_id = 1, count = 1) vs extra transcripts without contents.
+-- Total transcripts (LHS.n) = 3.
+-- Transcript 3 has 3 content items (RHS.transcript_id = 3, RHS.n = 3).
+-- Transcript 1 has 1 content item (would match if LHS.n wasn't 3 or if join was LHS.transcript_id = RHS.transcript_id).
+-- Transcript 2 has 0 content items (tests LEFT JOIN vs INNER JOIN and COUNT(*) OVER () including all transcripts).
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '123 Main St');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'CS');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (1, 1, 1, 'Alice');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'DB');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (2, 'OS');
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, 1, 1);
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (2, 1, 2);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, '2023-03-15', 'Has 1 item');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, '2023-03-10', 'Has 0 items');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (3, '2023-03-05', 'Has 3 items');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (3, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (3, 2);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (3, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests the case where no rows match the join condition, but standard join (LHS.id = RHS.id) or OR condition would match.
+-- Total transcripts (LHS.n) = 2.
+-- Transcript 1 has 2 content items (RHS.id = 1, RHS.n = 2).
+-- Transcript 2 has 2 content items (RHS.id = 2, RHS.n = 2).
+-- Here, RHS.id = 2 has RHS.n = 2, so LHS.transcript_id = 2 matches!
+-- Let's make Transcript 2 have 3 content items so nothing matches the strict AND condition,
+-- while LHS.transcript_id = RHS.n matches for Transcript 2 (with RHS.id=1) and LHS.n = RHS.id matches for Transcript 2.
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '123 Main St');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'CS');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (1, 1, 1, 'Alice');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'DB');
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, 1, 1);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, '2022-01-01', 'T1');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, '2022-01-02', 'T2');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL transcript_id in Transcript_Contents and non-contiguous transcript_ids in Transcripts.
+-- Total transcripts (LHS.n) = 2 (IDs are 2 and 5).
+-- RHS has a group for transcript_id = 2 with 5 items (RHS.transcript_id = 2, RHS.n = 5).
+-- Matches LHS row with transcript_id = 5 (since LHS.transcript_id = 5 = RHS.n, and LHS.n = 2 = RHS.transcript_id).
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '123 Main St');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'CS');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (1, 1, 1, 'Alice');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'DB');
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, 1, 1);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, '2021-06-01', 'ID 2');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (5, '2021-05-01', 'ID 5');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (NULL, 1);
+```

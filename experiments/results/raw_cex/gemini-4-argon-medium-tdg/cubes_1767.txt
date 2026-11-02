@@ -1,0 +1,47 @@
+```sql
+-- DATASET 1
+-- Empty Customers_Cards table to distinguish window function COUNT(*) OVER () (returns 0 rows) from standard aggregate COUNT(*) (returns 1 row with 0).
+-- Also populates other tables to catch mutants querying the wrong table.
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name, customer_address, customer_phone, customer_email, other_customer_details) VALUES (1, 'John', 'Doe', '123 Main St', '555-0100', 'john@example.com', 'None');
+INSERT INTO Accounts (account_id, customer_id, account_name, other_account_details) VALUES (10, 1, 'Checking', 'Active');
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows in Customers_Cards to test:
+-- 1. Missing DISTINCT (would return 3 rows of [3] instead of 1 row of [3]).
+-- 2. COUNT(col) vs COUNT(*) via NULL values in nullable columns.
+-- 3. COUNT(DISTINCT col) vs COUNT(*) via duplicate values across rows.
+-- 4. Unintended INNER JOINs with Customers (customer_id 99 does not exist in Customers, and NULL customer_id).
+-- 5. Unintended INNER JOINs with Financial_Transactions (only card_id 1 is referenced).
+-- 6. Wrong table selection (each table has a distinct row count: Customers=1, Accounts=2, Customers_Cards=3, Financial_Transactions=4).
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name, customer_address, customer_phone, customer_email, other_customer_details) VALUES (1, 'Alice', 'Smith', '456 Oak St', '555-0101', 'alice@example.com', NULL);
+
+INSERT INTO Accounts (account_id, customer_id, account_name, other_account_details) VALUES (1, 1, 'Savings', NULL);
+INSERT INTO Accounts (account_id, customer_id, account_name, other_account_details) VALUES (2, 1, 'Checking', NULL);
+
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (1, 1, 'Debit', '1111222233334444', '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Primary');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 1, 'Debit', '1111222233334444', '2020-01-01 00:00:00', '2025-01-01 00:00:00', NULL);
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (3, NULL, NULL, NULL, NULL, NULL, NULL);
+
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, previous_transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (1, 1, 101, NULL, 'Purchase', '2021-06-01 10:00:00', 50.0, 'Grocery', NULL);
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, previous_transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (1, 1, 102, 101, 'Purchase', '2021-06-02 11:00:00', 25.0, 'Gas', NULL);
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, previous_transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (2, 1, 103, 102, 'Refund', '2021-06-03 12:00:00', -25.0, 'Gas Refund', NULL);
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, previous_transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (2, 1, 104, 103, 'Purchase', '2021-06-04 13:00:00', 100.0, 'Electronics', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests window specification mutations (e.g., PARTITION BY card_type_code or customer_id with uneven group sizes, or ORDER BY inside OVER()).
+-- Group sizes for card_type_code: 'Visa' (1 row), 'MasterCard' (2 rows).
+-- If mutated to COUNT(*) OVER (PARTITION BY card_type_code), returns {1, 2} instead of {3}.
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (10, 1, 'Visa', '4000111122223333', '2019-01-01 00:00:00', '2023-01-01 00:00:00', 'Expired');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (20, 2, 'MasterCard', '5000111122223333', '2021-01-01 00:00:00', '2026-01-01 00:00:00', 'Active');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (30, 2, 'MasterCard', '5000999988887777', '2022-01-01 00:00:00', '2027-01-01 00:00:00', 'Active');
+```
+
+```sql
+-- DATASET 4
+-- Single row with non-one card_id to catch mutants projecting or summing card_id/customer_id instead of counting rows.
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (42, 99, 'Amex', '300011112222333', '2022-05-01 00:00:00', '2026-05-01 00:00:00', 'VIP');
+```

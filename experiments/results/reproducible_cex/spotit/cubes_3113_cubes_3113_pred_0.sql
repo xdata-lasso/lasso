@@ -1,0 +1,54 @@
+-- Schema DDL
+CREATE TABLE "FILM" (
+    "FILM_ID" INT,
+    "TITLE" TEXT,
+    "STUDIO" TEXT,
+    "DIRECTOR" TEXT,
+    "GROSS_IN_DOLLAR" INT,
+    PRIMARY KEY ("FILM_ID")
+);
+CREATE TABLE "MARKET" (
+    "MARKET_ID" INT,
+    "COUNTRY" TEXT,
+    "NUMBER_CITIES" INT,
+    PRIMARY KEY ("MARKET_ID")
+);
+CREATE TABLE "FILM_MARKET_ESTIMATION" (
+    "ESTIMATION_ID" INT,
+    "MARKET_ID" INT,
+    "FILM_ID" INT,
+    "LOW_ESTIMATE" FLOAT,
+    "HIGH_ESTIMATE" FLOAT,
+    "TYPE" TEXT,
+    "YEAR" INT,
+    PRIMARY KEY ("ESTIMATION_ID"),
+    FOREIGN KEY ("MARKET_ID") REFERENCES "MARKET"("MARKET_ID"),
+    FOREIGN KEY ("FILM_ID") REFERENCES "FILM"("FILM_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO FILM VALUES (-1, 9, 0, 10, 0);
+INSERT INTO FILM VALUES (0, 11, NULL, 12, 0);
+INSERT INTO MARKET VALUES (1, 0, 0);
+INSERT INTO MARKET VALUES (0, 0, 0);
+INSERT INTO FILM_MARKET_ESTIMATION VALUES (0, 1, -1, 0, 0, 0, 0);
+INSERT INTO FILM_MARKET_ESTIMATION VALUES (1, 1, -1, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT studio FROM (SELECT studio, title, AVG(gross_in_dollar) AS meangross_in_dollar FROM (SELECT * FROM film WHERE (gross_in_dollar <> 4500000)) GROUP BY studio, title) ORDER BY studio;
+
+/*
+Gold Result:
+(None,)
+('0',)
+*/
+
+-- Prediction Query
+SELECT Studio FROM film GROUP BY Studio HAVING AVG(Gross_in_dollar) >= 4500000;
+
+/*
+Prediction Result:
+*/

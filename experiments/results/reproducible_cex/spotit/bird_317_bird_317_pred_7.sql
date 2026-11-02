@@ -1,0 +1,58 @@
+-- Schema DDL
+CREATE TABLE "ATOM" (
+    "ATOM_ID" TEXT,
+    "MOLECULE_ID" TEXT,
+    "ELEMENT" TEXT,
+    PRIMARY KEY ("ATOM_ID"),
+    FOREIGN KEY ("MOLECULE_ID") REFERENCES "MOLECULE"("MOLECULE_ID")
+);
+CREATE TABLE "BOND" (
+    "BOND_ID" TEXT,
+    "MOLECULE_ID" TEXT,
+    "BOND_TYPE" TEXT,
+    PRIMARY KEY ("BOND_ID"),
+    FOREIGN KEY ("MOLECULE_ID") REFERENCES "MOLECULE"("MOLECULE_ID")
+);
+CREATE TABLE "CONNECTED" (
+    "ATOM_ID" TEXT,
+    "ATOM_ID2" TEXT,
+    "BOND_ID" TEXT,
+    PRIMARY KEY ("ATOM_ID", "ATOM_ID2"),
+    FOREIGN KEY ("ATOM_ID") REFERENCES "ATOM"("ATOM_ID"),
+    FOREIGN KEY ("ATOM_ID2") REFERENCES "ATOM"("ATOM_ID"),
+    FOREIGN KEY ("BOND_ID") REFERENCES "BOND"("BOND_ID")
+);
+CREATE TABLE "MOLECULE" (
+    "MOLECULE_ID" TEXT,
+    "LABEL" TEXT,
+    PRIMARY KEY ("MOLECULE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ATOM VALUES (2, 7, 5758244073121836140);
+INSERT INTO ATOM VALUES (3, 6, 11);
+INSERT INTO BOND VALUES (4, 7, 0);
+INSERT INTO BOND VALUES (5, 7, 0);
+INSERT INTO CONNECTED VALUES (2, 2, 4);
+INSERT INTO CONNECTED VALUES (3, 2, 5);
+INSERT INTO MOLECULE VALUES (7, 8389277960342091461);
+INSERT INTO MOLECULE VALUES (6, 10);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT COUNT(CASE WHEN T2.label = '+' AND T1.element = 'cl' THEN T2.molecule_id ELSE NULL END) * 100 / COUNT(T2.molecule_id) FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id;
+
+/*
+Gold Result:
+(0,)
+*/
+
+-- Prediction Query
+SELECT (CAST(SUM(CASE WHEN atom.element = 'cl' THEN 1 ELSE 0 END) AS REAL) * 100.0) / COUNT(molecule.molecule_id) AS percentage FROM molecule JOIN atom ON molecule.molecule_id = atom.molecule_id WHERE molecule.label = '+';
+
+/*
+Prediction Result:
+(None,)
+*/

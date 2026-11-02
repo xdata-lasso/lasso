@@ -1,0 +1,96 @@
+```sql
+-- DATASET 1
+-- Tests ordering by T1.time (TEXT) vs T1.milliseconds (INTEGER), and filtering by T1.lap = 1 vs other laps.
+INSERT INTO seasons (year, url) VALUES (2020, 'http://example.com/s2020');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://example.com/c1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2020, 1, 1, 'Race 1', '2020-03-01', '15:00:00', 'http://example.com/r1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'd1', 'John', 'Doe', 'http://example.com/d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'd2', 'Jane', 'Smith', 'http://example.com/d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'd3', 'Bob', 'Brown', 'http://example.com/d3');
+
+-- Lap 2 has the smallest time and milliseconds, should be excluded by WHERE T1.lap = 1
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 2, 1, '01:00.000', 60000);
+-- Lap 1, Driver 1: lexicographically smaller time ('01:20.000'), but larger milliseconds (99999)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 2, '01:20.000', 99999);
+-- Lap 1, Driver 2: lexicographically larger time ('02:00.000'), but smaller milliseconds (70000)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 1, '02:00.000', 70000);
+-- Lap 0 boundary check
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 3, 0, 1, '00:50.000', 50000);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in ORDER BY T1.time (in SQLite, NULLs sort first in ASC order unless NULLS LAST is specified on T1.time)
+INSERT INTO seasons (year, url) VALUES (2021, 'http://example.com/s2021');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (10, 'c10', 'Circuit 10', 'http://example.com/c10');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (10, 2021, 1, 10, 'Race 10', '2021-03-01', '14:00:00', 'http://example.com/r10');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'd10', 'Driver', 'Ten', 'http://example.com/d10');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'd20', 'Driver', 'Twenty', 'http://example.com/d20');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 10, 1, 2, NULL, 88888);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 20, 1, 1, '01:15.000', 75000);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T1.raceId when T1.time is identical, and ensures T1.time is used instead of T2.time.
+INSERT INTO seasons (year, url) VALUES (2022, 'http://example.com/s2022');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://example.com/c1');
+-- Race 1 has later T2.time ('18:00:00'), Race 2 has earlier T2.time ('12:00:00')
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2022, 1, 1, 'Race 1', '2022-05-01', '18:00:00', 'http://example.com/r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2022, 2, 1, 'Race 2', '2022-05-08', '12:00:00', 'http://example.com/r2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (5, 'd5', 'Driver', 'Five', 'http://example.com/d5');
+
+-- Identical T1.time; tie-breaker should pick raceId = 1 (milliseconds = 81111) over raceId = 2 (milliseconds = 82222)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (2, 5, 1, 1, '01:30.000', 82222);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 5, 1, 2, '01:30.000', 81111);
+```
+
+```sql
+-- DATASET 4
+-- Tests tie-breaking on T1.driverId when T1.time and T1.raceId are identical, plus distractions in results and pitStops.
+INSERT INTO seasons (year, url) VALUES (2023, 'http://example.com/s2023');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://example.com/c1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (100, 2023, 1, 1, 'Race 100', '2023-04-01', '10:00:00', 'http://example.com/r100');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://example.com/con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (11, 'd11', 'Eleven', 'One', 'http://example.com/d11');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (22, 'd22', 'TwentyTwo', 'Two', 'http://example.com/d22');
+
+-- Identical T1.time and T1.raceId; tie-breaker should pick driverId = 11 (milliseconds = 91111) over driverId = 22 (milliseconds = 92222)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (100, 22, 1, 1, '01:40.000', 92222);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (100, 11, 1, 2, '01:40.000', 91111);
+
+-- Distractor rows in pitStops and results to catch mutants querying the wrong table
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (100, 11, 1, 1, '00:10.000', '10.0', 10000);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (1, 100, 11, 1, 11, 1, 1, '1', 1, 25, 1, '00:05.000', 5000, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when lapTimes only contains laps != 1, and checks that T1.position = 1 is not confused with T1.lap = 1.
+INSERT INTO seasons (year, url) VALUES (2024, 'http://example.com/s2024');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://example.com/c1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2024, 1, 1, 'Race 1', '2024-03-01', '15:00:00', 'http://example.com/r1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'd1', 'Driver', 'One', 'http://example.com/d1');
+
+-- Position is 1, raceId is 1, driverId is 1, but lap is 2
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 2, 1, '01:10.000', 70000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 3, 1, '01:09.000', 69000);
+```
+
+```sql
+-- DATASET 6
+-- Tests string sorting vs length/numeric sorting on T1.time (e.g., '1:05.000' vs '10:00.000' vs '2:00.000') and NULL milliseconds.
+INSERT INTO seasons (year, url) VALUES (2019, 'http://example.com/s2019');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (5, 'c5', 'Circuit 5', 'http://example.com/c5');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (50, 2019, 5, 5, 'Race 50', '2019-06-01', '13:00:00', 'http://example.com/r50');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'd1', 'A', 'A', 'http://example.com/d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'd2', 'B', 'B', 'http://example.com/d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'd3', 'C', 'C', 'http://example.com/d3');
+
+-- In ASCII/lexicographical sort: '10:00.000' < '1:05.000' < '2:00.000' (since '0' < ':')
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (50, 1, 1, 3, '10:00.000', 600000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (50, 2, 1, 1, '1:05.000', 65000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (50, 3, 1, 2, '2:00.000', 120000);
+```

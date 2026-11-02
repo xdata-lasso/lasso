@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (ASC vs DESC), LIMIT 1, and differentiates T3.cost from T2.spent, T2.remaining, and T2.amount.
+-- Also tests SUM(T3.cost) vs individual T3.cost.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Event Alpha', '2023-01-01', 'Social', 'Note 1', 'Room A', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Event Beta', '2023-02-01', 'Meeting', 'Note 2', 'Room B', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'Event Gamma', '2023-03-01', 'Fundraiser', 'Note 3', 'Room C', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 500.0, 500.0, 1000, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Supplies', 10.0, 90.0, 100, 'Closed', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Advertising', 5.0, 5.0, 10, 'Open', 'E3');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X1', 'Pizza', '2023-01-01', 15.0, 'true', NULL, 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X2', 'Soda', '2023-01-01', 20.0, 'false', NULL, 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X3', 'Pens', '2023-02-01', 25.0, 'true', NULL, 'B2');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X4', 'Flyers', '2023-03-01', 100.0, 'false', NULL, 'B3');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in T3.cost. In SQLite, NULLs sort first in ASC order by default.
+-- If a mutant adds NULLS LAST to T3.cost or filters WHERE T3.cost IS NOT NULL, it will return 'Event NonNull' instead of 'Event NullCost'.
+-- Also includes unmatched rows in event and budget to catch LEFT JOIN mutants.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E0', 'Event NoBudget', '2023-01-01', 'Meeting', 'None', 'Hall', 'Planning');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Event NoExpense', '2023-01-02', 'Meeting', 'None', 'Hall', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Event NullCost', '2023-01-03', 'Social', 'None', 'Park', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'Event NonNull', '2023-01-04', 'Social', 'None', 'Gym', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Misc', 0.0, 50.0, 50, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 100.0, 0.0, 100, 'Closed', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Food', 10.0, 90.0, 100, 'Open', 'E3');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X1', 'Unknown Cost', '2023-01-03', NULL, 'true', NULL, 'B2');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X2', 'Small Cost', '2023-01-04', 5.0, 'true', NULL, 'B3');
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T1.event_id when T3.cost is identical.
+-- Also tests incorrect join conditions (e.g., joining on event_id = budget_id) and unneeded joins to member/attendance.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_A', 'Winner By EventID', '2023-05-01', 'Workshop', 'N1', 'Loc1', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_B', 'Loser By EventID', '2023-04-01', 'Workshop', 'N2', 'Loc2', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_Z', 'Tech', 50.0, 50.0, 100, 'Closed', 'E_A');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_A', 'Tech', 50.0, 50.0, 100, 'Open', 'E_B');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X_Z', 'Cables', '2023-05-01', 10.0, 'false', NULL, 'B_Z');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X_A', 'Adapters', '2023-04-01', 10.0, 'true', NULL, 'B_A');
+```
+
+```sql
+-- DATASET 4
+-- Tests Orphaned Foreign Keys (NULL links) and AVG(cost) vs MIN(cost).
+-- Event 'AvgWinner' has one high-cost and one low-cost expense (AVG = 50, MIN = 10).
+-- Event 'AvgLoser' has one medium-cost expense (AVG = 20, MIN = 20).
+-- Also includes a budget with NULL link_to_event and an expense with NULL link_to_budget having the lowest cost (1.0).
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'CS', 'Eng', 'Engineering');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (12345, 'Standard', 'Town', 'Cnty', 'State', 'ST');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'John', 'Doe', 'j@d.com', 'Member', 'L', '111-2222', 12345, 'M1');
+
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'AvgWinner_MinWinner', '2023-01-01', 'Social', 'N', 'L', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'AvgWinner_MinLoser', '2023-01-01', 'Social', 'N', 'L', 'Open');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E2', 'MEM1');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_ORPHAN', 'Food', 1.0, 1.0, 2, 'Open', NULL);
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 100.0, 0.0, 100, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 20.0, 80.0, 100, 'Open', 'E2');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X_ORPHAN1', 'Orphan Exp', '2023-01-01', 0.5, 'true', 'MEM1', NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X_ORPHAN2', 'Orphan Bgt', '2023-01-01', 1.0, 'true', 'MEM1', 'B_ORPHAN');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X1_LOW', 'Cheap item', '2023-01-01', 10.0, 'true', NULL, 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X1_HIGH', 'Expensive item', '2023-01-01', 90.0, 'true', 'MEM1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X2_MED', 'Medium item', '2023-01-01', 20.0, 'true', 'MEM1', 'B2');
+```
+
+```sql
+-- DATASET 5
+-- Tests string vs numeric sorting on cost, negative/zero costs, and incorrect join condition T1.status = T2.event_status.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Event Nine', '2023-01-01', 'Social', 'N', 'L', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Event Eleven', '2023-01-01', 'Social', 'N', 'L', 'Closed');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 9.0, 1.0, 10, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 11.0, 1.0, 12, 'Closed', 'E2');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X1', 'Cost 9', '2023-01-01', 9.0, 'true', NULL, 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X2', 'Cost 11', '2023-01-01', 11.0, 'true', NULL, 'B2');
+```
+
+```sql
+-- DATASET 6
+-- Tests column projection mistakes (e.g., selecting event_id, category, or expense_description instead of event_name)
+-- and ensures that when multiple budgets/expenses exist for the same event, tie-breakers on budget_id and expense_id work properly.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('ID_100', 'Actual Event Name 100', '2023-10-10', 'Type_100', 'Notes_100', 'Loc_100', 'Status_100');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('ID_200', 'Actual Event Name 200', '2023-10-11', 'Type_200', 'Notes_200', 'Loc_200', 'Status_200');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_2', 'Cat_2', 50.0, 50.0, 100, 'Status_100', 'ID_100');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_1', 'Cat_1', 50.0, 50.0, 100, 'Status_100', 'ID_100');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_3', 'Cat_3', 50.0, 50.0, 100, 'Status_200', 'ID_200');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_2', 'Desc_2', '2023-10-10', 5.5, 'true', NULL, 'B_1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_1', 'Desc_1', '2023-10-10', 5.5, 'true', NULL, 'B_1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_3', 'Desc_3', '2023-10-11', 5.5, 'true', NULL, 'B_3');
+```

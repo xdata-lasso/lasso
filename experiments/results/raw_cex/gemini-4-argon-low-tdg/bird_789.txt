@@ -1,0 +1,99 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Floating-point division (CAST AS REAL) vs integer division (sum 25 / count 2 = 12.5 vs 12).
+-- 2. SUM(DISTINCT) vs SUM(ALL) by including duplicate weight_kg (10 and 10) for 'Alien' race.
+-- 3. WHERE T2.race = 'Alien' filtering vs missing/wrong WHERE clause (includes 'Human' and NULL race).
+-- 4. INNER JOIN ON T1.race_id = T2.id vs wrong join keys (e.g., T1.id = T2.id) or cross join.
+-- 5. Unnecessary joins to other tables (e.g., gender, alignment, hero_power) where foreign keys are NULL or missing.
+INSERT INTO race (id, race) VALUES (1, 'Human');
+INSERT INTO race (id, race) VALUES (2, 'Alien');
+INSERT INTO race (id, race) VALUES (3, NULL);
+
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (1, 'Hero1', 2, 180, 10);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (2, 'Hero2', 2, 190, 10);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (3, 'Hero3', 2, 200, 5);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (4, 'Hero4', 1, 175, 100);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (5, 'Hero5', NULL, 160, 50);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (6, 'Hero6', 3, 170, 70);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. AVG(weight_kg) or COUNT(weight_kg) vs SUM(weight_kg) / COUNT(T1.id) when weight_kg is NULL.
+--    Gold calculates: (100 + 50) / 3 = 50.0. AVG(weight_kg) calculates: (100 + 50) / 2 = 75.0.
+-- 2. Filtering out weight_kg <= 0 (includes 0 and negative weights if mutated).
+-- 3. Case sensitivity / exact match on 'Alien' vs 'alien' or 'Alien '.
+INSERT INTO race (id, race) VALUES (10, 'Alien');
+INSERT INTO race (id, race) VALUES (20, 'alien');
+INSERT INTO race (id, race) VALUES (30, 'Alien Warrior');
+
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (1, 'AlienWithWeight1', 10, 100, 100);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (2, 'AlienWithWeight2', 10, 150, 50);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (3, 'AlienNullWeight', 10, 200, NULL);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (4, 'LowercaseAlien', 20, 180, 500);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (5, 'PrefixAlien', 30, 180, 500);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple rows in `race` having race = 'Alien' (tests COUNT(DISTINCT T2.id) or GROUP BY T2.id mutations).
+-- 2. Confusion between weight_kg and height_cm, or superhero_name = 'Alien'.
+-- 3. Joining superhero with hero_power or hero_attribute (1-to-many join fan-out changing SUM and COUNT).
+INSERT INTO race (id, race) VALUES (1, 'Alien');
+INSERT INTO race (id, race) VALUES (2, 'Alien');
+INSERT INTO race (id, race) VALUES (3, 'Mutant');
+
+INSERT INTO superpower (id, power_name) VALUES (1, 'Flight');
+INSERT INTO superpower (id, power_name) VALUES (2, 'Strength');
+
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Intelligence');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Speed');
+
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (10, 'Zorg', 1, 300, 80);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (20, 'Xylar', 2, 400, 93);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (30, 'Alien', 3, 500, 1000);
+
+INSERT INTO hero_power (hero_id, power_id) VALUES (10, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (10, 2);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (10, 1, 99);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (10, 2, 88);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty result set for 'Alien' (COUNT = 0, SUM = NULL -> division results in NULL).
+-- 2. Kills mutants using COALESCE(..., 0) or LEFT JOIN from race / superhero without proper filtering.
+INSERT INTO race (id, race) VALUES (1, 'Human');
+INSERT INTO race (id, race) VALUES (2, 'Cyborg');
+
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (1, 'CyberMan', 2, 185, 120);
+INSERT INTO superhero (id, superhero_name, race_id, height_cm, weight_kg) VALUES (2, 'NormalGuy', 1, 175, 75);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. All matching 'Alien' superheroes have weight_kg = 0 or negative, or NULL.
+-- 2. Distinguishes NULL vs 0 in SUM, and tests division where numerator is 0 (0.0 / 2 = 0.0).
+-- 3. Tests foreign keys populated for all other lookup tables (alignment, colour, gender, publisher) to catch wrong join table/column usage (e.g. joining race on publisher_id or alignment_id).
+INSERT INTO alignment (id, alignment) VALUES (1, 'Alien');
+INSERT INTO colour (id, colour) VALUES (1, 'Alien');
+INSERT INTO gender (id, gender) VALUES (1, 'Alien');
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Alien');
+INSERT INTO race (id, race) VALUES (1, 'Human');
+INSERT INTO race (id, race) VALUES (2, 'Alien');
+
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (1, 'DecoyHero', 'Alien', 1, 1, 1, 1, 1, 1, 1, 100, 500);
+
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (2, 'TrueAlien1', 'ZeroWeight', 1, 1, 1, 1, 2, 1, 1, 150, 0);
+
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (3, 'TrueAlien2', 'SmallWeight', 1, 1, 1, 1, 2, 1, 1, 160, 3);
+```

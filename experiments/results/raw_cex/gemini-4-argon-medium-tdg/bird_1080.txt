@@ -1,0 +1,63 @@
+```sql
+-- DATASET 1
+-- Tests basic conjunction (AND vs OR), column confusion (attacking_work_rate vs defensive_work_rate), and literal matching.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 101, 'Player One', 1001);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 102, 'Player Two', 1002);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (3, 103, 'Player Three', 1003);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (4, 104, 'Player Four', 1004);
+
+-- Matches both conditions (Target: counted)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (1, 1001, 101, 'left', 'low', 'medium');
+-- Matches preferred_foot only, has 'low' in defensive_work_rate to catch column swap mutants
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (2, 1002, 102, 'left', 'high', 'low');
+-- Matches attacking_work_rate only
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (3, 1003, 103, 'right', 'low', 'high');
+-- Matches neither
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (4, 1004, 104, 'right', 'medium', 'medium');
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(player_api_id) vs COUNT(DISTINCT player_api_id) vs COUNT(id) vs COUNT(*).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 201, 'Duplicate Player', 2001);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, NULL, 'Null API ID Player', 2002);
+
+-- Same player_api_id appearing multiple times matching the criteria (kills COUNT(DISTINCT player_api_id))
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (1, 2001, 201, '2015-01-01', 'left', 'low', 'low');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (2, 2001, 201, '2016-01-01', 'left', 'low', 'low');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (3, 2001, 201, '2017-01-01', 'left', 'low', 'low');
+
+-- NULL player_api_id matching the criteria (kills COUNT(*) or COUNT(id) or COUNT(player_fifa_api_id))
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (4, 2002, NULL, '2016-01-01', 'left', 'low', 'low');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in WHERE predicates, case sensitivity, and unreferenced/dangling foreign keys vs unnecessary INNER JOINs.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 301, 'Valid Player', 3001);
+
+-- Valid row WITH NULLs in other columns, and NULL in player_fifa_api_id (kills mutants that unnecessarily INNER JOIN Player on player_fifa_api_id)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (1, NULL, 301, 'left', 'low', NULL);
+-- Valid row linked to Player
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (2, 3001, 301, 'left', 'low', 'high');
+
+-- NULLs in target predicate columns (kills mutants using IS NULL or improper negation like != 'right')
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate) VALUES (3, 3001, 301, 'left', NULL);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate) VALUES (4, 3001, 301, NULL, 'low');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate) VALUES (5, 3001, 301, NULL, NULL);
+
+-- Case sensitivity and substring mutants (kills LIKE '%left%', LIKE '%low%', UPPER/LOWER discrepancies)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate) VALUES (6, 3001, 301, 'Left', 'low');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate) VALUES (7, 3001, 301, 'left', 'Low');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate) VALUES (8, 3001, 301, 'left_foot', 'low_rate');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set (0 matching rows) to catch mutants that return NULL, 1, or fail on empty aggregation.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 401, 'Non Matching Player', 4001);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (1, 4001, 401, 'right', 'high', 'low');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (2, 4001, 401, 'left', 'medium', 'low');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (3, 4001, 401, 'right', 'low', 'low');
+```

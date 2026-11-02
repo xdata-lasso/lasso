@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests basic INNER JOIN matching, multiple settlements per claim, and ORDER BY count___ ASC, claim_id ASC.
+-- Also tests grouping solely by claim_id vs amount_claimed (Claims 101 and 102 share the same amount_claimed).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Alice Smith');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 1, 'AUTO', '2020-01-01', '2021-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (101, 10, '2020-02-01', '2020-03-01', 500, 400);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (102, 10, '2020-02-05', '2020-03-05', 500, 500);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (103, 10, '2020-02-10', '2020-03-10', 1000, 900);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1001, 101, '2020-02-01', '2020-03-01', 500, 200, 10);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1002, 101, '2020-02-01', '2020-03-01', 500, 200, 10);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1003, 102, '2020-02-05', '2020-03-05', 500, 500, 10);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1004, 103, '2020-02-10', '2020-03-10', 1000, 900, 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests JOIN predicate specificity: matching Claim_ID but mismatched Date_Claim_Settled, and matching Date_Claim_Settled but mismatched Claim_ID.
+-- Also tests joins that mistakenly include Date_Claim_Made, Amount_Claimed, Amount_Settled, or Policy_ID in the join condition.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Bob Jones');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (20, 1, 'HOME', '2021-01-01', '2022-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (201, 20, '2021-02-01', '2021-03-01', 1000, 800);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (202, 20, '2021-02-01', '2021-04-01', 2000, 1500);
+-- Matches 201 on both Claim_ID and Date_Claim_Settled, but differs on Date_Claim_Made, Amount_Claimed, Amount_Settled, Customer_Policy_ID
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (2001, 201, '2021-02-15', '2021-03-01', 999, 777, 99);
+-- Matches 201 on Claim_ID, but Date_Claim_Settled matches 202 (should NOT join with either)
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (2002, 201, '2021-02-01', '2021-04-01', 1000, 800, 20);
+-- Matches 202 on Claim_ID and Date_Claim_Settled (exact match on all attributes)
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (2003, 202, '2021-02-01', '2021-04-01', 2000, 1500, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests outer join mutants (LEFT JOIN / RIGHT JOIN), NULL handling in join conditions, and NULLS in GROUP BY / COUNT.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Charlie Day');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (30, 1, 'LIFE', '2019-01-01', '2025-01-01');
+-- Claim with no settlements at all (tests LEFT JOIN vs INNER JOIN)
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (301, 30, '2020-01-01', '2020-02-01', 300, 300);
+-- Claim with NULL Date_Claim_Settled (tests NULL = NULL in join condition, which must evaluate to FALSE/UNKNOWN in SQL)
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (302, 30, '2020-05-01', NULL, 400, NULL);
+-- Claim with NULL Amount_Claimed (tests COUNT(*) vs COUNT(amount_claimed) and GROUP BY with NULLs)
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (303, 30, '2020-06-01', '2020-07-01', NULL, 500);
+-- Settlement for 302 with NULL Date_Claim_Settled (should not join with 302)
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (3001, 302, '2020-05-01', NULL, 400, NULL, 30);
+-- Valid settlement for 303
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (3002, 303, '2020-06-01', '2020-07-01', 600, 500, 30);
+-- Settlement with NULL Claim_ID (tests RIGHT JOIN)
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (3003, NULL, '2020-06-01', '2020-07-01', 600, 500, 30);
+```
+
+```sql
+-- DATASET 4
+-- Tests LHS.amount_claimed vs RHS.amount_claimed in the subquery and GROUP BY.
+-- For the same Claim_ID (401), LHS.amount_claimed is constant (1000), while RHS.amount_claimed varies across settlements (400 and 600).
+-- If a mutant groups by RHS.amount_claimed instead of LHS.amount_claimed, Claim 401 will be split into two groups of count 1 instead of one group of count 2.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Diana Prince');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (40, 1, 'HEALTH', '2022-01-01', '2023-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (401, 40, '2022-03-01', '2022-04-01', 1000, 1000);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (402, 40, '2022-03-02', '2022-04-02', 2000, 2000);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (4001, 401, '2022-03-01', '2022-04-01', 400, 400, 40);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (4002, 401, '2022-03-01', '2022-04-01', 600, 600, 40);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (4003, 402, '2022-03-02', '2022-04-02', 2000, 2000, 40);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (4004, 402, '2022-03-02', '2022-04-02', 2000, 2000, 40);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (4005, 402, '2022-03-02', '2022-04-02', 2000, 2000, 40);
+```
+
+```sql
+-- DATASET 5
+-- Tests complex ordering (ORDER BY count___ ASC, claim_id ASC) where higher claim_id has lower count___, and ties on count___ exist with non-sequential claim_ids.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Evan Wright');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (50, 1, 'AUTO', '2020-01-01', '2023-01-01');
+-- Claim 505 has 1 settlement
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (505, 50, '2021-01-01', '2021-01-10', 100, 100);
+-- Claim 501 has 3 settlements
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (501, 50, '2021-01-01', '2021-01-10', 300, 300);
+-- Claim 503 has 2 settlements
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (503, 50, '2021-01-01', '2021-01-10', 200, 200);
+-- Claim 502 has 1 settlement
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (502, 50, '2021-01-01', '2021-01-10', 800, 800);
+
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (5001, 505, '2021-01-01', '2021-01-10', 100, 100, 50);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (5002, 502, '2021-01-01', '2021-01-10', 800, 800, 50);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (5003, 503, '2021-01-01', '2021-01-10', 200, 100, 50);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (5004, 503, '2021-01-01', '2021-01-10', 200, 100, 50);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (5005, 501, '2021-01-01', '2021-01-10', 300, 100, 50);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (5006, 501, '2021-01-01', '2021-01-10', 300, 100, 50);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (5007, 501, '2021-01-01', '2021-01-10', 300, 100, 50);
+```

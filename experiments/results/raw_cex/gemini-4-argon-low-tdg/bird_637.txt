@@ -1,0 +1,106 @@
+```sql
+-- DATASET 1
+-- Tests Join Path Confusion: Distinguishes joining via postHistory vs joining directly to posts.OwnerUserId or posts.LastEditorUserId.
+-- Also tests DISTINCT vs ALL by having multiple postHistory records for the same post by Mark Meckes.
+INSERT INTO users (Id, DisplayName, Reputation, Views, UpVotes, DownVotes, Age) VALUES (1, 'Mark Meckes', 100, 10, 5, 1, 30);
+INSERT INTO users (Id, DisplayName, Reputation, Views, UpVotes, DownVotes, Age) VALUES (2, 'Alice Smith', 200, 20, 10, 2, 25);
+
+-- Post 101: Owned/Edited by Alice, but in postHistory by Mark Meckes (Should be returned twice).
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CommentCount, Tags, Title, Body, Score, ViewCount, AnswerCount, FavoriteCount) VALUES (101, 2, 2, 0, '<math><topology>', 'Title 101', 'Body 101', 5, 100, 1, 0);
+
+-- Post 102: Owned and Edited by Mark Meckes, but in postHistory only by Alice (Should NOT be returned).
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CommentCount, Tags, Title, Body, Score, ViewCount, AnswerCount, FavoriteCount) VALUES (102, 1, 1, 0, '<wrong-direct-join>', 'Title 102', 'Body 102', 3, 50, 0, 1);
+
+-- Post 103: Owned by Mark Meckes, no postHistory at all (Should NOT be returned).
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CommentCount, Tags, Title, Body, Score, ViewCount, AnswerCount, FavoriteCount) VALUES (103, 1, 1, 0, '<wrong-no-history>', 'Title 103', 'Body 103', 1, 10, 0, 0);
+
+INSERT INTO postHistory (Id, PostId, UserId, PostHistoryTypeId, Text, Comment, UserDisplayName) VALUES (1001, 101, 1, 1, 'History 1', 'Comment 1', 'Alice Smith');
+INSERT INTO postHistory (Id, PostId, UserId, PostHistoryTypeId, Text, Comment, UserDisplayName) VALUES (1002, 101, 1, 2, 'History 2', 'Comment 2', 'Alice Smith');
+INSERT INTO postHistory (Id, PostId, UserId, PostHistoryTypeId, Text, Comment, UserDisplayName) VALUES (1003, 102, 2, 1, 'History 3', 'Comment 3', 'Mark Meckes');
+```
+
+```sql
+-- DATASET 2
+-- Tests Predicate Boundaries on CommentCount (0, 1, -1, NULL) and DisplayName variations, plus logical AND vs OR.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Mark Meckes');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'mark meckes');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'Mark');
+INSERT INTO users (Id, DisplayName) VALUES (4, NULL);
+
+-- Valid target post for Mark Meckes (CommentCount = 0)
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (201, 1, 0, '<valid-tag>');
+-- Boundary violations for Mark Meckes (CommentCount = 1, -1, NULL)
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (202, 1, 1, '<boundary-plus-one>');
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (203, 1, -1, '<boundary-minus-one>');
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (204, 1, NULL, '<boundary-null>');
+
+-- Valid CommentCount = 0, but linked to wrong users (Tests AND vs OR and string matching)
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (205, 2, 0, '<wrong-case-user>');
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (206, 3, 0, '<partial-name-user>');
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (207, 4, 0, '<null-name-user>');
+
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2001, 201, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2002, 202, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2003, 203, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2004, 204, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2005, 205, 2);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2006, 206, 3);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2007, 207, 4);
+```
+
+```sql
+-- DATASET 3
+-- Tests Outer Join vs Inner Join, NULL Foreign Keys, and Column Confusion (e.g. AnswerCount/Score/FavoriteCount = 0 vs CommentCount = 0, or counting from comments table).
+INSERT INTO users (Id, DisplayName, Reputation, Views, UpVotes, DownVotes) VALUES (1, 'Mark Meckes', 0, 0, 0, 0);
+
+-- Post 301: CommentCount = 0, but has actual rows in `comments` table (catches mutants using NOT EXISTS / LEFT JOIN comments).
+-- Also has non-zero Score, ViewCount, AnswerCount, FavoriteCount (catches mutants checking the wrong count column).
+INSERT INTO posts (Id, OwnerUserId, CommentCount, AnswerCount, FavoriteCount, Score, ViewCount, Tags) VALUES (301, 1, 0, 5, 5, 5, 5, '<target-with-orphan-comment>');
+
+-- Post 302: CommentCount = 2, but has 0 rows in `comments` table, and AnswerCount = 0, Score = 0, ViewCount = 0, FavoriteCount = 0.
+INSERT INTO posts (Id, OwnerUserId, CommentCount, AnswerCount, FavoriteCount, Score, ViewCount, Tags) VALUES (302, 1, 2, 0, 0, 0, 0, '<wrong-column-zero>');
+
+-- Post 303: CommentCount = 0, Tags is NULL (ensures NULL Tags are projected if inner joins succeed, and tests against IS NOT NULL mutants).
+INSERT INTO posts (Id, OwnerUserId, CommentCount, AnswerCount, FavoriteCount, Score, ViewCount, Tags) VALUES (303, 1, 0, 1, 1, 1, 1, NULL);
+
+-- Post 304: CommentCount = 0, but postHistory row has UserId = NULL.
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (304, 1, 0, '<null-history-user>');
+
+INSERT INTO postHistory (Id, PostId, UserId, PostHistoryTypeId) VALUES (3001, 301, 1, 0);
+INSERT INTO postHistory (Id, PostId, UserId, PostHistoryTypeId) VALUES (3002, 302, 1, 0);
+INSERT INTO postHistory (Id, PostId, UserId, PostHistoryTypeId) VALUES (3003, 303, 1, 0);
+INSERT INTO postHistory (Id, PostId, UserId, PostHistoryTypeId) VALUES (3004, 304, NULL, 0);
+-- postHistory row with UserId = 1 (Mark Meckes) but PostId = NULL (tests INNER JOIN vs LEFT JOIN from users/postHistory to posts).
+INSERT INTO postHistory (Id, PostId, UserId, PostHistoryTypeId) VALUES (3005, NULL, 1, 0);
+
+-- Actual comment attached to Post 301 despite CommentCount = 0
+INSERT INTO comments (Id, PostId, UserId, Score, Text, UserDisplayName) VALUES (30001, 301, 1, 0, 'A comment', 'Mark Meckes');
+```
+
+```sql
+-- DATASET 4
+-- Tests ID accidental equality (T1.Id = T3.Id or T2.Id = T3.Id), ParentId/AcceptedAnswerId confusion, and multiple users named 'Mark Meckes'.
+INSERT INTO users (Id, DisplayName) VALUES (10, 'Mark Meckes');
+INSERT INTO users (Id, DisplayName) VALUES (20, 'Mark Meckes');
+INSERT INTO users (Id, DisplayName) VALUES (30, 'Other User');
+
+-- Post 10: Shares ID with User 10, but belongs to User 30 in postHistory (catches T1.Id = T3.Id join mutants).
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (10, 30, 0, '<id-collision-trap>');
+
+-- Post 40: Parent post with CommentCount = 5 (not 0).
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (40, 30, 5, '<parent-post-trap>');
+
+-- Post 50: Valid post for first 'Mark Meckes' (User 10), has ParentId = 40 and AcceptedAnswerId = 10.
+INSERT INTO posts (Id, OwnerUserId, ParentId, AcceptedAnswerId, CommentCount, Tags) VALUES (50, 30, 40, 10, 0, '<valid-mark-1>');
+
+-- Post 60: Valid post for second 'Mark Meckes' (User 20).
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (60, 30, 0, '<valid-mark-2>');
+
+-- PostHistory 50: ID 50 collides with Post 50, but points to Post 40 (CommentCount = 5) and User 10 (catches T2.Id = T3.Id join mutants).
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (50, 40, 10);
+
+-- Valid postHistory links
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (51, 50, 10);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (52, 60, 20);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (53, 10, 30);
+```

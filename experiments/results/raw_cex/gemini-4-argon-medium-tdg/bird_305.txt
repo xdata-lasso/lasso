@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests basic INNER JOIN, WHERE condition filtering (including '=', '#', NULL, and whitespace variations),
+-- 1-to-many bond-to-connected relationships, and unconnected bonds (catches LEFT JOIN vs INNER JOIN).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'C');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'H');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'O');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M1', 'N');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'M1', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B6', 'M1', ' - ');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A1', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A4', 'B3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A4', 'B4');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A3', 'B6');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A4', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL molecule_id in bond/atom (catches unnecessary INNER JOINs with molecule or atom tables),
+-- and cross-molecule atom connections (catches mutants joining atom and bond on molecule_id).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', NULL, 'C');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'O');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M2', 'N');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', NULL, '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B2');
+```
+
+```sql
+-- DATASET 3
+-- Tests column confusion and wrong join predicates (e.g., joining bond_id with molecule_id or atom_id,
+-- or filtering '-' on bond_id/molecule_id/element instead of bond_type).
+INSERT INTO molecule (molecule_id, label) VALUES ('-', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('B1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('-', '-', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('B1', 'B1', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('B2', '-', 'C');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('-', '-', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'B1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', '-', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('-', 'B1', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('B1', 'B2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('-', 'B2', 'B2');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when valid bonds of type '-' exist, and valid connected rows exist,
+-- but their intersection is empty (catches cartesian products, OR instead of AND in WHERE/JOIN).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'C');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'C');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B2');
+```
+
+```sql
+-- DATASET 5
+-- Tests projection order, self-loops (atom_id = atom_id2), and asymmetric connections
+-- (catches mutants swapping atom_id and atom_id2, or adding atom_id != atom_id2 / atom_id < atom_id2).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('X', 'M1', 'H');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('Y', 'M1', 'H');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('Z', 'M1', 'H');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_SELF', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_ASYM', 'M1', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('X', 'X', 'B_SELF');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('Z', 'Y', 'B_ASYM');
+```

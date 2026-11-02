@@ -1,0 +1,36 @@
+-- Schema DDL
+CREATE TABLE "Salaries" ("company_id" INTEGER, "employee_id" INTEGER, "employee_name" TEXT(255), "salary" INTEGER, PRIMARY KEY ("company_id", "employee_id"), CHECK ("salary" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO salaries (company_id, employee_id, employee_name, salary) VALUES (1000, 2, 'default1', 9999), (10000, 2, 'default1', 999), (1000, 1000, 'default2', 9999), (1001, 1001, NULL, 1000), (2, 1, NULL, 1000), (9999, 0, 'default2', 1000);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT S.COMPANY_ID, S.EMPLOYEE_ID, S.EMPLOYEE_NAME, ROUND(CASE WHEN X.MAX_SAL BETWEEN 1000 AND 10000 THEN SALARY * 0.76 WHEN X.MAX_SAL > 10000 THEN SALARY * 0.51 ELSE SALARY END, 0) AS SALARY FROM SALARIES AS S INNER JOIN (SELECT COMPANY_ID, MAX(SALARY) AS MAX_SAL FROM SALARIES GROUP BY COMPANY_ID) AS X ON S.COMPANY_ID = X.COMPANY_ID;
+
+/*
+Gold Result:
+(2, 1, None, 760.0)
+(1000, 2, 'default1', 7599.0)
+(1000, 1000, 'default2', 7599.0)
+(1001, 1001, None, 760.0)
+(9999, 0, 'default2', 760.0)
+(10000, 2, 'default1', 999.0)
+*/
+
+-- Prediction Query
+WITH CTE AS (SELECT *, CASE WHEN SALARY < 1000 THEN 0 WHEN SALARY BETWEEN 1000 AND 10000 THEN 0.24 ELSE 0.49 END AS TAX_PERCENT FROM (SELECT *, RANK() OVER (PARTITION BY COMPANY_ID ORDER BY SALARY DESC) AS R FROM SALARIES) AS A WHERE R = 1) SELECT S.COMPANY_ID, S.EMPLOYEE_ID, S.EMPLOYEE_NAME, ROUND(S.SALARY - (S.SALARY * TAX_PERCENT), 0) AS SALARY FROM SALARIES AS S JOIN CTE AS C ON S.COMPANY_ID = C.COMPANY_ID;
+
+/*
+Prediction Result:
+(2, 1, None, 760.0)
+(1000, 2, 'default1', 7599.0)
+(1000, 1000, 'default2', 7599.0)
+(1000, 2, 'default1', 7599.0)
+(1000, 1000, 'default2', 7599.0)
+(1001, 1001, None, 760.0)
+(9999, 0, 'default2', 760.0)
+(10000, 2, 'default1', 999.0)
+*/

@@ -1,0 +1,78 @@
+```sql
+-- DATASET 1
+-- Core logic: Tests partial matches on (city, state_province_county), anti-join vs inner join on address_id, and duplicate state outputs.
+-- Address 1: Employee address (Austin, TX) -> Excluded
+-- Address 2: Non-employee address, same city & state (Austin, TX) -> Excluded by (city, state) anti-join, would be included if anti-joining only on address_id
+-- Address 3: Same state, different city (Dallas, TX) -> Included, would be excluded if anti-joining only on state_province_county
+-- Address 4: Same city, different state (Austin, MN) -> Included, would be excluded if anti-joining only on city
+-- Address 5: Different city, same state as Address 3 (Houston, TX) -> Included (creates duplicate 'TX' in output to kill DISTINCT / EXCEPT mutants)
+-- Address 6: Completely distinct (Miami, FL) -> Included (tests ORDER BY sorting)
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (1, '100 Main St', 'Austin', '78701', 'TX', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (2, '200 Oak St', 'Austin', '78702', 'TX', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (3, '300 Pine St', 'Dallas', '75201', 'TX', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (4, '400 Maple St', 'Austin', '55912', 'MN', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (5, '500 Cedar St', 'Houston', '77001', 'TX', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (6, '600 Birch St', 'Miami', '33101', 'FL', 'USA');
+
+INSERT INTO Employees (employee_id, employee_address_id, employee_name, employee_phone) VALUES (101, 1, 'Alice Smith', '555-0101');
+```
+
+```sql
+-- DATASET 2
+-- NULL handling and three-valued logic (3VL): Tests NOT IN vs NOT EXISTS, NULL employee_address_id, and NULL city/state_province_county.
+-- Address 1: Employee address with NULL city ('NY') -> Not excluded because NULL = NULL is UNKNOWN in SQL!
+-- Address 2: Employee address with NULL state ('Boston', NULL) -> Not excluded because NULL = NULL is UNKNOWN in SQL!
+-- Address 3: Normal Employee address ('Seattle', 'WA') -> Excluded
+-- Address 4: Normal Non-Employee address ('Portland', 'OR') -> Included (kills NOT IN mutants if subquery produces NULLs)
+-- Employee 204: Has NULL employee_address_id -> Ignored by INNER JOIN
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (1, '10 Null City Rd', NULL, '10001', 'NY', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (2, '20 Null State Rd', 'Boston', '02101', NULL, 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (3, '30 Pike Pl', 'Seattle', '98101', 'WA', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (4, '40 Rose Way', 'Portland', '97201', 'OR', 'USA');
+
+INSERT INTO Employees (employee_id, employee_address_id, employee_name, employee_phone) VALUES (201, 1, 'Bob Jones', '555-0201');
+INSERT INTO Employees (employee_id, employee_address_id, employee_name, employee_phone) VALUES (202, 2, 'Charlie Brown', '555-0202');
+INSERT INTO Employees (employee_id, employee_address_id, employee_name, employee_phone) VALUES (203, 3, 'Diana Prince', '555-0203');
+INSERT INTO Employees (employee_id, employee_address_id, employee_name, employee_phone) VALUES (204, NULL, 'Evan Wright', '555-0204');
+```
+
+```sql
+-- DATASET 3
+-- Empty Employees table: Subquery is empty, all addresses must be returned in sorted order.
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (1, '1st Ave', 'Phoenix', '85001', 'AZ', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (2, '2nd Ave', 'Denver', '80201', 'CO', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (3, '3rd Ave', 'Boise', '83701', 'ID', 'USA');
+```
+
+```sql
+-- DATASET 4
+-- Multiple employees at the same address, and other entities (Customers, Delivery Routes) referencing addresses.
+-- Ensures mutants don't accidentally join Customers or Delivery_Route_Locations instead of Employees, or fail on 1-to-many Employee-Address relationships.
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (1, '10 Tech Way', 'San Jose', '95110', 'CA', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (2, '20 Market St', 'San Francisco', '94101', 'CA', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (3, '30 Strip Blvd', 'Las Vegas', '89101', 'NV', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (4, '40 Lake Shore', 'Chicago', '60601', 'IL', 'USA');
+
+-- Multiple employees at Address 1
+INSERT INTO Employees (employee_id, employee_address_id, employee_name, employee_phone) VALUES (301, 1, 'Emp One', '555-0301');
+INSERT INTO Employees (employee_id, employee_address_id, employee_name, employee_phone) VALUES (302, 1, 'Emp Two', '555-0302');
+
+-- Customer at Address 2 (Should STILL be included in query result because no Employee lives in San Francisco, CA)
+INSERT INTO Customers (customer_id, payment_method, customer_name, customer_phone, customer_email, date_became_customer) VALUES (401, 'Credit', 'Cust One', '555-0401', 'cust1@example.com', '2022-01-01 10:00:00');
+INSERT INTO Customer_Addresses (address_id, customer_id, date_from, address_type, date_to) VALUES (2, 401, '2022-01-01 10:00:00', 'Billing', '2023-01-01 10:00:00');
+
+-- Delivery Route Location at Address 3 (Should STILL be included in query result because no Employee lives in Las Vegas, NV)
+INSERT INTO Delivery_Routes (route_id, route_name, other_route_details) VALUES (501, 'Route 66', 'Westbound');
+INSERT INTO Delivery_Route_Locations (location_code, route_id, location_address_id, location_name) VALUES ('LOC1', 501, 3, 'Vegas Hub');
+```
+
+```sql
+-- DATASET 5
+-- Boundary condition: All addresses are matched by employees (either directly or via city+state). Expected output is empty set.
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (1, '700 Broadway', 'New York', '10003', 'NY', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (2, '800 5th Ave', 'New York', '10065', 'NY', 'USA');
+INSERT INTO Addresses (address_id, address_details, city, zip_postcode, state_province_county, country) VALUES (3, '900 Peachtree', 'Atlanta', '30309', 'GA', 'USA');
+
+INSERT INTO Employees (employee_id, employee_address_id, employee_name, employee_phone) VALUES (601, 1, 'NY Emp', '555-0601');
+INSERT INTO Employees (employee_id, employee_address_id, employee_name, employee_phone) VALUES (602, 3, 'GA Emp', '555-0602');
+```

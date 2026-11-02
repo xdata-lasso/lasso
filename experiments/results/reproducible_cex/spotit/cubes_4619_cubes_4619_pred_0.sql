@@ -1,0 +1,50 @@
+-- Schema DDL
+CREATE TABLE "JOURNAL" (
+    "JOURNAL_ID" INT,
+    "DATE" TEXT,
+    "THEME" TEXT,
+    "SALES" INT,
+    PRIMARY KEY ("JOURNAL_ID")
+);
+CREATE TABLE "EDITOR" (
+    "EDITOR_ID" INT,
+    "NAME" TEXT,
+    "AGE" FLOAT,
+    PRIMARY KEY ("EDITOR_ID")
+);
+CREATE TABLE "JOURNAL_COMMITTEE" (
+    "EDITOR_ID" INT,
+    "JOURNAL_ID" INT,
+    "WORK_TYPE" TEXT,
+    PRIMARY KEY ("JOURNAL_ID", "EDITOR_ID"),
+    FOREIGN KEY ("JOURNAL_ID") REFERENCES "JOURNAL"("JOURNAL_ID"),
+    FOREIGN KEY ("EDITOR_ID") REFERENCES "EDITOR"("EDITOR_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO JOURNAL VALUES (-1, 0, 0, 0);
+INSERT INTO JOURNAL VALUES (0, 0, 0, 0);
+INSERT INTO EDITOR VALUES (0, 1, -1);
+INSERT INTO EDITOR VALUES (-1, 0, -1);
+INSERT INTO JOURNAL_COMMITTEE VALUES (0, -1, 0);
+INSERT INTO JOURNAL_COMMITTEE VALUES (-1, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT LHS.age AS age, RHS.editor_id AS editor_id, RHS.name AS name FROM (SELECT MIN(age) AS age FROM editor) AS LHS LEFT JOIN editor AS RHS ON (LHS.age = RHS.age)) ORDER BY name;
+
+/*
+Gold Result:
+('0',)
+('1',)
+*/
+
+-- Prediction Query
+SELECT Name FROM editor ORDER BY Age ASC, editor.editor_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('0',)
+*/

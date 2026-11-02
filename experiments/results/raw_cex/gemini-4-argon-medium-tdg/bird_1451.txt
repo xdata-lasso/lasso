@@ -1,0 +1,146 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. HAVING COUNT(DISTINCT T4.event_id) > 1 vs COUNT(T4.event_id) > 1 vs COUNT(DISTINCT T3.budget_id) > 1 (M1 has 2 budgets for the SAME event and highest total cost, should be excluded).
+-- 2. SUM(T1.cost) vs MAX(T1.cost) vs AVG(T1.cost) vs COUNT(T1.expense_id) (M2 has highest sum, M3 has highest single cost and avg, M4 has highest count).
+-- 3. ORDER BY SUM(T1.cost) DESC vs ASC (M2 vs M4).
+-- 4. LIMIT 1 vs no LIMIT (M2, M3, M4 all qualify for HAVING > 1).
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event 1');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event 2');
+INSERT INTO event (event_id, event_name) VALUES ('E3', 'Event 3');
+
+INSERT INTO member (member_id, first_name) VALUES ('M1', 'Alice');
+INSERT INTO member (member_id, first_name) VALUES ('M2', 'Bob');
+INSERT INTO member (member_id, first_name) VALUES ('M3', 'Charlie');
+INSERT INTO member (member_id, first_name) VALUES ('M4', 'David');
+
+INSERT INTO budget (budget_id, spent, remaining, amount, link_to_event) VALUES ('B1_1', 10.0, 10.0, 20, 'E1');
+INSERT INTO budget (budget_id, spent, remaining, amount, link_to_event) VALUES ('B1_2', 10.0, 10.0, 20, 'E1');
+INSERT INTO budget (budget_id, spent, remaining, amount, link_to_event) VALUES ('B2_1', 500.0, 500.0, 1000, 'E2');
+INSERT INTO budget (budget_id, spent, remaining, amount, link_to_event) VALUES ('B3_1', 500.0, 500.0, 1000, 'E3');
+
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X1', 500.0, 'true', 'M1', 'B1_1');
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X2', 500.0, 'true', 'M1', 'B1_2');
+
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X3', 60.0, 'false', 'M2', 'B1_1');
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X4', 60.0, 'false', 'M2', 'B2_1');
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X5', 60.0, 'false', 'M2', 'B2_1');
+
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X6', 100.0, 'true', 'M3', 'B1_1');
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X7', 50.0, 'true', 'M3', 'B2_1');
+
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X8', 10.0, 'true', 'M4', 'B1_1');
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X9', 10.0, 'true', 'M4', 'B2_1');
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X10', 10.0, 'true', 'M4', 'B3_1');
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('X11', 10.0, 'true', 'M4', 'B3_1');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. SUM(T1.cost) vs SUM(DISTINCT T1.cost) (M1 has 80 + 80 = 160, M2 has 90 + 60 = 150. If DISTINCT is used, M1 is 80 and M2 wins).
+-- 2. Join path via expense->budget->event vs join via attendance (M3 has attendance to E1, E2 and high expense on NULL budget, or M1/M2 have no attendance records at all).
+-- 3. INNER JOIN vs LEFT JOIN on budget/event (M3 has huge expense with NULL link_to_budget and a budget with NULL link_to_event).
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event 1');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event 2');
+
+INSERT INTO member (member_id, first_name) VALUES ('M1', 'Alice');
+INSERT INTO member (member_id, first_name) VALUES ('M2', 'Bob');
+INSERT INTO member (member_id, first_name) VALUES ('M3', 'Charlie');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'M3');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E2', 'M3');
+
+INSERT INTO budget (budget_id, spent, remaining, amount, link_to_event) VALUES ('B1', 100.0, 100.0, 200, 'E1');
+INSERT INTO budget (budget_id, spent, remaining, amount, link_to_event) VALUES ('B2', 100.0, 100.0, 200, 'E2');
+INSERT INTO budget (budget_id, spent, remaining, amount, link_to_event) VALUES ('B_NULL', 100.0, 100.0, 200, NULL);
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X1', 80.0, 'M1', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X2', 80.0, 'M1', 'B2');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X3', 90.0, 'M2', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X4', 60.0, 'M2', 'B2');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X5', 500.0, 'M3', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X6', 500.0, 'M3', 'B_NULL');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X7', 500.0, 'M3', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. HAVING COUNT(DISTINCT T4.event_id) > 1 vs >= 1 (Only M1 has > 1 event; M2 has 1 event with higher cost. If >= 1, M2 wins).
+-- 2. HAVING COUNT(DISTINCT T4.event_id) > 1 vs > 2 (M1 has exactly 2 events with higher cost; M3 has 3 events with lower cost. If > 2, M3 wins).
+-- 3. GROUP BY T2.member_id vs GROUP BY T2.first_name or T2.last_name (M2 and M4 share the same name and each have 1 event; if grouped by name, they combine to 2 events and huge cost).
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event 1');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event 2');
+INSERT INTO event (event_id, event_name) VALUES ('E3', 'Event 3');
+
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M1', 'Unique1', 'Last1');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M2', 'SameName', 'SameLast');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M3', 'Unique3', 'Last3');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M4', 'SameName', 'SameLast');
+
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B1', 'E1');
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B2', 'E2');
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B3', 'E3');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X1', 100.0, 'M1', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X2', 100.0, 'M1', 'B2');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X3', 500.0, 'M2', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X4', 500.0, 'M4', 'B2');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X5', 10.0, 'M3', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X6', 10.0, 'M3', 'B2');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X7', 10.0, 'M3', 'B3');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Tie-breaking in ORDER BY: SUM(T1.cost) DESC, T2.member_id NULLS LAST (ASC vs DESC on member_id when SUM(cost) is tied).
+-- 2. COUNT(DISTINCT T4.event_id) vs COUNT(DISTINCT T4.event_name) or COUNT(DISTINCT T3.category) (M0 has 2 distinct events with the SAME event_name and SAME budget category, and highest cost).
+INSERT INTO event (event_id, event_name, type, status) VALUES ('E1', 'SameEventName', 'TypeA', 'Closed');
+INSERT INTO event (event_id, event_name, type, status) VALUES ('E2', 'SameEventName', 'TypeA', 'Closed');
+INSERT INTO event (event_id, event_name, type, status) VALUES ('E3', 'OtherEventName', 'TypeB', 'Open');
+
+INSERT INTO member (member_id, first_name) VALUES ('M0', 'Zack');
+INSERT INTO member (member_id, first_name) VALUES ('M_A', 'Alpha');
+INSERT INTO member (member_id, first_name) VALUES ('M_B', 'Beta');
+
+INSERT INTO budget (budget_id, category, link_to_event) VALUES ('B1', 'SameCat', 'E1');
+INSERT INTO budget (budget_id, category, link_to_event) VALUES ('B2', 'SameCat', 'E2');
+INSERT INTO budget (budget_id, category, link_to_event) VALUES ('B3', 'DiffCat', 'E3');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X1', 200.0, 'M0', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X2', 200.0, 'M0', 'B2');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X3', 100.0, 'M_A', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X4', 100.0, 'M_A', 'B3');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X5', 100.0, 'M_B', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X6', 100.0, 'M_B', 'B3');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Tie-breaking when SUM(T1.cost) is exactly equal for top candidates: M_A and M_B both have SUM(T1.cost) = 500 across 2 events.
+--    Gold query orders by SUM(T1.cost) DESC, T2.member_id ASC -> returns 'M_A'. If mutant omits T2.member_id or uses DESC, it may return 'M_B'.
+-- 2. Empty result if HAVING is > 2 (no member has > 2 events).
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event 1');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event 2');
+
+INSERT INTO member (member_id, first_name) VALUES ('M_B', 'Second');
+INSERT INTO member (member_id, first_name) VALUES ('M_A', 'First');
+
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B1', 'E1');
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B2', 'E2');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X1', 250.0, 'M_B', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X2', 250.0, 'M_B', 'B2');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X3', 300.0, 'M_A', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X4', 200.0, 'M_A', 'B2');
+```

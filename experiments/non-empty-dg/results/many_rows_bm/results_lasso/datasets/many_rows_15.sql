@@ -1,0 +1,10 @@
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1001, 'Allison Hill', 'Mayotte', 'BRONZE', 1006.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1002, 'Noah Rhodes', 'Italy', 'BRONZE', 1017.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1003, 'Angie Henderson', 'Cyprus', 'BRONZE', 1028.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1004, 'Daniel Wagner', 'Kiribati', 'BRONZE', 1039.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1005, 'Cristian Santos', 'Namibia', 'BRONZE', 1050.5);
+INSERT INTO "customer_events" ("event_id", "customer_id", "event_type", "page_url", "duration_seconds", "event_seq") VALUES (1011, 1001, 'VIEW', 'https://www.bernard.com/', 30, 1016);
+INSERT INTO "customer_events" ("event_id", "customer_id", "event_type", "page_url", "duration_seconds", "event_seq") VALUES (1012, 1001, 'VIEW', 'http://howard.org/', 30, 1029.0);
+INSERT INTO "customer_events" ("event_id", "customer_id", "event_type", "page_url", "duration_seconds", "event_seq") VALUES (1013, 1001, 'VIEW', 'https://www.stevens.com/', 30, 1042.0);
+INSERT INTO "customer_events" ("event_id", "customer_id", "event_type", "page_url", "duration_seconds", "event_seq") VALUES (1014, 1001, 'VIEW', 'https://lee.com/', 30, 1055.0);
+INSERT INTO "customer_events" ("event_id", "customer_id", "event_type", "page_url", "duration_seconds", "event_seq") VALUES (1015, 1001, 'VIEW', 'http://www.james.com/', 30, 1068.0);

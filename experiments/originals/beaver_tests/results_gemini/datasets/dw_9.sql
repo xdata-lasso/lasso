@@ -1,0 +1,24 @@
+INSERT INTO SIS_DEPARTMENT (
+DEPARTMENT_CODE,
+DEPARTMENT_FULL_NAME,
+DEPT_NAME_IN_COMMENCEMENT_BK,
+SCHOOL_CODE,
+IS_DEGREE_GRANTING
+) VALUES (
+'EECS',
+'Department of Electrical Engineering and Computer Science',
+'Electrical Eng & Computer Sci',
+'ENG',
+'Y'
+);
+INSERT INTO MIT_STUDENT_DIRECTORY (
+DEPARTMENT,
+STUDENT_YEAR,
+FULL_NAME,
+EMAIL_ADDRESS
+) VALUES (
+'EECS',
+'G',
+'John Doe',
+'jdoe@mit.edu'
+);

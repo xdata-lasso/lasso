@@ -1,0 +1,43 @@
+-- Schema DDL
+CREATE TABLE "atom" ("atom_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "element" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "bond" ("bond_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "bond_type" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "connected" ("atom_id" TEXT NOT NULL, "atom_id2" TEXT NOT NULL, "bond_id" TEXT DEFAULT NULL, PRIMARY KEY ("atom_id", "atom_id2"), FOREIGN KEY ("atom_id") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("atom_id2") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("bond_id") REFERENCES "bond" ("bond_id") ON DELETE CASCADE ON UPDATE CASCADE);
+
+CREATE TABLE "molecule" ("molecule_id" TEXT NOT NULL PRIMARY KEY, "label" TEXT DEFAULT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 2
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'M1', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', NULL, '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B6', NULL, '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B7', 'M1', ' ');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B3');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CAST(COUNT(CASE WHEN T.bond_type = '#' THEN T.bond_id ELSE NULL END) AS REAL) * 100 / COUNT(T.bond_id) FROM bond AS T;
+
+/*
+Gold Result:
+(42.857142857142854,)
+*/
+
+-- Prediction Query
+SELECT CAST(COUNT(CASE WHEN b.bond_type = '#' THEN 1 END) AS REAL) * 100.0 / COUNT(*) AS percentage FROM molecule AS m LEFT JOIN bond AS b ON m.molecule_id = b.molecule_id;
+
+/*
+Prediction Result:
+(40.0,)
+*/

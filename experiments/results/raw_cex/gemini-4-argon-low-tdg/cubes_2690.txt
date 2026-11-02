@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, duplicate order_id preservation (kills DISTINCT / GROUP BY), 
+-- ORDER BY order_id ASC, and relational operator boundary conditions (3451, 3452, 3453, NULL).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Alice', 'Regular');
+INSERT INTO "Invoices" ("invoice_number", "invoice_date", "invoice_details") VALUES (10, '2023-01-01 10:00:00', 'Paid');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (100, 1, 'Shipped', '2023-01-01 09:00:00', 'Order 100');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (200, 1, 'Shipped', '2023-01-02 09:00:00', 'Order 200');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (300, 1, 'Pending', '2023-01-03 09:00:00', 'Order 300');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (1, 10, 200, '3452', '2023-01-03 10:00:00', 'First batch');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (2, 10, 100, '3452', '2023-01-04 10:00:00', 'Second batch');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (3, 10, 200, '3452', '2023-01-05 10:00:00', 'Duplicate order_id for 3452');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (4, 10, 300, '3451', '2023-01-05 11:00:00', 'Boundary low');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (5, 10, 300, '3453', '2023-01-05 12:00:00', 'Boundary high');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (6, 10, 300, NULL, '2023-01-05 13:00:00', 'Null tracking');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL order_id handling, NULLS FIRST vs NULLS LAST, and INNER JOIN vs No-Join mutations
+-- (where a mutant joins Orders or Invoices and drops shipments with NULL foreign keys).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Bob', 'VIP');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (50, 1, 'Shipped', '2023-02-01 09:00:00', 'Valid Order');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (10, NULL, NULL, '3452', '2023-02-02 10:00:00', 'Null order and invoice');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (20, NULL, 50, '3452', '2023-02-03 10:00:00', 'Valid order, null invoice');
+```
+
+```sql
+-- DATASET 3
+-- Tests SQLite type affinity and string matching mutations (e.g., LIKE '%3452%', '03452' vs 3452, '3452.0').
+-- In SQLite, TEXT column compared to integer 3452 converts integer 3452 to '3452' for TEXT comparison.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Charlie', 'Standard');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (10, 1, 'Open', '2023-03-01 00:00:00', 'D1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (20, 1, 'Open', '2023-03-02 00:00:00', 'D2');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (30, 1, 'Open', '2023-03-03 00:00:00', 'D3');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (40, 1, 'Open', '2023-03-04 00:00:00', 'D4');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (1, NULL, 10, '3452', '2023-03-05 00:00:00', 'Exact match');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (2, NULL, 20, '03452', '2023-03-05 00:00:00', 'Leading zero');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (3, NULL, 30, '3452 ', '2023-03-05 00:00:00', 'Trailing space');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (4, NULL, 40, '134529', '2023-03-05 00:00:00', 'Substring');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong column references in SELECT or WHERE (e.g., selecting shipment_id or invoice_number instead of order_id, 
+-- or filtering where shipment_id = 3452 or order_id = 3452 or invoice_number = 3452).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (3452, 'Dave', 'ID is 3452');
+INSERT INTO "Invoices" ("invoice_number", "invoice_date", "invoice_details") VALUES (3452, '2023-04-01 00:00:00', 'Invoice is 3452');
+INSERT INTO "Invoices" ("invoice_number", "invoice_date", "invoice_details") VALUES (99, '2023-04-01 00:00:00', 'Invoice 99');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (3452, 3452, 'New', '2023-04-01 00:00:00', 'Order is 3452');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (777, 3452, 'New', '2023-04-02 00:00:00', 'Order 777');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (3452, 3452, 3452, '9999', '2023-04-03 00:00:00', 'Decoy 3452 in other columns');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (88, 99, 777, '3452', '2023-04-04 00:00:00', 'Target row');
+```
+
+```sql
+-- DATASET 5
+-- Tests unwarranted joins to child tables (Shipment_Items, Order_Items) that might either 
+-- filter out shipments without items (INNER JOIN) or multiply rows (1-to-N join fanout).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Eve', 'Cust');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'Widget', ' Desc');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (501, 1, 'Closed', '2023-05-01 00:00:00', 'Has multiple items');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (502, 1, 'Closed', '2023-05-01 00:00:00', 'Has no items');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1001, 1, 501, 'OK', 'Item 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1002, 1, 501, 'OK', 'Item 2');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (1, NULL, 501, '3452', '2023-05-02 00:00:00', 'Shipment with 2 items');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (2, NULL, 502, '3452', '2023-05-03 00:00:00', 'Shipment with 0 items');
+INSERT INTO "Shipment_Items" ("shipment_id", "order_item_id") VALUES (1, 1001);
+INSERT INTO "Shipment_Items" ("shipment_id", "order_item_id") VALUES (1, 1002);
+```
+
+```sql
+-- DATASET 6
+-- Tests sorting order when shipment_id order inversely correlates with order_id order,
+-- and tests negative/zero order_ids (kills ORDER BY shipment_id, order_id or ORDER BY ABS(order_id) or LIMIT 1).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Frank', 'Cust');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (-5, 1, 'Open', '2023-06-01 00:00:00', 'Negative ID');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (0, 1, 'Open', '2023-06-02 00:00:00', 'Zero ID');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, 1, 'Open', '2023-06-03 00:00:00', 'Small ID');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (10, 1, 'Open', '2023-06-04 00:00:00', 'Medium ID');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (10, NULL, 10, '3452', '2023-06-09 00:00:00', 'S10');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (20, NULL, 2, '3452', '2023-06-08 00:00:00', 'S20');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (30, NULL, 0, '3452', '2023-06-07 00:00:00', 'S30');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (40, NULL, -5, '3452', '2023-06-06 00:00:00', 'S40');
+```
+
+```sql
+-- DATASET 7
+-- Tests empty result set when shipments exist, orders exist, but no tracking number matches 3452
+-- (kills mutants that drop the WHERE clause, use OR instead of AND, or use aggregate functions like COUNT/MAX that return a row on empty input).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Grace', 'Cust');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, 1, 'Done', '2023-07-01 00:00:00', 'Ord 1');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (1, NULL, 1, '0000', '2023-07-02 00:00:00', 'No match');
+```

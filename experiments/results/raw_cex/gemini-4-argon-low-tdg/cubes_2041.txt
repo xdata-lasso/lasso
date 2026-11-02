@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests basic join conditions (LHS.vehicle_id = RHS.vehicle_id AND LHS.lesson_id = RHS.n),
+-- inequality mutations (<, >, !=), OR vs AND mutations, and NULL vehicle_details.
+-- Total vehicles (n) = 3.
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (10, 'Sedan');
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (20, NULL);
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (30, 'Truck');
+
+-- Matches both conditions: lesson_id = 3 (n) and vehicle_id = 20
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (3, NULL, NULL, 20, 'Completed', '2023-01-01', '10:00', 50.0);
+
+-- Fails lesson_id = n (lesson_id < n), matches vehicle_id
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (2, NULL, NULL, 10, 'Completed', '2023-01-02', '11:00', 50.0);
+
+-- Fails lesson_id = n (lesson_id > n), matches vehicle_id
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (4, NULL, NULL, 30, 'Cancelled', '2023-01-03', '12:00', 50.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(*) OVER () vs COUNT(vehicle_details) OVER (), and tests when lesson_id = n has NULL vehicle_id.
+-- Total vehicles = 2, but only 1 has non-null vehicle_details.
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (100, 'Hatchback');
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (200, NULL);
+
+-- If a mutant uses COUNT(vehicle_details) OVER (), n becomes 1 and matches this row:
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (1, NULL, NULL, 100, 'Scheduled', '2023-02-01', '09:00', 45.0);
+
+-- With COUNT(*) OVER (), n is 2. This row has lesson_id = 2, which matches n = 2:
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (2, NULL, NULL, 200, 'Scheduled', '2023-02-02', '10:00', 45.0);
+
+-- Lesson with NULL vehicle_id (tests LEFT/RIGHT JOIN mutations)
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (3, NULL, NULL, NULL, 'Scheduled', '2023-02-03', '11:00', 45.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests cross-column join mutations (e.g., LHS.vehicle_id = RHS.n or LHS.lesson_id = RHS.vehicle_id)
+-- and tests empty result set when lesson_id = n has a NULL vehicle_id.
+-- Total vehicles (n) = 2.
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (2, 'Coupe');
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (5, 'Convertible');
+
+-- lesson_id = 5 (matches RHS.vehicle_id 5), vehicle_id = 2 (matches RHS.n 2).
+-- Should NOT match the reference query, but kills swapped join condition mutants.
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (5, NULL, NULL, 2, 'Completed', '2023-03-01', '14:00', 60.0);
+
+-- lesson_id = 2 (matches RHS.n 2), but vehicle_id is NULL.
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (2, NULL, NULL, NULL, 'Completed', '2023-03-02', '15:00', 60.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests mutations that drop the window function subquery or replace INNER JOIN with RIGHT/LEFT JOIN,
+-- as well as ORDER BY vehicle_id ASC vs DESC and DISTINCT mutations when multiple lessons match (if lesson_id wasn't PK, or via subquery fan-out).
+-- Also includes valid foreign keys for Customers, Staff, and Addresses to catch mutants that unnecessarily INNER JOIN other tables.
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '123 Main St', 'Metropolis', '10001', 'NY', 'USA');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (1, 1, 'Ace', 'John', 'M', 'Doe', '1980-05-15', '2020-01-01', NULL);
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "customer_status_code", "date_became_customer", "date_of_birth", "first_name", "last_name", "amount_outstanding", "email_address", "phone_number", "cell_mobile_phone_number") VALUES (1, 1, 'Active', '2021-06-01', '2000-01-01', 'Jane', 'Smith', 0.0, 'jane@example.com', '555-0100', '555-0101');
+
+-- Total vehicles (n) = 4.
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (4, 'Minivan');
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (1, 'Compact');
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (3, 'SUV');
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (2, 'Sports Car');
+
+-- Multiple lessons for the same vehicle (vehicle_id = 1) to kill DISTINCT vs ALL if lesson_id = n is dropped.
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (1, 1, 1, 1, 'Completed', '2023-04-01', '08:00', 40.0);
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (10, 1, 1, 1, 'Completed', '2023-04-02', '08:00', 40.0);
+
+-- The matching lesson for the Gold Query (lesson_id = 4 = n, vehicle_id = 3).
+-- Note: customer_id and staff_id are NULL here to kill mutants that INNER JOIN Customers or Staff.
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (4, NULL, NULL, 3, 'Completed', '2023-04-03', '09:00', 55.0);
+```
+
+```sql
+-- DATASET 5
+-- Boundary test: Single vehicle in the database (n = 1) matching lesson_id = 1 and vehicle_id = 1.
+-- Kills mutants using `>` or `<` or `n - 1` / `n + 1` or `COUNT(*) > 1`.
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (1, 'Luxury Sedan');
+
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (1, NULL, NULL, 1, 'Completed', '2023-05-01', '10:00', 100.0);
+```

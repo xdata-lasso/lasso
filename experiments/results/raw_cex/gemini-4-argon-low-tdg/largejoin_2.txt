@@ -1,0 +1,144 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions for HAVING COUNT(RA.B) > 3 (counts of 4, 3, and 2)
+-- Also tests DISTINCT / GROUP BY behavior and distinct values across joined columns.
+INSERT INTO RA (A1, B) VALUES ('c1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('c2', 'b2');
+INSERT INTO RA (A1, B) VALUES ('c3', 'b3');
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a4', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a5', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a6', 'b3');
+
+INSERT INTO RB (A2, B) VALUES ('d1', 'c1');
+INSERT INTO RB (A2, B) VALUES ('d2', 'c2');
+INSERT INTO RB (A2, B) VALUES ('d3', 'c3');
+INSERT INTO RB (A2, B) VALUES ('b1', 'c1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'c2');
+INSERT INTO RB (A2, B) VALUES ('b3', 'c3');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'd1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'd2');
+INSERT INTO RC (A3, B) VALUES ('c3', 'd3');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c2');
+INSERT INTO RD (A4, B) VALUES ('d3', 'c3');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT JOIN mutations by breaking the join chain at RD, RC, and RB respectively,
+-- while ensuring each broken chain has >= 4 rows in RA so that a LEFT JOIN would falsely include it.
+INSERT INTO RA (A1, B) VALUES ('c_ok', 'b_ok');
+INSERT INTO RA (A1, B) VALUES ('a_ok1', 'b_ok');
+INSERT INTO RA (A1, B) VALUES ('a_ok2', 'b_ok');
+INSERT INTO RA (A1, B) VALUES ('a_ok3', 'b_ok');
+
+INSERT INTO RA (A1, B) VALUES ('c_nd', 'b_nd');
+INSERT INTO RA (A1, B) VALUES ('a_nd1', 'b_nd');
+INSERT INTO RA (A1, B) VALUES ('a_nd2', 'b_nd');
+INSERT INTO RA (A1, B) VALUES ('a_nd3', 'b_nd');
+
+INSERT INTO RA (A1, B) VALUES ('c_nc', 'b_nc');
+INSERT INTO RA (A1, B) VALUES ('a_nc1', 'b_nc');
+INSERT INTO RA (A1, B) VALUES ('a_nc2', 'b_nc');
+INSERT INTO RA (A1, B) VALUES ('a_nc3', 'b_nc');
+
+INSERT INTO RA (A1, B) VALUES ('a_nb1', 'b_nb');
+INSERT INTO RA (A1, B) VALUES ('a_nb2', 'b_nb');
+INSERT INTO RA (A1, B) VALUES ('a_nb3', 'b_nb');
+INSERT INTO RA (A1, B) VALUES ('a_nb4', 'b_nb');
+
+INSERT INTO RB (A2, B) VALUES ('d_ok', 'c_ok');
+INSERT INTO RB (A2, B) VALUES ('b_ok', 'c_ok');
+INSERT INTO RB (A2, B) VALUES ('d_nd', 'c_nd');
+INSERT INTO RB (A2, B) VALUES ('b_nd', 'c_nd');
+INSERT INTO RB (A2, B) VALUES ('b_nc', 'c_nc');
+
+INSERT INTO RC (A3, B) VALUES ('c_ok', 'd_ok');
+INSERT INTO RC (A3, B) VALUES ('c_nd', 'd_nd');
+
+INSERT INTO RD (A4, B) VALUES ('d_ok', 'c_ok');
+```
+
+```sql
+-- DATASET 3
+-- Tests join direction / column confusion (e.g., joining on foreign key RB.B = RA.A1 instead of RA.B = RB.A2).
+-- A valid FK chain exists with count 4, while the reverse join chain specified by the query is broken.
+INSERT INTO RA (A1, B) VALUES ('a1', 'no_b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'no_b2');
+INSERT INTO RA (A1, B) VALUES ('a3', 'no_b3');
+INSERT INTO RA (A1, B) VALUES ('a4', 'no_b4');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b3', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b4', 'a1');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'b2');
+INSERT INTO RC (A3, B) VALUES ('c3', 'b3');
+INSERT INTO RC (A3, B) VALUES ('c4', 'b4');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c2');
+INSERT INTO RD (A4, B) VALUES ('d3', 'c3');
+INSERT INTO RD (A4, B) VALUES ('d4', 'c4');
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY column mutations (e.g., GROUP BY RB.B, RC.B, or RD.B instead of RA.B).
+-- Two distinct RA.B values ('b1' and 'b2') each have 2 rows in RA, but both map to the same RB.B ('c1').
+-- Grouping by RA.B yields counts of 2 (empty output), whereas grouping by RB.B/RC.B/RD.B yields a combined count of 4.
+INSERT INTO RA (A1, B) VALUES ('c1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b2');
+
+INSERT INTO RB (A2, B) VALUES ('d1', 'c1');
+INSERT INTO RB (A2, B) VALUES ('b1', 'c1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'c1');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'd1');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+```
+
+```sql
+-- DATASET 5
+-- Tests COUNT(DISTINCT ...) mutations and NULL handling, plus multiple qualifying groups.
+-- Includes NULLs in B columns and two valid groups ('b_x' with count 4, 'b_y' with count 5).
+INSERT INTO RA (A1, B) VALUES ('c_x', 'b_x');
+INSERT INTO RA (A1, B) VALUES ('ax1', 'b_x');
+INSERT INTO RA (A1, B) VALUES ('ax2', 'b_x');
+INSERT INTO RA (A1, B) VALUES ('ax3', 'b_x');
+
+INSERT INTO RA (A1, B) VALUES ('c_y', 'b_y');
+INSERT INTO RA (A1, B) VALUES ('ay1', 'b_y');
+INSERT INTO RA (A1, B) VALUES ('ay2', 'b_y');
+INSERT INTO RA (A1, B) VALUES ('ay3', 'b_y');
+INSERT INTO RA (A1, B) VALUES ('ay4', 'b_y');
+
+INSERT INTO RA (A1, B) VALUES ('an1', NULL);
+INSERT INTO RA (A1, B) VALUES ('an2', NULL);
+INSERT INTO RA (A1, B) VALUES ('an3', NULL);
+INSERT INTO RA (A1, B) VALUES ('an4', NULL);
+INSERT INTO RA (A1, B) VALUES ('an5', NULL);
+
+INSERT INTO RB (A2, B) VALUES ('d_x', 'c_x');
+INSERT INTO RB (A2, B) VALUES ('b_x', 'c_x');
+INSERT INTO RB (A2, B) VALUES ('d_y', 'c_y');
+INSERT INTO RB (A2, B) VALUES ('b_y', 'c_y');
+INSERT INTO RB (A2, B) VALUES ('bn1', NULL);
+
+INSERT INTO RC (A3, B) VALUES ('c_x', 'd_x');
+INSERT INTO RC (A3, B) VALUES ('c_y', 'd_y');
+INSERT INTO RC (A3, B) VALUES ('cn1', NULL);
+
+INSERT INTO RD (A4, B) VALUES ('d_x', NULL);
+INSERT INTO RD (A4, B) VALUES ('d_y', 'c_y');
+```

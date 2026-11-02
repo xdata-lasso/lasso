@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests basic GROUP BY and ORDER BY COUNT(Id) DESC, and ensures COUNT isn't confused with SUM(Id) or MAX(Id).
+-- Also includes orphaned parent rows (users, posts) to kill INNER JOIN mutants.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'Alice');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 200, 'Bob');
+
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId) VALUES (10, 1, '2015-01-01', 1);
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId) VALUES (20, 1, '2022-01-01', 2);
+
+-- '2020-05-01' has 3 votes (small Ids: 1, 2, 3), NULL PostId and UserId to kill INNER JOIN mutants
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (1, NULL, 2, '2020-05-01', NULL, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2, NULL, 2, '2020-05-01', NULL, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (3, NULL, 3, '2020-05-01', NULL, NULL);
+
+-- '2021-01-01' has 2 votes (large Ids: 100, 200) -> kills SUM(Id) or MAX(Id) mutants
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (100, 10, 1, '2021-01-01', 1, 50);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (200, 10, 1, '2021-01-01', 1, 50);
+
+-- '2019-01-01' has 1 vote -> kills ORDER BY COUNT(Id) ASC and MIN(CreationDate) mutants
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (50, 20, 2, '2019-01-01', 2, 500);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on CreationDate ASC (2nd ORDER BY clause) and kills COUNT(DISTINCT ...) mutants.
+INSERT INTO users (Id, Reputation) VALUES (1, 100);
+INSERT INTO posts (Id, PostTypeId, OwnerUserId) VALUES (1, 1, 1);
+INSERT INTO posts (Id, PostTypeId, OwnerUserId) VALUES (2, 1, 1);
+
+-- '2020-01-01' has 2 votes, but identical PostId, VoteTypeId, UserId, BountyAmount (kills COUNT(DISTINCT col) mutants)
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (10, 1, 2, '2020-01-01', 1, 50);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (11, 1, 2, '2020-01-01', 1, 50);
+
+-- '2020-01-02' also has 2 votes, with distinct PostId, VoteTypeId, BountyAmount
+-- Because of tie in COUNT(Id) = 2, '2020-01-01' must win due to CreationDate ASC tie-breaker.
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (1, 1, 1, '2020-01-02', 1, 100);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2, 2, 3, '2020-01-02', NULL, 200);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULLS LAST in ORDER BY CreationDate NULLS LAST when there is a tie in COUNT(Id).
+-- In SQLite, NULLs are normally considered smaller than any non-NULL value in ASC order.
+-- NULLS LAST forces the NULL CreationDate group to lose the tie-breaker.
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (1, NULL, 2, NULL, NULL, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2, NULL, 2, NULL, NULL, NULL);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (3, NULL, 2, '2022-12-31', NULL, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (4, NULL, 2, '2022-12-31', NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests when CreationDate IS NULL actually has the strictly highest COUNT(Id).
+-- Kills mutants that add `WHERE CreationDate IS NOT NULL` or group by something else, or use `COUNT(CreationDate)` instead of `COUNT(Id)`.
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (1, NULL, 1, NULL, NULL, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2, NULL, 2, NULL, NULL, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (3, NULL, 3, NULL, NULL, NULL);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (4, NULL, 2, '2021-06-15', NULL, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (5, NULL, 2, '2021-06-15', NULL, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests confusion with other tables' CreationDate columns (e.g., comments, posts, users, postHistory, postLinks, badges).
+-- Also tests `COUNT(PostId)` / `COUNT(UserId)` / `COUNT(BountyAmount)` vs `COUNT(Id)` by making nullable columns NULL in the winning group.
+INSERT INTO users (Id, CreationDate) VALUES (1, '2018-01-01');
+INSERT INTO posts (Id, CreaionDate, OwnerUserId) VALUES (1, '2018-01-01', 1);
+
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (1, 1, '2018-01-01', 1);
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (2, 1, '2018-01-01', 1);
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (3, 1, '2018-01-01', 1);
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (4, 1, '2018-01-01', 1);
+
+INSERT INTO badges (Id, UserId, Date) VALUES (1, 1, '2018-01-01');
+INSERT INTO postHistory (Id, PostId, CreationDate, UserId) VALUES (1, 1, '2018-01-01', 1);
+INSERT INTO postLinks (Id, CreationDate, PostId, RelatedPostId) VALUES (1, '2018-01-01', 1, 1);
+
+-- In votes, '2018-01-01' has 2 rows with non-null columns
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (1, 1, 1, '2018-01-01', 1, 10);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2, 1, 2, '2018-01-01', 1, 20);
+
+-- '2023-03-03' has 3 rows, but PostId, VoteTypeId, UserId, BountyAmount are all NULL (kills COUNT(PostId), COUNT(UserId), etc.)
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (3, NULL, NULL, '2023-03-03', NULL, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (4, NULL, NULL, '2023-03-03', NULL, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (5, NULL, NULL, '2023-03-03', NULL, NULL);
+```

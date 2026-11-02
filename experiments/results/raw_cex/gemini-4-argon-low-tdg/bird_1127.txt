@@ -1,0 +1,153 @@
+```sql
+-- DATASET 1
+-- Tests vision boundary conditions (> 89 vs >= 89, < 89, = 89, NULL) and DISTINCT country names.
+INSERT INTO Country (id, name) VALUES (1, 'Spain');
+INSERT INTO Country (id, name) VALUES (2, 'Germany');
+INSERT INTO Country (id, name) VALUES (3, 'Italy');
+INSERT INTO Country (id, name) VALUES (4, 'France');
+
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 1001, 2001, 'Team Alpha', 'ALP');
+
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (10, 101, 'Player Vision 90', 501);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (20, 102, 'Player Vision 89', 502);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (30, 103, 'Player Vision 88', 503);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (40, 104, 'Player Vision NULL', 504);
+
+-- Player 101 has two attribute records > 89 to test DISTINCT
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision, overall_rating, positioning) VALUES (1, 501, 101, 90, 80, 80);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision, overall_rating, positioning) VALUES (2, 501, 101, 95, 80, 80);
+-- Boundary at 89
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision, overall_rating, positioning) VALUES (3, 502, 102, 89, 95, 95);
+-- Below 89
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision, overall_rating, positioning) VALUES (4, 503, 103, 88, 95, 95);
+-- NULL vision
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision, overall_rating, positioning) VALUES (5, 504, 104, NULL, 95, 95);
+
+-- Multiple matches in Country 1 with Player 101 to test DISTINCT across both Match and Player_Attributes
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (1, 1, 1, 1001, 101);
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (2, 1, 1, 1001, 101);
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (3, 2, 2, 1001, 102);
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (4, 3, 3, 1001, 103);
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (5, 4, 4, 1001, 104);
+```
+
+```sql
+-- DATASET 2
+-- Tests join key specificity: player_api_id vs id vs player_fifa_api_id, and home_player_8 vs other player slots.
+INSERT INTO Country (id, name) VALUES (10, 'England');
+INSERT INTO Country (id, name) VALUES (20, 'Portugal');
+INSERT INTO Country (id, name) VALUES (30, 'Netherlands');
+INSERT INTO Country (id, name) VALUES (40, 'Belgium');
+
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 1001, 2001, 'Team Beta', 'BET');
+
+-- Player 1: Valid match on player_api_id = 1000
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 1000, 'Correct Player', 5000);
+-- Player 2: Trap where Player.id (1000) or fifa_id matches, or Player_Attributes joins on wrong column
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2000, 2001, 'Trap ID Player', 6000);
+-- Player 3: High vision player placed in wrong match columns (away_player_8, home_player_7, home_player_X8)
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (3, 3000, 'Wrong Position Player', 7000);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision) VALUES (10, 5000, 1000, 92);
+-- Trap: player_api_id in attributes (2000) matches Player.id (2000), but NOT Player.player_api_id (2001)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision) VALUES (20, 6000, 2000, 95);
+-- High vision for Player 3000
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision) VALUES (30, 7000, 3000, 93);
+
+-- Match 1: Valid join on home_player_8 = 1000 -> Country 'England'
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (100, 10, 999, 1001, 1000);
+
+-- Match 2: Trap where home_player_8 matches Player.id (2000) or Player.player_fifa_api_id (5000) -> Country 'Portugal'
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (200, 20, 999, 1001, 2000);
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (201, 20, 999, 1001, 5000);
+
+-- Match 3: Trap where Player 3000 is in away_player_8, home_player_7, home_player_9, home_player_X8, home_player_Y8 -> Country 'Netherlands'
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_7, home_player_8, home_player_9, away_player_8, home_player_X8, home_player_Y8) VALUES (300, 30, 999, 1001, 3000, 9999, 3000, 3000, 3000, 3000);
+
+-- Match 4: Trap where league_id is 10 ('England') and country_id is 40 ('Belgium'), but player has low vision, while league_id=40 in another match has high vision
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (400, 10, 40, 1001, 1000);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN and missing intermediate table records (Player table omission).
+INSERT INTO Country (id, name) VALUES (1, 'Brazil');
+INSERT INTO Country (id, name) VALUES (2, 'Argentina');
+INSERT INTO Country (id, name) VALUES (3, 'Uruguay');
+
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'League Brazil');
+INSERT INTO League (id, country_id, name) VALUES (2, 2, 'League Argentina');
+INSERT INTO League (id, country_id, name) VALUES (3, 3, 'League Uruguay');
+
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 500, 600, 'Team Gamma', 'GAM');
+
+-- Player 10 exists in Player table and links everything properly -> 'Brazil'
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 10, 'Existing Player', 100);
+-- Dummy player to satisfy FK for orphan player_api_id test
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 999, 'FK Holder Player', 200);
+
+-- Attributes for Player 10 (valid)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision) VALUES (1, 100, 10, 91);
+-- Attributes with player_api_id = 20, which does NOT exist in Player.player_api_id (tests omitting t2 Player from join chain)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision) VALUES (2, 200, 20, 94);
+
+-- Match in Brazil (Country 1) with valid Player 10
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (1, 1, 1, 500, 10);
+-- Match in Argentina (Country 2) with Player 20 (missing from Player.player_api_id, present in Player_Attributes and Match)
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (2, 2, 2, 500, 20);
+-- Country 3 ('Uruguay') has no matches at all (kills RIGHT JOIN Country)
+-- Also a Match with NULL country_id and valid player 10 (kills LEFT JOIN Country)
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (3, NULL, 1, 500, 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests one-to-many relationships where a player has both > 89 and <= 89 vision rows across time, and plays in multiple countries.
+INSERT INTO Country (id, name) VALUES (100, 'Scotland');
+INSERT INTO Country (id, name) VALUES (200, 'Wales');
+INSERT INTO Country (id, name) VALUES (300, 'Poland');
+
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 800, 900, 'Team Delta', 'DEL');
+
+-- Player 1: Has one attribute row with vision 85 and another with vision 90 (should still qualify!)
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 77, 'Improving Player', 777);
+-- Player 2: Has multiple attribute rows, max vision is 89 (should NOT qualify, kills SUM(vision) > 89 or HAVING COUNT)
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 88, 'Consistent 89 Player', 888);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, vision) VALUES (1, 777, 77, '2014-01-01', 70);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, vision) VALUES (2, 777, 77, '2015-01-01', 90);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, vision) VALUES (3, 888, 88, '2014-01-01', 89);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, vision) VALUES (4, 888, 88, '2015-01-01', 89);
+
+-- Player 77 plays as home_player_8 in both Scotland and Wales
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (1, 100, 1, 800, 77);
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (2, 200, 2, 800, 77);
+-- Player 88 plays as home_player_8 in Poland
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (3, 300, 3, 800, 88);
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion between Country.name and League.name, Player.player_name, Team.team_long_name, and empty result set handling when vision > 89 is met but not in home_player_8.
+INSERT INTO Country (id, name) VALUES (1, 'Switzerland');
+INSERT INTO Country (id, name) VALUES (2, 'Austria');
+
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'Swiss Super League');
+INSERT INTO League (id, country_id, name) VALUES (2, 2, 'Austrian Bundesliga');
+
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 10, 20, 'FC Basel', 'BAS');
+
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 501, 'Star Midfielder', 1501);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 502, 'Bench Player', 1502);
+
+-- Player 501 has vision 99
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision) VALUES (1, 1501, 501, 99);
+-- Player 502 has vision 40
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, vision) VALUES (2, 1502, 502, 40);
+
+-- Match in Switzerland: Player 501 is in home_player_8
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8) VALUES (1, 1, 1, 10, 501);
+-- Match in Austria: Player 502 is in home_player_8 (vision 40), while Player 501 is in home_player_10
+INSERT INTO Match (id, country_id, league_id, home_team_api_id, home_player_8, home_player_10) VALUES (2, 2, 2, 10, 502, 501);
+```

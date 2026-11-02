@@ -1,0 +1,66 @@
+-- Schema DDL
+CREATE TABLE "TV_CHANNEL" (
+    "ID" TEXT,
+    "SERIES_NAME" TEXT,
+    "COUNTRY" TEXT,
+    "LANGUAGE" TEXT,
+    "CONTENT" TEXT,
+    "PIXEL_ASPECT_RATIO_PAR" TEXT,
+    "HIGHT_DEFINITION_TV" TEXT,
+    "PAY_PER_VIEW_PPV" TEXT,
+    "PACKAGE_OPTION" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "TV_SERIES" (
+    "ID" FLOAT,
+    "CHANNEL" TEXT,
+    "EPISODE" TEXT,
+    "AIR_DATE" TEXT,
+    "RATING" TEXT,
+    "SHARE" FLOAT,
+    "18_49_RATING_SHARE" TEXT,
+    "VIEWERS_M" TEXT,
+    "WEEKLY_RANK" FLOAT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("CHANNEL") REFERENCES "TV_CHANNEL"("ID")
+);
+CREATE TABLE "CARTOON" (
+    "ID" FLOAT,
+    "CHANNEL" TEXT,
+    "TITLE" TEXT,
+    "DIRECTED_BY" TEXT,
+    "WRITTEN_BY" TEXT,
+    "ORIGINAL_AIR_DATE" TEXT,
+    "PRODUCTION_CODE" FLOAT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("CHANNEL") REFERENCES "TV_CHANNEL"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO TV_CHANNEL VALUES (0, 0, 11, 6, 0, 0, 0, 0, 0);
+INSERT INTO TV_CHANNEL VALUES (-1, 0, 12, 7, 0, 0, 0, 0, 0);
+INSERT INTO TV_SERIES VALUES (2, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO TV_SERIES VALUES (3, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO CARTOON VALUES (4, 0, 0, 0, 0, 0, 0);
+INSERT INTO CARTOON VALUES (5, 0, 0, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT COUNTRY AS PIXEL_ASPECT_RATIO_PAR, PIXEL_ASPECT_RATIO_PAR AS COUNTRY FROM TV_CHANNEL WHERE (LANGUAGE <> 'English') ORDER BY pixel_aspect_ratio_par, tv_channel.id NULLS LAST;
+
+/*
+Gold Result:
+('11', '0')
+('12', '0')
+*/
+
+-- Prediction Query
+SELECT Pixel_aspect_ratio_PAR, country FROM tv_channel WHERE LANGUAGE <> 'English';
+
+/*
+Prediction Result:
+('0', '11')
+('0', '12')
+*/

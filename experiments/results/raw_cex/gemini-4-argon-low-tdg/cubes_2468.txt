@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests standard aggregation, ordering (inserted out of order), and an investor with 0 transactions (kills LEFT JOIN vs INNER/No JOIN mutants).
+INSERT INTO Investors (investor_id, Investor_details) VALUES (1, 'Investor One');
+INSERT INTO Investors (investor_id, Investor_details) VALUES (2, 'Investor Two');
+INSERT INTO Investors (investor_id, Investor_details) VALUES (3, 'Investor Three (No Transactions)');
+INSERT INTO Investors (investor_id, Investor_details) VALUES (4, 'Investor Four');
+
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('BUY', 'Purchase');
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('SELL', 'Sale');
+
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (101, 'BUY', 4, '2023-01-03 10:00:00', 500.00, '50', 'T1');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (102, 'BUY', 2, '2023-01-01 10:00:00', 100.00, '10', 'T2');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (103, 'SELL', 2, '2023-01-02 10:00:00', 200.00, '20', 'T3');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (104, 'BUY', 2, '2023-01-04 10:00:00', 300.00, '30', 'T4');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (105, 'SELL', 1, '2023-01-05 10:00:00', 150.00, '15', 'T5');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (106, 'BUY', 1, '2023-01-06 10:00:00', 250.00, '25', 'T6');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling: NULL investor_id (kills COUNT(investor_id) vs COUNT(*) and INNER JOIN Investors), and NULLs in other columns (kills COUNT(col) mutants).
+INSERT INTO Investors (investor_id, Investor_details) VALUES (10, 'Valid Investor');
+
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('T1', 'Type 1');
+
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (1, 'T1', NULL, '2023-01-01 00:00:00', 100.0, '10', 'Null Investor 1');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (2, NULL, NULL, NULL, NULL, NULL, 'Null Investor 2 with all nulls');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (3, NULL, 10, NULL, NULL, NULL, NULL);
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (4, 'T1', 10, '2023-01-02 00:00:00', 200.0, '20', 'Valid Investor Full Row');
+```
+
+```sql
+-- DATASET 3
+-- Tests duplicate values in attributes for the same investor (kills COUNT(DISTINCT col) mutants) and identical counts across different investors (tests sorting tie-breakers).
+INSERT INTO Investors (investor_id, Investor_details) VALUES (1, 'Inv A');
+INSERT INTO Investors (investor_id, Investor_details) VALUES (2, 'Inv B');
+
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('SAME', 'Same Type');
+
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (10, 'SAME', 2, '2023-05-05 12:00:00', 50.0, '5', 'Dup');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (11, 'SAME', 2, '2023-05-05 12:00:00', 50.0, '5', 'Dup');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (12, 'SAME', 1, '2023-05-05 12:00:00', 50.0, '5', 'Dup');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (13, 'SAME', 1, '2023-05-05 12:00:00', 50.0, '5', 'Dup');
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion with other tables (Lots, Sales, Purchases, Transactions_Lots) to kill mutants that mistakenly query or join those tables.
+INSERT INTO Investors (investor_id, Investor_details) VALUES (1, 'Investor 1');
+INSERT INTO Investors (investor_id, Investor_details) VALUES (2, 'Investor 2');
+
+INSERT INTO Lots (lot_id, investor_id, lot_details) VALUES (1, 1, 'Lot 1 for Inv 1');
+INSERT INTO Lots (lot_id, investor_id, lot_details) VALUES (2, 1, 'Lot 2 for Inv 1');
+INSERT INTO Lots (lot_id, investor_id, lot_details) VALUES (3, 1, 'Lot 3 for Inv 1');
+INSERT INTO Lots (lot_id, investor_id, lot_details) VALUES (4, 2, 'Lot 1 for Inv 2');
+
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('SALE', 'Sale');
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('PURCH', 'Purchase');
+
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (100, 'SALE', 1, '2023-01-01', 10.0, '1', 'Has Sale and multiple Lots');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (200, 'PURCH', 2, '2023-01-02', 20.0, '2', 'Has multiple Purchases');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (201, 'PURCH', 2, '2023-01-03', 30.0, '3', 'Has no Sales or Purchases');
+
+INSERT INTO Sales (sales_transaction_id, sales_details) VALUES (100, 'Sale 1');
+
+INSERT INTO Purchases (purchase_transaction_id, purchase_details) VALUES (200, 'Purchase 1a');
+INSERT INTO Purchases (purchase_transaction_id, purchase_details) VALUES (200, 'Purchase 1b (duplicate fk)');
+
+INSERT INTO Transactions_Lots (transaction_id, lot_id) VALUES (100, 1);
+INSERT INTO Transactions_Lots (transaction_id, lot_id) VALUES (100, 2);
+INSERT INTO Transactions_Lots (transaction_id, lot_id) VALUES (100, 3);
+```
+
+```sql
+-- DATASET 5
+-- Tests edge cases: negative, zero, and positive investor_ids, plus boundary values in amount_of_transaction (kills SUM(amount) or HAVING mutants).
+INSERT INTO Investors (investor_id, Investor_details) VALUES (-5, 'Negative ID');
+INSERT INTO Investors (investor_id, Investor_details) VALUES (0, 'Zero ID');
+INSERT INTO Investors (investor_id, Investor_details) VALUES (5, 'Positive ID');
+
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('STD', 'Standard');
+
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (1, 'STD', 5, '2023-01-01', 0.0, '0', 'Zero amount');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (2, 'STD', 0, '2023-01-02', 1.0, '1', 'Unit amount');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (3, 'STD', -5, '2023-01-03', -100.0, '10', 'Negative amount');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (4, 'STD', -5, '2023-01-04', 100.0, '10', 'Offsetting amount');
+```

@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests INNER JOIN constraints (orphaned parent rows in Ref_Template_Types and Templates),
+-- NULL foreign keys in child tables, and spurious joins with Paragraphs.
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T1', 'Description_Active_With_Doc');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T2', 'Description_Active_No_Doc');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T3', 'Description_Orphan_Type');
+
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, 'T1', 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Template with document');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (2, 'T2', 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Template without document');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (3, NULL, 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Template with NULL type');
+
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (101, 1, 'Doc_1', 'Doc for T1', 'Details');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (102, 3, 'Doc_2', 'Doc for NULL type template', 'Details');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (103, NULL, 'Doc_3', 'Doc with NULL template', 'Details');
+
+-- Note: Doc 101 intentionally has NO paragraphs to kill mutants that erroneously INNER JOIN Paragraphs.
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (1001, 102, 'Paragraph for Doc 102', 'Details');
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT behavior (1-to-many relationships across Documents and Templates, and duplicate descriptions across different codes)
+-- and tests ORDER BY direction and tie-breaking.
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('CODE_Z', 'Zebra_Description');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('CODE_A', 'Alpha_Description');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('CODE_M1', 'Middle_Duplicate_Description');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('CODE_M2', 'Middle_Duplicate_Description');
+
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (10, 'CODE_Z', 1, '2021-01-01', '2022-01-01', 'Details Z1');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (11, 'CODE_Z', 2, '2022-01-01', '2023-01-01', 'Details Z2');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (20, 'CODE_A', 1, '2021-01-01', '2022-01-01', 'Details A');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (30, 'CODE_M1', 1, '2021-01-01', '2022-01-01', 'Details M1');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (31, 'CODE_M2', 1, '2021-01-01', '2022-01-01', 'Details M2');
+
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (1, 10, 'Doc Z1_a', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (2, 10, 'Doc Z1_b', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (3, 11, 'Doc Z2_a', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (4, 20, 'Doc A_a', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (5, 30, 'Doc M1_a', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (6, 31, 'Doc M2_a', 'Desc', 'Other');
+
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (1, 1, 'Text 1', 'Other');
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (2, 1, 'Text 2', 'Other');
+```
+
+```sql
+-- DATASET 3
+-- Tests column projection errors (selecting Template_Type_Code, Document_Description, or Template_Details instead of Template_Type_Description),
+-- tests wrong join key mutations (e.g., Document_ID = Template_ID), and tests NULL / empty string handling in output and sorting.
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('CODE_1', NULL);
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('CODE_2', '');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('CODE_3', 'Actual_Type_Description');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('CODE_4', 'Unlinked_Type_Description');
+
+-- Template_ID is 50, while Document_ID is 60 (kills mutants joining on Document_ID = Template_ID)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (50, 'CODE_1', 99, '2020-05-05', '2021-05-05', 'Trap_Template_Details_1');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (60, 'CODE_2', 99, '2020-05-05', '2021-05-05', 'Trap_Template_Details_2');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (70, 'CODE_3', 99, '2020-05-05', '2021-05-05', 'Trap_Template_Details_3');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (80, 'CODE_4', 99, '2020-05-05', '2021-05-05', 'Trap_Template_Details_4');
+
+-- Document_ID 80 belongs to Template_ID 50. A mutant joining Templates.Template_ID = Documents.Document_ID would link Template 80 (CODE_4) instead of Template 50 (CODE_1)!
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (80, 50, 'Trap_Doc_Name_1', 'Trap_Doc_Desc_1', 'Trap_Other_1');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (90, 60, 'Trap_Doc_Name_2', 'Trap_Doc_Desc_2', 'Trap_Other_2');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (100, 70, 'Trap_Doc_Name_3', 'Trap_Doc_Desc_3', 'Trap_Other_3');
+```
+
+```sql
+-- DATASET 4
+-- Tests resistance to arbitrary WHERE filtering mutants (e.g., Version_Number = 1, NULL columns in non-projected attributes, edge-case dates).
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T_ZERO', 'Desc_Version_Zero');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T_NEG', 'Desc_Version_Negative_And_Nulls');
+
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, 'T_ZERO', 0, '1970-01-01 00:00:00', '1970-01-01 00:00:00', '');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (2, 'T_NEG', -5, NULL, NULL, NULL);
+
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (1, 1, '', '', '');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (2, 2, NULL, NULL, NULL);
+
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (1, 1, NULL, NULL);
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (2, 2, '', '');
+```

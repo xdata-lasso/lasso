@@ -1,0 +1,353 @@
+```sql
+-- DATASET 1
+-- Boundary testing on HAVING COUNT(RA.B) > 3:
+-- Group 'b1' has count 4 (> 3, included).
+-- Group 'b2' has count 3 (= 3, excluded).
+-- Group 'b3' has count 5 (> 3, included).
+-- Group 'b4' has count 1 (< 3, excluded).
+-- Also tests DISTINCT vs non-DISTINCT COUNT, and GROUP BY column selection vs other columns.
+
+INSERT INTO RA (A1, B) VALUES ('c1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b1');
+
+INSERT INTO RA (A1, B) VALUES ('c2', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a4', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a5', 'b2');
+
+INSERT INTO RA (A1, B) VALUES ('c3', 'b3');
+INSERT INTO RA (A1, B) VALUES ('a6', 'b3');
+INSERT INTO RA (A1, B) VALUES ('a7', 'b3');
+INSERT INTO RA (A1, B) VALUES ('a8', 'b3');
+INSERT INTO RA (A1, B) VALUES ('a9', 'b3');
+
+INSERT INTO RA (A1, B) VALUES ('c4', 'b4');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'c1');
+INSERT INTO RB (A2, B) VALUES ('d1', 'c1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'c2');
+INSERT INTO RB (A2, B) VALUES ('d2', 'c2');
+INSERT INTO RB (A2, B) VALUES ('b3', 'c3');
+INSERT INTO RB (A2, B) VALUES ('d3', 'c3');
+INSERT INTO RB (A2, B) VALUES ('b4', 'c4');
+INSERT INTO RB (A2, B) VALUES ('d4', 'c4');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'd1');
+INSERT INTO RC (A3, B) VALUES ('e1', 'd1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'd2');
+INSERT INTO RC (A3, B) VALUES ('e2', 'd2');
+INSERT INTO RC (A3, B) VALUES ('c3', 'd3');
+INSERT INTO RC (A3, B) VALUES ('e3', 'd3');
+INSERT INTO RC (A3, B) VALUES ('c4', 'd4');
+INSERT INTO RC (A3, B) VALUES ('e4', 'd4');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'e1');
+INSERT INTO RD (A4, B) VALUES ('f1', 'e1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'e2');
+INSERT INTO RD (A4, B) VALUES ('f2', 'e2');
+INSERT INTO RD (A4, B) VALUES ('d3', 'e3');
+INSERT INTO RD (A4, B) VALUES ('f3', 'e3');
+INSERT INTO RD (A4, B) VALUES ('d4', 'e4');
+INSERT INTO RD (A4, B) VALUES ('f4', 'e4');
+
+INSERT INTO RE (A5, B) VALUES ('e1', 'f1');
+INSERT INTO RE (A5, B) VALUES ('g1', 'f1');
+INSERT INTO RE (A5, B) VALUES ('e2', 'f2');
+INSERT INTO RE (A5, B) VALUES ('g2', 'f2');
+INSERT INTO RE (A5, B) VALUES ('e3', 'f3');
+INSERT INTO RE (A5, B) VALUES ('g3', 'f3');
+INSERT INTO RE (A5, B) VALUES ('e4', 'f4');
+INSERT INTO RE (A5, B) VALUES ('g4', 'f4');
+
+INSERT INTO RF (A6, B) VALUES ('f1', 'g1');
+INSERT INTO RF (A6, B) VALUES ('h1', 'g1');
+INSERT INTO RF (A6, B) VALUES ('f2', 'g2');
+INSERT INTO RF (A6, B) VALUES ('h2', 'g2');
+INSERT INTO RF (A6, B) VALUES ('f3', 'g3');
+INSERT INTO RF (A6, B) VALUES ('h3', 'g3');
+INSERT INTO RF (A6, B) VALUES ('f4', 'g4');
+INSERT INTO RF (A6, B) VALUES ('h4', 'g4');
+
+INSERT INTO RG (A7, B) VALUES ('g1', 'h1');
+INSERT INTO RG (A7, B) VALUES ('i1', 'h1');
+INSERT INTO RG (A7, B) VALUES ('g2', 'h2');
+INSERT INTO RG (A7, B) VALUES ('i2', 'h2');
+INSERT INTO RG (A7, B) VALUES ('g3', 'h3');
+INSERT INTO RG (A7, B) VALUES ('i3', 'h3');
+INSERT INTO RG (A7, B) VALUES ('g4', 'h4');
+INSERT INTO RG (A7, B) VALUES ('i4', 'h4');
+
+INSERT INTO RH (A8, B) VALUES ('h1', 'i1');
+INSERT INTO RH (A8, B) VALUES ('h2', 'i2');
+INSERT INTO RH (A8, B) VALUES ('h3', 'i3');
+INSERT INTO RH (A8, B) VALUES ('h4', 'i4');
+```
+
+```sql
+-- DATASET 2
+-- Chain Breakage & Join Sensitivity:
+-- Tests if any INNER JOIN in the chain (RB through RH) is omitted or converted to a LEFT JOIN,
+-- or if extra tables (RI, RJ) are erroneously joined.
+-- 'b_ok' has a complete chain up to RH (4 rows in RA), but does NOT exist in RI/RJ.
+-- 'b_noH' has 4 rows in RA and chain up to RG, but breaks at RH (RG.B is NULL or unjoined).
+-- 'b_noG' breaks at RG.
+-- 'b_noF' breaks at RF.
+-- 'b_noE' breaks at RE.
+-- 'b_noD' breaks at RD.
+-- 'b_noC' breaks at RC.
+-- 'b_noB' breaks at RB.
+
+INSERT INTO RA (A1, B) VALUES ('c_ok', 'b_ok');
+INSERT INTO RA (A1, B) VALUES ('a_ok1', 'b_ok');
+INSERT INTO RA (A1, B) VALUES ('a_ok2', 'b_ok');
+INSERT INTO RA (A1, B) VALUES ('a_ok3', 'b_ok');
+
+INSERT INTO RA (A1, B) VALUES ('c_noH', 'b_noH');
+INSERT INTO RA (A1, B) VALUES ('a_h1', 'b_noH');
+INSERT INTO RA (A1, B) VALUES ('a_h2', 'b_noH');
+INSERT INTO RA (A1, B) VALUES ('a_h3', 'b_noH');
+
+INSERT INTO RA (A1, B) VALUES ('c_noG', 'b_noG');
+INSERT INTO RA (A1, B) VALUES ('a_g1', 'b_noG');
+INSERT INTO RA (A1, B) VALUES ('a_g2', 'b_noG');
+INSERT INTO RA (A1, B) VALUES ('a_g3', 'b_noG');
+
+INSERT INTO RA (A1, B) VALUES ('c_noF', 'b_noF');
+INSERT INTO RA (A1, B) VALUES ('a_f1', 'b_noF');
+INSERT INTO RA (A1, B) VALUES ('a_f2', 'b_noF');
+INSERT INTO RA (A1, B) VALUES ('a_f3', 'b_noF');
+
+INSERT INTO RA (A1, B) VALUES ('c_noE', 'b_noE');
+INSERT INTO RA (A1, B) VALUES ('a_e1', 'b_noE');
+INSERT INTO RA (A1, B) VALUES ('a_e2', 'b_noE');
+INSERT INTO RA (A1, B) VALUES ('a_e3', 'b_noE');
+
+INSERT INTO RA (A1, B) VALUES ('c_noD', 'b_noD');
+INSERT INTO RA (A1, B) VALUES ('a_d1', 'b_noD');
+INSERT INTO RA (A1, B) VALUES ('a_d2', 'b_noD');
+INSERT INTO RA (A1, B) VALUES ('a_d3', 'b_noD');
+
+INSERT INTO RA (A1, B) VALUES ('c_noC', 'b_noC');
+INSERT INTO RA (A1, B) VALUES ('a_c1', 'b_noC');
+INSERT INTO RA (A1, B) VALUES ('a_c2', 'b_noC');
+INSERT INTO RA (A1, B) VALUES ('a_c3', 'b_noC');
+
+INSERT INTO RA (A1, B) VALUES ('a_b1', 'b_noB');
+INSERT INTO RA (A1, B) VALUES ('a_b2', 'b_noB');
+INSERT INTO RA (A1, B) VALUES ('a_b3', 'b_noB');
+INSERT INTO RA (A1, B) VALUES ('a_b4', 'b_noB');
+
+INSERT INTO RB (A2, B) VALUES ('b_ok', 'c_ok');
+INSERT INTO RB (A2, B) VALUES ('d_ok', 'c_ok');
+INSERT INTO RB (A2, B) VALUES ('b_noH', 'c_noH');
+INSERT INTO RB (A2, B) VALUES ('d_noH', 'c_noH');
+INSERT INTO RB (A2, B) VALUES ('b_noG', 'c_noG');
+INSERT INTO RB (A2, B) VALUES ('d_noG', 'c_noG');
+INSERT INTO RB (A2, B) VALUES ('b_noF', 'c_noF');
+INSERT INTO RB (A2, B) VALUES ('d_noF', 'c_noF');
+INSERT INTO RB (A2, B) VALUES ('b_noE', 'c_noE');
+INSERT INTO RB (A2, B) VALUES ('d_noE', 'c_noE');
+INSERT INTO RB (A2, B) VALUES ('b_noD', 'c_noD');
+INSERT INTO RB (A2, B) VALUES ('d_noD', 'c_noD');
+INSERT INTO RB (A2, B) VALUES ('b_noC', NULL);
+
+INSERT INTO RC (A3, B) VALUES ('c_ok', 'd_ok');
+INSERT INTO RC (A3, B) VALUES ('e_ok', 'd_ok');
+INSERT INTO RC (A3, B) VALUES ('c_noH', 'd_noH');
+INSERT INTO RC (A3, B) VALUES ('e_noH', 'd_noH');
+INSERT INTO RC (A3, B) VALUES ('c_noG', 'd_noG');
+INSERT INTO RC (A3, B) VALUES ('e_noG', 'd_noG');
+INSERT INTO RC (A3, B) VALUES ('c_noF', 'd_noF');
+INSERT INTO RC (A3, B) VALUES ('e_noF', 'd_noF');
+INSERT INTO RC (A3, B) VALUES ('c_noE', 'd_noE');
+INSERT INTO RC (A3, B) VALUES ('e_noE', 'd_noE');
+INSERT INTO RC (A3, B) VALUES ('c_noD', NULL);
+
+INSERT INTO RD (A4, B) VALUES ('d_ok', 'e_ok');
+INSERT INTO RD (A4, B) VALUES ('f_ok', 'e_ok');
+INSERT INTO RD (A4, B) VALUES ('d_noH', 'e_noH');
+INSERT INTO RD (A4, B) VALUES ('f_noH', 'e_noH');
+INSERT INTO RD (A4, B) VALUES ('d_noG', 'e_noG');
+INSERT INTO RD (A4, B) VALUES ('f_noG', 'e_noG');
+INSERT INTO RD (A4, B) VALUES ('d_noF', 'e_noF');
+INSERT INTO RD (A4, B) VALUES ('f_noF', 'e_noF');
+INSERT INTO RD (A4, B) VALUES ('d_noE', NULL);
+
+INSERT INTO RE (A5, B) VALUES ('e_ok', 'f_ok');
+INSERT INTO RE (A5, B) VALUES ('g_ok', 'f_ok');
+INSERT INTO RE (A5, B) VALUES ('e_noH', 'f_noH');
+INSERT INTO RE (A5, B) VALUES ('g_noH', 'f_noH');
+INSERT INTO RE (A5, B) VALUES ('e_noG', 'f_noG');
+INSERT INTO RE (A5, B) VALUES ('g_noG', 'f_noG');
+INSERT INTO RE (A5, B) VALUES ('e_noF', NULL);
+
+INSERT INTO RF (A6, B) VALUES ('f_ok', 'g_ok');
+INSERT INTO RF (A6, B) VALUES ('h_ok', 'g_ok');
+INSERT INTO RF (A6, B) VALUES ('f_noH', 'g_noH');
+INSERT INTO RF (A6, B) VALUES ('h_noH', 'g_noH');
+INSERT INTO RF (A6, B) VALUES ('f_noG', NULL);
+
+INSERT INTO RG (A7, B) VALUES ('g_ok', 'h_ok');
+INSERT INTO RG (A7, B) VALUES ('g_noH', NULL);
+
+INSERT INTO RH (A8, B) VALUES ('h_ok', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Join Direction (FK vs Forward Join) & Group By Column Confusion:
+-- Many mutants confuse the forward join `T1.B = T2.A_next` with the FK join `T2.B = T1.A_curr`
+-- or `T1.B = T2.B` or `T1.A = T2.A`.
+-- Here, we create:
+-- 1) Two distinct RA.B groups ('b_1' and 'b_2'), each with 2 rows in RA, that converge into the SAME RB.B ('c_shared').
+--    - Grouping by RA.B gives count 2 for 'b_1' and 2 for 'b_2' -> neither > 3 (empty result for these).
+--    - Grouping by RB.B, RC.A3, etc., merges them into a group of 4 (> 3), killing wrong GROUP BY mutants!
+-- 2) A reverse/FK trap chain where RB.B = RA.A1, RC.B = RB.A2, etc., has 4 rows, while the forward chain has 0.
+
+INSERT INTO RA (A1, B) VALUES ('c_sh', 'b_1');
+INSERT INTO RA (A1, B) VALUES ('a_1', 'b_1');
+INSERT INTO RA (A1, B) VALUES ('a_2', 'b_2');
+INSERT INTO RA (A1, B) VALUES ('a_3', 'b_2');
+
+INSERT INTO RA (A1, B) VALUES ('fk_a', 'fk_b');
+
+INSERT INTO RB (A2, B) VALUES ('b_1', 'c_sh');
+INSERT INTO RB (A2, B) VALUES ('b_2', 'c_sh');
+INSERT INTO RB (A2, B) VALUES ('d_sh', 'c_sh');
+
+INSERT INTO RB (A2, B) VALUES ('fk_b1', 'fk_a');
+INSERT INTO RB (A2, B) VALUES ('fk_b2', 'fk_a');
+INSERT INTO RB (A2, B) VALUES ('fk_b3', 'fk_a');
+INSERT INTO RB (A2, B) VALUES ('fk_b4', 'fk_a');
+
+INSERT INTO RC (A3, B) VALUES ('c_sh', 'd_sh');
+INSERT INTO RC (A3, B) VALUES ('e_sh', 'd_sh');
+INSERT INTO RC (A3, B) VALUES ('fk_c', 'fk_b1');
+
+INSERT INTO RD (A4, B) VALUES ('d_sh', 'e_sh');
+INSERT INTO RD (A4, B) VALUES ('f_sh', 'e_sh');
+INSERT INTO RD (A4, B) VALUES ('fk_d', 'fk_c');
+
+INSERT INTO RE (A5, B) VALUES ('e_sh', 'f_sh');
+INSERT INTO RE (A5, B) VALUES ('g_sh', 'f_sh');
+INSERT INTO RE (A5, B) VALUES ('fk_e', 'fk_d');
+
+INSERT INTO RF (A6, B) VALUES ('f_sh', 'g_sh');
+INSERT INTO RF (A6, B) VALUES ('h_sh', 'g_sh');
+INSERT INTO RF (A6, B) VALUES ('fk_f', 'fk_e');
+
+INSERT INTO RG (A7, B) VALUES ('g_sh', 'h_sh');
+INSERT INTO RG (A7, B) VALUES ('i_sh', 'h_sh');
+INSERT INTO RG (A7, B) VALUES ('fk_g', 'fk_f');
+
+INSERT INTO RH (A8, B) VALUES ('h_sh', 'i_sh');
+INSERT INTO RH (A8, B) VALUES ('fk_h', 'fk_g');
+
+INSERT INTO RI (A9, B) VALUES ('i_sh', 'fk_h');
+INSERT INTO RJ (A10, B) VALUES ('j_sh', 'i_sh');
+```
+
+```sql
+-- DATASET 4
+-- Self-cycle vs Disjoint Values & Extra Joins (RI, RJ) Fan-out:
+-- 1) 'x' is a self-looping row across all tables (A_i = 'x', B = 'x'), plus 2 extra RA rows ('x1', 'x2') with B = 'x'.
+--    Total RA rows with B = 'x' is 3.
+--    However, in RI and RJ, there are multiple rows referencing 'x', so if RI or RJ is joined, the count for 'x' multiplies to > 3.
+--    Also, if any join condition is mutated to `T1.B = T2.B` or `T1.A = T2.A`, extra dummy rows in intermediate tables will fan out the count of 'x' from 3 to > 3.
+-- 2) 'v_b' has 4 valid rows in RA and a strict non-overlapping chain up to RJ.
+
+INSERT INTO RA (A1, B) VALUES ('x', 'x');
+INSERT INTO RA (A1, B) VALUES ('x1', 'x');
+INSERT INTO RA (A1, B) VALUES ('x2', 'x');
+
+INSERT INTO RA (A1, B) VALUES ('v_c', 'v_b');
+INSERT INTO RA (A1, B) VALUES ('v_a1', 'v_b');
+INSERT INTO RA (A1, B) VALUES ('v_a2', 'v_b');
+INSERT INTO RA (A1, B) VALUES ('v_a3', 'v_b');
+
+INSERT INTO RB (A2, B) VALUES ('x', 'x');
+INSERT INTO RB (A2, B) VALUES ('x_b', 'x');
+INSERT INTO RB (A2, B) VALUES ('v_b', 'v_c');
+INSERT INTO RB (A2, B) VALUES ('v_d', 'v_c');
+
+INSERT INTO RC (A3, B) VALUES ('x', 'x');
+INSERT INTO RC (A3, B) VALUES ('x_c', 'x');
+INSERT INTO RC (A3, B) VALUES ('v_c', 'v_d');
+INSERT INTO RC (A3, B) VALUES ('v_e', 'v_d');
+
+INSERT INTO RD (A4, B) VALUES ('x', 'x');
+INSERT INTO RD (A4, B) VALUES ('x_d', 'x');
+INSERT INTO RD (A4, B) VALUES ('v_d', 'v_e');
+INSERT INTO RD (A4, B) VALUES ('v_f', 'v_e');
+
+INSERT INTO RE (A5, B) VALUES ('x', 'x');
+INSERT INTO RE (A5, B) VALUES ('x_e', 'x');
+INSERT INTO RE (A5, B) VALUES ('v_e', 'v_f');
+INSERT INTO RE (A5, B) VALUES ('v_g', 'v_f');
+
+INSERT INTO RF (A6, B) VALUES ('x', 'x');
+INSERT INTO RF (A6, B) VALUES ('x_f', 'x');
+INSERT INTO RF (A6, B) VALUES ('v_f', 'v_g');
+INSERT INTO RF (A6, B) VALUES ('v_h', 'v_g');
+
+INSERT INTO RG (A7, B) VALUES ('x', 'x');
+INSERT INTO RG (A7, B) VALUES ('x_g', 'x');
+INSERT INTO RG (A7, B) VALUES ('v_g', 'v_h');
+INSERT INTO RG (A7, B) VALUES ('v_i', 'v_h');
+
+INSERT INTO RH (A8, B) VALUES ('x', 'x');
+INSERT INTO RH (A8, B) VALUES ('x_h', 'x');
+INSERT INTO RH (A8, B) VALUES ('v_h', 'v_i');
+INSERT INTO RH (A8, B) VALUES ('v_j', 'v_i');
+
+INSERT INTO RI (A9, B) VALUES ('x', 'x');
+INSERT INTO RI (A9, B) VALUES ('x_i1', 'x');
+INSERT INTO RI (A9, B) VALUES ('x_i2', 'x');
+INSERT INTO RI (A9, B) VALUES ('v_i', 'v_h');
+
+INSERT INTO RJ (A10, B) VALUES ('x', 'x');
+INSERT INTO RJ (A10, B) VALUES ('x_j1', 'x');
+INSERT INTO RJ (A10, B) VALUES ('x_j2', 'x');
+INSERT INTO RJ (A10, B) VALUES ('v_j', 'v_i');
+```
+
+```sql
+-- DATASET 5
+-- NULL handling and Empty Result Set with High Table Cardinalities:
+-- RA has 5 rows with B = NULL, and 3 rows with B = 'b_3'.
+-- Tests that `COUNT(RA.B)` or `INNER JOIN ON RA.B = RB.A2` does not group/count NULLs to satisfy HAVING > 3,
+-- and tests queries without GROUP BY or with wrong aggregations (e.g. COUNT(*) without join).
+
+INSERT INTO RA (A1, B) VALUES ('n1', NULL);
+INSERT INTO RA (A1, B) VALUES ('n2', NULL);
+INSERT INTO RA (A1, B) VALUES ('n3', NULL);
+INSERT INTO RA (A1, B) VALUES ('n4', NULL);
+INSERT INTO RA (A1, B) VALUES ('n5', NULL);
+
+INSERT INTO RA (A1, B) VALUES ('c_3', 'b_3');
+INSERT INTO RA (A1, B) VALUES ('a_1', 'b_3');
+INSERT INTO RA (A1, B) VALUES ('a_2', 'b_3');
+
+INSERT INTO RB (A2, B) VALUES ('b_3', 'c_3');
+INSERT INTO RB (A2, B) VALUES ('d_3', 'c_3');
+INSERT INTO RB (A2, B) VALUES ('n_b1', 'n1');
+INSERT INTO RB (A2, B) VALUES ('n_b2', 'n2');
+
+INSERT INTO RC (A3, B) VALUES ('c_3', 'd_3');
+INSERT INTO RC (A3, B) VALUES ('e_3', 'd_3');
+
+INSERT INTO RD (A4, B) VALUES ('d_3', 'e_3');
+INSERT INTO RD (A4, B) VALUES ('f_3', 'e_3');
+
+INSERT INTO RE (A5, B) VALUES ('e_3', 'f_3');
+INSERT INTO RE (A5, B) VALUES ('g_3', 'f_3');
+
+INSERT INTO RF (A6, B) VALUES ('f_3', 'g_3');
+INSERT INTO RF (A6, B) VALUES ('h_3', 'g_3');
+
+INSERT INTO RG (A7, B) VALUES ('g_3', 'h_3');
+INSERT INTO RG (A7, B) VALUES ('i_3', 'h_3');
+
+INSERT INTO RH (A8, B) VALUES ('h_3', 'i_3');
+```

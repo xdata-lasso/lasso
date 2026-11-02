@@ -1,0 +1,72 @@
+-- Schema DDL
+CREATE TABLE "CITY" (
+    "CITY_ID" INT,
+    "CITY" TEXT,
+    "HANZI" TEXT,
+    "HANYU_PINYIN" TEXT,
+    "REGIONAL_POPULATION" INT,
+    "GDP" FLOAT,
+    PRIMARY KEY ("CITY_ID")
+);
+CREATE TABLE "MATCH" (
+    "MATCH_ID" INT,
+    "DATE" TEXT,
+    "VENUE" TEXT,
+    "SCORE" TEXT,
+    "RESULT" TEXT,
+    "COMPETITION" TEXT,
+    PRIMARY KEY ("MATCH_ID")
+);
+CREATE TABLE "TEMPERATURE" (
+    "CITY_ID" INT,
+    "JAN" FLOAT,
+    "FEB" FLOAT,
+    "MAR" FLOAT,
+    "APR" FLOAT,
+    "JUN" FLOAT,
+    "JUL" FLOAT,
+    "AUG" FLOAT,
+    "SEP" FLOAT,
+    "OCT" FLOAT,
+    "NOV" FLOAT,
+    "DEC" FLOAT,
+    PRIMARY KEY ("CITY_ID"),
+    FOREIGN KEY ("CITY_ID") REFERENCES "CITY"("CITY_ID")
+);
+CREATE TABLE "HOSTING_CITY" (
+    "YEAR" INT,
+    "MATCH_ID" INT,
+    "HOST_CITY" TEXT,
+    PRIMARY KEY ("YEAR"),
+    FOREIGN KEY ("MATCH_ID") REFERENCES "MATCH"("MATCH_ID"),
+    FOREIGN KEY ("HOST_CITY") REFERENCES "CITY"("CITY_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO CITY VALUES (1, -1, 0, 0, 10000000, 0);
+INSERT INTO CITY VALUES (0, 0, 0, 0, 10000000, 0);
+INSERT INTO MATCH VALUES (-1, 0, 0, 0, 0, 0);
+INSERT INTO MATCH VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO TEMPERATURE VALUES (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO TEMPERATURE VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO HOSTING_CITY VALUES (-1, 0, 1);
+INSERT INTO HOSTING_CITY VALUES (0, 0, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT city FROM city WHERE (regional_population >= 10000000) ORDER BY city, city.city_id NULLS LAST;
+
+/*
+Gold Result:
+('-1',)
+('0',)
+*/
+
+-- Prediction Query
+SELECT city FROM city WHERE regional_population > 10000000;
+
+/*
+Prediction Result:
+*/

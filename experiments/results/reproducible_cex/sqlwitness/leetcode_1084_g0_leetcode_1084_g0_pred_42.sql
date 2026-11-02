@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE "Product" ("product_id" INTEGER PRIMARY KEY, "product_name" TEXT(255), "unit_price" INTEGER, CHECK ("unit_price" > 0));
+
+CREATE TABLE "Sales" ("product_id" INTEGER, "seller_id" INTEGER, "buyer_id" INTEGER, "sale_date" DATE, "quantity" INTEGER, "price" INTEGER, FOREIGN KEY ("product_id") REFERENCES "Product" ("product_id"), CHECK ("quantity" > 0), CHECK ("price" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO product (product_id, product_name, unit_price) VALUES (0, '2019-01-01', 1), (1, 'default1', NULL), (2, NULL, NULL), (3, 'default2', NULL), (4, '2019-01-01', NULL), (5, 'default1', NULL), (6, 'default1', 1), (7, '2019-01-01', NULL), (8, 'default2', NULL), (9, NULL, NULL), (10, '2019-03-31', NULL), (11, '2019-01-01', NULL), (12, '2019-01-01', 1);
+INSERT INTO sales (product_id, seller_id, buyer_id, sale_date, quantity, price) VALUES (NULL, NULL, 0, '2023-01-02', 1, 1), (7, 0, 0, '2019-01-02', NULL, NULL), (12, NULL, 1, '2023-01-01', NULL, NULL), (6, 1, NULL, '2019-01-01', 1, NULL), (7, 1, 0, '2019-03-30', 1, 1), (1, NULL, 0, NULL, 1, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT P.PRODUCT_ID, P.PRODUCT_NAME FROM PRODUCT AS P INNER JOIN (SELECT PRODUCT_ID FROM SALES GROUP BY PRODUCT_ID HAVING MIN(SALE_DATE) >= '2019-01-01' AND MAX(SALE_DATE) <= '2019-03-31') AS S ON (P.PRODUCT_ID = S.PRODUCT_ID);
+
+/*
+Gold Result:
+(6, 'default1')
+(7, '2019-01-01')
+*/
+
+-- Prediction Query
+SELECT SALES.PRODUCT_ID, PRODUCT_NAME FROM SALES JOIN PRODUCT ON PRODUCT.PRODUCT_ID = SALES.PRODUCT_ID WHERE SALE_DATE BETWEEN '2019-01-01' AND '2019-03-31' AND NOT SALES.PRODUCT_ID IN (SELECT SALES.PRODUCT_ID FROM SALES WHERE NOT SALE_DATE BETWEEN '2019-01-01' AND '2019-03-31') GROUP BY PRODUCT.PRODUCT_ID;
+
+/*
+Prediction Result:
+*/

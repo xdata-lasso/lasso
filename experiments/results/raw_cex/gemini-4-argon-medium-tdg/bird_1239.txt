@@ -1,0 +1,68 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions for HCT (52.0 vs 51.9 vs >52), HAVING COUNT(ID) >= 2 (exact 2 vs 1 with multiple lower records), and DISTINCT elimination.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (1, 'M', '1980-12-31', '2020-01-01', '2019-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (2, 'F', '1990-01-01', '2021-01-01', '2018-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (3, 'M', '1975-06-15', '2022-01-01', '2017-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (4, 'F', '2000-05-20', '2023-01-01', '2016-01-01');
+
+-- Patient 1: Exactly two records with HCT = 52.0, plus one record with HCT < 52 (tests DISTINCT and >= 52 boundary)
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (1, '2023-01-01', 52.0);
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (1, '2023-01-02', 52.0);
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (1, '2023-01-03', 45.0);
+
+-- Patient 2: Only one record >= 52, two records < 52 (tests HAVING COUNT >= 2 vs total records >= 2 and WHERE HCT >= 52 without HAVING)
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (2, '2023-01-01', 55.0);
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (2, '2023-01-02', 51.9);
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (2, '2023-01-03', 50.0);
+
+-- Patient 3: Three records strictly > 52 (tests > 52 vs >= 52 and > 2 vs >= 2)
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (3, '2023-01-01', 53.5);
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (3, '2023-01-02', 54.0);
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (3, '2023-01-03', 60.1);
+
+-- Patient 4: Two records just below 52 (tests HCT >= 52 filter)
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (4, '2023-01-01', 51.99);
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (4, '2023-01-02', 51.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests date column confusion (Birthday vs Description vs First Date vs Laboratory.Date), Examination table confusion, and NULL handling.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (10, 'F', '1985-11-25', '2010-05-05', '2005-03-10');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (20, 'M', NULL, '1995-01-01', '1995-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (30, 'F', '1960-07-07', '2020-01-01', '2015-01-01');
+
+-- Patient 10: Qualifies via Laboratory (2 records >= 52), has distinct dates across all date columns
+INSERT INTO Laboratory (ID, Date, HCT, HGB, WBC, RBC, PLT) VALUES (10, '2021-06-01', 52.5, 14.0, 10.0, 5.0, 200);
+INSERT INTO Laboratory (ID, Date, HCT, HGB, WBC, RBC, PLT) VALUES (10, '2022-06-01', 58.0, 15.0, 12.0, 5.5, 250);
+
+-- Patient 20: Qualifies via Laboratory, but Birthday is NULL (tests NULL propagation in age calculation) and has NULL HCT rows
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (20, '2021-01-01', 52.0);
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (20, '2021-01-02', 53.0);
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (20, '2021-01-03', NULL);
+
+-- Patient 30: Does NOT have Laboratory records, but has Examination records with values >= 52 (catches table/column confusion)
+INSERT INTO Examination (ID, "Examination Date", "aCL IgG", ANA) VALUES (30, '2023-01-01', 60.0, 64);
+INSERT INTO Examination (ID, "Examination Date", "aCL IgG", ANA) VALUES (30, '2023-01-02', 75.0, 128);
+```
+
+```sql
+-- DATASET 3
+-- Tests column confusion inside Laboratory (HCT vs HGB/GOT/GPT/PLT) and exact leap-year / end-of-year Birthday calculations (STRFTIME year diff vs julianday/datediff).
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (101, 'M', '2000-12-31');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (102, 'F', '2000-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (103, 'M', '1992-02-29');
+
+-- Patient 101: Qualifies on HCT, all other lab metrics are < 52
+INSERT INTO Laboratory (ID, Date, HCT, HGB, GOT, GPT, PLT) VALUES (101, '2020-05-01', 52.0, 15.0, 20, 25, 30);
+INSERT INTO Laboratory (ID, Date, HCT, HGB, GOT, GPT, PLT) VALUES (101, '2020-05-02', 55.0, 16.0, 22, 28, 35);
+
+-- Patient 102: Fails on HCT (< 52), but has >= 52 on HGB, GOT, GPT, PLT (kills mutants checking the wrong Lab column)
+INSERT INTO Laboratory (ID, Date, HCT, HGB, GOT, GPT, PLT) VALUES (102, '2020-05-01', 40.0, 55.0, 60, 65, 250);
+INSERT INTO Laboratory (ID, Date, HCT, HGB, GOT, GPT, PLT) VALUES (102, '2020-05-02', 42.0, 58.0, 70, 75, 300);
+
+-- Patient 103: Qualifies with exactly 2 records of identical HCT = 53.0 (kills mutants using COUNT(DISTINCT HCT) >= 2)
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (103, '2020-05-01', 53.0);
+INSERT INTO Laboratory (ID, Date, HCT) VALUES (103, '2020-05-02', 53.0);
+```

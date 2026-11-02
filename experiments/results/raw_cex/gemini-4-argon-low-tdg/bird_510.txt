@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (side IS NULL vs NOT NULL), primary sort (convertedManaCost DESC), and secondary tie-breaker sort (id ASC).
+-- Also includes disconnected records in other tables to catch accidental INNER JOINs.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'SET1', 'Set One');
+INSERT INTO "cards" (id, uuid, artist, side, convertedManaCost, faceConvertedManaCost, edhrecRank, name, setCode) VALUES 
+(1, 'uuid-1', 'Artist_Wrong_Side', 'a', 100.0, 5.0, 1, 'Card A', 'SET1'),
+(2, 'uuid-2', 'Artist_Low_CMC', NULL, 2.5, 50.0, 2, 'Card B', 'SET1'),
+(3, 'uuid-3', 'Artist_Tie_Loser', NULL, 10.0, 10.0, 3, 'Card C', 'SET1'),
+(4, 'uuid-4', 'Artist_Expected_Winner', NULL, 10.0, 1.0, 4, 'Card D', 'SET1');
+
+-- Note: id 3 vs id 4 -> id 3 is smaller so in ASC order id 3 wins! Let's make sure the IDs and names clearly reflect who wins.
+```
+
+```sql
+-- DATASET 2
+-- Explicitly isolates the secondary tie-breaker (cards.id ASC) when convertedManaCost is tied at the maximum value.
+-- Also tests that cards without child rows in legalities/rulings/foreign_data are not excluded by erroneous INNER JOINs.
+INSERT INTO "cards" (id, uuid, artist, side, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES 
+(10, 'uuid-10', 'Expected_Artist_ID10', NULL, 8.0, 1.0, 50),
+(20, 'uuid-20', 'Wrong_Artist_ID20', NULL, 8.0, 20.0, 10),
+(5, 'uuid-5', 'Wrong_Artist_Lower_CMC', NULL, 7.5, 100.0, 1);
+
+INSERT INTO "legalities" (id, format, status, uuid) VALUES (1, 'Standard', 'Legal', 'uuid-20');
+INSERT INTO "rulings" (id, date, text, uuid) VALUES (1, '2023-01-01', 'Ruling text', 'uuid-20');
+INSERT INTO "foreign_data" (id, language, name, uuid) VALUES (1, 'Spanish', 'Nombre', 'uuid-20');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in convertedManaCost (in SQLite, NULLs are considered the smallest possible value, so in DESC order they come last).
+-- Also tests empty string '' vs NULL in the `side` column (empty string is NOT NULL).
+INSERT INTO "cards" (id, uuid, artist, side, convertedManaCost) VALUES 
+(1, 'uuid-1', 'Wrong_Artist_Empty_Side', '', 50.0),
+(2, 'uuid-2', 'Wrong_Artist_Null_CMC_1', NULL, NULL),
+(3, 'uuid-3', 'Expected_Artist_Zero_CMC', NULL, 0.0),
+(4, 'uuid-4', 'Wrong_Artist_Negative_CMC', NULL, -1.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests when all valid rows (where side IS NULL) have NULL convertedManaCost, forcing reliance on the secondary sort (cards.id ASC).
+-- Also tests string 'NULL' vs SQL NULL in `side`.
+INSERT INTO "cards" (id, uuid, artist, side, convertedManaCost) VALUES 
+(1, 'uuid-1', 'Wrong_Artist_String_NULL_Side', 'NULL', 99.0),
+(15, 'uuid-15', 'Wrong_Artist_Higher_ID', NULL, NULL),
+(7, 'uuid-7', 'Expected_Artist_Lower_ID', NULL, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests DISTINCT vs non-DISTINCT and LIMIT 1 vs no LIMIT, as well as floating point precision in convertedManaCost.
+-- Also tests potential confusion between `artist`, `name`, `asciiName`, and `faceName`.
+INSERT INTO "cards" (id, uuid, artist, name, asciiName, faceName, side, convertedManaCost) VALUES 
+(1, 'uuid-1', 'Expected_Artist_Precision', 'CardName_1', 'Ascii_1', 'Face_1', NULL, 5.0001),
+(2, 'uuid-2', 'Wrong_Artist_Precision', 'CardName_2', 'Ascii_2', 'Face_2', NULL, 5.0),
+(3, 'uuid-3', 'Expected_Artist_Precision', 'CardName_3', 'Ascii_3', 'Face_3', NULL, 1.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests boundary case where the winning row has `artist` as NULL, while lower-ranked rows have non-NULL `artist` (catches erroneous WHERE artist IS NOT NULL).
+INSERT INTO "cards" (id, uuid, artist, side, convertedManaCost) VALUES 
+(1, 'uuid-1', NULL, NULL, 15.0),
+(2, 'uuid-2', 'Wrong_Artist_Non_Null', NULL, 12.0),
+(3, 'uuid-3', 'Wrong_Artist_Side_B', 'b', 20.0);
+```

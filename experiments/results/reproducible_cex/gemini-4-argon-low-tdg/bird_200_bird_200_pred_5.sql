@@ -1,0 +1,46 @@
+-- Schema DDL
+CREATE TABLE "atom" ("atom_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "element" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "bond" ("bond_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "bond_type" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "connected" ("atom_id" TEXT NOT NULL, "atom_id2" TEXT NOT NULL, "bond_id" TEXT DEFAULT NULL, PRIMARY KEY ("atom_id", "atom_id2"), FOREIGN KEY ("atom_id") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("atom_id2") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("bond_id") REFERENCES "bond" ("bond_id") ON DELETE CASCADE ON UPDATE CASCADE);
+
+CREATE TABLE "molecule" ("molecule_id" TEXT NOT NULL PRIMARY KEY, "label" TEXT DEFAULT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+-- Tests basic positive match, DISTINCT keyword necessity (multiple '#' bonds in the same molecule),
+-- and filtering of wrong bond_type, wrong label, and NULL values.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M3', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M4', NULL);
+INSERT INTO molecule (molecule_id, label) VALUES ('M5', '+');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'M2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'M3', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B6', 'M4', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B7', 'M5', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B8', NULL, '#');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT T2.molecule_id FROM bond AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.bond_type = '#' AND T2.label = '+';
+
+/*
+Gold Result:
+('M1',)
+*/
+
+-- Prediction Query
+SELECT T1.molecule_id FROM molecule AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T2.bond_type = '#' AND T1.label = '+';
+
+/*
+Prediction Result:
+('M1',)
+('M1',)
+*/

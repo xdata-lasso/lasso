@@ -1,0 +1,70 @@
+-- Schema DDL
+CREATE TABLE "SWIMMER" (
+    "ID" INT,
+    "NAME" TEXT,
+    "NATIONALITY" TEXT,
+    "METER_100" FLOAT,
+    "METER_200" TEXT,
+    "METER_300" TEXT,
+    "METER_400" TEXT,
+    "METER_500" TEXT,
+    "METER_600" TEXT,
+    "METER_700" TEXT,
+    "TIME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "STADIUM" (
+    "ID" INT,
+    "NAME" TEXT,
+    "CAPACITY" INT,
+    "CITY" TEXT,
+    "COUNTRY" TEXT,
+    "OPENING_YEAR" INT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "EVENT" (
+    "ID" INT,
+    "STADIUM_ID" INT,
+    "NAME" TEXT,
+    "YEAR" TEXT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("STADIUM_ID") REFERENCES "STADIUM"("ID")
+);
+CREATE TABLE "RECORD" (
+    "SWIMMER_ID" INT,
+    "EVENT_ID" INT,
+    "ID" INT,
+    "RESULT" TEXT,
+    PRIMARY KEY ("SWIMMER_ID", "EVENT_ID"),
+    FOREIGN KEY ("SWIMMER_ID") REFERENCES "SWIMMER"("ID"),
+    FOREIGN KEY ("EVENT_ID") REFERENCES "EVENT"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO SWIMMER VALUES (-2147483647, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO SWIMMER VALUES (-2147483648, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO STADIUM VALUES (-2147483647, 0, -1, 0, 0, 2005);
+INSERT INTO STADIUM VALUES (-2147483648, 0, 1, 0, 0, 2006);
+INSERT INTO EVENT VALUES (-2147483648, -2147483647, 0, 0);
+INSERT INTO EVENT VALUES (-2147483647, -2147483647, 0, 0);
+INSERT INTO RECORD VALUES (-2147483647, -2147483647, -2147483648, 0);
+INSERT INTO RECORD VALUES (-2147483647, -2147483648, -2147483648, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT meancapacity AS avg_capacity_ FROM (SELECT AVG(capacity) AS meancapacity FROM (SELECT * FROM stadium WHERE (opening_year = 2005 OR opening_year >= capacity))) ORDER BY avg_capacity_;
+
+/*
+Gold Result:
+(0.0,)
+*/
+
+-- Prediction Query
+SELECT AVG(capacity) FROM stadium WHERE opening_year = 2005;
+
+/*
+Prediction Result:
+(-1.0,)
+*/

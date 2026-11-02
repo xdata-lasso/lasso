@@ -1,0 +1,48 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (DESC vs ASC), LIMIT 1 vs no limit, and inner insertion order vs sorted order.
+-- Also tests extraneous joins (no rows in coach/player_coach/club).
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (1, 'Sponsor_A', 'Alice', 'F', 'City_X', 'Student', 100, '2');
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (2, 'Sponsor_B', 'Bob', 'M', 'City_Y', 'Engineer', 300, '1');
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (3, 'Sponsor_C', 'Charlie', 'M', 'City_Z', 'Doctor', 200, '3');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on Player_ID ASC (with LIMIT 1).
+-- If a mutant omits the secondary sort on Player_ID or sorts Player_ID DESC, or uses MAX(Votes) without LIMIT 1, it will fail.
+-- Inserted with higher Player_ID first so default physical scan order on tie differs from Player_ID ASC.
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (20, 'Nike', 'Zack', 'M', 'NY', 'Pro', 500, '1');
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (10, 'Adidas', 'Aaron', 'M', 'LA', 'Pro', 500, '1');
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (30, 'Puma', 'Bob', 'M', 'SF', 'Amateur', 100, '2');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Votes (in SQLite, NULLs are considered smaller than any non-NULL value, so ORDER BY Votes DESC puts NULLs last).
+-- Also tests negative votes and 0 votes.
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (1, 'Sp1', 'NullVoter', 'F', 'Res1', 'Occ1', NULL, '1');
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (2, 'Sp2', 'NegVoter', 'M', 'Res2', 'Occ2', -10, '2');
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (3, 'Sp3', 'ZeroVoter', 'F', 'Res3', 'Occ3', 0, '3');
+```
+
+```sql
+-- DATASET 4
+-- Tests sorting by Votes vs sorting by Rank (e.g. if a mutant mistakenly sorts by Rank or filters where Rank = '1').
+-- Also tests string vs integer sorting pitfalls on Votes (e.g., 1000 vs 90: as text '90' > '1000', as integer 1000 > 90).
+-- Also includes related tables where the top voter is NOT in player_coach, catching mutants that inner join player_coach.
+INSERT INTO "club" ("Club_ID", "Club_name", "Region", "Start_year") VALUES (1, 'Alpha Club', 'East', 2000);
+INSERT INTO "coach" ("Coach_ID", "Club_ID", "Coach_name", "Gender", "Rank") VALUES (1, 1, 'Coach Carter', 'M', 1);
+
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (1, 'S1', 'RankOneLowVotes', 'M', 'R1', 'O1', 90, '1');
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (2, 'S2', 'LowRankHighVotes', 'F', 'R2', 'O2', 1000, '9');
+
+INSERT INTO "player_coach" ("Player_ID", "Coach_ID", "Starting_year") VALUES (1, 1, 2020);
+```
+
+```sql
+-- DATASET 5
+-- Tests when all players have NULL votes, ensuring tie-breaker (Player_ID ASC) still works and returns a row (unlike WHERE Votes = (SELECT MAX(Votes)...)).
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (5, 'S5', 'PlayerFive', 'M', 'R5', 'O5', NULL, '2');
+INSERT INTO "player" ("Player_ID", "Sponsor_name", "Player_name", "Gender", "Residence", "Occupation", "Votes", "Rank") VALUES (2, 'S2', 'PlayerTwo', 'F', 'R2', 'O2', NULL, '1');
+```

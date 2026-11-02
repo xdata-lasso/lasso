@@ -1,0 +1,49 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (out-of-order insertion), conflicting column orders, and missing foreign key relationships (unmatched customer_id, no financial transactions) to catch unnecessary INNER JOINs or incorrect ORDER BY clauses.
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name, customer_address, customer_phone, customer_email, other_customer_details) VALUES (10, 'Alice', 'Smith', '123 Main St', '555-0100', 'alice@example.com', 'Regular');
+
+INSERT INTO Accounts (account_id, customer_id, account_name, other_account_details) VALUES (100, 10, 'Checking', 'Active');
+
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (3, 10, 'VISA', '1111222233334444', '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Primary');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (1, 99, 'MASTERCARD', '9999888877776666', '2021-06-15 00:00:00', '2024-06-15 00:00:00', 'Orphan Customer');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 10, 'AMEX', '5555666677778888', '2019-03-10 00:00:00', '2023-03-10 00:00:00', 'Secondary');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL values in non-primary key columns and multiple transactions per card to catch unnecessary joins to Financial_Transactions (which would duplicate rows) or Customers (which would drop NULL customer_ids), as well as improper WHERE IS NOT NULL filters.
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name, customer_address, customer_phone, customer_email, other_customer_details) VALUES (1, 'Bob', 'Jones', '456 Oak Ave', '555-0200', 'bob@example.com', NULL);
+
+INSERT INTO Accounts (account_id, customer_id, account_name, other_account_details) VALUES (1, 1, 'Savings', NULL);
+
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (10, 1, 'DEBIT', '4000123456789010', '2022-01-01 08:00:00', '2026-01-01 08:00:00', 'Active Card');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (5, NULL, NULL, NULL, NULL, NULL, NULL);
+
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, previous_transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (1, 10, 1001, NULL, 'PURCHASE', '2022-05-01 12:30:00', 50.25, 'Grocery', NULL);
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, previous_transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (1, 10, 1002, 1001, 'REFUND', '2022-05-02 15:45:00', -50.25, 'Return', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests negative, zero, and multi-digit card_ids to catch string-based sorting (e.g., CAST(card_id AS TEXT)) vs integer sorting, and includes multiple accounts per customer to catch joins to the Accounts table.
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name, customer_address, customer_phone, customer_email, other_customer_details) VALUES (50, 'Charlie', 'Brown', '789 Pine Rd', '555-0300', 'charlie@example.com', 'VIP');
+
+INSERT INTO Accounts (account_id, customer_id, account_name, other_account_details) VALUES (501, 50, 'Checking 1', 'First');
+INSERT INTO Accounts (account_id, customer_id, account_name, other_account_details) VALUES (502, 50, 'Checking 2', 'Second');
+
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (10, 50, 'VISA', '1234', '2020-01-01', '2025-01-01', 'A');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 50, 'VISA', '1234', '2020-01-01', '2025-01-01', 'B');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (-5, 50, 'DISCOVER', '5678', '2010-01-01', '2015-01-01', 'Expired');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (0, 50, 'CREDIT', '0000', '2023-01-01', '2028-01-01', 'Zero ID');
+```
+
+```sql
+-- DATASET 4
+-- Tests queries that mistakenly use GROUP BY customer_id, card_type_code, or card_number, or filters on specific common card_type_code values, by having a single customer hold multiple cards with identical types and numbers but distinct card_ids.
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name, customer_address, customer_phone, customer_email, other_customer_details) VALUES (20, 'Dana', 'White', '321 Elm St', '555-0400', 'dana@example.com', 'Notes');
+
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (102, 20, 'Prepaid', '7777777777777777', '2023-01-01', '2024-01-01', 'Replacement 2');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (101, 20, 'Prepaid', '7777777777777777', '2022-01-01', '2023-01-01', 'Replacement 1');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (100, 20, 'Prepaid', '7777777777777777', '2021-01-01', '2022-01-01', 'Original');
+```

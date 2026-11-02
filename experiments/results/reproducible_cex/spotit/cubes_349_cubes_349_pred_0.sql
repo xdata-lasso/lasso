@@ -1,0 +1,66 @@
+-- Schema DDL
+CREATE TABLE "CONDUCTOR" (
+    "CONDUCTOR_ID" INT,
+    "NAME" TEXT,
+    "AGE" INT,
+    "NATIONALITY" TEXT,
+    "YEAR_OF_WORK" INT,
+    PRIMARY KEY ("CONDUCTOR_ID")
+);
+CREATE TABLE "ORCHESTRA" (
+    "ORCHESTRA_ID" INT,
+    "CONDUCTOR_ID" INT,
+    "ORCHESTRA" TEXT,
+    "RECORD_COMPANY" TEXT,
+    "YEAR_OF_FOUNDED" FLOAT,
+    "MAJOR_RECORD_FORMAT" TEXT,
+    PRIMARY KEY ("ORCHESTRA_ID"),
+    FOREIGN KEY ("CONDUCTOR_ID") REFERENCES "CONDUCTOR"("CONDUCTOR_ID")
+);
+CREATE TABLE "PERFORMANCE" (
+    "PERFORMANCE_ID" INT,
+    "ORCHESTRA_ID" INT,
+    "TYPE" TEXT,
+    "DATE" TEXT,
+    "OFFICIAL_RATINGS_MILLIONS" FLOAT,
+    "WEEKLY_RANK" TEXT,
+    "SHARE" TEXT,
+    PRIMARY KEY ("PERFORMANCE_ID"),
+    FOREIGN KEY ("ORCHESTRA_ID") REFERENCES "ORCHESTRA"("ORCHESTRA_ID")
+);
+CREATE TABLE "SHOW" (
+    "PERFORMANCE_ID" INT,
+    "SHOW_ID" INT,
+    "IF_FIRST_SHOW" INT,
+    "RESULT" TEXT,
+    "ATTENDANCE" FLOAT,
+    FOREIGN KEY ("PERFORMANCE_ID") REFERENCES "PERFORMANCE"("PERFORMANCE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO CONDUCTOR VALUES (1, 0, 0, 0, 0);
+INSERT INTO CONDUCTOR VALUES (0, 0, 0, 0, 0);
+INSERT INTO ORCHESTRA VALUES (1, 1, 17, 0, 18, 19);
+INSERT INTO ORCHESTRA VALUES (0, 1, 17, 0, 18, 19);
+INSERT INTO PERFORMANCE VALUES (1, 0, 0, 0, 0, 0, 0);
+INSERT INTO PERFORMANCE VALUES (0, 0, 0, 0, 0, 0, 0);
+INSERT INTO SHOW VALUES (1, 0, 0, 0, 0);
+INSERT INTO SHOW VALUES (1, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT record_company_other AS record_company FROM (SELECT LHS.record_company AS record_company, LHS.n AS n, RHS.record_company AS record_company_other, RHS.n AS n_other FROM (SELECT record_company, COUNT(*) AS n FROM orchestra GROUP BY record_company) AS LHS CROSS JOIN (SELECT record_company, COUNT(*) AS n FROM orchestra GROUP BY record_company) AS RHS) WHERE (n < n_other) ORDER BY record_company;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT Record_Company FROM orchestra GROUP BY Record_Company ORDER BY COUNT(*) DESC, Record_Company NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('0',)
+*/

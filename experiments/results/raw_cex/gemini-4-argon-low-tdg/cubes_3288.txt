@@ -1,0 +1,48 @@
+```sql
+-- DATASET 1
+-- Empty user_profiles table: Window function COUNT(*) OVER () returns 0 rows, whereas simple aggregate SELECT COUNT(*) returns 1 row with value 0.
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (1, 'Temp', 'temp@example.com', 1, 0);
+DELETE FROM "user_profiles" WHERE "uid" = 1;
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows with NULLs, duplicate column values, and asymmetric foreign key relationships across other tables.
+-- Tests:
+-- 1. Missing DISTINCT (would return 4 rows of '4' instead of 1 row of '4').
+-- 2. COUNT(col) vs COUNT(*) (NULLs in name, email, partitionid, followers will yield < 4 if a specific column is counted).
+-- 3. COUNT(DISTINCT col) vs COUNT(*) (duplicate values in non-PK columns).
+-- 4. Unnecessary INNER JOINs with follows or tweets (User 1 has 2 tweets, User 2 has 1 tweet, Users 3 & 4 have 0 tweets).
+-- 5. Querying the wrong table (user_profiles has 4 rows, tweets has 3 rows, follows has 2 rows).
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (1, 'Alice', 'alice@test.com', 10, 100);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (2, 'Alice', NULL, 10, 100);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (3, NULL, 'bob@test.com', NULL, 200);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (4, 'Charlie', 'bob@test.com', 20, NULL);
+
+INSERT INTO "follows" ("f1", "f2") VALUES (1, 2);
+INSERT INTO "follows" ("f1", "f2") VALUES (2, 3);
+
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (101, 1, 'First tweet', '2023-01-01 10:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (102, 1, 'Second tweet', '2023-01-02 11:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (103, 2, 'Hello world', '2023-01-03 12:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Single row with all nullable columns set to NULL and 0 followers/partitionid, plus boundary values.
+-- Tests single-row edge cases, SUM/AVG confusion with COUNT, and COALESCE/NULL handling mutants.
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (0, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Partitioning and Ordering trap:
+-- If a mutant introduces PARTITION BY (e.g., PARTITION BY partitionid or name) or ORDER BY inside OVER(...),
+-- the window count will split into different values (e.g., 1, 2, 3) instead of a single total count (5),
+-- causing SELECT DISTINCT to output multiple rows instead of 1.
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (10, 'UserA', 'a@test.com', 1, 5);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (20, 'UserB', 'b@test.com', 1, 50);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (30, 'UserC', 'c@test.com', 2, 50);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (40, 'UserD', 'd@test.com', 2, 500);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (50, 'UserE', 'e@test.com', 2, 5000);
+```

@@ -1,0 +1,37 @@
+-- Schema DDL
+CREATE TABLE "CUSTOMERS" (
+    "ID" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "ORDERS" (
+    "ID" INT,
+    "CUSTOMERID" INT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("CUSTOMERID") REFERENCES "CUSTOMERS"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO CUSTOMERS VALUES (1, 0);
+INSERT INTO CUSTOMERS VALUES (0, 0);
+INSERT INTO ORDERS VALUES (0, 1);
+INSERT INTO ORDERS VALUES (1, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name AS Customers FROM Customers WHERE NOT id IN (SELECT customerID FROM Orders);
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT C.NAME AS CUSTOMERS FROM CUSTOMERS AS C WHERE NOT EXISTS(SELECT 1 FROM ORDERS WHERE C.ID = CUSTOMERID);
+
+/*
+Prediction Result:
+('0',)
+*/

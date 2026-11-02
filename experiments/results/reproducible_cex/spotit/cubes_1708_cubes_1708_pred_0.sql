@@ -1,0 +1,58 @@
+-- Schema DDL
+CREATE TABLE "AIRPORT" (
+    "ID" INT,
+    "CITY" TEXT,
+    "COUNTRY" TEXT,
+    "IATA" TEXT,
+    "ICAO" TEXT,
+    "NAME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "OPERATE_COMPANY" (
+    "ID" INT,
+    "NAME" TEXT,
+    "TYPE" TEXT,
+    "PRINCIPAL_ACTIVITIES" TEXT,
+    "INCORPORATED_IN" TEXT,
+    "GROUP_EQUITY_SHAREHOLDING" FLOAT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "FLIGHT" (
+    "ID" INT,
+    "COMPANY_ID" INT,
+    "AIRPORT_ID" INT,
+    "VEHICLE_FLIGHT_NUMBER" TEXT,
+    "DATE" TEXT,
+    "PILOT" TEXT,
+    "VELOCITY" FLOAT,
+    "ALTITUDE" FLOAT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("COMPANY_ID") REFERENCES "OPERATE_COMPANY"("ID"),
+    FOREIGN KEY ("AIRPORT_ID") REFERENCES "AIRPORT"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO AIRPORT VALUES (0, 11, 0, 12, 13, 14);
+INSERT INTO AIRPORT VALUES (1, 11, 0, 12, 13, 14);
+INSERT INTO OPERATE_COMPANY VALUES (-1, 0, 0, 0, 0, 0);
+INSERT INTO OPERATE_COMPANY VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO FLIGHT VALUES (-1, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO FLIGHT VALUES (0, 0, 0, 0, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT country FROM (SELECT country, COUNT(*) AS n FROM airport GROUP BY country) WHERE (n >= 2) ORDER BY country;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT country FROM airport GROUP BY country HAVING COUNT(*) > 2;
+
+/*
+Prediction Result:
+*/

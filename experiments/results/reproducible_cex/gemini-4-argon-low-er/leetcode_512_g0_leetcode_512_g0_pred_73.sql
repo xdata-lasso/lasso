@@ -1,0 +1,23 @@
+-- Schema DDL
+CREATE TABLE "Activity" ("player_id" INTEGER, "event_date" DATE, "device_id" INTEGER, "games_played" INTEGER, PRIMARY KEY ("player_id", "event_date"), CHECK ("games_played" >= 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Activity" ("player_id", "event_date", "device_id", "games_played") VALUES (NULL, NULL, 1, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT PLAYER_ID, DEVICE_ID FROM ACTIVITY WHERE (PLAYER_ID, EVENT_DATE) IN (SELECT PLAYER_ID, MIN(EVENT_DATE) FROM ACTIVITY GROUP BY PLAYER_ID);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH TEMP AS (SELECT PLAYER_ID, MIN(EVENT_DATE) AS FIRST_LOGIN FROM ACTIVITY GROUP BY PLAYER_ID) SELECT A.PLAYER_ID, DEVICE_ID FROM TEMP AS A LEFT JOIN ACTIVITY AS B ON A.PLAYER_ID = B.PLAYER_ID AND A.FIRST_LOGIN = B.EVENT_DATE;
+
+/*
+Prediction Result:
+(None, None)
+*/

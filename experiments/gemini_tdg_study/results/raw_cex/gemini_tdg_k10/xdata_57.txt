@@ -1,0 +1,128 @@
+```sql
+-- DATASET 1
+-- t1.ID = '10101' teaches in 2015, but another instructor t2 teaches in 2010.
+-- Both subquery conditions are met -> Gold query returns 0 rows.
+-- Catches mutants that conflate t1 and t2 (requiring 10101 to teach in 2010).
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Comp. Sci.', 65000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('12121', 'Wu', 'Comp. Sci.', 90000.00);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('CS-101', '1', 'Fall', 2015);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('CS-101', '2', 'Spring', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-101', '1', 'Fall', 2015);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('12121', 'CS-101', '2', 'Spring', 2010);
+```
+
+```sql
+-- DATASET 2
+-- ID '10101' teaches in 2010 (both conditions met by the same section/teaches tuple).
+-- Gold query returns 0 rows. Catches mutants that incorrectly correlate outer instructor.ID with t1.ID.
+INSERT INTO department (dept_name, building, budget) VALUES ('Physics', 'Watson', 70000.00);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('PHY-101', 'Mechanics', 'Physics', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Einstein', 'Physics', 95000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('22222', 'Bohr', 'Physics', 80000.00);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('PHY-101', '1', 'Fall', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'PHY-101', '1', 'Fall', 2010);
+```
+
+```sql
+-- DATASET 3
+-- ID '10101' teaches, but NO teaches row has year = 2010 (only 2009 and 2011).
+-- Subquery is FALSE -> Gold query returns all instructors with valid departments (including '10101').
+-- Catches mutants that omit the t2.year = 2010 condition.
+INSERT INTO department (dept_name, building, budget) VALUES ('Finance', 'Painter', 120000.00);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('FIN-201', 'Investments', 'Finance', 3);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Finance', 75000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('33333', 'Katz', 'Finance', 85000.00);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('FIN-201', '1', 'Spring', 2009);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('FIN-201', '2', 'Fall', 2011);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'FIN-201', '1', 'Spring', 2009);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('33333', 'FIN-201', '2', 'Fall', 2011);
+```
+
+```sql
+-- DATASET 4
+-- Teaches has a row for year 2010, but ID '10101' does not teach anything.
+-- Subquery is FALSE -> Gold query returns instructors.
+-- Catches mutants that omit checking t1.ID = '10101'.
+INSERT INTO department (dept_name, building, budget) VALUES ('Biology', 'Watson', 90000.00);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('BIO-101', 'Intro Bio', 'Biology', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Biology', 65000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('44444', 'Crick', 'Biology', 72000.00);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('BIO-101', '1', 'Summer', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('44444', 'BIO-101', '1', 'Summer', 2010);
+```
+
+```sql
+-- DATASET 5
+-- Instructor table contains an instructor whose dept_name is NULL (outer join vs inner join test).
+-- Subquery is FALSE (teaches is empty). Gold returns only instructors with non-null matching dept_name.
+INSERT INTO department (dept_name, building, budget) VALUES ('Music', 'Packard', 50000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('55555', 'Mozart', 'Music', 40000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('66666', 'Beethoven', NULL, 45000.00);
+```
+
+```sql
+-- DATASET 6
+-- Subquery is FALSE because teaches and section are completely empty.
+-- Multiple instructors across multiple departments.
+-- Gold query returns all instructors. Catches mutants that assume subquery truth or join errors.
+INSERT INTO department (dept_name, building, budget) VALUES ('History', 'Painter', 60000.00);
+INSERT INTO department (dept_name, building, budget) VALUES ('Math', 'Taylor', 80000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'History', 62000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('77777', 'Gauss', 'Math', 95000.00);
+```
+
+```sql
+-- DATASET 7
+-- ID '10101' is in teaches with year 2010, but section has year 2011 (violating section join condition).
+-- Since FOREIGN KEY (course_id, sec_id, semester, year) REFERENCES section, we create matching section for 2010,
+-- but test when '10101' does NOT exist in instructor table at all, yet other instructors do exist.
+-- Subquery is TRUE (10101 teaches in 2010) -> Gold query returns 0 rows.
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-201', 'Data Structures', 'Comp. Sci.', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Comp. Sci.', 65000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('88888', 'Turing', 'Comp. Sci.', 99000.00);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('CS-201', '1', 'Fall', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-201', '1', 'Fall', 2010);
+```
+
+```sql
+-- DATASET 8
+-- ID '10101' teaches in 2010, so subquery is TRUE.
+-- Department exists with no instructors, plus instructors from other departments.
+-- Gold query returns 0 rows. Catches EXISTS vs NOT EXISTS inversion mutants.
+INSERT INTO department (dept_name, building, budget) VALUES ('EE', 'Taylor', 110000.00);
+INSERT INTO department (dept_name, building, budget) VALUES ('Art', 'Painter', 40000.00);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('EE-101', 'Circuits', 'EE', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Tesla', 'EE', 88000.00);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('EE-101', '1', 'Spring', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'EE-101', '1', 'Spring', 2010);
+```
+
+```sql
+-- DATASET 9
+-- ID '10101' teaches in year 2010, but section table has another section.
+-- Multiple rows in teaches for 10101 and others to test duplicate elimination / cardinality effects.
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-301', 'Algorithms', 'Comp. Sci.', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Comp. Sci.', 65000.00);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('CS-101', '1', 'Fall', 2010);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('CS-301', '1', 'Fall', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-101', '1', 'Fall', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-301', '1', 'Fall', 2010);
+```
+
+```sql
+-- DATASET 10
+-- No instructor with ID '10101' exists in instructor or teaches table.
+-- Another instructor teaches in 2010.
+-- Subquery is FALSE -> Gold query returns all existing instructors.
+-- Catches mutants assuming 10101 must exist or confusing EXISTS / NOT EXISTS conditions.
+INSERT INTO department (dept_name, building, budget) VALUES ('Chemistry', 'Watson', 85000.00);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CHEM-101', 'General Chem', 'Chemistry', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('99999', 'Curie', 'Chemistry', 92000.00);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('CHEM-101', '1', 'Spring', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('99999', 'CHEM-101', '1', 'Spring', 2010);
+```

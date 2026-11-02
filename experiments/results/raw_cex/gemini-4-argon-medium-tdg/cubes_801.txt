@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Empty Appointment table, but populated Physician, Patient, Nurse, Medication, Prescribes, Stay, Room, Block.
+-- Catches mutants counting other tables (e.g., Patient, Physician, Prescribes, Stay), or using GROUP BY (returning 0 rows instead of 1 row with 0).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Dorian', 'Staff Internist', 111111111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Elliot Reid', 'Attending Physician', 222222222);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100000001, 1, 'John Smith', '42 Foobar Lane', '555-0256', 68476213);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100000002, 2, 'Grace Ritchie', '37 Snafu Drive', '555-0512', 36546321);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100000003, 1, 'Random J. Patient', '101 Omgbbq Street', '555-1204', 65465421);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (101, 'Carla Espinosa', 'Head Nurse', 1, 111111110);
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (1, 'Procrastin-X', 'X', 'N/A');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 100000001, 1, '2008-04-24 10:47:00', NULL, '5');
+```
+
+```sql
+-- DATASET 2
+-- Multiple appointments sharing the same Physician, Patient, PrepNurse, Start, End, ExaminationRoom, and some with NULL columns (especially PrepNurse, Start, End, ExaminationRoom).
+-- Catches mutants using COUNT(PrepNurse), COUNT(ExaminationRoom), COUNT(DISTINCT Patient), COUNT(DISTINCT Physician), COUNT(DISTINCT ExaminationRoom), INNER JOINs with Nurse/Physician/Patient, or GROUP BY clauses.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Dorian', 'Staff Internist', 111111111);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100000001, 1, 'John Smith', '42 Foobar Lane', '555-0256', 68476213);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (101, 'Carla Espinosa', 'Head Nurse', 1, 111111110);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (10, 1, 101, 100000001, '2008-04-24 10:00:00', '2008-04-24 11:00:00', 'A');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (20, 1, NULL, 100000001, '2008-04-24 10:00:00', '2008-04-24 11:00:00', 'A');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (30, 1, NULL, 100000001, NULL, NULL, NULL);
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (40, NULL, NULL, NULL, NULL, NULL, 'B');
+```
+
+```sql
+-- DATASET 3
+-- Appointments with multiple Prescribes referencing the same Appointment, and unreferenced Appointments.
+-- Catches mutants joining Appointment with Prescribes (which either drops unreferenced appointments or duplicates appointments with multiple prescriptions), or mutants using SUM(AppointmentID) / MAX(AppointmentID) / MIN(AppointmentID) instead of COUNT(*).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Dorian', 'Staff Internist', 111111111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Elliot Reid', 'Attending Physician', 222222222);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100000001, 1, 'John Smith', '42 Foobar Lane', '555-0256', 68476213);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100000002, 2, 'Grace Ritchie', '37 Snafu Drive', '555-0512', 36546321);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (101, 'Carla Espinosa', 'Head Nurse', 1, 111111110);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (102, 'Laverne Roberts', 'Nurse', 1, 222222220);
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (1, 'MedA', 'BrandA', 'DescA');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (2, 'MedB', 'BrandB', 'DescB');
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (100, 1, 101, 100000001, '2008-04-24 10:00:00', '2008-04-24 11:00:00', 'A');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (200, 2, 102, 100000002, '2008-04-25 10:00:00', '2008-04-25 11:00:00', 'B');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (300, 1, 102, 100000002, '2008-04-26 10:00:00', '2008-04-26 11:00:00', 'C');
+
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 100000001, 1, '2008-04-24 10:47:00', 100, '5mg');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 100000001, 2, '2008-04-24 10:48:00', 100, '10mg');
+```
+
+```sql
+-- DATASET 4
+-- Single row in Appointment with ID != 1, and distinct counts in all other tables (2 Physicians, 3 Patients, 4 Nurses, 5 Procedures).
+-- Catches off-by-one errors, wrong table counts, or selecting AppointmentID directly instead of COUNT(*).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'P1', 'Pos1', 111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'P2', 'Pos2', 222);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1, 10, 'Pat1', 'Addr1', '555-1', 101);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (2, 10, 'Pat2', 'Addr2', '555-2', 102);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (3, 20, 'Pat3', 'Addr3', '555-3', 103);
+
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'N1', 'Nurse', 1, 1001);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (2, 'N2', 'Nurse', 1, 1002);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (3, 'N3', 'Nurse', 0, 1003);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (4, 'N4', 'Nurse', 0, 1004);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (1, 'Proc1', 100.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (2, 'Proc2', 200.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (3, 'Proc3', 300.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (4, 'Proc4', 400.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (5, 'Proc5', 500.0);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (99, 10, 1, 1, '2020-01-01 09:00:00', '2020-01-01 10:00:00', 'Room1');
+```

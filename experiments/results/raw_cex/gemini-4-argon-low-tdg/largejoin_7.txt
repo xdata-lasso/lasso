@@ -1,0 +1,141 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary condition where COUNT(RA.B) = 3 (fails > 3, passes >= 3)
+-- Also tests NATURAL JOIN / INNER JOIN mutants since some foreign keys are NULL
+INSERT INTO RA (A1, B) VALUES ('A1', 'X');
+INSERT INTO RB (A2, B) VALUES ('B1', 'A1');
+INSERT INTO RC (A3, B) VALUES ('C1', 'B1');
+INSERT INTO RC (A3, B) VALUES ('C2', NULL);
+INSERT INTO RC (A3, B) VALUES ('C3', NULL);
+INSERT INTO RD (A4, B) VALUES ('D1', 'C1');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition where COUNT(RA.B) = 4 (passes > 3, fails > 4)
+-- Also tests COUNT(*) vs COUNT(RA.B) by including a group where RA.B is NULL (4 rows, COUNT(RA.B) = 0, COUNT(*) = 4)
+-- Also tests GROUP BY removal or grouping by RA.A1 instead of RA.B
+INSERT INTO RA (A1, B) VALUES ('A1', 'VAL1');
+INSERT INTO RA (A1, B) VALUES ('A2', 'VAL1');
+INSERT INTO RA (A1, B) VALUES ('A3', NULL);
+INSERT INTO RA (A1, B) VALUES ('A4', NULL);
+INSERT INTO RB (A2, B) VALUES ('B1', 'A1');
+INSERT INTO RB (A2, B) VALUES ('B2', 'A3');
+INSERT INTO RC (A3, B) VALUES ('C1', 'B1');
+INSERT INTO RD (A4, B) VALUES ('D1', 'C1');
+```
+
+```sql
+-- DATASET 3
+-- Tests omission of tables from the CROSS JOIN (RB=2, RC=2, RD=2 -> product is 8)
+-- Also tests INNER JOIN vs CROSS JOIN: the valid FK chain only produces 1 tuple, while CROSS JOIN produces 8
+-- Also tests COUNT(DISTINCT ...) mutants since all values in a group are identical
+INSERT INTO RA (A1, B) VALUES ('A1', 'G1');
+INSERT INTO RA (A1, B) VALUES ('A2', 'G2');
+INSERT INTO RB (A2, B) VALUES ('B1', 'A1');
+INSERT INTO RB (A2, B) VALUES ('B2', 'A2');
+INSERT INTO RC (A3, B) VALUES ('C1', 'B1');
+INSERT INTO RC (A3, B) VALUES ('C2', NULL);
+INSERT INTO RD (A4, B) VALUES ('D1', 'C1');
+INSERT INTO RD (A4, B) VALUES ('D2', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty table behavior in CROSS JOIN (RD is empty, so result must be empty even though RA*RB*RC > 3)
+-- Kills mutants that omit RD from the FROM clause
+INSERT INTO RA (A1, B) VALUES ('A1', 'G1');
+INSERT INTO RB (A2, B) VALUES ('B1', 'A1');
+INSERT INTO RB (A2, B) VALUES ('B2', 'A1');
+INSERT INTO RC (A3, B) VALUES ('C1', 'B1');
+INSERT INTO RC (A3, B) VALUES ('C2', 'B2');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple groups with differing counts in RA (one group has 2 rows -> count 4; one group has 1 row -> count 2)
+-- Kills mutants that omit GROUP BY, or use HAVING COUNT(RB.B) when RB.B has NULLs, or select wrong columns (e.g. RA.A1, RB.B)
+INSERT INTO RA (A1, B) VALUES ('A1', 'PASS');
+INSERT INTO RA (A1, B) VALUES ('A2', 'PASS');
+INSERT INTO RA (A1, B) VALUES ('A3', 'FAIL');
+INSERT INTO RB (A2, B) VALUES ('B1', 'A1');
+INSERT INTO RB (A2, B) VALUES ('B2', NULL);
+INSERT INTO RC (A3, B) VALUES ('C1', 'B1');
+INSERT INTO RD (A4, B) VALUES ('D1', 'C1');
+```
+
+```sql
+-- DATASET 6
+-- Tests inclusion of extra tables (RE, RF, RG, RH, RI, RJ)
+-- Here RA*RB*RC*RD = 4, but RE is empty (0 rows). Any mutant joining RE..RJ will return empty.
+-- Also tests RB, RC, RD having all NULLs in column B (kills COUNT(RB.B), COUNT(RC.B), COUNT(RD.B) mutants).
+INSERT INTO RA (A1, B) VALUES ('A1', 'VALID');
+INSERT INTO RB (A2, B) VALUES ('B1', NULL);
+INSERT INTO RB (A2, B) VALUES ('B2', NULL);
+INSERT INTO RC (A3, B) VALUES ('C1', NULL);
+INSERT INTO RD (A4, B) VALUES ('D1', NULL);
+INSERT INTO RD (A4, B) VALUES ('D2', NULL);
+```
+
+```sql
+-- DATASET 7
+-- Tests extra tables (RE..RJ) having multiple rows while RA*RB*RC*RD = 2 (which is <= 3).
+-- If a mutant includes RE, the count becomes 2 * 2 = 4 (> 3) and falsely returns the row.
+INSERT INTO RA (A1, B) VALUES ('A1', 'TEST');
+INSERT INTO RB (A2, B) VALUES ('B1', 'A1');
+INSERT INTO RC (A3, B) VALUES ('C1', 'B1');
+INSERT INTO RD (A4, B) VALUES ('D1', 'C1');
+INSERT INTO RD (A4, B) VALUES ('D2', 'C1');
+INSERT INTO RE (A5, B) VALUES ('E1', 'D1');
+INSERT INTO RE (A5, B) VALUES ('E2', 'D2');
+INSERT INTO RF (A6, B) VALUES ('F1', 'E1');
+INSERT INTO RF (A6, B) VALUES ('F2', 'E2');
+INSERT INTO RG (A7, B) VALUES ('G1', 'F1');
+INSERT INTO RG (A7, B) VALUES ('G2', 'F2');
+INSERT INTO RH (A8, B) VALUES ('H1', 'G1');
+INSERT INTO RH (A8, B) VALUES ('H2', 'G2');
+INSERT INTO RI (A9, B) VALUES ('I1', 'H1');
+INSERT INTO RI (A9, B) VALUES ('I2', 'H2');
+INSERT INTO RJ (A10, B) VALUES ('J1', 'I1');
+INSERT INTO RJ (A10, B) VALUES ('J2', 'I2');
+```
+
+```sql
+-- DATASET 8
+-- Tests omission of RB or RC specifically
+-- Sizes: RA=1, RB=4, RC=1, RD=1 (if RB omitted, count=1; with RB, count=4)
+INSERT INTO RA (A1, B) VALUES ('A1', 'RB_T');
+INSERT INTO RB (A2, B) VALUES ('B1', 'A1');
+INSERT INTO RB (A2, B) VALUES ('B2', 'A1');
+INSERT INTO RB (A2, B) VALUES ('B3', 'A1');
+INSERT INTO RB (A2, B) VALUES ('B4', 'A1');
+INSERT INTO RC (A3, B) VALUES ('C1', 'B1');
+INSERT INTO RD (A4, B) VALUES ('D1', 'C1');
+```
+
+```sql
+-- DATASET 9
+-- Tests omission of RA or RD specifically
+-- Sizes: RA=1, RB=1, RC=1, RD=4 (if RD omitted, count=1; with RD, count=4)
+INSERT INTO RA (A1, B) VALUES ('A1', 'RD_T');
+INSERT INTO RB (A2, B) VALUES ('B1', 'A1');
+INSERT INTO RC (A3, B) VALUES ('C1', 'B1');
+INSERT INTO RD (A4, B) VALUES ('D1', 'C1');
+INSERT INTO RD (A4, B) VALUES ('D2', 'C1');
+INSERT INTO RD (A4, B) VALUES ('D3', 'C1');
+INSERT INTO RD (A4, B) VALUES ('D4', 'C1');
+```
+
+```sql
+-- DATASET 10
+-- Tests GROUP BY RB.B, RC.B, or RD.B instead of RA.B
+-- RA has 1 group ('SAME') of 4 rows, while RB, RC, RD have 1 row each.
+-- Also tests DISTINCT vs GROUP BY when HAVING is mutated or omitted.
+INSERT INTO RA (A1, B) VALUES ('A1', 'SAME');
+INSERT INTO RA (A1, B) VALUES ('A2', 'SAME');
+INSERT INTO RA (A1, B) VALUES ('A3', 'SAME');
+INSERT INTO RA (A1, B) VALUES ('A4', 'SAME');
+INSERT INTO RB (A2, B) VALUES ('B1', 'A1');
+INSERT INTO RC (A3, B) VALUES ('C1', 'B1');
+INSERT INTO RD (A4, B) VALUES ('D1', 'C1');
+```

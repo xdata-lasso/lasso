@@ -1,0 +1,69 @@
+-- Schema DDL
+CREATE TABLE circuits (circuitId INTEGER PRIMARY KEY AUTOINCREMENT, circuitRef TEXT DEFAULT '' NOT NULL, name TEXT DEFAULT '' NOT NULL, location TEXT, country TEXT, lat REAL, lng REAL, alt INTEGER, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE constructors (constructorId INTEGER PRIMARY KEY AUTOINCREMENT, constructorRef TEXT DEFAULT '' NOT NULL, name TEXT DEFAULT '' NOT NULL UNIQUE, nationality TEXT, url TEXT DEFAULT '' NOT NULL);
+
+CREATE TABLE drivers (driverId INTEGER PRIMARY KEY AUTOINCREMENT, driverRef TEXT DEFAULT '' NOT NULL, number INTEGER, code TEXT, forename TEXT DEFAULT '' NOT NULL, surname TEXT DEFAULT '' NOT NULL, dob DATE, nationality TEXT, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE seasons (year INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE races (raceId INTEGER PRIMARY KEY AUTOINCREMENT, year INTEGER DEFAULT 0 NOT NULL, round INTEGER DEFAULT 0 NOT NULL, circuitId INTEGER DEFAULT 0 NOT NULL, name TEXT DEFAULT '' NOT NULL, date DATE DEFAULT '0000-00-00' NOT NULL, time TEXT, url TEXT UNIQUE, FOREIGN KEY (year) REFERENCES seasons (year), FOREIGN KEY (circuitId) REFERENCES circuits (circuitId));
+
+CREATE TABLE constructorResults (constructorResultsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, points REAL, status TEXT, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE constructorStandings (constructorStandingsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT, wins INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE driverStandings (driverStandingsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT, wins INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE lapTimes (raceId INTEGER NOT NULL, driverId INTEGER NOT NULL, lap INTEGER NOT NULL, position INTEGER, time TEXT, milliseconds INTEGER, PRIMARY KEY (raceId, driverId, lap), FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE pitStops (raceId INTEGER NOT NULL, driverId INTEGER NOT NULL, stop INTEGER NOT NULL, lap INTEGER NOT NULL, time TEXT NOT NULL, duration TEXT, milliseconds INTEGER, PRIMARY KEY (raceId, driverId, stop), FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE qualifying (qualifyId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, number INTEGER DEFAULT 0 NOT NULL, position INTEGER, q1 TEXT, q2 TEXT, q3 TEXT, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE status (statusId INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT DEFAULT '' NOT NULL);
+
+CREATE TABLE results (resultId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, number INTEGER, grid INTEGER DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT DEFAULT '' NOT NULL, positionOrder INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, laps INTEGER DEFAULT 0 NOT NULL, time TEXT, milliseconds INTEGER, fastestLap INTEGER, rank INTEGER DEFAULT 0, fastestLapTime TEXT, fastestLapSpeed TEXT, statusId INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId), FOREIGN KEY (statusId) REFERENCES status (statusId));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'albert_park', 'Australian Grand Prix', 'http://circuit1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (2, 'sepang', 'Sepang International Circuit', 'http://circuit2');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://season2010');
+INSERT INTO seasons (year, url) VALUES (2011, 'http://season2011');
+INSERT INTO seasons (year, url) VALUES (2012, 'http://season2012');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://driver1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'vettel', 'Sebastian', 'Vettel', 'http://driver2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2011, 1, 2, 'Australian Grand Prix', '2011-03-27', 'http://race1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2010, 1, 1, 'Australian Grand Prix', '2010-03-28', 'http://race2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2012, 1, 1, 'Australian Grand Prix', '2012-03-18', 'http://race3');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 2011, 2, 1, 'Malaysian Grand Prix', '2011-04-10', 'http://race4');
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 1, 14, '14:00:00', '22.500', 22500);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 2, 1, 15, '14:02:00', '22.500', 22500);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 2, 36, '14:30:00', '24.100', 24100);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (2, 1, 1, 12, '14:10:00', '99.100', 99100);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (3, 1, 1, 13, '14:11:00', '99.200', 99200);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (4, 1, 1, 16, '14:15:00', '99.300', 99300);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1.duration FROM pitStops AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.year = 2011 AND T2.name = 'Australian Grand Prix';
+
+/*
+Gold Result:
+('22.500',)
+('24.100',)
+('22.500',)
+*/
+
+-- Prediction Query
+SELECT "drivers"."forename", "drivers"."surname", "pitstops"."duration" FROM "pitstops" INNER JOIN "drivers" ON "pitstops"."driverid" = "drivers"."driverid" INNER JOIN "races" ON "pitstops"."raceid" = "races"."raceid" WHERE "races"."year" = 2011 AND "races"."name" = 'Australian Grand Prix';
+
+/*
+Prediction Result:
+('Lewis', 'Hamilton', '22.500')
+('Sebastian', 'Vettel', '22.500')
+('Lewis', 'Hamilton', '24.100')
+*/

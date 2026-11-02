@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "World" ("name" TEXT(255) PRIMARY KEY, "continent" TEXT(255), "area" INTEGER, "population" INTEGER, "gdp" INTEGER, CHECK ("area" > 0), CHECK ("population" > 0), CHECK ("gdp" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO world (name, continent, area, population, gdp) VALUES ('default2', 'default1', 3000001, 24999999, 25000000), ('default1', 'default1', 24999999, 25000001, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name, population, area FROM world WHERE area >= 3000000 OR population >= 25000000;
+
+/*
+Gold Result:
+('default2', 24999999, 3000001)
+('default1', 25000001, 24999999)
+*/
+
+-- Prediction Query
+SELECT W.NAME, W.POPULATION, W.AREA FROM WORLD AS W WHERE W.AREA >= 3000000 OR W.POPULATION >= 25000000 ORDER BY W.NAME;
+
+/*
+Prediction Result:
+('default1', 25000001, 24999999)
+('default2', 24999999, 3000001)
+*/

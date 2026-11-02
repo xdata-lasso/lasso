@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+INSERT INTO Problem_Category_Codes (problem_category_code, problem_category_description) VALUES ('CAT1', 'Category 1');
+INSERT INTO Problem_Category_Codes (problem_category_code, problem_category_description) VALUES ('CAT2', 'Category 2');
+INSERT INTO Problem_Status_Codes (problem_status_code, problem_status_description) VALUES ('STAT1', 'Status 1');
+INSERT INTO Staff (staff_id, staff_first_name, staff_last_name, other_staff_details) VALUES (1, 'John', 'Doe', 'None');
+INSERT INTO Product (product_id, product_name, product_details) VALUES (1, 'Prod A', 'Details');
+INSERT INTO Problems (problem_id, reported_by_staff_id, product_id, closure_authorised_by_staff_id, date_problem_reported, date_problem_closed, problem_description, other_problem_details) VALUES (1, 1, 1, 1, '2023-01-01 00:00:00', '2023-01-02 00:00:00', 'Desc', 'Other');
+
+-- Row 30: Matches RHS 20 and 21 (tests GROUP BY / DISTINCT deduplication when LHS matches multiple RHS)
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (30, 'STAT1', 1, 1, 'CAT1', '2023-01-01 10:00:00', 'Desc 30', 'Fix X', 'Match_A');
+
+-- Row 20: Matches RHS 10 (and acts as RHS for 30). Tests ORDER BY problem_log_id (inserted out of order)
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (20, 'STAT1', 1, 1, 'CAT1', '2023-01-03 10:00:00', 'Desc 20', 'Match_A', 'Match_B');
+
+-- Row 21: Second RHS match for 30, does not match any RHS as LHS
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (21, 'STAT1', 1, 1, 'CAT1', '2023-01-04 10:00:00', 'Desc 21', 'Match_A', 'No_Match');
+
+-- Row 10: Acts as RHS for 20, does not match any RHS as LHS (tests asymmetric join LHS.other_log_details = RHS.log_entry_fix)
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (10, 'STAT1', 1, 1, 'CAT1', '2023-01-02 10:00:00', 'Desc 10', 'Match_B', 'No_Match');
+
+-- Row 40: Matches other_log_details = log_entry_fix ('Match_A'), but different problem_category_code ('CAT2')
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (40, 'STAT1', 1, 1, 'CAT2', '2023-01-05 10:00:00', 'Desc 40', 'Fix Y', 'Match_A');
+```
+
+```sql
+-- DATASET 2
+INSERT INTO Problem_Category_Codes (problem_category_code, problem_category_description) VALUES ('CAT1', 'Category 1');
+INSERT INTO Problem_Status_Codes (problem_status_code, problem_status_description) VALUES ('STAT1', 'Status 1');
+INSERT INTO Staff (staff_id, staff_first_name, staff_last_name, other_staff_details) VALUES (1, 'Jane', 'Doe', 'None');
+INSERT INTO Product (product_id, product_name, product_details) VALUES (1, 'Prod B', 'Details');
+INSERT INTO Problems (problem_id, reported_by_staff_id, product_id, closure_authorised_by_staff_id, date_problem_reported, date_problem_closed, problem_description, other_problem_details) VALUES (1, 1, 1, 1, '2023-01-01 00:00:00', '2023-01-02 00:00:00', 'Desc', 'Other');
+
+-- Row 5: Self-joining row (LHS.other_log_details = RHS.log_entry_fix on same row) with NULL log_entry_date (tests GROUP BY & MAX on NULL date)
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (5, 'STAT1', 1, 1, 'CAT1', NULL, 'Self Join Row', 'Self_Match', 'Self_Match');
+
+-- Row 1: Same log_entry_date as Row 2 (tests GROUP BY log_entry_date, problem_log_id vs GROUP BY log_entry_date only)
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (1, 'STAT1', 1, 1, 'CAT1', '2023-05-01 12:00:00', 'Same Date 1', 'Unused', 'Self_Match');
+
+-- Row 2: Same log_entry_date as Row 1
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (2, 'STAT1', 1, 1, 'CAT1', '2023-05-01 12:00:00', 'Same Date 2', 'Unused', 'Self_Match');
+
+-- Row 6: NULL in join columns (ensures INNER JOIN rejects NULL = NULL)
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (6, 'STAT1', 1, 1, 'CAT1', '2023-05-02 12:00:00', 'Null Join', NULL, NULL);
+
+-- Row 7: NULL in category code (ensures INNER JOIN rejects NULL = NULL on category)
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (7, 'STAT1', 1, 1, NULL, '2023-05-02 12:00:00', 'Null Cat', 'Match_Null_Cat', 'Match_Null_Cat');
+```
+
+```sql
+-- DATASET 3
+INSERT INTO Problem_Category_Codes (problem_category_code, problem_category_description) VALUES ('C1', 'Cat 1');
+INSERT INTO Problem_Category_Codes (problem_category_code, problem_category_description) VALUES ('C2', 'Cat 2');
+INSERT INTO Problem_Status_Codes (problem_status_code, problem_status_description) VALUES ('S1', 'Stat 1');
+INSERT INTO Problem_Status_Codes (problem_status_code, problem_status_description) VALUES ('S2', 'Stat 2');
+INSERT INTO Staff (staff_id, staff_first_name, staff_last_name, other_staff_details) VALUES (1, 'A', 'B', 'C');
+INSERT INTO Staff (staff_id, staff_first_name, staff_last_name, other_staff_details) VALUES (2, 'D', 'E', 'F');
+INSERT INTO Product (product_id, product_name, product_details) VALUES (1, 'P1', 'D1');
+INSERT INTO Problems (problem_id, reported_by_staff_id, product_id, closure_authorised_by_staff_id, date_problem_reported, date_problem_closed, problem_description, other_problem_details) VALUES (1, 1, 1, 1, '2023-01-01', '2023-01-02', 'D1', 'O1');
+INSERT INTO Problems (problem_id, reported_by_staff_id, product_id, closure_authorised_by_staff_id, date_problem_reported, date_problem_closed, problem_description, other_problem_details) VALUES (2, 2, 1, 2, '2023-01-01', '2023-01-02', 'D2', 'O2');
+
+-- Tests mutants that mistakenly join on problem_id, assigned_to_staff_id, problem_status_code, or LHS.log_entry_fix = RHS.log_entry_fix
+-- Row 100 and Row 200 differ in problem_id, staff_id, status_code, and log_entry_date, but match on category and LHS.other_log_details = RHS.log_entry_fix
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (100, 'S1', 1, 1, 'C1', '2023-10-10 00:00:00', 'Log 100', 'Fix_100', 'Shared_Val');
+
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (200, 'S2', 2, 2, 'C1', '2023-01-01 00:00:00', 'Log 200', 'Shared_Val', 'Other_200');
+
+-- Row 300 has same log_entry_fix as 100 ('Fix_100') and same other_log_details as 200 ('Other_200') to kill symmetric join mutants (LHS.fix = RHS.fix or LHS.other = RHS.other)
+INSERT INTO Problem_Log (problem_log_id, problem_status_code, problem_id, assigned_to_staff_id, problem_category_code, log_entry_date, log_entry_description, log_entry_fix, other_log_details) VALUES (300, 'S1', 1, 1, 'C1', '2023-06-01 00:00:00', 'Log 300', 'Fix_100', 'Other_200');
+```

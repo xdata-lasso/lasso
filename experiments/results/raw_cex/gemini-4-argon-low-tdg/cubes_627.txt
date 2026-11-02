@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- Tests 0 matching rows. 
+-- A window function COUNT(*) OVER () on an empty result set returns 0 rows (empty set), 
+-- whereas a standard aggregate SELECT COUNT(*) without GROUP BY would return 1 row with value 0.
+INSERT INTO "country" ("Code", "Name", "GovernmentForm") VALUES ('GBR', 'United Kingdom', 'Constitutional Monarchy');
+INSERT INTO "country" ("Code", "Name", "GovernmentForm") VALUES ('CAN', 'Canada', 'Constitutional Monarchy, Federation');
+INSERT INTO "country" ("Code", "Name", "GovernmentForm") VALUES ('ATA', 'Antarctica', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple matching rows, partial string matches, case sensitivity, and NULLs.
+-- Kills mutants missing DISTINCT (which would return multiple rows of 2 instead of a single row of 2).
+-- Kills mutants using LIKE '%Republic%' instead of exact equality '='.
+-- Kills mutants omitting the WHERE clause or using != / <> instead of =.
+-- Kills mutants doing COUNT(IndepYear) or COUNT(HeadOfState) where values might be NULL.
+INSERT INTO "country" ("Code", "Name", "GovernmentForm", "IndepYear", "HeadOfState") VALUES ('FRA', 'France', 'Republic', 843, 'Jacques Chirac');
+INSERT INTO "country" ("Code", "Name", "GovernmentForm", "IndepYear", "HeadOfState") VALUES ('ITA', 'Italy', 'Republic', NULL, NULL);
+INSERT INTO "country" ("Code", "Name", "GovernmentForm", "IndepYear", "HeadOfState") VALUES ('USA', 'United States', 'Federal Republic', 1776, 'George W. Bush');
+INSERT INTO "country" ("Code", "Name", "GovernmentForm", "IndepYear", "HeadOfState") VALUES ('CHN', 'China', 'People''sRepublic', -1523, 'Jiang Zemin');
+INSERT INTO "country" ("Code", "Name", "GovernmentForm", "IndepYear", "HeadOfState") VALUES ('REP', 'Lowercaseia', 'republic', 2000, 'Jane Doe');
+INSERT INTO "country" ("Code", "Name", "GovernmentForm", "IndepYear", "HeadOfState") VALUES ('NUL', 'NullLand', NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests unintended JOINs (e.g., INNER JOIN or LEFT JOIN with city or countrylanguage).
+-- One matching 'Republic' has 0 cities/languages (kills INNER JOIN mutants).
+-- Another matching 'Republic' has multiple cities/languages (kills JOIN mutants without proper distinctness prior to counting).
+INSERT INTO "country" ("Code", "Name", "GovernmentForm") VALUES ('SMR', 'San Marino', 'Republic');
+INSERT INTO "country" ("Code", "Name", "GovernmentForm") VALUES ('PAN', 'Panama', 'Republic');
+INSERT INTO "country" ("Code", "Name", "GovernmentForm") VALUES ('JPN', 'Japan', 'Constitutional Monarchy');
+
+INSERT INTO "city" ("ID", "CountryCode", "Name", "District", "Population") VALUES (1, 'PAN', 'Ciudad de Panamá', 'Panamá', 471373);
+INSERT INTO "city" ("ID", "CountryCode", "Name", "District", "Population") VALUES (2, 'PAN', 'San Miguelito', 'Panamá', 315019);
+INSERT INTO "city" ("ID", "CountryCode", "Name", "District", "Population") VALUES (3, 'JPN', 'Tokyo', 'Tokyo-to', 7980230);
+
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('PAN', 'Spanish', 'T', 76.8);
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('PAN', 'English', 'F', 14.0);
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('JPN', 'Japanese', 'T', 99.1);
+```
+
+```sql
+-- DATASET 4
+-- Tests window partitioning/ordering mutations (e.g., COUNT(*) OVER (ORDER BY Code) or COUNT(*) OVER (PARTITION BY Continent)).
+-- If a mutant introduces an ORDER BY inside the OVER() clause, it computes a running count (1, 2, 3), 
+-- and SELECT DISTINCT will output 3 rows instead of 1 row.
+-- If a mutant partitions by Continent or Region, it will output multiple smaller counts instead of the total count (3).
+-- Also tests filtering on wrong columns (e.g., Name = 'Republic' or LocalName = 'Republic').
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "LocalName", "GovernmentForm") VALUES ('COL', 'Colombia', 'South America', 'South America', 'Colombia', 'Republic');
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "LocalName", "GovernmentForm") VALUES ('KEN', 'Kenya', 'Africa', 'Eastern Africa', 'Kenya', 'Republic');
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "LocalName", "GovernmentForm") VALUES ('FIN', 'Finland', 'Europe', 'Nordic Countries', 'Suomi', 'Republic');
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "LocalName", "GovernmentForm") VALUES ('fke', 'Republic', 'Asia', 'Eastern Asia', 'Republic', 'Monarchy');
+```
+
+```sql
+-- DATASET 5
+-- Tests single matching row boundary condition, ensuring equivalence between 1-row output and count value 1,
+-- while having duplicate values in other columns (like Population, Continent, IndepYear) across multiple Republics in a secondary check,
+-- here specifically testing COUNT(DISTINCT col) mutants by making all Republic rows share identical values in other columns.
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES ('AA1', 'SameName', 'Asia', 'SameRegion', 100.0, 1990, 5000, 70.0, 10.0, 10.0, 'SameLocal', 'Republic', 'SameHead', 1, 'A1');
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES ('AA2', 'SameName', 'Asia', 'SameRegion', 100.0, 1990, 5000, 70.0, 10.0, 10.0, 'SameLocal', 'Republic', 'SameHead', 1, 'A1');
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES ('AA3', 'SameName', 'Asia', 'SameRegion', 100.0, 1990, 5000, 70.0, 10.0, 10.0, 'SameLocal', 'Republic', 'SameHead', 1, 'A1');
+```

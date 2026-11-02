@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT necessity (multiple publications matching the same date with book_id = total count).
+-- 2. ORDER BY direction (ascending vs descending vs insertion order).
+-- 3. Filtering out dates where book_id != total count (n=4).
+-- 4. Confounder where book_id equals the count of a specific date (2), not the total count (4).
+-- 5. Confounder where Publication_ID = n (4), to catch mutants joining on Publication_ID instead of Book_ID.
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (1, 'Book A', 1.0, 'Writer A');
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (2, 'Book B', 2.0, 'Writer B');
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (4, 'Book D', 4.0, 'Writer D');
+
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (1, 4, 'Pub X', '2023-05-01', 15.0);
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (2, 1, 'Pub Y', '2023-05-01', 20.0);
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (3, 4, 'Pub Z', '2021-01-01', 10.0);
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (4, 2, 'Pub W', '2022-06-01', 25.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL handling in Book_ID and Publication_Date.
+-- 2. Difference between COUNT(*) OVER () (which is 4) and COUNT(Book_ID) OVER () or COUNT(Publication_Date) OVER () (which are 3).
+-- 3. Ensures SQLite NULL = NULL evaluates to falsy in JOIN condition.
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (3, 'Book C', 1.0, 'Writer C');
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (4, 'Book D', 2.0, 'Writer D');
+
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (10, 4, 'Pub A', '2020-10-10', 12.5);
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (20, 3, 'Pub B', '2020-12-12', 15.0);
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (30, NULL, 'Pub C', '2020-11-11', 20.0);
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (40, 4, 'Pub D', NULL, 25.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty result set when no publication has Book_ID equal to the total row count (n=3).
+-- 2. A book with Book_ID=3 exists in the `book` table, but is not referenced in `publication` (catches joins against `book` instead of `publication`).
+-- 3. Multiple publications share the same date to test if a mutant drops the `LHS.n = RHS.book_id` condition and only joins on date.
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (1, 'Book 1', 1.0, 'W1');
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (2, 'Book 2', 1.0, 'W2');
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (3, 'Book 3', 1.0, 'W3');
+
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (1, 1, 'P1', '2022-01-01', 10.0);
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (2, 2, 'P2', '2022-01-01', 12.0);
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (3, 1, 'P1', '2022-02-02', 14.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Mutants that require LHS.Publication_ID <> RHS.Publication_ID (non-self-join mutants).
+--    For '2023-01-01', the ONLY row on that date is the one with Book_ID = n (3), so it must join with itself to appear in the output.
+-- 2. Mutants that mistakenly join on Publisher or Price in addition to or instead of Date.
+--    For '2023-02-02', there are two rows with different publishers and prices, one having Book_ID = 3.
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (1, 'B1', 1.0, 'W1');
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (3, 'B3', 3.0, 'W3');
+
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (101, 3, 'SoloPub', '2023-01-01', 99.0);
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (102, 3, 'AlphaPub', '2023-02-02', 50.0);
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (103, 1, 'BetaPub', '2023-02-02', 60.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Boundary condition: Single row in `publication` (n=1), where Book_ID = 1.
+-- 2. Total books in `book` table is 2, catching mutants that compute COUNT(*) from `book` instead of `publication`.
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (1, 'Only Pub Book', 1.0, 'Author 1');
+INSERT INTO book (Book_ID, Title, Issues, Writer) VALUES (2, 'Unpublished Book', 1.0, 'Author 2');
+
+INSERT INTO publication (Publication_ID, Book_ID, Publisher, Publication_Date, Price) VALUES (5, 1, 'SinglePub', '2019-09-09', 30.0);
+```

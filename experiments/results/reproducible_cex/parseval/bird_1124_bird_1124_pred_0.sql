@@ -1,0 +1,175 @@
+-- Schema DDL
+CREATE TABLE IF NOT EXISTS "Player_Attributes" ("id" INTEGER PRIMARY KEY, "player_fifa_api_id" INTEGER, "player_api_id" INTEGER, "date" TEXT(255), "overall_rating" INTEGER, "potential" INTEGER, "preferred_foot" TEXT(255), "attacking_work_rate" TEXT(255), "defensive_work_rate" TEXT(255), "crossing" INTEGER, "finishing" INTEGER, "heading_accuracy" INTEGER, "short_passing" INTEGER, "volleys" INTEGER, "dribbling" INTEGER, "curve" INTEGER, "free_kick_accuracy" INTEGER, "long_passing" INTEGER, "ball_control" INTEGER, "acceleration" INTEGER, "sprint_speed" INTEGER, "agility" INTEGER, "reactions" INTEGER, "balance" INTEGER, "shot_power" INTEGER, "jumping" INTEGER, "stamina" INTEGER, "strength" INTEGER, "long_shots" INTEGER, "aggression" INTEGER, "interceptions" INTEGER, "positioning" INTEGER, "vision" INTEGER, "penalties" INTEGER, "marking" INTEGER, "standing_tackle" INTEGER, "sliding_tackle" INTEGER, "gk_diving" INTEGER, "gk_handling" INTEGER, "gk_kicking" INTEGER, "gk_positioning" INTEGER, "gk_reflexes" INTEGER, FOREIGN KEY (player_fifa_api_id) REFERENCES Player (player_fifa_api_id));
+
+CREATE TABLE IF NOT EXISTS "Player" ("id" INTEGER PRIMARY KEY, "player_api_id" INTEGER, "player_name" TEXT(255), "player_fifa_api_id" INTEGER UNIQUE, "birthday" TEXT(255), "height" INTEGER, "weight" INTEGER);
+
+CREATE TABLE IF NOT EXISTS "League" ("id" INTEGER PRIMARY KEY, "country_id" INTEGER, "name" TEXT(255), FOREIGN KEY (country_id) REFERENCES Country (id));
+
+CREATE TABLE IF NOT EXISTS "Country" ("id" INTEGER PRIMARY KEY, "name" TEXT(255));
+
+CREATE TABLE IF NOT EXISTS "Team" ("id" INTEGER PRIMARY KEY, "team_api_id" INTEGER UNIQUE, "team_fifa_api_id" INTEGER UNIQUE, "team_long_name" TEXT(255), "team_short_name" TEXT(255));
+
+CREATE TABLE IF NOT EXISTS "Team_Attributes" ("id" INTEGER PRIMARY KEY, "team_fifa_api_id" INTEGER, "team_api_id" INTEGER, "date" TEXT(255), "buildUpPlaySpeed" INTEGER, "buildUpPlaySpeedClass" TEXT(255), "buildUpPlayDribbling" INTEGER, "buildUpPlayDribblingClass" TEXT(255), "buildUpPlayPassing" INTEGER, "buildUpPlayPassingClass" TEXT(255), "buildUpPlayPositioningClass" TEXT(255), "chanceCreationPassing" INTEGER, "chanceCreationPassingClass" TEXT(255), "chanceCreationCrossing" INTEGER, "chanceCreationCrossingClass" TEXT(255), "chanceCreationShooting" INTEGER, "chanceCreationShootingClass" TEXT(255), "chanceCreationPositioningClass" TEXT(255), "defencePressure" INTEGER, "defencePressureClass" TEXT(255), "defenceAggression" INTEGER, "defenceAggressionClass" TEXT(255), "defenceTeamWidth" INTEGER, "defenceTeamWidthClass" TEXT(255), "defenceDefenderLineClass" TEXT(255), FOREIGN KEY (team_fifa_api_id) REFERENCES Team (team_fifa_api_id));
+
+CREATE TABLE IF NOT EXISTS "Match" ("id" INTEGER PRIMARY KEY, "country_id" INTEGER, "league_id" INTEGER, "season" TEXT(255), "stage" INTEGER, "date" TEXT(255), "match_api_id" INTEGER, "home_team_api_id" INTEGER, "away_team_api_id" INTEGER, "home_team_goal" INTEGER, "away_team_goal" INTEGER, "home_player_X1" INTEGER, "home_player_X2" INTEGER, "home_player_X3" INTEGER, "home_player_X4" INTEGER, "home_player_X5" INTEGER, "home_player_X6" INTEGER, "home_player_X7" INTEGER, "home_player_X8" INTEGER, "home_player_X9" INTEGER, "home_player_X10" INTEGER, "home_player_X11" INTEGER, "away_player_X1" INTEGER, "away_player_X2" INTEGER, "away_player_X3" INTEGER, "away_player_X4" INTEGER, "away_player_X5" INTEGER, "away_player_X6" INTEGER, "away_player_X7" INTEGER, "away_player_X8" INTEGER, "away_player_X9" INTEGER, "away_player_X10" INTEGER, "away_player_X11" INTEGER, "home_player_Y1" INTEGER, "home_player_Y2" INTEGER, "home_player_Y3" INTEGER, "home_player_Y4" INTEGER, "home_player_Y5" INTEGER, "home_player_Y6" INTEGER, "home_player_Y7" INTEGER, "home_player_Y8" INTEGER, "home_player_Y9" INTEGER, "home_player_Y10" INTEGER, "home_player_Y11" INTEGER, "away_player_Y1" INTEGER, "away_player_Y2" INTEGER, "away_player_Y3" INTEGER, "away_player_Y4" INTEGER, "away_player_Y5" INTEGER, "away_player_Y6" INTEGER, "away_player_Y7" INTEGER, "away_player_Y8" INTEGER, "away_player_Y9" INTEGER, "away_player_Y10" INTEGER, "away_player_Y11" INTEGER, "home_player_1" INTEGER, "home_player_2" INTEGER, "home_player_3" INTEGER, "home_player_4" INTEGER, "home_player_5" INTEGER, "home_player_6" INTEGER, "home_player_7" INTEGER, "home_player_8" INTEGER, "home_player_9" INTEGER, "home_player_10" INTEGER, "home_player_11" INTEGER, "away_player_1" INTEGER, "away_player_2" INTEGER, "away_player_3" INTEGER, "away_player_4" INTEGER, "away_player_5" INTEGER, "away_player_6" INTEGER, "away_player_7" INTEGER, "away_player_8" INTEGER, "away_player_9" INTEGER, "away_player_10" INTEGER, "away_player_11" INTEGER, "goal" TEXT(255), "shoton" TEXT(255), "shotoff" TEXT(255), "foulcommit" TEXT(255), "card" TEXT(255), "cross" TEXT(255), "corner" TEXT(255), "possession" TEXT(255), "B365H" REAL, "B365D" REAL, "B365A" REAL, "BWH" REAL, "BWD" REAL, "BWA" REAL, "IWH" REAL, "IWD" REAL, "IWA" REAL, "LBH" REAL, "LBD" REAL, "LBA" REAL, "PSH" REAL, "PSD" REAL, "PSA" REAL, "WHH" REAL, "WHD" REAL, "WHA" REAL, "SJH" REAL, "SJD" REAL, "SJA" REAL, "VCH" REAL, "VCD" REAL, "VCA" REAL, "GBH" REAL, "GBD" REAL, "GBA" REAL, "BSH" REAL, "BSD" REAL, "BSA" REAL, FOREIGN KEY (home_team_api_id) REFERENCES Team (team_api_id));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: player --
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (2, 1, 't1__fe5996', 2, 'pla_c01a5d', -55602865, -59984348);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (3, 1, 't1__fe5996', 3, 'pla_c01a5d', -664303813, -1022641847);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (4, 1, 'pla_0d8e0d', -2147483646, 'pla_c01a5d', -568125159, -329270684);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (6, 1, 'pla_0d8e0d', -2147483645, 'pla_c01a5d', -1517724233, -1265768652);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (5, 1, 'pla_0d8e0d', -2147483644, 'pla_c01a5d', 1443327784, -2013600868);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (7, 1, NULL, -2147483643, 'pla_c01a5d', -55602865, -59984348);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (-2147483642, 1038707349, 'O', -2147483642, 'pla_c01a5d', 1419861592, 700088193);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (-2147483641, 374105386, 'A', -2147483641, 'pla_c01a5d', 1274489983, -1683203397);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (-2147483640, 528680845, 'O', -2147483640, 'pla_c01a5d', -1585009206, -53231346);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (-2147483639, -443340271, 'A', -2147483639, 'pla_c01a5d', 757448742, -1179823637);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (-2147483638, 1119186446, 'O', -2147483638, 'pla_c01a5d', 781505063, 418417917);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (-2147483637, -1031969798, 'A', -2147483637, 'pla_c01a5d', -1106983592, 1884179925);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (-2147483636, 902551284, 'O', -2147483636, 'pla_c01a5d', 2107872094, 882961052);
+
+INSERT INTO "player" ("id", "player_api_id", "player_name", "player_fifa_api_id", "birthday", "height", "weight") VALUES (-2147483635, 743312762, 'A', -2147483635, 'pla_c01a5d', -1822992503, -868774469);
+
+-- Inserting into table: player_attributes --
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483648, 2, 1, 'pla_49697d', -890215420, 1610062532, 'pla_214929', 'high', 'pla_29e652', -106629402, 1871297066, 809183447, 89267185, -1865039888, 1160656988, -992890117, 1914020640, 1268590800, 1219478689, -1670923962, 700293388, 906324270, 1908028688, 2122220075, 1072996612, 13244799, -1659388584, 1526238907, -1377057208, -841692980, -1364429300, -1257178728, 1236688122, 2087640001, 907682809, 2026480202, -1576219117, -1823627488, -1209887326, -1399556171, 1038707349, 1419861592);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483647, 3, 1, 'pla_49697d', 374105386, 1274489983, 'pla_214929', 'high', 'pla_29e652', -1683203397, 528680845, -1585009206, -53231346, -443340271, 757448742, -1179823637, 1119186446, 781505063, 418417917, -1031969798, -1106983592, 1884179925, 902551284, 2107872094, 882961052, 743312762, -1822992503, -868774469, -1068298341, -314162272, 2137741668, -525979501, 1898504886, 624571013, 1644911394, -1666765085, 1178636309, -1390245819, 1055976837, 1775126557, -74849714, 105869088);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483646, 3, 3, 'pla_49697d', 481163439, 2123196517, 'pla_214929', 'high', 'pla_29e652', 364869063, -953437896, -1097120355, 244829661, -1362461264, -904834265, -346339240, 1692174491, -1025564911, -227162283, 2056419640, 222415430, 556727997, 1178000634, 1836127587, -1529584866, 1196308825, 910894705, -283454505, 233994589, 1442655647, -87647544, -629784617, -1929953647, 1581736075, -261132974, -1264842910, -1052964641, -1245682094, -1660358170, -1106350634, -1509264256, -792947627);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483645, 2, 3, 'pla_49697d', 401805964, -1485777725, 'pla_214929', 'high', 'pla_29e652', -1255130038, -1762857309, 806170397, 513454646, -688216274, 331812443, 1382410067, 1631231566, 172461907, 1606439408, 1443629118, -155284187, 1686459626, -1554531873, 982314585, 638024588, -688098735, 1784916884, 37673509, 834709651, -348113485, 138842628, -932772113, -639539893, 1255343543, -541746689, 1294666887, -515895469, 1427161052, 564390026, -1259474148, 2011234363, -1483100200);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483644, 2, 3, 'pla_49697d', 1746373317, 1360271423, 'pla_214929', 'high', 'pla_29e652', 1583472758, 1449284300, -977470238, -1478247928, 1074760385, 1129658414, 1250290042, -1717646459, -1696173285, 710458518, 678047687, -1478134144, -491938169, -106471771, 1235416111, 1923912467, 518609210, 1948383687, 1476361420, 195720193, 1774087382, 1732258051, -1762140823, 1371234901, -290314193, 76996700, -435350511, 1992637800, -820614248, 481546706, -1784554553, -242584410, -698610044);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483643, 3, 3, 'pla_49697d', 1421303999, -1488156735, 'pla_214929', 'high', 'pla_29e652', -1858644047, -1180042408, 199672698, 2119806856, -1962347906, -866772222, -847293924, -2033879835, 1798111945, 944975670, -1575410149, -68044929, -1776877925, 1201273976, 1923659053, -1950324754, 2115816682, 76987628, -253138337, 641521863, 304189298, -542502665, 1999335832, -526612570, -546516406, -405743609, -1935752926, -20116244, -176606723, -15162884, 1339733032, -1556979799, -55240145);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483642, 3, 3, 'pla_49697d', 195202164, 1817366143, 'pla_214929', 'high', 'pla_29e652', 1615073310, 1055237066, 988954859, -1719383707, 1273687251, 333302050, 1162591638, -2136247961, -1478011227, -2096405521, 1803796945, 872694102, 618058035, 1553368934, -1252009958, 1908593332, 697257217, -451030047, -2052653308, -489120589, -72442907, -2060082151, -1122409769, 1849819405, -929383517, -2090240067, -699574669, 274891948, 609771851, -1934017803, 1105964624, -663234145, -2013213247);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483641, 2, 3, 'pla_49697d', 234957614, 823835795, 'pla_214929', 'high', 'pla_29e652', -354292049, 238533676, -1514700303, -1796351243, -1793230843, -441521858, 2015094998, 1010672881, -1197954156, -2019656607, 375841374, -1449226553, -225238282, -1898678660, 440115543, 292557306, 709097796, -984562992, -605061107, -1689155697, -323362455, 453340472, 211603887, -413043724, 761519897, 1504707292, 955267863, -1156828895, 1483450542, 513375398, 718167481, 1428194830, -1614619556);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483640, 3, 1, 'pla_49697d', -795975227, 1294064538, 'pla_214929', 'high', 'pla_29e652', 778835680, 1755752040, 1262491793, 450555855, -206528034, -1686002788, -1250380401, 1718516876, -2076274980, 1731324803, -1159083009, -1589605308, -268740517, -564679000, -251205568, 287256667, 1614799674, 1083479253, 1774679448, 205676091, -2094843966, -1048779857, -381485009, 868039568, 503053726, -1897615568, 2085299664, 2038321753, 1376887048, 261633665, 748154000, 1148916014, -1988582944);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483639, 3, 1, 'pla_49697d', -1275298282, 1933158443, 'pla_214929', 'high', 'pla_29e652', 1295379066, 1071401016, 40558455, 740386991, 2018368241, 920097188, -639616320, 1689143863, 237552112, -1046720861, 643589729, -1231488097, 956819642, 774922170, 2105860871, -141591627, 440797047, -732999244, 1654100852, 30861410, -438741674, -154207334, 729449685, -1580984044, 150596046, 431832073, 1510892261, 1677948887, 389700824, -1853955201, -805997097, -586285368, 1664452437);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483638, 2, 1, 'pla_49697d', 917362079, -1312038093, 'pla_214929', 'high', 'pla_29e652', 687330820, -224390110, -1810873111, 1243701948, -156175571, 1220047834, 63063873, -843082635, -285085577, 170892881, -1643065004, -1438303683, -515419519, -1884062674, -531932574, 357443379, -1502591405, -2008781089, 1122899168, -161108900, -735270562, 614314115, 306260487, 1168225104, -499203870, 1509621238, 1432875972, 1032339628, 608093726, 1595033206, 1291298007, 1982265552, 2013152515);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483637, 2, 1, 'pla_49697d', -1042976410, -1670945624, 'pla_214929', 'high', 'pla_29e652', 555368535, -1369148652, 899787662, 594760660, 833568923, -384749431, -934098178, -827883679, -1872934808, -1974774786, 422046500, -1750715330, 277649518, 908468929, 1149620614, -1414362698, 1046248997, 1584429327, -1575692857, 1570917601, 775289854, -2052350430, 166124233, 1862197286, 1040753276, -324012243, -1333785554, 1784997708, -696672546, 44959255, -74691962, -2128972904, -1043357093);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483636, 3, 1, 'pla_49697d', 948460309, 1183069552, 'pla_214929', 'high', 'pla_29e652', -1057355067, -1004098188, 316163741, -752650834, 2134937984, 1379644459, 136003842, -1486030107, 1138926079, -609840352, 486475144, -679850352, 1205111943, -459075802, -1472584267, 1384307628, 1388796595, -881085433, 1501227157, -1462262193, -2070247503, -1629148699, 103252327, -556370776, 1144507576, -343920305, 460471995, -1515201134, -2121944911, 1195320303, 1463445550, -1096060187, 2014610660);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483635, 2, 1, 'pla_49697d', 1231129324, -1782325492, 'pla_214929', 'high', 'pla_29e652', -544173163, -958321297, 2015039199, -641927001, 558684943, -120625031, 572453185, 1348973408, -911953404, 1084127083, -1019350771, -225571092, -261782899, -1079009577, -1385967617, 1813965704, 719861381, 1193656937, 434520825, -1664440372, 1849928338, 1113005977, -176968915, -717865822, 2061102304, -1204806277, 1813968674, 1907670428, 1265709623, 1731005516, 1388661799, -1574319760, 473443538);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483634, 3, 1, 'pla_49697d', 1206923461, 1645850786, 'pla_214929', 't2__59f94c', 'pla_29e652', -471852873, -1005394301, 917675957, -1582954378, -1143329124, 1368469085, 3208964, -471198540, 1394459557, -1335280432, -614741184, -1106497615, -1305057240, -2131087784, 960696718, 1663074182, -352678633, 1498627641, 1089332183, -167036460, -987989989, -2103849024, -485095266, -1617977597, -1366005916, 1361810968, 230411875, -873300912, 1803900001, -1452518801, -662859586, 1339281953, -69263912);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483633, 3, 1, 'pla_49697d', -1464066437, -1892701926, 'pla_214929', 't2__4bb042', 'pla_29e652', -460035045, 1794943626, 886926141, 294604606, -1460437682, 1014069980, 1070869226, -1522433566, -1517668312, 173803229, -1971104604, -526608193, 1560573473, 472597763, 826141460, 1561936884, -516707997, 1014871129, -583955995, -1935855834, 294818731, -563917514, -1195137401, 134065688, 1770139230, -1680744918, -1136928894, -1789708299, -743497747, -1415215611, -251621840, -1720233199, -672126855);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483632, 3, 1, 'pla_49697d', -1712532464, -445145297, 'pla_214929', 'high', 'pla_29e652', 423028705, -316078323, -754769711, 1128553504, 1374917235, -563920971, 1484825817, 1009703228, 1163377746, 227939734, -1164657946, 693108667, -1882121644, 935816178, -1919535047, -690382359, -1640621748, 253464886, 764443911, -159572656, 1991810359, -1125491025, 764047845, -660620878, -349181074, -1725714389, -1248881581, 1595944351, 1673977398, 1004962990, -1318740197, -306339789, -177551902);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (-2147483631, 2, 1, 'pla_49697d', -229524038, -1954048590, 'pla_214929', 'high', 'pla_29e652', 1627742823, -1862623291, -696200137, -410809407, -1381068866, 207561330, -781096377, -1195170145, -2007399097, -92242817, 426006253, 1097428449, -712974538, 1201135348, -681356377, -1846517698, 2117356203, 824044840, -214587907, -54963162, 1084895939, 765955451, 1372042958, 1147974039, -220327705, -344881050, -537413388, 2011754567, 1755688363, 1177967285, -2001463367, -2003500453, 1280646590);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (5, -2147483645, 1, 'pla_49697d', -1879135081, -958249959, 'pla_214929', 'pla_924593', 'pla_29e652', -1446721688, -1963148607, -1652058172, 1509710997, 652687353, 848275284, 736542812, -1977676789, 1434462631, 1621309369, -1745755546, 1983060779, -980269466, 1202197697, -1424758178, 1403715810, 1494789426, -1048234032, -388744933, -1618292687, -1585280787, 128895724, -1663813652, 1094664154, -1728059226, 1652765764, 854201197, -1497515537, 1432878454, -2086261320, 1540741724, -1101370596, -1439283063);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (7, 3, 1, 'pla_49697d', -150306637, -1480511510, 'pla_214929', 'pla_924593', 'pla_29e652', -189319798, -51114840, -2018922963, -197208169, 2089151689, -561387633, -1496507520, 2062713020, -1725535379, 1709325128, -29488259, -1767802623, 143843552, 1085074663, -1819463450, -2055620484, 1176294340, -1429883874, -1844939963, 59326585, -1371170489, -759584258, 1143458360, -769244829, 479662575, 1224512097, 771073365, 1197643380, -1957884289, -1266238892, -1846239934, -1591272038, 1985372765);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (2, -2147483645, 1, 'pla_49697d', -22531339, -1023455371, 'pla_214929', NULL, 'pla_29e652', 1775901296, 81406544, 1276865022, 1875923360, -286884572, 2132634715, 309851181, -156220540, -2074118737, 1772219707, -1642107656, 888725581, 1896957144, 470513738, 2125055535, -422857559, 1529994466, -105243240, -1324600306, -1250452845, -1301565530, -973411766, 668449456, 1353959969, -1449073012, -2076821826, 1851648795, 1130223592, -616998913, 1022316699, -1519375860, -1398612932, 1297861259);
+
+INSERT INTO "player_attributes" ("id", "player_fifa_api_id", "player_api_id", "date", "overall_rating", "potential", "preferred_foot", "attacking_work_rate", "defensive_work_rate", "crossing", "finishing", "heading_accuracy", "short_passing", "volleys", "dribbling", "curve", "free_kick_accuracy", "long_passing", "ball_control", "acceleration", "sprint_speed", "agility", "reactions", "balance", "shot_power", "jumping", "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning", "vision", "penalties", "marking", "standing_tackle", "sliding_tackle", "gk_diving", "gk_handling", "gk_kicking", "gk_positioning", "gk_reflexes") VALUES (3, -2147483646, 1, 'pla_49697d', 1258409369, -1981402255, 'pla_214929', 'high', 'pla_29e652', -890215420, 1610062532, -106629402, 1871297066, 809183447, 89267185, -1865039888, 1160656988, -992890117, 1914020640, 1268590800, 1219478689, -1670923962, 700293388, 906324270, 1908028688, 2122220075, 1072996612, 13244799, -1659388584, 1526238907, -1377057208, -841692980, -1364429300, -1257178728, 1236688122, 2087640001, 907682809, 2026480202, -1576219117, -1823627488, -1209887326, -1399556171);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT t1.player_name FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t2.attacking_work_rate = 'high';
+
+/*
+Gold Result:
+(None,)
+('pla_0d8e0d',)
+('t1__fe5996',)
+*/
+
+-- Prediction Query
+SELECT T1.player_name FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id WHERE T2.attacking_work_rate = 'high';
+
+/*
+Prediction Result:
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+(None,)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('pla_0d8e0d',)
+('t1__fe5996',)
+('t1__fe5996',)
+*/

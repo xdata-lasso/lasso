@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests standard aggregation: 2 distinct invoices in Financial_Transactions (1 with 2 transactions, 1 with 1 transaction), plus 1 unused invoice in Invoices, 3 accounts, and 4 total transactions.
+-- Refutes mutants that:
+-- 1. Count total rows in Financial_Transactions (4) instead of distinct invoice_numbers (2).
+-- 2. Count from the Invoices table (3) instead of Financial_Transactions (2).
+-- 3. Group by or count account_id (3) instead of invoice_number (2).
+-- 4. Return inner counts per invoice (2, 1) instead of the outer count (2).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Alice');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (10, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (100, 10);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (200, 10);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (300, 10);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (1000, 1);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (2000, 1);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (3000, 1);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (1000, 100, 1, 50.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (2000, 100, 2, 50.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (3000, 100, 3, 25.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (1000, 200, 4, 75.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY vs COUNT(DISTINCT ...):
+-- In SQL, GROUP BY treats NULL as a valid group, so (SELECT invoice_number FROM Financial_Transactions GROUP BY invoice_number) produces 2 rows (100 and NULL), and the outer COUNT(*) returns 2.
+-- A common mutant `SELECT COUNT(DISTINCT invoice_number) FROM Financial_Transactions` ignores NULLs and returns 1.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Bob');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (10, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (100, 10);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (1000, 1);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (1000, 100, 1, 10.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (1000, NULL, 2, 20.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (1000, NULL, 3, 30.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty Financial_Transactions table when parent tables (Invoices, Accounts) are populated.
+-- The Reference Query returns a single row with 0 (since the inner GROUP BY returns 0 rows, and the outer COUNT(*) over 0 rows returns 0).
+-- Refutes mutants without the outer aggregation (which would return an empty result set) or mutants querying Invoices/Accounts directly.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Charlie');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (10, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (100, 10);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (1000, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests transactions with NULL account_id and multiple invoices in Invoice_Line_Items.
+-- Refutes mutants that:
+-- 1. Perform an INNER JOIN with Accounts (which would drop the NULL account_id row and lose invoice 200).
+-- 2. Query Invoice_Line_Items instead of Financial_Transactions.
+-- 3. Filter on transaction_type or transaction_amount.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Diana');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (10, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (100, 10);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (200, 10);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (300, 10);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (1000, 1);
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('ELEC', 'Electronics', 0.2);
+INSERT INTO "Products" ("product_id", "production_type_code", "unit_price") VALUES (50, 'ELEC', 100.0);
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id") VALUES (500, 10, 50);
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id") VALUES (50, 100, 500);
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id") VALUES (50, 200, 500);
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id") VALUES (50, 300, 500);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_amount") VALUES (1000, 100, 1, 'Payment', 100.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_amount") VALUES (NULL, 200, 2, 'Refund', -50.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple invoices each having the exact same number of transactions (3 invoices, each with 2 transactions = 6 total).
+-- Refutes mutants using SUM(n), AVG(n), MAX(n), or MIN(n) in the outer query:
+-- Gold COUNT(*) = 3; SUM(n) = 6; AVG(n) = 2; MAX(n) = 2; MIN(n) = 2.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Eve');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (10, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (100, 10);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (200, 10);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (300, 10);
+INSERT INTO "Accounts" ("account_id", "customer_id") VALUES (1000, 1);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (1000, 100, 1);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (1000, 100, 2);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (1000, 200, 3);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (1000, 200, 4);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (1000, 300, 5);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id") VALUES (1000, 300, 6);
+```

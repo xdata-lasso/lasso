@@ -1,0 +1,106 @@
+```sql
+-- DATASET 1
+-- Tests basic counting, label filtering ('+' vs '-' vs NULL), and ensures bond counts are not confused with atom counts.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR003', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR004', NULL);
+
+-- TR001 ('+'): 2 atoms, 3 bonds
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_1', 'TR001', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_2', 'TR001', 'h');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1_1', 'TR001', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1_2', 'TR001', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1_3', 'TR001', '-');
+
+-- TR002 ('+'): 3 atoms, 1 bond (Expected Winner)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR002_1', 'TR002', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR002_2', 'TR002', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR002_3', 'TR002', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2_1', 'TR002', '-');
+
+-- TR003 ('-'): 5 atoms (More atoms than TR002, but wrong label)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR003_1', 'TR003', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR003_2', 'TR003', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR003_3', 'TR003', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR003_4', 'TR003', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR003_5', 'TR003', 'n');
+
+-- TR004 (NULL): 6 atoms (More atoms, but NULL label)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_1', 'TR004', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_2', 'TR004', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_3', 'TR004', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_4', 'TR004', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_5', 'TR004', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_6', 'TR004', 'c');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on molecule_id (ASC vs DESC) and COUNT(atom_id) vs COUNT(DISTINCT element).
+INSERT INTO molecule (molecule_id, label) VALUES ('M_B', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_A', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_C', '+');
+
+-- M_B: 3 atoms, 3 distinct elements
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M_B', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M_B', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M_B', 'o');
+
+-- M_A: 3 atoms, 1 distinct element (Tied for max atoms; wins tie-breaker because 'M_A' < 'M_B')
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M_A', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', 'M_A', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A6', 'M_A', 'c');
+
+-- M_C: 1 atom
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A7', 'M_C', 'n');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN (molecule with 0 atoms), NULL element handling (COUNT(atom_id) vs COUNT(element)), and NULL molecule_id in atom.
+INSERT INTO molecule (molecule_id, label) VALUES ('M_EMPTY', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_ONE', '+');
+
+-- M_EMPTY has 0 atoms. A LEFT JOIN with ASC sort or COUNT(*) bug might incorrectly pick M_EMPTY.
+-- M_ONE has 1 atom with a NULL element. If a mutant uses COUNT(element), count becomes 0, tying with M_EMPTY.
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_1', 'M_ONE', NULL);
+
+-- Unattached atoms (molecule_id IS NULL) to kill RIGHT JOIN / FULL JOIN or missing join condition mutants
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_NULL_1', NULL, 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_NULL_2', NULL, 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_NULL_3', NULL, 'c');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when no molecules have label = '+', while atoms and '-' molecules exist.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M2', 'o');
+```
+
+```sql
+-- DATASET 5
+-- Tests mutants that unnecessarily join the 'connected' or 'bond' tables (which causes row multiplication or drops unconnected atoms).
+INSERT INTO molecule (molecule_id, label) VALUES ('M_UNCONNECTED', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_CONNECTED', '+');
+
+-- M_UNCONNECTED: 3 atoms, 0 bonds, 0 connected entries (Expected Winner: 3 atoms)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M_UNCONNECTED', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M_UNCONNECTED', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M_UNCONNECTED', 'c');
+
+-- M_CONNECTED: 2 atoms, but heavily connected (2 bonds, 4 connected rows)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M_CONNECTED', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', 'M_CONNECTED', 'o');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M_CONNECTED', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M_CONNECTED', '=');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A4', 'A5', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A5', 'A4', 'B1');
+```

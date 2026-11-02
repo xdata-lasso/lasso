@@ -1,0 +1,123 @@
+```sql
+-- DATASET 1
+-- Tests standard grouping, distinct counts, tie-breaking by time_of_day ASC, and extra unreferenced rows in other tables (catches INNER JOIN / LEFT JOIN mutations).
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (1, 'Prog A', 'US', 2000.0, 'Own1');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (2, 'Prog B', 'UK', 2005.0, 'Own2');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (3, 'Prog C', 'CA', 2010.0, 'Own3');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (4, 'Unused Prog', 'AU', 2015.0, 'Own4');
+
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'Chan 1', 'Own1', 10.5, 5.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'Chan 2', 'Own2', 20.0, 8.5);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (3, 'Chan 3', 'Own3', 15.0, 6.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (4, 'Unused Chan', 'Own4', 5.0, 2.0);
+
+-- Night: 1, Evening: 2, Morning: 2, Afternoon: 3
+-- Insertion order intentionally scrambled relative to expected output order.
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 1, 'Afternoon');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 2, 'Evening');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 3, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (2, 1, 'Afternoon');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (2, 2, 'Night');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (2, 3, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (3, 1, 'Afternoon');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (3, 2, 'Evening');
+
+-- Only a subset in broadcast_share to catch faulty joins with broadcast_share
+INSERT INTO "broadcast_share" ("Channel_ID", "Program_ID", "Date", "Share_in_percent") VALUES (1, 1, '2023-01-01', 12.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Time_of_day:
+-- 1) COUNT(*) vs COUNT(Time_of_day) where NULL group has 2 rows.
+-- 2) ORDER BY time_of_day NULLS LAST when tied on count___ with 'Morning' and 'Evening'.
+-- 3) COUNT(DISTINCT Channel_ID) vs COUNT(*) by putting multiple programs on the same channel.
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (1, 'P1', 'US', 1999.0, 'O1');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (2, 'P2', 'US', 2001.0, 'O1');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (3, 'P3', 'US', 2002.0, 'O2');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (4, 'P4', 'US', 2003.0, 'O2');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (5, 'P5', 'US', 2004.0, 'O3');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (6, 'P6', 'US', 2005.0, 'O3');
+
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'C1', 'O1', 30.0, 10.0);
+
+-- All on Channel 1, so COUNT(DISTINCT Channel_ID) would be 1 for each group, while COUNT(*) is 2.
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 1, NULL);
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 2, NULL);
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 3, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 4, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 5, 'Evening');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 6, 'Evening');
+```
+
+```sql
+-- DATASET 3
+-- Tests COUNT(DISTINCT Program_ID) vs COUNT(*) by using the same Program_ID across multiple channels.
+-- Also tests lexicographical vs numerical sorting of count___ (e.g., if cast to string, '10' < '2').
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (1, 'SingleProg', 'US', 2020.0, 'OwnerA');
+
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'C1', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'C2', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (3, 'C3', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (4, 'C4', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (5, 'C5', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (6, 'C6', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (7, 'C7', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (8, 'C8', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (9, 'C9', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (10, 'C10', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (11, 'C11', 'OA', 10.0, 1.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (12, 'C12', 'OA', 10.0, 1.0);
+
+-- 'Morning' has 10 broadcasts (all Program_ID = 1)
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 1, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (2, 1, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (3, 1, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (4, 1, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (5, 1, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (6, 1, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (7, 1, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (8, 1, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (9, 1, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (10, 1, 'Morning');
+
+-- 'Night' has 2 broadcasts (all Program_ID = 1)
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (11, 1, 'Night');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (12, 1, 'Night');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty 'broadcast' table (while other tables are populated).
+-- Catches queries without GROUP BY or queries reading from the wrong table.
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (1, 'P1', 'US', 2000.0, 'O1');
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'C1', 'O1', 50.0, 25.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests primary sort priority (ORDER BY count___, time_of_day) vs (ORDER BY time_of_day, count___),
+-- and tests empty string '' vs NULL in grouping and ordering.
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (1, 'P1', 'US', 2000.0, 'O1');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (2, 'P2', 'US', 2000.0, 'O1');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (3, 'P3', 'US', 2000.0, 'O1');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (4, 'P4', 'US', 2000.0, 'O1');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (5, 'P5', 'US', 2000.0, 'O1');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (6, 'P6', 'US', 2000.0, 'O1');
+
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'C1', 'O1', 10.0, 5.0);
+
+-- 'Z_Late' has count 1 (alphabetically last, but numerically first in count)
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 1, 'Z_Late');
+
+-- '' (empty string) has count 2
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 2, '');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 3, '');
+
+-- NULL has count 2 (ties with '', should come after '' due to NULLS LAST)
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 4, NULL);
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 5, NULL);
+
+-- 'A_Early' has count 1 (ties with 'Z_Late', should come before 'Z_Late')
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 6, 'A_Early');
+```

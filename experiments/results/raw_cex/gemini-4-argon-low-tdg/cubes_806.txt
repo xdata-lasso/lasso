@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests standard match (DepartmentID = 1 exists), multiple RHS groups (kills missing DISTINCT),
+-- GROUP BY Head vs DepartmentID in RHS (kills wrong GROUP BY when Head is duplicated),
+-- and non-matching LHS rows (DepartmentID = 2, 3) to kill missing join conditions or outer joins.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Alpha', 'Head', 111111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. Beta', 'Assistant', 222222);
+
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (1, 10, 'Cardiology');
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (2, 10, 'Neurology');
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (3, 20, 'Oncology');
+```
+
+```sql
+-- DATASET 2
+-- Tests scenario where DepartmentID = 1 does NOT exist, but total department count matches an existing DepartmentID (2).
+-- Kills mutants that omit GROUP BY in RHS (making n_distinct = total count = 2, which would falsely match DepartmentID = 2).
+-- Also kills mutants that join on LHS.DepartmentID = RHS.DepartmentID instead of RHS.n_distinct.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (30, 'Dr. Gamma', 'Chief', 333333);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (40, 'Dr. Delta', 'Senior', 444444);
+
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (2, 30, 'Pediatrics');
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (3, 40, 'Orthopedics');
+```
+
+```sql
+-- DATASET 3
+-- Tests scenario where DepartmentID = 1 has a NULL Head, while another department has Head = 1.
+-- Kills mutants projecting DepartmentID instead of Head, or filtering out NULLs, or joining on Head = n_distinct.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. One', 'Resident', 555555);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (50, 'Dr. Epsilon', 'Surgeon', 666666);
+
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (1, NULL, 'Emergency');
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (4, 1, 'Radiology');
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (5, 50, 'Pathology');
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY Name vs GROUP BY DepartmentID in RHS.
+-- Two departments share the same Name ('General'), so grouping by Name yields count = 2, matching DepartmentID = 2.
+-- Also sets Head of Department 1 to 100 and Head of Department 2 to 50 to test ORDER BY head (50 vs 100) if extra rows leak.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (50, 'Dr. Zeta', 'Director', 777777);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (100, 'Dr. Eta', 'Director', 888888);
+
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (1, 100, 'General');
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (2, 50, 'General');
+```
+
+```sql
+-- DATASET 5
+-- Single row boundary test where DepartmentID = 1 and Head = 1.
+-- Tests minimal non-empty result and distinguishes `<` or `>` join condition mutations from `=`.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (99, 'Dr. Theta', 'Solo', 999999);
+
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (1, 99, 'Psychiatry');
+```

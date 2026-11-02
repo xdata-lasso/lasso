@@ -1,0 +1,71 @@
+```sql
+-- DATASET 1
+-- Tests predicate isolation: exact match vs wrong date, wrong time, and both wrong. Also tests correct column projection (Segment vs Currency) and correct table projection (customers.Segment vs gasstations.Segment).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'Other', 'GBP');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 10, 'CZE', 'StationSegment_Wrong');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 20, 'SVK', 'StationSegment_2');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (101, '2012-08-23', '21:20:00', 1, 1001, 1, 1, 10, 200.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (102, '2012-08-23', '21:20:01', 2, 1002, 2, 1, 20, 400.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (103, '2012-08-24', '21:20:00', 3, 1003, 2, 1, 30, 600.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (104, '2012-08-22', '10:00:00', 4, 1004, 2, 1, 40, 800.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests JOIN semantics (INNER JOIN vs LEFT/RIGHT JOIN) and wrong JOIN keys (e.g., TransactionID = CustomerID, CardID = CustomerID, GasStationID = CustomerID).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'Target_Segment', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'Wrong_Joined_On_TransactionID', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (30, 'Wrong_Joined_On_CardID', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (40, 'Wrong_Joined_On_GasStationID', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (50, 'Unmatched_Customer_RightJoin', 'EUR');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (20, '2012-08-23', '21:20:00', 10, 30, 40, 1, 15, 300.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (21, '2012-08-23', '21:20:00', 999, 100, 100, 1, 15, 300.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (22, '2012-08-23', '21:20:00', NULL, 101, 101, 1, 15, 300.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests bag semantics (multiplicity): ensures DISTINCT is not erroneously added, and that multiple matching transactions for the same customer or different customers with the same Segment return duplicate rows. Also tests against accidental INNER JOIN with yearmonth.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'Duplicate_Segment', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'Duplicate_Segment', 'CZK');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-23', '21:20:00', 1, 500, 10, 1, 10, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-23', '21:20:00', 1, 501, 11, 2, 20, 200.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-23', '21:20:00', 2, 502, 12, 1, 30, 300.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in projected column (Segment IS NULL) and boundary string comparisons on Date and Time (e.g., LIKE '2012-08-23%', Time format variations, or < / > mutations).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, NULL, 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'Boundary_Segment', 'EUR');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-23', '21:20:00', 1, 10, 1, 1, 5, 50.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-23', '21:20:00', 5, 11, 1, 1, 5, 50.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-23', '21:19:59', 2, 12, 1, 1, 5, 50.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-22', '21:20:00', 3, 13, 1, 1, 5, 50.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, NULL, '21:20:00', 4, 14, 1, 1, 5, 50.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (6, '2012-08-23', NULL, 4, 15, 1, 1, 5, 50.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when data exists in tables, and tests against confusing yearmonth.Date with transactions_1k.Date.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '2012-08-23', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201208', 600.0);
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-23', '09:20:00', 1, 100, 1, 1, 10, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-21', '21:20:00', 2, 200, 1, 1, 20, 200.0);
+```

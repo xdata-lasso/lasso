@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality, AVG vs SUM/COUNT/MIN/MAX, DISTINCT in AVG, and filters on forename, surname, and year.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Monaco', 'http://monaco');
+INSERT INTO seasons (year, url) VALUES (1999, 'http://1999');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://2000');
+INSERT INTO seasons (year, url) VALUES (2001, 'http://2001');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'irvine', 'Eddie', 'Irvine', 'http://eddie_irvine');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'cheever', 'Eddie', 'Cheever', 'http://eddie_cheever');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'john_irvine', 'John', 'Irvine', 'http://john_irvine');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2000, 1, 1, 'Australian GP', '2000-03-12', 'http://r10');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (11, 2000, 2, 1, 'Brazilian GP', '2000-03-26', 'http://r11');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (12, 2000, 3, 1, 'San Marino GP', '2000-04-09', 'http://r12');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (13, 1999, 1, 1, '1999 GP', '1999-03-07', 'http://r13');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (14, 2001, 1, 1, '2001 GP', '2001-03-04', 'http://r14');
+
+-- Target rows for Eddie Irvine in 2000: points are 3, 3, 7 (AVG = 13/3 = 4.3333, AVG(DISTINCT) = 5, SUM = 13)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (101, 10, 1, 3.0, 4, 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (102, 11, 1, 3.0, 5, 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (103, 12, 1, 7.0, 3, 0);
+
+-- Decoy rows: Eddie Irvine in 1999 and 2001
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (104, 13, 1, 50.0, 1, 2);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (105, 14, 1, 100.0, 1, 4);
+
+-- Decoy rows: Eddie Cheever in 2000, John Irvine in 2000
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (106, 10, 2, 80.0, 1, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (107, 10, 3, 90.0, 2, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests table confusion (results vs driverStandings vs constructorStandings), column confusion (points vs position/wins), and join key confusion (T2.driverId = T3.raceId or T1.driverId = T2.driverStandingsId).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://silverstone');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://2000');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'jaguar', 'Jaguar', 'http://jaguar');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- Use non-matching IDs to kill accidental joins on wrong primary/foreign keys (e.g., driverId=50, raceId=60, driverStandingsId=70)
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, url) VALUES (50, 'irvine', 7, 'Eddie', 'Irvine', 'http://eddie');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, url) VALUES (60, 'wrong_driver', 8, 'Wrong', 'Driver', 'http://wrong');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (60, 2000, 1, 1, 'British GP', '2000-04-23', 'http://r60');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (50, 2000, 2, 1, 'Spanish GP', '2000-05-07', 'http://r50');
+
+-- Target standing for Eddie Irvine (driverId 50) in race 60
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (70, 60, 50, 14.5, 2, 1);
+
+-- Trap for wrong join condition (e.g. T1.driverId = T3.raceId or T2.driverId = T3.raceId)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (50, 50, 60, 999.0, 1, 9);
+
+-- Trap for querying `results` instead of `driverStandings`
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionOrder, points, laps, statusId) VALUES (1, 60, 50, 1, 1, 1, 2.0, 60, 1);
+
+-- Trap for querying `constructorStandings` instead of `driverStandings`
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, wins) VALUES (1, 60, 1, 400.0, 1, 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests zero points handling in AVG (0.0 must be included in the denominator) and empty/missing race standings (INNER JOIN vs LEFT JOIN).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://monza');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://2000');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'irvine1', 'Eddie', 'Irvine', 'http://eddie1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'irvine2', 'Eddie', 'Irvine', 'http://eddie2');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2000, 1, 1, 'Italian GP', '2000-09-10', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2000, 2, 1, 'US GP', '2000-09-24', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2000, 3, 1, 'Japanese GP', '2000-10-08', 'http://r3');
+
+-- Eddie Irvine (driver 1) has 0.0 points in race 1, and 10.0 points in race 2. AVG should be 5.0 (not 10.0).
+-- Race 3 has no driverStandings for Eddie Irvine.
+-- Driver 2 is also named Eddie Irvine (say, homonym) with no standings at all.
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (1, 1, 1, 0.0, 10, 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (2, 2, 1, 10.0, 1, 1);
+```
+
+```sql
+-- DATASET 4
+-- Edge case: No matching records in 2000 for Eddie Irvine (Expected result: NULL). Tests OUTER JOIN mutants or missing WHERE clauses.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://spa');
+INSERT INTO seasons (year, url) VALUES (1999, 'http://1999');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://2000');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'irvine', 'Eddie', 'Irvine', 'http://eddie');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'schumacher', 'Michael', 'Schumacher', 'http://michael');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1999, 1, 1, 'Belgian GP 99', '1999-08-29', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2000, 1, 1, 'Belgian GP 00', '2000-08-27', 'http://r2');
+
+-- Eddie Irvine only has standings in 1999; Michael Schumacher has standings in 2000.
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (1, 1, 1, 25.0, 1, 2);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, wins) VALUES (2, 2, 2, 30.0, 1, 3);
+```

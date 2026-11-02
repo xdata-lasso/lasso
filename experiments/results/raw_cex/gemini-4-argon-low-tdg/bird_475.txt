@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- Tests join conditions (matching code vs matching id vs cross join),
+-- WHERE conditions (sets.name vs cards.name vs sets.mcmName vs sets.block),
+-- and borderColor variations ('black', 'white', NULL) so total cards != black cards != non-null border cards.
+INSERT INTO "sets" (id, code, name, mcmName, block) VALUES (1, 'CSP', 'Coldsnap', 'OtherName', 'Ice Age');
+INSERT INTO "sets" (id, code, name, mcmName, block) VALUES (2, 'ICE', 'Ice Age', 'Coldsnap', 'Coldsnap');
+INSERT INTO "sets" (id, code, name, mcmName, block) VALUES (3, 'ALL', 'Alliances', 'Alliances', 'Ice Age');
+
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (1, 'uuid-101', 'CSP', 'black', 'Snow-Covered Island');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (2, 'uuid-102', 'CSP', 'black', 'Adarkar Valkyrie');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (3, 'uuid-103', 'CSP', 'white', 'Boreal Druid');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (4, 'uuid-104', 'CSP', NULL, 'Dark Depths');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (5, 'uuid-105', 'ICE', 'black', 'Coldsnap');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (6, 'uuid-106', '1', 'black', 'Fake Join By ID');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (7, 'uuid-107', NULL, 'black', 'Unlinked Black Card');
+```
+
+```sql
+-- DATASET 2
+-- Boundary condition: Matching 'Coldsnap' cards exist, but NONE have 'black' borderColor.
+-- Gold query returns 0.
+-- Catches mutants using COUNT(*) with WHERE borderColor = 'black' if they return 0 vs NULL,
+-- or mutants that return NULL when no 'black' border exists (e.g., SUM(CASE WHEN ... THEN 1 ELSE NULL END)),
+-- or mutants that count all cards in 'Coldsnap'.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'LEA', 'Limited Edition Alpha');
+
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, colorIdentity) VALUES (1, 'uuid-201', 'CSP', 'white', 'B', 'B');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, colorIdentity) VALUES (2, 'uuid-202', 'CSP', 'silver', 'black', 'black');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, colorIdentity) VALUES (3, 'uuid-203', 'CSP', NULL, 'black', 'black');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, colorIdentity) VALUES (4, 'uuid-204', 'LEA', 'black', 'U', 'U');
+```
+
+```sql
+-- DATASET 3
+-- Boundary condition: No cards match the 'Coldsnap' set at all.
+-- Gold query returns NULL (since SUM over 0 rows in SQL is NULL).
+-- Catches mutants using COUNT(...) instead of SUM(CASE...), as COUNT returns 0 instead of NULL on an empty set.
+-- Also catches LEFT JOIN mutants where cards is on the left and unfiltered.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, '2ED', 'Unlimited Edition');
+
+INSERT INTO "cards" (id, uuid, setCode, borderColor) VALUES (1, 'uuid-301', '2ED', 'black');
+INSERT INTO "cards" (id, uuid, setCode, borderColor) VALUES (2, 'uuid-302', '2ED', 'white');
+```
+
+```sql
+-- DATASET 4
+-- Subtle column & string confusion dataset:
+-- Tests case sensitivity ('Black' vs 'black', 'coldsnap' vs 'Coldsnap'), substring matching ('Coldsnap Theme Decks', 'borderless_black'),
+-- and column confusion (parentCode vs code, mtgoCode vs code, keyruneCode vs code, colors vs borderColor).
+INSERT INTO "sets" (id, code, name, parentCode, mtgoCode, keyruneCode) VALUES (1, 'CSP', 'Coldsnap', 'ICE', 'OLD_CSP', 'ICE');
+INSERT INTO "sets" (id, code, name, parentCode, mtgoCode, keyruneCode) VALUES (2, 'CST', 'Coldsnap Theme Decks', 'CSP', 'CSP', 'CSP');
+INSERT INTO "sets" (id, code, name, parentCode, mtgoCode, keyruneCode) VALUES (3, 'CS2', 'coldsnap', 'CSP', 'CS2', 'CS2');
+
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, frameEffects) VALUES (1, 'uuid-401', 'CSP', 'black', 'W', 'legendary');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, frameEffects) VALUES (2, 'uuid-402', 'CSP', 'Black', 'B', 'black');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, frameEffects) VALUES (3, 'uuid-403', 'CSP', 'borderless', 'black', 'black');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, frameEffects) VALUES (4, 'uuid-404', 'CST', 'black', 'B', NULL);
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, frameEffects) VALUES (5, 'uuid-405', 'CS2', 'black', 'B', NULL);
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, frameEffects) VALUES (6, 'uuid-406', 'ICE', 'black', 'B', NULL);
+INSERT INTO "cards" (id, uuid, setCode, borderColor, colors, frameEffects) VALUES (7, 'uuid-407', 'OLD_CSP', 'black', 'B', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Multiple sets with name = 'Coldsnap' (since sets.name is not UNIQUE, only sets.code is UNIQUE)
+-- and multiple identical cards to kill DISTINCT / GROUP BY / LIMIT mutations.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP1', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'CSP2', 'Coldsnap');
+
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (1, 'uuid-501', 'CSP1', 'black', 'Duplicate Card');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (2, 'uuid-502', 'CSP1', 'black', 'Duplicate Card');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (3, 'uuid-503', 'CSP1', 'black', 'Duplicate Card');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (4, 'uuid-504', 'CSP2', 'black', 'Duplicate Card');
+INSERT INTO "cards" (id, uuid, setCode, borderColor, name) VALUES (5, 'uuid-505', 'CSP2', 'borderless', 'Other Card');
+```

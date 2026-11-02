@@ -1,0 +1,52 @@
+-- Schema DDL
+CREATE TABLE circuits (circuitId INTEGER PRIMARY KEY AUTOINCREMENT, circuitRef TEXT DEFAULT '' NOT NULL, name TEXT DEFAULT '' NOT NULL, location TEXT, country TEXT, lat REAL, lng REAL, alt INTEGER, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE constructors (constructorId INTEGER PRIMARY KEY AUTOINCREMENT, constructorRef TEXT DEFAULT '' NOT NULL, name TEXT DEFAULT '' NOT NULL UNIQUE, nationality TEXT, url TEXT DEFAULT '' NOT NULL);
+
+CREATE TABLE drivers (driverId INTEGER PRIMARY KEY AUTOINCREMENT, driverRef TEXT DEFAULT '' NOT NULL, number INTEGER, code TEXT, forename TEXT DEFAULT '' NOT NULL, surname TEXT DEFAULT '' NOT NULL, dob DATE, nationality TEXT, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE seasons (year INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE races (raceId INTEGER PRIMARY KEY AUTOINCREMENT, year INTEGER DEFAULT 0 NOT NULL, round INTEGER DEFAULT 0 NOT NULL, circuitId INTEGER DEFAULT 0 NOT NULL, name TEXT DEFAULT '' NOT NULL, date DATE DEFAULT '0000-00-00' NOT NULL, time TEXT, url TEXT UNIQUE, FOREIGN KEY (year) REFERENCES seasons (year), FOREIGN KEY (circuitId) REFERENCES circuits (circuitId));
+
+CREATE TABLE constructorResults (constructorResultsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, points REAL, status TEXT, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE constructorStandings (constructorStandingsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT, wins INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE driverStandings (driverStandingsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT, wins INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE lapTimes (raceId INTEGER NOT NULL, driverId INTEGER NOT NULL, lap INTEGER NOT NULL, position INTEGER, time TEXT, milliseconds INTEGER, PRIMARY KEY (raceId, driverId, lap), FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE pitStops (raceId INTEGER NOT NULL, driverId INTEGER NOT NULL, stop INTEGER NOT NULL, lap INTEGER NOT NULL, time TEXT NOT NULL, duration TEXT, milliseconds INTEGER, PRIMARY KEY (raceId, driverId, stop), FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE qualifying (qualifyId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, number INTEGER DEFAULT 0 NOT NULL, position INTEGER, q1 TEXT, q2 TEXT, q3 TEXT, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE status (statusId INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT DEFAULT '' NOT NULL);
+
+CREATE TABLE results (resultId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, number INTEGER, grid INTEGER DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT DEFAULT '' NOT NULL, positionOrder INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, laps INTEGER DEFAULT 0 NOT NULL, time TEXT, milliseconds INTEGER, fastestLap INTEGER, rank INTEGER DEFAULT 0, fastestLapTime TEXT, fastestLapSpeed TEXT, statusId INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId), FOREIGN KEY (statusId) REFERENCES status (statusId));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO seasons (year, url) VALUES (1, ' '), (3, 'default2');
+INSERT INTO drivers (driverid, driverref, number, code, forename, surname, dob, nationality, url) VALUES (3, ' ', 6, ' ', 'German', 'default2', '2023-01-02', '1985', '%Y'), (1, 'German', 0, '%Y', '1980', '1980', '1980-10-27', 'default1', 'German'), (4, 'default1', 2, '1985', 'default2', 'default1', NULL, '1985', ' '), (5, 'German', 3, '1980', 'default1', '1980', '1980-10-27', '%Y', 'default2'), (0, 'default1', 1, '%Y', 'German', '1980', '1985-10-27', ' ', '1980'), (6, ' ', 0, NULL, '1980', 'German', '2023-01-01', '%Y', 'default1'), (2, 'default1', 4, ' ', '1985', '1985', '1980-10-27', 'German', '1985'), (7, 'German', 6, NULL, 'default2', ' ', '2023-01-01', '1985', 'unique_7'), (8, ' ', 4, 'default1', 'default2', 'default1', NULL, 'default1', 'unique_8'), (9, '1980', 3, '%Y', 'default1', '1980', '1980-10-27', '%Y', 'unique_9'), (10, 'German', NULL, '%Y', '1985', ' ', '1985-10-27', 'default2', 'unique_10'), (11, '1985', 5, '%Y', '%Y', '1980', '1985-10-27', '1985', 'unique_11'), (12, '1980', 2, 'default2', '1985', 'German', '1980-10-27', ' ', 'unique_12'), (13, '1985', 3, '1985', 'default1', 'German', '1980-10-27', ' ', 'unique_13'), (14, '1985', 6, 'German', 'German', 'default1', '1980-10-27', NULL, 'unique_14'), (15, '1985', NULL, '1980', ' ', ' ', '1980-10-27', ' ', 'unique_15'), (16, 'default2', 0, ' ', 'German', '1985', '1980-10-27', ' ', 'unique_16'), (17, 'default2', NULL, '1985', 'default2', 'German', '2023-01-01', '%Y', 'unique_17'), (18, 'default1', 5, '1985', '1985', 'default2', '1985-10-27', '1980', 'unique_18'), (19, '1985', 2, NULL, 'default2', '1985', '1980-10-27', 'default1', 'unique_19'), (20, ' ', 0, ' ', ' ', 'default1', '2023-01-01', 'default2', 'unique_20'), (21, 'default2', 4, NULL, 'German', '%Y', '2023-01-01', 'German', 'unique_21'), (22, 'German', 5, '1980', '1985', ' ', '1985-10-27', 'default1', 'unique_22'), (23, '1985', 0, ' ', '1980', 'default2', '1985-10-27', '1985', 'unique_23');
+INSERT INTO circuits (circuitid, circuitref, name, location, country, lat, lng, alt, url) VALUES (5, '1980', 'default1', NULL, '%Y', 0.0, 5.0, 3, 'default1'), (2, '1985', 'default1', 'default2', '1980', 6.0, 1.0, 0, ' '), (3, '1985', 'German', 'default2', 'default1', 1.0, NULL, 4, 'default2'), (6, 'German', '1985', '%Y', 'default2', 2.0, 2.0, 6, '1980'), (4, 'default2', '%Y', '%Y', NULL, NULL, 6.0, 5, '1985'), (0, '%Y', 'default1', '1980', ' ', 1.0, 4.0, 4, 'German'), (1, 'default1', 'default2', NULL, 'German', 4.0, 2.0, 4, '%Y'), (7, ' ', '1985', '1980', 'default2', 3.0, 1.0, 3, 'unique_7'), (8, '1980', 'German', '%Y', ' ', 1.0, 6.0, 5, 'unique_8'), (9, '1980', 'German', '1985', 'default1', NULL, 6.0, 0, 'unique_9'), (10, 'default2', '1985', ' ', '1985', 3.0, 5.0, 6, 'unique_10'), (11, '%Y', '%Y', NULL, 'default2', 4.0, 3.0, 0, 'unique_11'), (12, 'default1', 'default1', '1985', 'German', 3.0, 1.0, 1, 'unique_12'), (13, 'German', ' ', 'German', 'German', 1.0, 5.0, NULL, 'unique_13'), (14, 'German', 'default1', 'German', 'default1', NULL, 2.0, 6, 'unique_14'), (15, '%Y', '1985', ' ', '1985', 5.0, 6.0, 5, 'unique_15'), (16, '%Y', '%Y', 'default1', '%Y', 6.0, 0.0, 2, 'unique_16');
+INSERT INTO races (raceid, year, circuitid, round, name, date, time, url) VALUES (1, 1, 13, 6, ' ', '1985-10-27', '%Y', 'default2'), (3, 1, 13, 6, 'German', '2023-01-01', 'default2', '1985'), (6, 3, 11, 1, ' ', '1980-10-27', '1985', 'default1'), (0, 1, 11, 6, 'default1', '1980-10-27', '1980', '1980'), (2, 1, 8, 2, '1985', '1985-10-27', '%Y', ' '), (5, 3, 8, 5, ' ', '2023-01-01', ' ', '%Y'), (4, 3, 8, 5, '1980', '1985-10-27', ' ', NULL), (7, 1, 13, 6, 'default2', '1980-10-27', 'German', 'German'), (8, 1, 1, 6, 'default1', '2023-01-02', 'default2', 'unique_8'), (9, 1, 12, 0, ' ', '1980-10-27', ' ', 'unique_9'), (10, 1, 6, 4, 'German', '2023-01-01', '1980', 'unique_10'), (11, 3, 5, 3, '1985', '2023-01-01', NULL, 'unique_11'), (12, 1, 5, 5, ' ', '1980-10-27', 'default1', 'unique_12'), (13, 3, 14, 2, 'default2', '1985-10-27', 'default2', 'unique_13'), (14, 3, 15, 2, 'default2', '1985-10-27', NULL, 'unique_14'), (15, 1, 6, 1, ' ', '1980-10-27', NULL, 'unique_15'), (16, 3, 8, 3, 'default1', '2023-01-02', 'German', 'unique_16'), (17, 1, 1, 0, 'default2', '2023-01-02', '1985', 'unique_17'), (18, 3, 12, 5, ' ', '2023-01-01', 'German', 'unique_18'), (19, 3, 5, 3, '%Y', '1985-10-27', 'default2', 'unique_19'), (20, 3, 0, 2, 'default1', '1985-10-27', '%Y', 'unique_20'), (21, 3, 0, 3, 'default2', '1985-10-27', 'default1', 'unique_21'), (22, 3, 2, 4, '1985', '2023-01-02', 'default2', 'unique_22'), (23, 1, 4, 6, '1985', '1980-10-27', '1985', 'unique_23');
+INSERT INTO pitstops (raceid, driverid, stop, lap, time, duration, milliseconds) VALUES (13, 21, 5, 6, 'default1', ' ', 1), (1, 14, 6, 1, '1985', '1980', 4), (12, 13, 2, 1, '1980', NULL, 4), (14, 18, 1, 6, 'German', '1985', 0), (0, 8, 1, 2, '1985', '%Y', 3), (12, 21, 3, 1, 'default2', 'default1', 3), (7, 22, 1, 4, 'German', NULL, 0), (4, 4, 6, 0, 'default1', 'German', 0), (2, 9, 4, 6, 'German', NULL, 3), (12, 17, 5, 6, 'German', '1985', 0), (14, 8, 0, 0, 'German', 'German', 3), (2, 2, 5, 1, '1985', 'German', NULL), (13, 20, 5, 3, 'default1', '%Y', 4), (15, 15, 5, 1, '1985', 'German', 2), (17, 16, 3, 1, '1985', '%Y', 0), (19, 1, 1, 1, 'German', ' ', NULL), (16, 19, 0, 1, '1980', '1985', 5), (22, 21, 1, 1, 'default2', '1985', 5), (21, 23, 3, 6, 'German', 'default2', 1), (20, 23, 6, 0, 'default1', 'German', 2);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T2.forename, T2.surname FROM pitStops AS T1 INNER JOIN drivers AS T2 ON T1.driverId = T2.driverId WHERE T2.nationality = 'German' AND STRFTIME('%Y', T2.dob) BETWEEN '1980' AND '1985' GROUP BY T2.forename, T2.surname ORDER BY AVG(T1.duration), T2.forename NULLS LAST, T2.surname NULLS LAST LIMIT 5;
+
+/*
+Gold Result:
+('1985', '1985')
+*/
+
+-- Prediction Query
+SELECT d.forename || ' ' || d.surname AS full_name, AVG(CAST(p.duration AS REAL)) AS avg_duration FROM drivers AS d JOIN pitStops AS p ON d.driverId = p.driverId WHERE d.nationality = 'German' AND STRFTIME('%Y', d.dob) BETWEEN '1980' AND '1985' GROUP BY d.driverId ORDER BY avg_duration ASC, full_name NULLS LAST LIMIT 3;
+
+/*
+Prediction Result:
+('1985 1985', 0.0)
+*/

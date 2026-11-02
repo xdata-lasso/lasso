@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (Email vs other channel codes), customers without channels, and ordering by customer_name and active_from_date
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Card', 'Bob', '2020-01-01', 'Details 1');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Cash', 'Alice', '2020-02-01', 'Details 2');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (3, 'PayPal', 'Charlie', '2020-03-01', 'Details 3');
+
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Email', '2021-05-01', '2022-05-01', 'bob@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Phone', '2021-01-01', '2022-01-01', '123-456-7890');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Email', '2021-06-01', '2022-06-01', 'alice1@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Email', '2021-03-01', '2022-03-01', 'alice2@example.com');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Customer_Contact_Channels (inner self-join uses '=' which rejects rows with NULL in any joined column) and NULLS FIRST vs NULLS LAST in ORDER BY
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Card', NULL, '2019-01-01', 'Null Name');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Card', 'Aaron', '2019-02-01', 'Valid Name');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (3, 'Card', 'Zack', '2019-03-01', 'Valid Name 2');
+
+-- Valid non-null Email row for NULL customer_name
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Email', '2020-01-01', '2021-01-01', 'nullname@example.com');
+
+-- Rows with NULLs in various columns of Customer_Contact_Channels (should be filtered out by the self-join equality condition)
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Email', NULL, '2021-01-01', 'aaron1@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Email', '2020-02-01', NULL, 'aaron2@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Email', '2020-03-01', '2021-03-01', NULL);
+
+-- Valid non-null Email row for Zack
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (3, 'Email', '2020-04-01', '2021-04-01', 'zack@example.com');
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple Email channels for the same customer that share some attributes (e.g., active_from_date) but differ in active_to_date or contact_number, plus exact duplicate rows (tests DISTINCT vs ALL and missing self-join predicates)
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Card', 'David', '2018-05-10', 'Multi channel customer');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Cash', 'David', '2019-07-20', 'Another David');
+
+-- Two distinct Email channels for customer 1 with the same active_from_date but different contact_number / active_to_date
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Email', '2021-01-01', '2021-06-01', 'david_work@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Email', '2021-01-01', '2021-12-01', 'david_home@example.com');
+
+-- Exact duplicate rows in Customer_Contact_Channels for customer 2 (causes 2x2 = 4 rows in self-join)
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Email', '2020-09-01', '2021-09-01', 'david2@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Email', '2020-09-01', '2021-09-01', 'david2@example.com');
+```
+
+```sql
+-- DATASET 4
+-- Tests case sensitivity and partial string matches on 'Email', and distinguishes date_became_customer / active_to_date from active_from_date
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Email', 'Eve', '1999-12-31', 'Payment method is Email');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Card', 'Frank', '2000-01-01', 'Standard customer');
+
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'email', '2022-01-01', '2023-01-01', 'eve_lower@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'EMAIL', '2022-02-01', '2023-02-01', 'eve_upper@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Email_Work', '2022-03-01', '2023-03-01', 'eve_work@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Email', '2022-04-01', '2023-04-01', 'eve_exact@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Email', '2021-11-11', '2025-12-31', 'frank@example.com');
+```
+
+```sql
+-- DATASET 5
+-- Populates other schema tables (Addresses, Customer_Addresses, Customer_Orders, Products, Order_Items) to catch mutants that erroneously join unrelated tables
+INSERT INTO Addresses (address_id, address_content, city, zip_postcode, state_province_county, country, other_address_details) VALUES (10, '123 Main St', 'Metropolis', '10001', 'NY', 'USA', 'Apt 4');
+INSERT INTO Products (product_id, product_details) VALUES (100, 'Laptop');
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Card', 'Grace', '2015-06-15', 'Has no orders or addresses');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Cash', 'Heidi', '2016-07-20', 'Has orders and addresses but no Email channel');
+
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Email', '2017-08-01', '2020-08-01', 'grace@example.com');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Mobile', '2018-09-01', '2020-09-01', '555-0199');
+
+INSERT INTO Customer_Addresses (customer_id, address_id, date_address_from, address_type, date_address_to) VALUES (2, 10, '2016-07-20', 'Home', '2022-07-20');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (1000, 2, 'Completed', '2019-01-15', 'First Order');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (1000, 100, '2');
+```

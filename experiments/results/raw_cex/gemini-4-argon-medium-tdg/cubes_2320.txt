@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests standard aggregation, duplicate elimination (SELECT DISTINCT vs SELECT), 
+-- column swapping (Amount_Piad vs Amount_Claimed), DISTINCT inside SUM/AVG, 
+-- PARTITION BY vs OVER(), and inner join traps (missing children/parents).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust A');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 1, 'AUTO', '2020-01-01', '2021-01-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (20, 1, 'HOME', '2020-01-01', '2021-01-01');
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") 
+VALUES (1, 10, 'OPEN', 'COLLISION', '2020-02-01', '2020-03-01', 1000.0, 100.0);
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") 
+VALUES (2, 10, 'CLOSED', 'THEFT', '2020-04-01', NULL, 2000.0, 100.0);
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") 
+VALUES (3, 20, 'CLOSED', 'COLLISION', '2020-05-01', '2020-06-01', 3000.0, 250.0);
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") 
+VALUES (4, NULL, 'PENDING', 'FIRE', '2020-07-01', '2020-08-01', 4000.0, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty Claim_Headers table (Window function returns 0 rows vs standard aggregate without GROUP BY returning 1 row of NULLs).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust A');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 1, 'AUTO', '2020-01-01', '2021-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests all NULLs in Amount_Piad (COALESCE/IFNULL mutations, COUNT(*) vs COUNT(Amount_Piad), and DISTINCT collapsing multiple NULL rows into 1).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust A');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 1, 'AUTO', '2020-01-01', '2021-01-01');
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") 
+VALUES (1, 10, 'OPEN', 'FIRE', '2020-02-01', '2020-03-01', 500.0, NULL);
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") 
+VALUES (2, 10, 'CLOSED', 'THEFT', '2020-04-01', '2020-05-01', 800.0, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests zero values, negative values, fractional precision, and fan-out joins with child tables (Claims_Documents, Claims_Processing).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust A');
+INSERT INTO "Staff" ("Staff_ID", "Staff_Details") VALUES (100, 'Staff A');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 1, 'LIFE', '2020-01-01', '2021-01-01');
+INSERT INTO "Claims_Processing_Stages" ("Claim_Stage_ID", "Next_Claim_Stage_ID", "Claim_Status_Name", "Claim_Status_Description") VALUES (1, 2, 'Init', 'Initial');
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") 
+VALUES (1, 10, 'OPEN', 'MED', '2020-01-10', '2020-01-20', 100.0, 0.0);
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") 
+VALUES (2, 10, 'OPEN', 'MED', '2020-02-10', '2020-02-20', 100.0, -25.5);
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") 
+VALUES (3, 10, 'CLOSED', 'MED', '2020-03-10', '2020-03-20', 100.0, 100.75);
+
+INSERT INTO "Claims_Documents" ("Claim_ID", "Document_Type_Code", "Created_by_Staff_ID", "Created_Date") VALUES (3, 'DOC1', 100, 20200311);
+INSERT INTO "Claims_Documents" ("Claim_ID", "Document_Type_Code", "Created_by_Staff_ID", "Created_Date") VALUES (3, 'DOC2', 100, 20200312);
+
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (1001, 100, 3, 'OK', 1);
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (1002, 100, 3, 'DONE', 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests single row edge case (where SUM == AVG == Amount_Piad, testing HAVING count > 1 or offset window frame mutations).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust A');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 1, 'AUTO', '2020-01-01', '2021-01-01');
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") 
+VALUES (1, 10, 'CLOSED', 'GLASS', '2020-06-01', '2020-06-05', 500.0, 42.5);
+```

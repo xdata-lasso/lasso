@@ -1,0 +1,13 @@
+{
+  "id": "aggregate_offset_vs_date_function_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE \"Logins\" (\"user_id\" INTEGER, \"login_date\" DATE, PRIMARY KEY (\"user_id\", \"login_date\"));",
+  "correct_query": "SELECT CAST(SUM(CASE WHEN (first_log.min_date + 1) = l.login_date THEN 1 ELSE 0 END) AS REAL) / COUNT(DISTINCT first_log.user_id) AS consecutive_ratio FROM (SELECT user_id, MIN(login_date) AS min_date FROM Logins GROUP BY user_id) AS first_log JOIN Logins AS l ON first_log.user_id = l.user_id",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "mutant_date_wrapped_arithmetic_offset",
+      "description": "Mutant wraps the numeric offset expression (MIN(login_date) + 1) in SQLite's DATE() function inside a tuple-IN subquery, which interprets the numeric sum as a Julian day number and returns NULL or an ISO date string instead of matching consecutive numeric values.",
+      "query": "SELECT CAST((SELECT COUNT(*) FROM (SELECT user_id, MIN(login_date) AS min_date FROM Logins WHERE (user_id, login_date) IN (SELECT user_id, DATE(MIN(login_date) + 1) FROM Logins GROUP BY user_id) GROUP BY user_id) AS g) AS REAL) / (SELECT COUNT(DISTINCT user_id) FROM Logins) AS consecutive_ratio"
+    }
+  ]
+}

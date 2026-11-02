@@ -1,0 +1,114 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Exact lower date boundary ('2019-09-10') and exact upper date boundary ('2019-11-19').
+-- 2. Off-by-one outside date boundaries ('2019-09-09' and '2019-11-20').
+-- 3. Timestamps with trailing characters (e.g., '2019-11-19 15:30:00') to test SUBSTRING(expense_date, 1, 10) vs raw string comparison.
+-- 4. Cost boundary: strictly greater than 20 (cost = 20.01) vs equal to 20 (cost = 20.0) vs less than 20 (cost = 19.99).
+-- 5. Logical AND vs OR between date condition and cost condition.
+
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'Computer Science', 'CS', 'Engineering');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'Alice', 'Smith', 'alice@example.com', 'Member', 'M', '111-1111', 10001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM2', 'Bob', 'Jones', 'bob@example.com', 'Member', 'L', '222-2222', 10001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM3', 'Charlie', 'Brown', 'charlie@example.com', 'Member', 'S', '333-3333', 10001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM4', 'Diana', 'Prince', 'diana@example.com', 'Member', 'M', '444-4444', 10001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM5', 'Evan', 'Wright', 'evan@example.com', 'Member', 'XL', '555-5555', 10001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM6', 'Fiona', 'Gallagher', 'fiona@example.com', 'Member', 'S', '666-6666', 10001, 'M1');
+
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Fall Meetup', '2019-09-01', 'Social', 'None', 'Room 101', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 100.0, 50.0, 150, 'Closed', 'E1');
+
+-- Valid: exact start date, cost > 20
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Snacks', '2019-09-10 00:00:00', 20.01, 'true', 'MEM1', 'B1');
+-- Valid: exact end date with timestamp (fails if SUBSTRING is omitted in raw BETWEEN '2019-09-10' AND '2019-11-19'), cost > 20
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Drinks', '2019-11-19 23:59:59', 25.00, 'true', 'MEM2', 'B1');
+-- Invalid: date in range, cost = 20 (tests > vs >=)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Plates', '2019-10-15', 20.00, 'true', 'MEM3', 'B1');
+-- Invalid: date in range, cost < 20
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Napkins', '2019-10-15', 19.99, 'true', 'MEM4', 'B1');
+-- Invalid: date 1 day before start, cost > 20
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP5', 'Cups', '2019-09-09 23:59:59', 50.00, 'true', 'MEM5', 'B1');
+-- Invalid: date 1 day after end, cost > 20
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP6', 'Banner', '2019-11-20 00:00:00', 50.00, 'true', 'MEM6', 'B1');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. DISTINCT keyword requirement (same member with multiple qualifying expenses, and multiple members sharing the same email).
+-- 2. INNER JOIN vs LEFT/RIGHT JOIN (members without expenses, and expenses with NULL link_to_member).
+-- 3. NULL handling in expense_date, cost, and member.email.
+-- 4. Confounder columns: approved = 'false', budget.spent > 20, budget.amount > 20, event.event_date in range while expense_date is out of range.
+
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'Mathematics', 'Math', 'Science');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (20001, 'Standard', 'Washington', 'DC', 'District of Columbia', 'DC');
+
+-- Member with multiple valid expenses (tests DISTINCT)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'Grace', 'Hopper', 'shared@example.com', 'President', 'M', '111-2222', 20001, 'M1');
+-- Second member with the exact same email and valid expense (tests DISTINCT across members)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM2', 'Grace2', 'Hopper2', 'shared@example.com', 'Secretary', 'M', '111-3333', 20001, 'M1');
+-- Member with no expenses (tests INNER JOIN vs LEFT JOIN on member)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM3', 'No', 'Expense', 'noexpense@example.com', 'Member', 'L', '111-4444', 20001, 'M1');
+-- Member with event_date in range, budget spent > 20, but expense_date out of range and cost <= 20 (tests wrong column selection)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM4', 'Wrong', 'Columns', 'wrongcols@example.com', 'Member', 'S', '111-5555', 20001, 'M1');
+-- Member with NULL cost / NULL date expenses
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM5', 'Null', 'Tester', 'nulltester@example.com', 'Member', 'XL', '111-6666', 20001, 'M1');
+
+-- Event with date inside target range (confounder if mutant filters on event_date instead of expense_date)
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Oct Conf', '2019-10-10', 'Conference', 'Notes', 'Hall A', 'Open');
+-- Budget with spent/remaining/amount > 20 (confounder if mutant filters on budget numbers instead of expense.cost)
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'General', 500.0, 500.0, 1000, 'Open', 'E1');
+
+-- Two qualifying expenses for MEM1 (one with approved = 'false' to kill mutants adding approved='true')
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Travel 1', '2019-10-01', 30.0, 'true', 'MEM1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Travel 2', '2019-10-05', 45.0, 'false', 'MEM1', 'B1');
+
+-- One qualifying expense for MEM2 (who shares email with MEM1)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Hotel', '2019-11-01', 100.0, 'false', 'MEM2', 'B1');
+
+-- Expense for MEM4: expense_date out of range and cost <= 20, though linked to E1 ('2019-10-10') and B1 (spent 500)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Flyers', '2019-08-01', 10.0, 'true', 'MEM4', 'B1');
+
+-- Expenses for MEM5 with NULLs
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP5', 'Null Date', NULL, 50.0, 'true', 'MEM5', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP6', 'Null Cost', '2019-10-10', NULL, 'true', 'MEM5', 'B1');
+
+-- Expense with NULL link_to_member (tests INNER JOIN vs RIGHT JOIN on expense)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP7', 'Orphan Expense', '2019-10-10', 99.0, 'true', NULL, 'B1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Join condition accuracy: T1.member_id = T2.link_to_member vs accidental join on link_to_budget, expense_id, etc.
+-- 2. Expense without a budget (link_to_budget IS NULL) to refute mutants that unnecessarily INNER JOIN the budget/event tables.
+-- 3. Income table confounder (member has income in date range with amount > 20, but no qualifying expense).
+-- 4. Year/Month boundary checks ('2018-10-15', '2020-10-15').
+
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'Physics', 'Physics', 'Science');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (30001, 'Standard', 'Atlanta', 'Fulton', 'Georgia', 'GA');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('B1', 'IdCollision', 'User', 'collision@example.com', 'Member', 'M', '333-1111', 30001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM_REAL', 'Real', 'Member', 'real@example.com', 'Member', 'L', '333-2222', 30001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM_NOBUDGET', 'NoBudget', 'Expense', 'nobudget@example.com', 'Member', 'S', '333-3333', 30001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM_INCOME', 'Income', 'Only', 'income@example.com', 'Member', 'M', '333-4444', 30001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM_WRONGYEAR', 'Wrong', 'Year', 'wrongyear@example.com', 'Member', 'M', '333-5555', 30001, 'M1');
+
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Symposium', '2019-10-01', 'Academic', 'None', 'Auditorium', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Supplies', 50.0, 50.0, 100, 'Closed', 'E1');
+
+-- Expense linked to MEM_REAL and budget B1. If a mutant joins member_id = link_to_budget, it will return 'collision@example.com' instead of 'real@example.com'.
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Poster', '2019-09-25', 35.0, 'true', 'MEM_REAL', 'B1');
+
+-- Expense with NULL link_to_budget. Should still be returned by Gold Query.
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Out of pocket', '2019-10-20', 40.0, 'true', 'MEM_NOBUDGET', NULL);
+
+-- Income record in target date range and amount > 20 (tests mutants querying income instead of expense)
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2019-10-15', 50, 'Dues', 'Paid', 'MEM_INCOME');
+
+-- Expense in wrong year ('2018-10-15' and '2020-10-15')
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Old Expense', '2018-10-15', 50.0, 'true', 'MEM_WRONGYEAR', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Future Expense', '2020-10-15', 50.0, 'true', 'MEM_WRONGYEAR', 'B1');
+```

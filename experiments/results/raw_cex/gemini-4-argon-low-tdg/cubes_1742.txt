@@ -1,0 +1,58 @@
+```sql
+-- DATASET 1
+-- Tests standard functionality: anti-correlations between Sales_in_Billion and other numeric columns (Profits, Assets, Market_Value), 
+-- and checks if the query wrongly filters/joins with the employment table (winner has no employees).
+INSERT INTO "people" ("People_ID", "Age", "Name", "Nationality", "Graduation_College") VALUES (1, 35, 'Alice', 'USA', 'MIT');
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (1.0, 'Alpha Corp', 'New York', 'Tech', 100.0, 500.0, 50.0, 50.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (2.0, 'Beta Inc', 'London', 'Finance', 300.0, 10.0, 10.0, 10.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (3.0, 'Gamma LLC', 'Tokyo', 'Auto', 200.0, 20.0, 800.0, 50.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (4.0, 'Delta Co', 'Berlin', 'Retail', 150.0, 30.0, 40.0, 900.0);
+INSERT INTO "employment" ("Company_ID", "People_ID", "Year_working") VALUES (1, 1, 5);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking logic: multiple rows share the maximum Sales_in_Billion.
+-- Reference query breaks ties by Company_ID ASC (10.0 wins over 20.0).
+-- Catches mutants that omit secondary sort, sort Company_ID DESC, or use MAX(sales_in_billion) without deterministic tie-breaking.
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (20.0, 'Zeta Corp', 'Paris', 'Fashion', 500.0, 50.0, 100.0, 200.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (10.0, 'Eta Inc', 'Seoul', 'Electronics', 500.0, 40.0, 90.0, 180.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (5.0, 'Theta LLC', 'Madrid', 'Energy', 400.0, 60.0, 120.0, 250.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Sales_in_Billion and negative values.
+-- In SQLite, NULLs are considered smaller than any value, so ORDER BY DESC puts NULLs at the bottom.
+-- Also tests negative sales to ensure proper numeric comparison.
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (1.0, 'NullSales Co', 'Oslo', 'Shipping', NULL, 100.0, 100.0, 100.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (2.0, 'NegativeSales1', 'Dublin', 'Biotech', -10.5, -5.0, 20.0, 30.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (3.0, 'NegativeSales2', 'Zurich', 'Pharma', -50.0, -10.0, 50.0, 60.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULLS LAST on Company_ID when all Sales_in_Billion are NULL (or tied).
+-- In SQLite, a REAL PRIMARY KEY allows a single NULL row.
+-- With NULLS LAST, Company_ID 5.0 must come before NULL.
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (NULL, 'Mystery Corp', 'Geneva', 'Banking', 1000.0, 100.0, 200.0, 300.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (5.0, 'Known Corp', 'Vienna', 'Banking', 1000.0, 90.0, 180.0, 280.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests numeric vs lexicographical sorting (e.g., if a mutant casts Sales_in_Billion or Company_ID to TEXT).
+-- Numerically: 100.0 > 95.0 > 20.0. Lexicographically: '95.0' > '20.0' > '100.0'.
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (10.0, 'Hundred', 'Chicago', 'Food', 100.0, 10.0, 10.0, 10.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (2.0, 'NinetyFive', 'Boston', 'Tech', 95.0, 10.0, 10.0, 10.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (9.0, 'Twenty', 'Seattle', 'Retail', 20.0, 10.0, 10.0, 10.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests duplicate Headquarters for top companies vs non-top companies, and NULL Headquarters for the winning company.
+-- Catches mutants that add WHERE headquarters IS NOT NULL or incorrectly use GROUP BY / DISTINCT before LIMIT.
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (1.0, 'Ghost HQ', NULL, 'Crypto', 999.0, 50.0, 50.0, 50.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (2.0, 'Real HQ', 'Toronto', 'Mining', 500.0, 40.0, 40.0, 40.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (3.0, 'Another HQ', 'Toronto', 'Mining', 400.0, 30.0, 30.0, 30.0);
+```

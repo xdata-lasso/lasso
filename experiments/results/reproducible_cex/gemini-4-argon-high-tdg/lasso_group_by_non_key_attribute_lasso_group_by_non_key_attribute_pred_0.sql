@@ -1,0 +1,40 @@
+-- Schema DDL
+CREATE TABLE jobs (job_id TEXT(10) PRIMARY KEY, job_title TEXT(35));
+
+CREATE TABLE employees (employee_id REAL(6, 0) PRIMARY KEY, job_id TEXT(10), salary REAL(8, 2), FOREIGN KEY (job_id) REFERENCES jobs (job_id));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 2
+INSERT INTO jobs (job_id, job_title) VALUES ('J_B', 'Developer');
+INSERT INTO jobs (job_id, job_title) VALUES ('J_A', 'Developer');
+INSERT INTO jobs (job_id, job_title) VALUES ('J_D', 'Analyst');
+INSERT INTO jobs (job_id, job_title) VALUES ('J_C', 'Analyst');
+INSERT INTO employees (employee_id, job_id, salary) VALUES (10, 'J_B', 2000.00);
+INSERT INTO employees (employee_id, job_id, salary) VALUES (11, 'J_B', 4000.00);
+INSERT INTO employees (employee_id, job_id, salary) VALUES (12, 'J_A', 9000.00);
+INSERT INTO employees (employee_id, job_id, salary) VALUES (13, 'J_D', 5000.00);
+INSERT INTO employees (employee_id, job_id, salary) VALUES (14, 'J_C', 4000.00);
+INSERT INTO employees (employee_id, job_id, salary) VALUES (15, 'J_C', 6000.00);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T2.job_title, LHS.avg_sal FROM (SELECT job_id, AVG(salary) AS avg_sal FROM employees GROUP BY job_id) AS LHS JOIN jobs AS T2 ON LHS.job_id = T2.job_id ORDER BY T2.job_title, T2.job_id NULLS LAST;
+
+/*
+Gold Result:
+('Analyst', 5000.0)
+('Analyst', 5000.0)
+('Developer', 9000.0)
+('Developer', 3000.0)
+*/
+
+-- Prediction Query
+SELECT T2.job_title, AVG(T1.salary) FROM employees AS T1 JOIN jobs AS T2 ON T1.job_id = T2.job_id GROUP BY T2.job_title ORDER BY T2.job_title, AVG(T1.salary) NULLS LAST;
+
+/*
+Prediction Result:
+('Analyst', 5000.0)
+('Developer', 5000.0)
+*/

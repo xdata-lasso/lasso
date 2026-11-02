@@ -1,0 +1,13 @@
+{
+  "id": "window_aggregate_self_join_cardinality_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE \"EMPLOYEES\" (\"emp_id\" INTEGER PRIMARY KEY, \"emp_name\" TEXT);\nCREATE TABLE \"SALARIES\" (\"emp_id\" INTEGER PRIMARY KEY, \"amount\" REAL, FOREIGN KEY (\"emp_id\") REFERENCES \"EMPLOYEES\" (\"emp_id\"));",
+  "correct_query": "SELECT emp_id, emp_name FROM (SELECT LHS.emp_id AS emp_id, LHS.amount AS amount, LHS.emp_name AS emp_name, LHS.max_amount AS max_amount, RHS.emp_id AS emp_id_other, RHS.amount AS amount_other FROM (SELECT emp_id, amount, emp_name, MAX(amount) OVER () AS max_amount FROM (SELECT LHS.emp_id AS emp_id, LHS.amount AS amount, RHS.emp_name AS emp_name FROM salaries AS LHS INNER JOIN employees AS RHS ON (LHS.emp_id = RHS.emp_id))) AS LHS CROSS JOIN salaries AS RHS) WHERE (amount = amount_other AND max_amount <> amount_other) ORDER BY emp_id, emp_name NULLS LAST",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "omitted_self_join_on_non_unique_attribute",
+      "description": "Mutant replaces the self-join on non-unique attribute amount (amount = amount_other AND max_amount <> amount_other) with a single-table scalar subquery inequality filter, failing to preserve join multiplicity when multiple rows share the same non-maximum amount.",
+      "query": "SELECT T1.emp_id, T1.emp_name FROM employees AS T1 JOIN salaries AS T2 ON T1.emp_id = T2.emp_id WHERE T2.amount < (SELECT MAX(amount) FROM salaries)"
+    }
+  ]
+}

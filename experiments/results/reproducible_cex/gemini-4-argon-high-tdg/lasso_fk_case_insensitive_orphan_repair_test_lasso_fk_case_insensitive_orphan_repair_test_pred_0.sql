@@ -1,0 +1,38 @@
+-- Schema DDL
+CREATE TABLE product (product_id INTEGER PRIMARY KEY, product_name TEXT);
+
+CREATE TABLE store (Store_ID INTEGER PRIMARY KEY, Store_Name TEXT);
+
+CREATE TABLE store_product (Store_ID INTEGER, Product_ID INTEGER, PRIMARY KEY (Store_ID, Product_ID), FOREIGN KEY (Product_ID) REFERENCES product (Product_ID), FOREIGN KEY (Store_ID) REFERENCES store (Store_ID));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO product (product_id, product_name) VALUES (10, 'Laptop');
+INSERT INTO product (product_id, product_name) VALUES (20, 'Mouse');
+INSERT INTO product (product_id, product_name) VALUES (30, 'Keyboard');
+INSERT INTO store (Store_ID, Store_Name) VALUES (1, 'Miramichi');
+INSERT INTO store (Store_ID, Store_Name) VALUES (2, 'Bathurst');
+INSERT INTO store (Store_ID, Store_Name) VALUES (3, 'Moncton');
+INSERT INTO store_product (Store_ID, Product_ID) VALUES (1, 10);
+INSERT INTO store_product (Store_ID, Product_ID) VALUES (2, 20);
+INSERT INTO store_product (Store_ID, Product_ID) VALUES (3, 30);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT product_name FROM product JOIN store_product ON product.product_id = store_product.Product_ID JOIN store ON store_product.Store_ID = store.Store_ID WHERE Store_Name <> 'Miramichi';
+
+/*
+Gold Result:
+('Mouse',)
+('Keyboard',)
+*/
+
+-- Prediction Query
+SELECT product_name FROM product JOIN store_product ON product.product_id = store_product.Product_ID JOIN store ON store_product.Store_ID = store.Store_ID WHERE Store_Name = 'Miramichi';
+
+/*
+Prediction Result:
+('Laptop',)
+*/

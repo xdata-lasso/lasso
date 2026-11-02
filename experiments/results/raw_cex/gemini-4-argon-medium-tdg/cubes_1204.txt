@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Core anti-join, ordering, duplicate product names, and ID confusion traps (Product_ID vs Event_ID vs Product_in_Event_ID)
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'TYPE_A', 'Zebra', 10.0);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (2, 'TYPE_B', 'Apple', 20.0);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (3, 'TYPE_A', 'Apple', 30.0);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (4, 'TYPE_C', 'Mango', 40.0);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (5, 'TYPE_B', 'Banana', 50.0);
+
+INSERT INTO "Addresses" ("Address_ID", "address_details") VALUES (10, '123 Main St');
+INSERT INTO "Locations" ("Location_ID", "Other_Details") VALUES (20, 'Room 1');
+INSERT INTO "Finances" ("Finance_ID", "Other_Details") VALUES (30, 'Fin 1');
+INSERT INTO "Channels" ("Channel_ID", "Other_Details") VALUES (40, 'Web');
+
+INSERT INTO "Events" ("Event_ID", "Finance_ID", "Address_ID", "Location_ID", "Channel_ID", "Event_Type_Code") VALUES (1, 30, 10, 20, 40, 'EVT_1');
+INSERT INTO "Events" ("Event_ID", "Finance_ID", "Address_ID", "Location_ID", "Channel_ID", "Event_Type_Code") VALUES (2, 30, 10, 20, 40, 'EVT_2');
+
+-- Product 4 is in Event 1 and Event 2 (Product_in_Event_ID 1 and 2 match Product_IDs 1 and 2 to trap wrong column joins)
+INSERT INTO "Products_in_Events" ("Product_in_Event_ID", "Product_ID", "Event_ID") VALUES (1, 4, 1);
+INSERT INTO "Products_in_Events" ("Product_in_Event_ID", "Product_ID", "Event_ID") VALUES (2, 4, 2);
+-- Product 5 is in Event 1
+INSERT INTO "Products_in_Events" ("Product_in_Event_ID", "Product_ID", "Event_ID") VALUES (3, 5, 1);
+```
+
+```sql
+-- DATASET 2
+-- NULL Product_ID in Products_in_Events (kills NOT IN vs NOT EXISTS equivalence mutants)
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (10, 'T1', 'Laptop', 1000.0);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (20, 'T2', 'Mouse', 25.0);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (30, 'T1', 'Keyboard', 75.0);
+
+INSERT INTO "Events" ("Event_ID", "Finance_ID", "Address_ID", "Location_ID", "Channel_ID", "Event_Type_Code") VALUES (100, NULL, NULL, NULL, NULL, 'SALE');
+
+INSERT INTO "Products_in_Events" ("Product_in_Event_ID", "Product_ID", "Event_ID") VALUES (500, 10, 100);
+INSERT INTO "Products_in_Events" ("Product_in_Event_ID", "Product_ID", "Event_ID") VALUES (501, NULL, 100);
+```
+
+```sql
+-- DATASET 3
+-- Empty Products_in_Events table (all products should be returned in sorted order)
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'B_CODE', 'Orange', 5.0);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (2, 'A_CODE', 'Grape', 15.0);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (3, 'C_CODE', 'Peach', 1.0);
+```
+
+```sql
+-- DATASET 4
+-- All products present in Products_in_Events (empty result set expected)
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'X', 'Chair', 50.0);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (2, 'Y', 'Table', 150.0);
+
+INSERT INTO "Events" ("Event_ID", "Finance_ID", "Address_ID", "Location_ID", "Channel_ID", "Event_Type_Code") VALUES (10, NULL, NULL, NULL, NULL, 'CONF');
+
+INSERT INTO "Products_in_Events" ("Product_in_Event_ID", "Product_ID", "Event_ID") VALUES (100, 1, 10);
+INSERT INTO "Products_in_Events" ("Product_in_Event_ID", "Product_ID", "Event_ID") VALUES (101, 2, 10);
+```
+
+```sql
+-- DATASET 5
+-- Products with NULL attributes and other event-related tables populated to trap wrong table joins (e.g., Assets_in_Events, Parties_in_Events)
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, NULL, NULL, NULL);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (2, 'CODE2', 'Book', 12.5);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (3, 'CODE1', 'Pen', 99.9);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (4, 'CODE3', 'Notebook', 5.0);
+
+INSERT INTO "Parties" ("Party_ID", "Party_Details") VALUES (2, 'Party matching Product 2 ID');
+INSERT INTO "Assets" ("Asset_ID", "Other_Details") VALUES (3, 'Asset matching Product 3 ID');
+INSERT INTO "Events" ("Event_ID", "Finance_ID", "Address_ID", "Location_ID", "Channel_ID", "Event_Type_Code") VALUES (50, NULL, NULL, NULL, NULL, 'EXPO');
+
+-- Populate other bridging tables with IDs 2 and 3 to kill mutants that check Parties_in_Events or Assets_in_Events instead of Products_in_Events
+INSERT INTO "Parties_in_Events" ("Party_ID", "Event_ID", "Role_Code") VALUES (2, 50, 'HOST');
+INSERT INTO "Assets_in_Events" ("Asset_ID", "Event_ID") VALUES (3, 50);
+INSERT INTO "Agreements" ("Document_ID", "Event_ID") VALUES (2, 50);
+
+-- Only Product 4 is actually in Products_in_Events
+INSERT INTO "Products_in_Events" ("Product_in_Event_ID", "Product_ID", "Event_ID") VALUES (99, 4, 50);
+```

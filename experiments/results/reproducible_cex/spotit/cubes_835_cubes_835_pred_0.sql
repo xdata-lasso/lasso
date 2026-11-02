@@ -1,0 +1,51 @@
+-- Schema DDL
+CREATE TABLE "MANUFACTURER" (
+    "MANUFACTURER_ID" INT,
+    "OPEN_YEAR" FLOAT,
+    "NAME" TEXT,
+    "NUM_OF_FACTORIES" INT,
+    "NUM_OF_SHOPS" INT,
+    PRIMARY KEY ("MANUFACTURER_ID")
+);
+CREATE TABLE "FURNITURE" (
+    "FURNITURE_ID" INT,
+    "NAME" TEXT,
+    "NUM_OF_COMPONENT" INT,
+    "MARKET_RATE" FLOAT,
+    PRIMARY KEY ("FURNITURE_ID")
+);
+CREATE TABLE "FURNITURE_MANUFACTE" (
+    "MANUFACTURER_ID" INT,
+    "FURNITURE_ID" INT,
+    "PRICE_IN_DOLLAR" FLOAT,
+    PRIMARY KEY ("MANUFACTURER_ID", "FURNITURE_ID"),
+    FOREIGN KEY ("FURNITURE_ID") REFERENCES "FURNITURE"("FURNITURE_ID"),
+    FOREIGN KEY ("MANUFACTURER_ID") REFERENCES "MANUFACTURER"("MANUFACTURER_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO MANUFACTURER VALUES (-1, 0, 0, 10, 10);
+INSERT INTO MANUFACTURER VALUES (0, 0, 1, NULL, 10);
+INSERT INTO FURNITURE VALUES (1, 0, 0, 0);
+INSERT INTO FURNITURE VALUES (0, 0, 0, 0);
+INSERT INTO FURNITURE_MANUFACTE VALUES (-1, 1, 0);
+INSERT INTO FURNITURE_MANUFACTE VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name, open_year FROM manufacturer WHERE (num_of_shops >= 10 OR num_of_shops > num_of_factories) ORDER BY name, manufacturer.manufacturer_id NULLS LAST;
+
+/*
+Gold Result:
+('0', 0.0)
+('1', 0.0)
+*/
+
+-- Prediction Query
+SELECT name, open_year FROM manufacturer WHERE num_of_shops > 10 OR Num_of_Factories < 10;
+
+/*
+Prediction Result:
+*/

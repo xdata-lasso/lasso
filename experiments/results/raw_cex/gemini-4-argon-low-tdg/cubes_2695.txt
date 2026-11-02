@@ -1,0 +1,58 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by date_order_placed, inverse relationship with order_id, and absence of related child rows (Order_Items, Shipments).
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Alice', 'Regular');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'Bob', 'VIP');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (3, 'Charlie', 'New');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (10, 1, 'Pending', '2023-05-10 10:00:00', 'Order 10');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (20, 2, 'Shipped', '2023-01-15 08:30:00', 'Order 20 - Earliest Date');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (5, 3, 'Cancelled', '2023-12-01 14:15:00', 'Order 5 - Smallest ID, Latest Date');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on date_order_placed using order_id, plus ensures INNER JOINs with Order_Items or Shipments on the target row would fail.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (101, 'Customer A', 'Details A');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (102, 'Customer B', 'Details B');
+
+INSERT INTO Products (product_id, product_name, product_details) VALUES (1, 'Laptop', 'Electronics');
+INSERT INTO Invoices (invoice_number, invoice_date, invoice_details) VALUES (500, '2023-02-02 00:00:00', 'Invoice 500');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (50, 101, 'Completed', '2023-02-01 09:00:00', 'Tie Date, Larger ID');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (30, 102, 'Processing', '2023-02-01 09:00:00', 'Tie Date, Smaller ID (Winner)');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (10, 101, 'Shipped', '2023-03-01 09:00:00', 'Later Date, Smallest ID');
+
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1000, 1, 50, 'Delivered', 'Item for Order 50');
+INSERT INTO Shipments (shipment_id, invoice_number, order_id, shipment_tracking_number, shipment_date, other_shipment_details) VALUES (2000, 500, 50, 'TRK50', '2023-02-03 00:00:00', 'Shipment for Order 50');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL customer_id (kills INNER JOIN Customers) and NULL date_order_placed (tests NULL ordering).
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Valid Customer', 'Details');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (100, NULL, 'Draft', NULL, 'Null Date, Null Customer, Larger ID');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (50, NULL, 'Draft', NULL, 'Null Date, Null Customer, Smaller ID (Winner in SQLite)');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (10, 1, 'Placed', '2020-01-01 00:00:00', 'Earliest Non-Null Date');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL customer_id on the earliest valid date (without NULL dates) to specifically kill INNER JOIN Customers when dates are non-null.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (5, 'Registered User', 'Active');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (1, 5, 'Shipped', '2022-06-15 12:00:00', 'Has Customer, Later Date');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (2, NULL, 'Guest', '2022-01-01 00:00:00', 'Guest Order (Null Customer), Earliest Date');
+```
+
+```sql
+-- DATASET 5
+-- Tests timestamp precision (same day, different times) and ensures orders with multiple items/shipments don't skew results.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (10, 'Corp Inc', 'B2B');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (20, 'Retail LLC', 'B2C');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (7, 10, 'New', '2023-07-04 15:30:00', 'Afternoon');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (8, 20, 'New', '2023-07-04 08:15:00', 'Morning (Winner)');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (6, 10, 'New', '2023-07-04 23:59:59', 'Night');
+```

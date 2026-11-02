@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN, DISTINCT vs ALL, ORDER BY fault_description ASC, and table confusion (Part_Faults / Engineer_Visits vs Fault_Log / Fault_Log_Parts).
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'SUP', 'TechCorp', '123 Tech Way', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2023-01-01 00:00:00', '2024-01-01 00:00:00', 'Standard');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Server', 'Dell', 'R740', '2023-01-02 00:00:00', '2025-01-02 00:00:00', 'Rack 1');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Alice', 1, 'Admin');
+INSERT INTO "Maintenance_Engineers" ("engineer_id", "company_id", "first_name", "last_name", "other_details") VALUES (1, 1, 'Bob', 'Smith', 'Senior');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Hard Drive', 1, 100, 'SSD');
+
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (1, 1, 'PF1', 'Wrong_Desc_From_Part_Faults_1', 'Details 1');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (2, 1, 'PF2', 'Wrong_Desc_From_Part_Faults_2', 'Details 2');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (3, 1, 'PF3', 'Orphan_Part_Fault_Desc', 'Details 3');
+
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (1, 1, 1, '2023-05-01 10:00:00', 'Z_Overheating', 'Alt_Desc_1');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (2, 1, 1, '2023-05-02 10:00:00', 'A_Power_Failure', 'Alt_Desc_2');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (3, 1, 1, '2023-05-03 10:00:00', 'M_Unmatched_Fault_Log', 'Alt_Desc_3');
+
+-- Duplicate output rows for fault_log_entry_id = 1 to kill SELECT DISTINCT or GROUP BY mutants
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (1, 1, 'Fixed');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (1, 2, 'Fixed');
+-- Second fault log entry with different status to test ordering and join condition (fault_log_entry_id=2 joined with part_fault_id=1 kills LHS.fault_log_entry_id = RHS.part_fault_id mutant)
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (2, 1, 'Pending');
+
+-- Engineer_Visits has different fault_status and links to unmatched Fault_Log 3 to kill mutants using Engineer_Visits instead of Fault_Log_Parts
+INSERT INTO "Engineer_Visits" ("engineer_visit_id", "contact_staff_id", "engineer_id", "fault_log_entry_id", "fault_status", "visit_start_datetime", "visit_end_datetime", "other_visit_details") VALUES (1, 1, 1, 1, 'VisitStat1', '2023-05-01 12:00:00', '2023-05-01 14:00:00', 'V1');
+INSERT INTO "Engineer_Visits" ("engineer_visit_id", "contact_staff_id", "engineer_id", "fault_log_entry_id", "fault_status", "visit_start_datetime", "visit_end_datetime", "other_visit_details") VALUES (2, 1, 1, 3, 'VisitStat3', '2023-05-03 12:00:00', '2023-05-03 14:00:00', 'V3');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking / secondary sorting, multiple different statuses per fault_log_entry, and non-matching IDs between tables.
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (10, 'MNT', 'FixIt', '456 Repair Rd', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (10, 10, '2022-01-01 00:00:00', '2025-01-01 00:00:00', 'Premium');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (20, 10, 10, 'Router', 'Cisco', 'ISR4000', '2022-02-01 00:00:00', '2026-02-01 00:00:00', 'Core');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (30, 'Charlie', 0, 'Network Eng');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (40, 'Power Supply', 0, 0, 'Internal');
+
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (500, 40, 'PSU_FAIL', 'PSU_Part_Fault_Desc', 'None');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (600, 40, 'FAN_FAIL', 'FAN_Part_Fault_Desc', 'None');
+
+-- IDs intentionally disjoint from asset_id (20), staff_id (30), part_fault_id (500, 600) to kill any cross-column join mutations
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (100, 30, 20, '2023-08-10 08:00:00', 'C_Network_Drop', 'Log_100');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (200, 30, 20, '2023-08-01 08:00:00', 'B_Boot_Loop', 'Log_200');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (300, 30, 20, '2023-08-05 08:00:00', 'A_Memory_Error', 'Log_300');
+
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (100, 500, 'Open');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (200, 600, 'Closed');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (300, 500, 'InProgress');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in non-key columns, NULLs in foreign keys of Fault_Log_Parts, and WHERE IS NOT NULL mutants.
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'BOTH', 'GlobalTech', '789 Broadway', NULL);
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2023-01-01 00:00:00', '2024-01-01 00:00:00', NULL);
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Switch', 'HP', 'ProCurve', '2023-01-01 00:00:00', NULL, NULL);
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Dana', 1, NULL);
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Port', 0, 0, NULL);
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (1, 1, 'PORT_DEAD', 'Part_Desc', NULL);
+
+-- Fault_Log entries with NULLs in various columns (including one with NULL fault_description)
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (1, NULL, NULL, NULL, 'B_Valid_Description', NULL);
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (2, 1, 1, '2023-09-01 00:00:00', NULL, 'Has_Null_Desc');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (3, 1, 1, '2023-09-02 00:00:00', 'A_Valid_Description', 'Normal');
+
+-- Fault_Log_Parts with NULL fault_status, NULL part_fault_id (which would fail if inner joined with Part_Faults), and NULL fault_log_entry_id
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (1, NULL, 'Reported');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (2, 1, 'Resolved');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (3, 1, NULL);
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (NULL, 1, 'Orphan_Status');
+```

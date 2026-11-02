@@ -1,0 +1,56 @@
+-- Schema DDL
+CREATE TABLE "ATOM" (
+    "ATOM_ID" TEXT,
+    "MOLECULE_ID" TEXT,
+    "ELEMENT" TEXT,
+    PRIMARY KEY ("ATOM_ID"),
+    FOREIGN KEY ("MOLECULE_ID") REFERENCES "MOLECULE"("MOLECULE_ID")
+);
+CREATE TABLE "BOND" (
+    "BOND_ID" TEXT,
+    "MOLECULE_ID" TEXT,
+    "BOND_TYPE" TEXT,
+    PRIMARY KEY ("BOND_ID"),
+    FOREIGN KEY ("MOLECULE_ID") REFERENCES "MOLECULE"("MOLECULE_ID")
+);
+CREATE TABLE "CONNECTED" (
+    "ATOM_ID" TEXT,
+    "ATOM_ID2" TEXT,
+    "BOND_ID" TEXT,
+    PRIMARY KEY ("ATOM_ID", "ATOM_ID2"),
+    FOREIGN KEY ("ATOM_ID") REFERENCES "ATOM"("ATOM_ID"),
+    FOREIGN KEY ("ATOM_ID2") REFERENCES "ATOM"("ATOM_ID"),
+    FOREIGN KEY ("BOND_ID") REFERENCES "BOND"("BOND_ID")
+);
+CREATE TABLE "MOLECULE" (
+    "MOLECULE_ID" TEXT,
+    "LABEL" TEXT,
+    PRIMARY KEY ("MOLECULE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ATOM VALUES (4, 9, -1);
+INSERT INTO ATOM VALUES (5, 9, 0);
+INSERT INTO BOND VALUES (6, 8, 0);
+INSERT INTO BOND VALUES (7, 8, 0);
+INSERT INTO CONNECTED VALUES (4, 4, 7);
+INSERT INTO CONNECTED VALUES (5, 5, 6);
+INSERT INTO MOLECULE VALUES (8, 10);
+INSERT INTO MOLECULE VALUES (9, 1626146293394676714);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T.element FROM (SELECT T1.element, COUNT(DISTINCT T1.molecule_id) FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T2.label = '-' GROUP BY T1.element ORDER BY COUNT(DISTINCT T1.molecule_id) ASC, T1.element NULLS LAST LIMIT 4) AS t;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT element FROM (SELECT element, COUNT(*) AS element_count FROM (SELECT * FROM molecule WHERE label = '-') AS m JOIN atom ON m.molecule_id = atom.molecule_id GROUP BY element) AS element_counts ORDER BY element_count ASC, element NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+*/

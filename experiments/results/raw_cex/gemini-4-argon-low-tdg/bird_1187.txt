@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions for Date BETWEEN ('1987-07-06' and '1996-01-31'), GPT (> 30), and ALB (< 4).
+INSERT INTO Patient (ID) VALUES (1);
+INSERT INTO Patient (ID) VALUES (2);
+INSERT INTO Patient (ID) VALUES (3);
+INSERT INTO Patient (ID) VALUES (4);
+INSERT INTO Patient (ID) VALUES (5);
+INSERT INTO Patient (ID) VALUES (6);
+INSERT INTO Patient (ID) VALUES (7);
+INSERT INTO Patient (ID) VALUES (8);
+
+-- Valid at lower Date boundary
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (1, '1987-07-06', 31, 3.9);
+-- Valid at upper Date boundary
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (2, '1996-01-31', 31, 3.9);
+-- Invalid: just below lower Date boundary
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (3, '1987-07-05', 31, 3.9);
+-- Invalid: just above upper Date boundary
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (4, '1996-02-01', 31, 3.9);
+-- Invalid: exact boundary on GPT (= 30)
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (5, '1990-01-01', 30, 3.9);
+-- Invalid: exact boundary on ALB (= 4.0)
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (6, '1990-01-01', 31, 4.0);
+-- Valid: float boundary on ALB (3.99)
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (7, '1990-01-01', 31, 3.99);
+-- Invalid: below boundary on GPT (29)
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (8, '1990-01-01', 29, 3.5);
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT requirement and split condition across multiple rows for the same ID (catches HAVING or self-join mutants).
+INSERT INTO Patient (ID) VALUES (10);
+INSERT INTO Patient (ID) VALUES (20);
+
+-- ID 10 satisfies all conditions on multiple dates (tests DISTINCT)
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (10, '1990-05-01', 45, 3.2);
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (10, '1991-06-15', 50, 2.8);
+
+-- ID 20 satisfies conditions individually across different rows, but never in the same row
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (20, '1990-05-01', 45, 4.5);
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (20, '1990-05-02', 20, 3.2);
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (20, '1980-01-01', 45, 3.2);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in GPT and ALB, and column confusion (e.g., GOT vs GPT, TP vs ALB, Examination Date vs Laboratory Date).
+INSERT INTO Patient (ID, Birthday, "First Date") VALUES (101, '1990-01-01', '1990-01-01');
+INSERT INTO Patient (ID, Birthday, "First Date") VALUES (102, '1990-01-01', '1990-01-01');
+INSERT INTO Patient (ID, Birthday, "First Date") VALUES (103, '1990-01-01', '1990-01-01');
+INSERT INTO Patient (ID, Birthday, "First Date") VALUES (104, '1990-01-01', '1990-01-01');
+INSERT INTO Patient (ID, Birthday, "First Date") VALUES (105, '1980-01-01', '1980-01-01');
+
+-- NULL in GPT
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (101, '1992-03-10', NULL, 3.1);
+-- NULL in ALB
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (102, '1992-03-10', 40, NULL);
+-- Swapped values: GOT > 30 and GPT <= 30; TP < 4 and ALB >= 4
+INSERT INTO Laboratory (ID, Date, GOT, GPT, TP, ALB) VALUES (103, '1992-03-10', 50, 20, 3.1, 4.5);
+-- Valid Laboratory row, but Patient has no Examination rows (catches unnecessary INNER JOIN with Examination)
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (104, '1992-03-10', 50, 3.1);
+-- Invalid Laboratory Date, but Examination Date is in range
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (105, '1999-01-01', 50, 3.1);
+INSERT INTO Examination (ID, "Examination Date") VALUES (105, '1992-03-10');
+```
+
+```sql
+-- DATASET 4
+-- Tests logical operator mutations (AND vs OR) where only 1 or 2 of the 3 conditions hold.
+INSERT INTO Patient (ID) VALUES (201);
+INSERT INTO Patient (ID) VALUES (202);
+INSERT INTO Patient (ID) VALUES (203);
+INSERT INTO Patient (ID) VALUES (204);
+
+-- Only Date and GPT valid (ALB invalid)
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (201, '1990-01-01', 35, 4.2);
+-- Only Date and ALB valid (GPT invalid)
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (202, '1990-01-01', 25, 3.5);
+-- Only GPT and ALB valid (Date invalid)
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (203, '2000-01-01', 35, 3.5);
+-- All 3 valid
+INSERT INTO Laboratory (ID, Date, GPT, ALB) VALUES (204, '1990-01-01', 35, 3.5);
+```

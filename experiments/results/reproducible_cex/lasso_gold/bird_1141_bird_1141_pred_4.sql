@@ -1,0 +1,44 @@
+-- Schema DDL
+CREATE TABLE IF NOT EXISTS "Player_Attributes" ("id" INTEGER PRIMARY KEY, "player_fifa_api_id" INTEGER, "player_api_id" INTEGER, "date" TEXT(255), "overall_rating" INTEGER, "potential" INTEGER, "preferred_foot" TEXT(255), "attacking_work_rate" TEXT(255), "defensive_work_rate" TEXT(255), "crossing" INTEGER, "finishing" INTEGER, "heading_accuracy" INTEGER, "short_passing" INTEGER, "volleys" INTEGER, "dribbling" INTEGER, "curve" INTEGER, "free_kick_accuracy" INTEGER, "long_passing" INTEGER, "ball_control" INTEGER, "acceleration" INTEGER, "sprint_speed" INTEGER, "agility" INTEGER, "reactions" INTEGER, "balance" INTEGER, "shot_power" INTEGER, "jumping" INTEGER, "stamina" INTEGER, "strength" INTEGER, "long_shots" INTEGER, "aggression" INTEGER, "interceptions" INTEGER, "positioning" INTEGER, "vision" INTEGER, "penalties" INTEGER, "marking" INTEGER, "standing_tackle" INTEGER, "sliding_tackle" INTEGER, "gk_diving" INTEGER, "gk_handling" INTEGER, "gk_kicking" INTEGER, "gk_positioning" INTEGER, "gk_reflexes" INTEGER, FOREIGN KEY (player_fifa_api_id) REFERENCES Player (player_fifa_api_id));
+
+CREATE TABLE IF NOT EXISTS "Player" ("id" INTEGER PRIMARY KEY, "player_api_id" INTEGER, "player_name" TEXT(255), "player_fifa_api_id" INTEGER UNIQUE, "birthday" TEXT(255), "height" INTEGER, "weight" INTEGER);
+
+CREATE TABLE IF NOT EXISTS "League" ("id" INTEGER PRIMARY KEY, "country_id" INTEGER, "name" TEXT(255), FOREIGN KEY (country_id) REFERENCES Country (id));
+
+CREATE TABLE IF NOT EXISTS "Country" ("id" INTEGER PRIMARY KEY, "name" TEXT(255));
+
+CREATE TABLE IF NOT EXISTS "Team" ("id" INTEGER PRIMARY KEY, "team_api_id" INTEGER UNIQUE, "team_fifa_api_id" INTEGER UNIQUE, "team_long_name" TEXT(255), "team_short_name" TEXT(255));
+
+CREATE TABLE IF NOT EXISTS "Team_Attributes" ("id" INTEGER PRIMARY KEY, "team_fifa_api_id" INTEGER, "team_api_id" INTEGER, "date" TEXT(255), "buildUpPlaySpeed" INTEGER, "buildUpPlaySpeedClass" TEXT(255), "buildUpPlayDribbling" INTEGER, "buildUpPlayDribblingClass" TEXT(255), "buildUpPlayPassing" INTEGER, "buildUpPlayPassingClass" TEXT(255), "buildUpPlayPositioningClass" TEXT(255), "chanceCreationPassing" INTEGER, "chanceCreationPassingClass" TEXT(255), "chanceCreationCrossing" INTEGER, "chanceCreationCrossingClass" TEXT(255), "chanceCreationShooting" INTEGER, "chanceCreationShootingClass" TEXT(255), "chanceCreationPositioningClass" TEXT(255), "defencePressure" INTEGER, "defencePressureClass" TEXT(255), "defenceAggression" INTEGER, "defenceAggressionClass" TEXT(255), "defenceTeamWidth" INTEGER, "defenceTeamWidthClass" TEXT(255), "defenceDefenderLineClass" TEXT(255), FOREIGN KEY (team_fifa_api_id) REFERENCES Team (team_fifa_api_id));
+
+CREATE TABLE IF NOT EXISTS "Match" ("id" INTEGER PRIMARY KEY, "country_id" INTEGER, "league_id" INTEGER, "season" TEXT(255), "stage" INTEGER, "date" TEXT(255), "match_api_id" INTEGER, "home_team_api_id" INTEGER, "away_team_api_id" INTEGER, "home_team_goal" INTEGER, "away_team_goal" INTEGER, "home_player_X1" INTEGER, "home_player_X2" INTEGER, "home_player_X3" INTEGER, "home_player_X4" INTEGER, "home_player_X5" INTEGER, "home_player_X6" INTEGER, "home_player_X7" INTEGER, "home_player_X8" INTEGER, "home_player_X9" INTEGER, "home_player_X10" INTEGER, "home_player_X11" INTEGER, "away_player_X1" INTEGER, "away_player_X2" INTEGER, "away_player_X3" INTEGER, "away_player_X4" INTEGER, "away_player_X5" INTEGER, "away_player_X6" INTEGER, "away_player_X7" INTEGER, "away_player_X8" INTEGER, "away_player_X9" INTEGER, "away_player_X10" INTEGER, "away_player_X11" INTEGER, "home_player_Y1" INTEGER, "home_player_Y2" INTEGER, "home_player_Y3" INTEGER, "home_player_Y4" INTEGER, "home_player_Y5" INTEGER, "home_player_Y6" INTEGER, "home_player_Y7" INTEGER, "home_player_Y8" INTEGER, "home_player_Y9" INTEGER, "home_player_Y10" INTEGER, "home_player_Y11" INTEGER, "away_player_Y1" INTEGER, "away_player_Y2" INTEGER, "away_player_Y3" INTEGER, "away_player_Y4" INTEGER, "away_player_Y5" INTEGER, "away_player_Y6" INTEGER, "away_player_Y7" INTEGER, "away_player_Y8" INTEGER, "away_player_Y9" INTEGER, "away_player_Y10" INTEGER, "away_player_Y11" INTEGER, "home_player_1" INTEGER, "home_player_2" INTEGER, "home_player_3" INTEGER, "home_player_4" INTEGER, "home_player_5" INTEGER, "home_player_6" INTEGER, "home_player_7" INTEGER, "home_player_8" INTEGER, "home_player_9" INTEGER, "home_player_10" INTEGER, "home_player_11" INTEGER, "away_player_1" INTEGER, "away_player_2" INTEGER, "away_player_3" INTEGER, "away_player_4" INTEGER, "away_player_5" INTEGER, "away_player_6" INTEGER, "away_player_7" INTEGER, "away_player_8" INTEGER, "away_player_9" INTEGER, "away_player_10" INTEGER, "away_player_11" INTEGER, "goal" TEXT(255), "shoton" TEXT(255), "shotoff" TEXT(255), "foulcommit" TEXT(255), "card" TEXT(255), "cross" TEXT(255), "corner" TEXT(255), "possession" TEXT(255), "B365H" REAL, "B365D" REAL, "B365A" REAL, "BWH" REAL, "BWD" REAL, "BWA" REAL, "IWH" REAL, "IWD" REAL, "IWA" REAL, "LBH" REAL, "LBD" REAL, "LBA" REAL, "PSH" REAL, "PSD" REAL, "PSA" REAL, "WHH" REAL, "WHD" REAL, "WHA" REAL, "SJH" REAL, "SJD" REAL, "SJA" REAL, "VCH" REAL, "VCD" REAL, "VCA" REAL, "GBH" REAL, "GBD" REAL, "GBA" REAL, "BSH" REAL, "BSD" REAL, "BSA" REAL, FOREIGN KEY (home_team_api_id) REFERENCES Team (team_api_id));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1137, 1138, 1139, 'KSV Cercle Brugge', 'Kimberly Adams');
+INSERT INTO "team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1163, 1164, 1165, 'KSV Cercle Brugge', 'Tamara George');
+INSERT INTO "team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1176, NULL, 1152, NULL, NULL);
+INSERT INTO "team_attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildupplayspeed", "buildupplayspeedclass", "buildupplaydribbling", "buildupplaydribblingclass", "buildupplaypassing", "buildupplaypassingclass", "buildupplaypositioningclass", "chancecreationpassing", "chancecreationpassingclass", "chancecreationcrossing", "chancecreationcrossingclass", "chancecreationshooting", "chancecreationshootingclass", "chancecreationpositioningclass", "defencepressure", "defencepressureclass", "defenceaggression", "defenceaggressionclass", "defenceteamwidth", "defenceteamwidthclass", "defencedefenderlineclass") VALUES (1140, 1139, 1138, 'put', 1141, 'grow', 1142, 'brother', 1143, 'finally', 'learn', 1144, 'coach', 1145, 'long', 1146, 'about', 'seven', 1147, 'type', 1148, 'serve', 1149, 'everyone', 'month');
+INSERT INTO "team_attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildupplayspeed", "buildupplayspeedclass", "buildupplaydribbling", "buildupplaydribblingclass", "buildupplaypassing", "buildupplaypassingclass", "buildupplaypositioningclass", "chancecreationpassing", "chancecreationpassingclass", "chancecreationcrossing", "chancecreationcrossingclass", "chancecreationshooting", "chancecreationshootingclass", "chancecreationpositioningclass", "defencepressure", "defencepressureclass", "defenceaggression", "defenceaggressionclass", "defenceteamwidth", "defenceteamwidthclass", "defencedefenderlineclass") VALUES (1153, 1152, 1138, 'process', 1154, 'fire', 1155, 'thought', 1156, 'purpose', 'movement', 1157, 'politics', 1158, 'decide', 1159, 'claim', 'hour', 1160, 'sound', 1161, 'color', 1162, 'notice', 'start');
+INSERT INTO "team_attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildupplayspeed", "buildupplayspeedclass", "buildupplaydribbling", "buildupplaydribblingclass", "buildupplaypassing", "buildupplaypassingclass", "buildupplaypositioningclass", "chancecreationpassing", "chancecreationpassingclass", "chancecreationcrossing", "chancecreationcrossingclass", "chancecreationshooting", "chancecreationshootingclass", "chancecreationpositioningclass", "defencepressure", "defencepressureclass", "defenceaggression", "defenceaggressionclass", "defenceteamwidth", "defenceteamwidthclass", "defencedefenderlineclass") VALUES (1166, 1165, 1164, 'middle', 1167, 'after', 1168, 'woman', 1169, 'him', 'unit', 1170, 'theory', 1171, 'surface', 1172, 'food', 'education', 1173, 'article', 1174, 'effect', 1175, 'our', 'your');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT t1.buildUpPlaySpeedClass FROM Team_Attributes AS t1 INNER JOIN Team AS t2 ON t1.team_api_id = t2.team_api_id WHERE t2.team_long_name = 'KSV Cercle Brugge';
+
+/*
+Gold Result:
+('grow',)
+('fire',)
+('after',)
+*/
+
+-- Prediction Query
+SELECT buildUpPlaySpeedClass FROM Team_Attributes WHERE team_api_id = (SELECT team_api_id FROM Team WHERE team_long_name = 'KSV Cercle Brugge');
+
+/*
+Prediction Result:
+('grow',)
+('fire',)
+*/

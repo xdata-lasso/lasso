@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Tests: Boundary conditions on cost (> 50 vs >= 50, < 50, = 50, NULL), DISTINCT keyword necessity (multiple expenses > 50 for the same event, and multiple members for the same event).
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event 1');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event 2');
+INSERT INTO event (event_id, event_name) VALUES ('E3', 'Event 3');
+INSERT INTO event (event_id, event_name) VALUES ('E4', 'Event 4');
+
+INSERT INTO member (member_id, first_name) VALUES ('M1', 'Alice');
+INSERT INTO member (member_id, first_name) VALUES ('M2', 'Bob');
+INSERT INTO member (member_id, first_name) VALUES ('M3', 'Charlie');
+INSERT INTO member (member_id, first_name) VALUES ('M4', 'David');
+INSERT INTO member (member_id, first_name) VALUES ('M5', 'Eve');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'M1');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'M2');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E2', 'M3');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E3', 'M4');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E4', 'M5');
+
+INSERT INTO expense (expense_id, cost, link_to_member) VALUES ('X1', 50.01, 'M1');
+INSERT INTO expense (expense_id, cost, link_to_member) VALUES ('X2', 100.0, 'M1');
+INSERT INTO expense (expense_id, cost, link_to_member) VALUES ('X3', 75.0, 'M2');
+INSERT INTO expense (expense_id, cost, link_to_member) VALUES ('X4', 50.0, 'M3');
+INSERT INTO expense (expense_id, cost, link_to_member) VALUES ('X5', 25.0, 'M4');
+INSERT INTO expense (expense_id, cost, link_to_member) VALUES ('X6', NULL, 'M5');
+```
+
+```sql
+-- DATASET 2
+-- Tests: Wrong join path mutations (e.g., joining expense -> budget -> event instead of expense -> member -> attendance), and INNER JOIN vs LEFT/RIGHT JOIN (dangling members, expenses without attendance, attendance without expenses).
+INSERT INTO event (event_id, event_name) VALUES ('E_ATTENDED', 'Attended Event');
+INSERT INTO event (event_id, event_name) VALUES ('E_BUDGETED', 'Budgeted Event');
+INSERT INTO event (event_id, event_name) VALUES ('E_NO_EXPENSE', 'No Expense Event');
+
+INSERT INTO member (member_id, first_name) VALUES ('M_BOTH', 'Member With Attendance And Expense');
+INSERT INTO member (member_id, first_name) VALUES ('M_NO_ATT', 'Member Without Attendance');
+INSERT INTO member (member_id, first_name) VALUES ('M_NO_EXP', 'Member Without Expense');
+
+INSERT INTO budget (budget_id, spent, remaining, amount, link_to_event) VALUES ('B1', 60.0, 40.0, 100, 'E_BUDGETED');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_ATTENDED', 'M_BOTH');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_NO_EXPENSE', 'M_NO_EXP');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X1', 60.0, 'M_BOTH', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X2', 80.0, 'M_NO_ATT', NULL);
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('X3', 90.0, NULL, 'B1');
+```
+
+```sql
+-- DATASET 3
+-- Tests: Aggregation mutations (e.g., HAVING SUM(cost) > 50 instead of WHERE cost > 50) and extra filter mutations on columns like approved or status (e.g., approved = 'true').
+INSERT INTO event (event_id, event_name, status) VALUES ('E_SUM_TRAP', 'Event Sum Over 50', 'Closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E_UNAPPROVED', 'Event Unapproved Expense', 'Open');
+
+INSERT INTO member (member_id, first_name) VALUES ('M_SUM', 'Sum Member');
+INSERT INTO member (member_id, first_name) VALUES ('M_UNAPP', 'Unapproved Member');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_SUM_TRAP', 'M_SUM');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_UNAPPROVED', 'M_UNAPP');
+
+INSERT INTO expense (expense_id, cost, approved, link_to_member) VALUES ('X1', 30.0, 'true', 'M_SUM');
+INSERT INTO expense (expense_id, cost, approved, link_to_member) VALUES ('X2', 30.0, 'true', 'M_SUM');
+INSERT INTO expense (expense_id, cost, approved, link_to_member) VALUES ('X3', 55.0, 'false', 'M_UNAPP');
+```
+
+```sql
+-- DATASET 4
+-- Tests: Wrong projection column (e.g., SELECT T3.link_to_member, T1.expense_id, T2.member_id) and 1-to-many fanout from member to attendance (one member with >50 expense attending multiple events).
+INSERT INTO event (event_id, event_name) VALUES ('EV_ALPHA', 'Alpha');
+INSERT INTO event (event_id, event_name) VALUES ('EV_BETA', 'Beta');
+
+INSERT INTO member (member_id, first_name) VALUES ('MEM_01', 'John');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('EV_ALPHA', 'MEM_01');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('EV_BETA', 'MEM_01');
+
+INSERT INTO expense (expense_id, cost, link_to_member) VALUES ('EXP_01', 120.5, 'MEM_01');
+```
+
+```sql
+-- DATASET 5
+-- Tests: Empty result set handling when data exists across all tables but no single chain satisfies all join and filter conditions simultaneously.
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event 1');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event 2');
+
+INSERT INTO member (member_id, first_name) VALUES ('M1', 'Member 1');
+INSERT INTO member (member_id, first_name) VALUES ('M2', 'Member 2');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'M1');
+
+INSERT INTO expense (expense_id, cost, link_to_member) VALUES ('X1', 49.99, 'M1');
+INSERT INTO expense (expense_id, cost, link_to_member) VALUES ('X2', 100.0, 'M2');
+```

@@ -1,0 +1,55 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, boundary values (98, 100), non-numeric strings ('*', '99+1'), NULLs, and column confusion (power/life/loyalty/hand = '99', id = 99)
+INSERT INTO "cards" (id, name, power, toughness, life, loyalty, hand, convertedManaCost, edhrecRank, uuid) VALUES (1, 'Big Furry Monster Left', '99', '99', '0', '0', '0', 15.0, 100, 'uuid-1');
+INSERT INTO "cards" (id, name, power, toughness, life, loyalty, hand, convertedManaCost, edhrecRank, uuid) VALUES (2, 'Big Furry Monster Right', '99', '99', '0', '0', '0', 15.0, 100, 'uuid-2');
+INSERT INTO "cards" (id, name, power, toughness, life, loyalty, hand, convertedManaCost, edhrecRank, uuid) VALUES (3, 'Boundary Low', '99', '98', '0', '0', '0', 1.0, 1, 'uuid-3');
+INSERT INTO "cards" (id, name, power, toughness, life, loyalty, hand, convertedManaCost, edhrecRank, uuid) VALUES (4, 'Boundary High', '99', '100', '0', '0', '0', 1.0, 1, 'uuid-4');
+INSERT INTO "cards" (id, name, power, toughness, life, loyalty, hand, convertedManaCost, edhrecRank, uuid) VALUES (5, 'Variable Toughness', '99', '*', '99', '99', '99', 99.0, 99, 'uuid-5');
+INSERT INTO "cards" (id, name, power, toughness, life, loyalty, hand, convertedManaCost, edhrecRank, uuid) VALUES (6, 'Null Toughness', '99', NULL, '99', '99', '99', 99.0, 99, 'uuid-6');
+INSERT INTO "cards" (id, name, power, toughness, life, loyalty, hand, convertedManaCost, edhrecRank, uuid) VALUES (99, 'ID is 99', '1', '1', '1', '1', '1', 1.0, 1, 'uuid-99');
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(id) vs COUNT(DISTINCT name/power/toughness/setCode) and tests accidental INNER JOINs with child tables (foreign_data, legalities, rulings) where some matching cards have 0 child rows and others have multiple child rows
+INSERT INTO "sets" (id, code, name) VALUES (1, 'UGL', 'Unglued');
+INSERT INTO "cards" (id, name, power, toughness, setCode, artist, rarity, type, uuid) VALUES (10, 'Duplicate Card', '99', '99', 'UGL', 'Artist A', 'Rare', 'Creature', 'uuid-10');
+INSERT INTO "cards" (id, name, power, toughness, setCode, artist, rarity, type, uuid) VALUES (11, 'Duplicate Card', '99', '99', 'UGL', 'Artist A', 'Rare', 'Creature', 'uuid-11');
+INSERT INTO "cards" (id, name, power, toughness, setCode, artist, rarity, type, uuid) VALUES (12, 'Duplicate Card', NULL, '99', NULL, NULL, NULL, NULL, 'uuid-12');
+INSERT INTO "foreign_data" (id, language, name, uuid) VALUES (1, 'German', 'Doppelte Karte 1', 'uuid-10');
+INSERT INTO "foreign_data" (id, language, name, uuid) VALUES (2, 'French', 'Doppelte Karte 2', 'uuid-10');
+INSERT INTO "legalities" (id, format, status, uuid) VALUES (1, 'vintage', 'Banned', 'uuid-10');
+INSERT INTO "legalities" (id, format, status, uuid) VALUES (2, 'legacy', 'Banned', 'uuid-10');
+INSERT INTO "rulings" (id, date, text, uuid) VALUES (1, '2004-10-04', 'Ruling 1', 'uuid-10');
+INSERT INTO "rulings" (id, date, text, uuid) VALUES (2, '2004-10-04', 'Ruling 2', 'uuid-10');
+```
+
+```sql
+-- DATASET 3
+-- Tests SQLite type affinity edge cases: toughness is TEXT affinity, so WHERE toughness = 99 converts numeric literal 99 to '99'.
+-- Values like '99.0', '099', ' 99 ', '99a', '999' will NOT match toughness = 99, but WOULD match mutants using CAST(toughness AS INTEGER/REAL) = 99 or LIKE '%99%'
+INSERT INTO "cards" (id, name, toughness, uuid) VALUES (1, 'Exact 99', '99', 'uuid-301');
+INSERT INTO "cards" (id, name, toughness, uuid) VALUES (2, 'Float string 99.0', '99.0', 'uuid-302');
+INSERT INTO "cards" (id, name, toughness, uuid) VALUES (3, 'Leading zero 099', '099', 'uuid-303');
+INSERT INTO "cards" (id, name, toughness, uuid) VALUES (4, 'Whitespace 99', ' 99 ', 'uuid-304');
+INSERT INTO "cards" (id, name, toughness, uuid) VALUES (5, 'Substring 999', '999', 'uuid-305');
+INSERT INTO "cards" (id, name, toughness, uuid) VALUES (6, 'Prefix 99a', '99a', 'uuid-306');
+INSERT INTO "cards" (id, name, toughness, uuid) VALUES (7, 'Negative -99', '-99', 'uuid-307');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set for the filter condition (0 matching rows).
+-- Distinguishes COUNT(id) (returns 0) from SUM(id), MAX(id), MIN(id), AVG(id) (which return NULL), or queries without WHERE clause.
+INSERT INTO "cards" (id, name, power, toughness, uuid) VALUES (1, 'Small Creature 1', '1', '1', 'uuid-401');
+INSERT INTO "cards" (id, name, power, toughness, uuid) VALUES (2, 'Small Creature 2', '2', '2', 'uuid-402');
+INSERT INTO "cards" (id, name, power, toughness, uuid) VALUES (3, 'Non-Creature Spell', NULL, NULL, 'uuid-403');
+```
+
+```sql
+-- DATASET 5
+-- Single matching row with id = 50.
+-- Distinguishes SELECT COUNT(id) (returns 1) from SELECT id (returns 50), SELECT SUM(id) (returns 50), SELECT COUNT(*) + 1, or boolean flag filters (e.g., isOnlineOnly = 0, isPromo = 0, hasFoil = 1)
+INSERT INTO "cards" (id, name, toughness, hasAlternativeDeckLimit, hasContentWarning, hasFoil, hasNonFoil, isAlternative, isFullArt, isOnlineOnly, isOversized, isPromo, isReprint, isReserved, isStarter, isStorySpotlight, isTextless, isTimeshifted, uuid) VALUES (50, 'Special Promo 99', '99', 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 'uuid-501');
+```

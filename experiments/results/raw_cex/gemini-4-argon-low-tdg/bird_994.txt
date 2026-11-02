@@ -1,0 +1,140 @@
+```sql
+-- DATASET 1
+-- Tests basic aggregation, WHERE filters (race name, year boundaries 1980 and 2010), and traps queries using constructorStandings or results instead of constructorResults, or circuits.name instead of races.name.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Circuit de Monaco', 'http://c1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (2, 'fake_monaco', 'Monaco Grand Prix', 'http://c2');
+
+INSERT INTO seasons (year, url) VALUES (1979, 'http://s1979');
+INSERT INTO seasons (year, url) VALUES (1980, 'http://s1980');
+INSERT INTO seasons (year, url) VALUES (1995, 'http://s1995');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://s2010');
+INSERT INTO seasons (year, url) VALUES (2011, 'http://s2011');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'mclaren', 'McLaren', 'British', 'http://con1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'ferrari', 'Ferrari', 'Italian', 'http://con2');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (3, 'williams', 'Williams', 'British', 'http://con3');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'senna', 'Ayrton', 'Senna', 'http://d1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1979, 1, 1, 'Monaco Grand Prix', '1979-05-27', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 1980, 1, 1, 'Monaco Grand Prix', '1980-05-18', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 1995, 1, 1, 'Monaco Grand Prix', '1995-05-28', 'http://r3');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 2010, 1, 1, 'Monaco Grand Prix', '2010-05-16', 'http://r4');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (5, 2011, 1, 1, 'Monaco Grand Prix', '2011-05-29', 'http://r5');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (6, 1995, 2, 2, 'French Grand Prix', '1995-07-02', 'http://r6');
+
+-- McLaren: 10 (1980) + 10 (1995) + 10 (2010) = 30 valid points. (Plus 100 in 1979 and 100 in 2011 which must be excluded).
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (1, 1, 1, 100.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (2, 2, 1, 10.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (3, 3, 1, 10.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (4, 4, 1, 10.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (5, 5, 1, 100.0);
+
+-- Ferrari: 25 in 1995 Monaco = 25 valid points. Plus 100 in 1995 French GP (where circuit name is 'Monaco Grand Prix').
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (6, 3, 2, 25.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (7, 6, 2, 100.0);
+
+-- Williams: 15 + 12 in 1995 Monaco = 27 valid points (tests SUM vs MAX/AVG/COUNT).
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (8, 3, 3, 15.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (9, 3, 3, 12.0);
+
+-- Decoys in constructorStandings and results for Ferrari
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, wins) VALUES (1, 3, 2, 500.0, 10);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, statusId) VALUES (1, 3, 1, 2, 1, '1', 1, 500.0, 78, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests strict boundary conditions on T3.year BETWEEN 1980 AND 2010 (e.g., killing > 1980 or < 2010 mutations) and tie-breaking on T2.name ASC.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Circuit de Monaco', 'http://c1');
+
+INSERT INTO seasons (year, url) VALUES (1980, 'http://s1980');
+INSERT INTO seasons (year, url) VALUES (1990, 'http://s1990');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://s2010');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'alfa', 'Alfa', 'Swiss', 'http://con1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'brabham', 'Brabham', 'British', 'http://con2');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (3, 'lotus', 'Lotus', 'British', 'http://con3');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1980, 1, 1, 'Monaco Grand Prix', '1980-05-18', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 1990, 1, 1, 'Monaco Grand Prix', '1990-05-27', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2010, 1, 1, 'Monaco Grand Prix', '2010-05-16', 'http://r3');
+
+-- Alfa gets 20 in 1980 and 20 in 2010 -> Total = 40.
+-- Brabham gets 40 in 1990 -> Total = 40.
+-- Lotus gets 40 in 1990 -> Total = 40.
+-- If 1980 or 2010 is excluded, Alfa drops to 20 and Brabham wins. With 1980 and 2010 included, Alfa ties at 40 and wins on alphabetical T2.name ('Alfa' < 'Brabham' < 'Lotus').
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (1, 1, 1, 20.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (2, 3, 1, 20.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (3, 2, 2, 40.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (4, 2, 3, 40.0);
+```
+
+```sql
+-- DATASET 3
+-- Distinguishes SUM(T1.points) from COUNT(T1.points), AVG(T1.points), MAX(T1.points), and SUM(DISTINCT T1.points), as well as INNER JOIN vs LEFT JOIN.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Circuit de Monaco', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://s2000');
+INSERT INTO seasons (year, url) VALUES (2001, 'http://s2001');
+INSERT INTO seasons (year, url) VALUES (2002, 'http://s2002');
+INSERT INTO seasons (year, url) VALUES (2003, 'http://s2003');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'team_dup', 'TeamDup', 'French', 'http://con1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'team_max', 'TeamMax', 'German', 'http://con2');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (3, 'team_cnt', 'TeamCnt', 'Italian', 'http://con3');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (4, 'team_no_res', 'ATeamNoResults', 'American', 'http://con4');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2000, 1, 1, 'Monaco Grand Prix', '2000-05-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2001, 1, 1, 'Monaco Grand Prix', '2001-05-01', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2002, 1, 1, 'Monaco Grand Prix', '2002-05-01', 'http://r3');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 2003, 1, 1, 'Monaco Grand Prix', '2003-05-01', 'http://r4');
+
+-- TeamDup: 8 + 8 + 8 = 24. (SUM = 24, SUM(DISTINCT) = 8, AVG = 8, MAX = 8, COUNT = 3)
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (1, 1, 1, 8.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (2, 2, 1, 8.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (3, 3, 1, 8.0);
+
+-- TeamMax: single entry of 20. (SUM = 20, SUM(DISTINCT) = 20, AVG = 20, MAX = 20, COUNT = 1)
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (4, 1, 2, 20.0);
+
+-- TeamCnt: four entries of 4. (SUM = 16, COUNT = 4)
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (5, 1, 3, 4.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (6, 2, 3, 4.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (7, 3, 3, 4.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (8, 4, 3, 4.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY T2.name vs GROUP BY T2.nationality.
+-- Two British constructors have 15 points each (combined 30 for 'British'), while one Italian constructor has 25 points.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Circuit de Monaco', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (1999, 'http://s1999');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'brit1', 'BritOne', 'British', 'http://con1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'brit2', 'BritTwo', 'British', 'http://con2');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (3, 'ital1', 'ItalOne', 'Italian', 'http://con3');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1999, 1, 1, 'Monaco Grand Prix', '1999-05-16', 'http://r1');
+
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (1, 1, 1, 15.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (2, 1, 2, 15.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (3, 1, 3, 25.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests handling of NULL points and negative/zero points, plus NULL nationality in output.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Circuit de Monaco', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (1985, 'http://s1985');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'null_nat', 'AlphaNullNat', NULL, 'http://con1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'zero_pts', 'BetaZeroPts', 'German', 'http://con2');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1985, 1, 1, 'Monaco Grand Prix', '1985-05-19', 'http://r1');
+
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (1, 1, 1, 10.0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (2, 1, 1, NULL);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (3, 1, 2, 0.0);
+```

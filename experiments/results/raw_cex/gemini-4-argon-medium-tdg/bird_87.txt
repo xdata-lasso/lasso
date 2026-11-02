@@ -1,0 +1,86 @@
+```sql
+-- DATASET 1
+-- Core positive cases and join necessity:
+-- Row 1: Matches all conditions with year 2009.
+-- Row 2: Matches all conditions with year 2010.
+-- Row 3: Matches all conditions in 'schools' table, but has no corresponding entry in 'frpm' (kills mutants that omit the INNER JOIN with frpm or use LEFT JOIN from schools).
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, DOC, DOCType, SOC, AdmEmail1, AdmEmail2, AdmEmail3, LastUpdate) VALUES ('10000000000001', 'Active', 'San Bernardino', 'San Bernardino City Unified', 'San Bernardino', '2009-08-25', '54', 'Unified School District', '62', 'admin1_2009@sb.edu', 'wrong_col2@sb.edu', 'wrong_col3@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, DOC, DOCType, SOC, AdmEmail1, AdmEmail2, AdmEmail3, LastUpdate) VALUES ('10000000000002', 'Active', 'San Bernardino', 'San Bernardino City Unified', 'San Bernardino', '2010-01-15', '54', 'Unified School District', '62', 'admin1_2010@sb.edu', 'wrong2_col2@sb.edu', 'wrong2_col3@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('10000000000003', 'Active', 'San Bernardino', 'San Bernardino City Unified', 'San Bernardino', '2009-09-01', '54', 'Unified School District', '62', 'no_frpm_match@sb.edu', '2015-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "District Name", "School Name") VALUES ('10000000000001', 'San Bernardino', 'San Bernardino City Unified', 'School A');
+INSERT INTO frpm (CDSCode, "County Name", "District Name", "School Name") VALUES ('10000000000002', 'San Bernardino', 'San Bernardino City Unified', 'School B');
+```
+
+```sql
+-- DATASET 2
+-- Single-condition negation tests for County, City, DOC, and SOC:
+-- Row 1: Valid baseline row.
+-- Row 2: Fails County ('Riverside' instead of 'San Bernardino'), but City is 'San Bernardino'.
+-- Row 3: Fails City ('Ontario' instead of 'San Bernardino'), but County is 'San Bernardino' and MailCity is 'San Bernardino' (kills mutants confusing City with MailCity or omitting City).
+-- Row 4: Fails DOC ('52' instead of '54').
+-- Row 5: Fails SOC ('60' instead of '62').
+INSERT INTO schools (CDSCode, StatusType, County, District, City, MailCity, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('20000000000001', 'Active', 'San Bernardino', 'Dist 1', 'San Bernardino', 'San Bernardino', '2009-05-10', '54', 'Unified', '62', 'valid@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, MailCity, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('20000000000002', 'Active', 'Riverside', 'Dist 1', 'San Bernardino', 'San Bernardino', '2009-05-10', '54', 'Unified', '62', 'wrong_county@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, MailCity, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('20000000000003', 'Active', 'San Bernardino', 'Dist 1', 'Ontario', 'San Bernardino', '2009-05-10', '54', 'Unified', '62', 'wrong_city@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, MailCity, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('20000000000004', 'Active', 'San Bernardino', 'Dist 1', 'San Bernardino', 'San Bernardino', '2009-05-10', '52', 'Unified', '62', 'wrong_doc@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, MailCity, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('20000000000005', 'Active', 'San Bernardino', 'Dist 1', 'San Bernardino', 'San Bernardino', '2009-05-10', '54', 'Unified', '60', 'wrong_soc@sb.edu', '2015-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "District Code") VALUES ('20000000000001', 'San Bernardino', 54);
+INSERT INTO frpm (CDSCode, "County Name", "District Code") VALUES ('20000000000002', 'San Bernardino', 54);
+INSERT INTO frpm (CDSCode, "County Name", "District Code") VALUES ('20000000000003', 'San Bernardino', 54);
+INSERT INTO frpm (CDSCode, "County Name", "District Code") VALUES ('20000000000004', 'San Bernardino', 54);
+INSERT INTO frpm (CDSCode, "County Name", "District Code") VALUES ('20000000000005', 'San Bernardino', 54);
+```
+
+```sql
+-- DATASET 3
+-- Date boundary, STRFTIME vs raw string comparison, and OpenDate vs ClosedDate/LastUpdate tests:
+-- Row 1: OpenDate '2008-12-31' (Just before 2009; fails).
+-- Row 2: OpenDate '2009-01-01' (Exact start of 2009; passes).
+-- Row 3: OpenDate '2010-12-31' (Exact end of 2010; passes. Note: fails if a mutant does `OpenDate BETWEEN '2009' AND '2010'` without STRFTIME because '2010-12-31' > '2010').
+-- Row 4: OpenDate '2011-01-01' (Just after 2010; fails).
+-- Row 5: OpenDate is NULL, but ClosedDate and LastUpdate are in 2009 (kills mutants checking the wrong date column).
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, ClosedDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('30000000000001', 'Active', 'San Bernardino', 'Dist', 'San Bernardino', '2008-12-31', NULL, '54', 'Unified', '62', 'date_2008@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, ClosedDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('30000000000002', 'Active', 'San Bernardino', 'Dist', 'San Bernardino', '2009-01-01', NULL, '54', 'Unified', '62', 'date_2009_start@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, ClosedDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('30000000000003', 'Active', 'San Bernardino', 'Dist', 'San Bernardino', '2010-12-31', NULL, '54', 'Unified', '62', 'date_2010_end@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, ClosedDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('30000000000004', 'Active', 'San Bernardino', 'Dist', 'San Bernardino', '2011-01-01', NULL, '54', 'Unified', '62', 'date_2011@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, ClosedDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('30000000000005', 'Active', 'San Bernardino', 'Dist', 'San Bernardino', NULL, '2009-06-30', '54', 'Unified', '62', 'null_opendate@sb.edu', '2009-06-30');
+
+INSERT INTO frpm (CDSCode, "Academic Year") VALUES ('30000000000001', '2009-2010');
+INSERT INTO frpm (CDSCode, "Academic Year") VALUES ('30000000000002', '2009-2010');
+INSERT INTO frpm (CDSCode, "Academic Year") VALUES ('30000000000003', '2009-2010');
+INSERT INTO frpm (CDSCode, "Academic Year") VALUES ('30000000000004', '2009-2010');
+INSERT INTO frpm (CDSCode, "Academic Year") VALUES ('30000000000005', '2009-2010');
+```
+
+```sql
+-- DATASET 4
+-- Duplicate AdmEmail1, NULL AdmEmail1, and unnecessary satscores join tests:
+-- Row 1 & Row 2: Two distinct schools sharing the exact same AdmEmail1 (kills mutants that erroneously add DISTINCT).
+-- Row 3: Matches all criteria, has NULL AdmEmail1 (kills mutants that filter `AdmEmail1 IS NOT NULL`).
+-- None of the rows exist in `satscores` (kills mutants that unnecessarily INNER JOIN `satscores`).
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('40000000000001', 'Active', 'San Bernardino', 'Dist', 'San Bernardino', '2009-03-15', '54', 'Unified', '62', 'shared_admin@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('40000000000002', 'Active', 'San Bernardino', 'Dist', 'San Bernardino', '2010-07-20', '54', 'Unified', '62', 'shared_admin@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('40000000000003', 'Active', 'San Bernardino', 'Dist', 'San Bernardino', '2009-11-11', '54', 'Unified', '62', NULL, '2015-01-01');
+
+INSERT INTO frpm (CDSCode) VALUES ('40000000000001');
+INSERT INTO frpm (CDSCode) VALUES ('40000000000002');
+INSERT INTO frpm (CDSCode) VALUES ('40000000000003');
+```
+
+```sql
+-- DATASET 5
+-- Cross-table column confusion and Cartesian join / wrong join key tests:
+-- Row 1: T2.County is 'Los Angeles', but T1."County Name" is 'San Bernardino' (kills mutants checking T1."County Name" instead of T2.County).
+-- Row 2: T2.County is 'San Bernardino', but T1."County Name" is 'Los Angeles' (passes in Gold Query; kills mutants checking T1."County Name" = 'San Bernardino').
+-- Row 3: T2 matches all WHERE conditions, and T1 has a row with matching County/District, but CDSCode does NOT match Row 3 (kills mutants joining on County/District instead of CDSCode).
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('50000000000001', 'Active', 'Los Angeles', 'Dist A', 'San Bernardino', '2009-04-01', '54', 'Unified', '62', 't1_county_trap@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('50000000000002', 'Active', 'San Bernardino', 'Dist A', 'San Bernardino', '2010-04-01', '54', 'Unified', '62', 't2_county_valid@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('50000000000003', 'Active', 'San Bernardino', 'Dist A', 'San Bernardino', '2009-08-01', '54', 'Unified', '62', 'unjoined_school@sb.edu', '2015-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, OpenDate, DOC, DOCType, SOC, AdmEmail1, LastUpdate) VALUES ('50000000000004', 'Active', 'Riverside', 'Dist A', 'Riverside', '2000-01-01', '00', 'Other', '00', 'dummy_parent@sb.edu', '2015-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "District Name", "County Code", "District Code", "School Code") VALUES ('50000000000001', 'San Bernardino', 'Dist A', '54', 54, '62');
+INSERT INTO frpm (CDSCode, "County Name", "District Name", "County Code", "District Code", "School Code") VALUES ('50000000000002', 'Los Angeles', 'Other Dist', '00', 0, '00');
+INSERT INTO frpm (CDSCode, "County Name", "District Name", "County Code", "District Code", "School Code") VALUES ('50000000000004', 'San Bernardino', 'Dist A', '54', 54, '62');
+```

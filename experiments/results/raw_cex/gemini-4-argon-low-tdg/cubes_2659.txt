@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions around 20.0 (19.99, 20.0, 20.01) and ordering.
+-- Kills mutants changing >= to >, <=, <, =, or changing 20.0, or reversing ORDER BY.
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (1, 'Club Alpha', 'North', '1990');
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (1, 1, 'P1', 'Winger', 10.0, 2.0, '0', 20.0);
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (2, 1, 'P2', 'Fullback', 10.0, 2.0, '0', 19.99);
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (3, 1, 'P3', 'Center', 10.0, 2.0, '0', 20.01);
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (4, 1, 'P4', 'Prop', 10.0, 1.0, '0', 10.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY (points, POSITION) vs GROUP BY POSITION vs no GROUP BY vs SELECT DISTINCT.
+-- Also kills mutants that drop points from GROUP BY (which makes AVG(points) != points, triggering meanpoints < points).
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (1, 'Club Beta', 'South', '1985');
+-- Same position ('Forward') and same points (25.0): should collapse into 1 row in subquery, outputting 'Forward' once.
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (1, 1, 'P1', 'Forward', 5.0, 1.0, '0', 25.0);
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (2, 1, 'P2', 'Forward', 6.0, 1.0, '0', 25.0);
+-- Same position ('Back'), different points >= 20.0: should produce 2 groups in subquery, outputting 'Back' twice.
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (3, 1, 'P3', 'Back', 8.0, 2.0, '0', 22.0);
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (4, 1, 'P4', 'Back', 9.0, 3.0, '0', 30.0);
+-- Same position ('Hooker'), different points < 20.0 (5.0 and 15.0):
+-- With GROUP BY points, POSITION, meanpoints == points, so neither qualifies.
+-- If a mutant only does GROUP BY POSITION, AVG(points) is 10.0; if SQLite picks points=15.0 for the group, meanpoints (10) < points (15) would falsely evaluate to true!
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (5, 1, 'P5', 'Hooker', 4.0, 1.0, '0', 5.0);
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (6, 1, 'P6', 'Hooker', 7.0, 2.0, '0', 15.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests aggregate function mutations (e.g., AVG mutated to SUM, COUNT, MIN, MAX) and comparison mutations (meanpoints < points mutated to <=, =, >) and OR mutated to AND.
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (1, 'Club Gamma', 'East', '2000');
+-- Two players with negative points (-5.0) at 'Scrum-half'.
+-- AVG(-5.0, -5.0) = -5.0. (points >= 20 OR -5.0 < -5.0) is FALSE.
+-- If AVG is mutated to SUM, SUM is -10.0, and (-10.0 < -5.0) becomes TRUE!
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (1, 1, 'P1', 'Scrum-half', 3.0, 0.0, '0', -5.0);
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (2, 1, 'P2', 'Scrum-half', 4.0, 0.0, '0', -5.0);
+-- One player with points = 10.0 at 'Fly-half'.
+-- AVG is 10.0. If AVG is mutated to COUNT, COUNT is 1, and (1 < 10.0) becomes TRUE!
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (3, 1, 'P3', 'Fly-half', 5.0, 1.0, '0', 10.0);
+-- Valid player with points = 35.0 to ensure non-empty result and test OR -> AND mutation (since 35.0 < 35.0 is FALSE, OR -> AND would yield empty result).
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (4, 1, 'P4', 'Lock', 12.0, 5.0, '0', 35.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in Points and Position, and tests unnecessary INNER JOINs with club or other tables.
+-- Note: players have Club_ID = NULL, which is valid in SQLite and kills mutants that inner-join player with club.
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (1, 'Club Delta', 'West', '1975');
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (1, NULL, 'P1', 'Flanker', 10.0, 4.0, '2', 24.0);
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (2, NULL, 'P2', 'Number 8', 8.0, 0.0, '0', NULL);
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (3, NULL, 'P3', NULL, 15.0, 6.0, '0', 30.0);
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (4, 1, 'P4', 'Utility', 20.0, 3.0, '1', 20.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion (e.g., using Apps, Tries, or Goals instead of Points, or name instead of Position).
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (1, 'Club Epsilon', 'Central', '2010');
+-- Apps and Tries are >= 20.0, but Points is 12.0 (should NOT be selected).
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (1, 1, 'Alice', 'Defender', 25.0, 22.0, '25', 12.0);
+-- Apps and Tries are < 20.0, but Points is 21.0 (SHOULD be selected).
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (2, 1, 'Bob', 'Striker', 5.0, 2.0, '1', 21.0);
+-- Another qualifying row to verify ordering by Position ('Midfielder' before 'Striker') vs ordering by name ('Bob' vs 'Charlie') or Points (28.0 vs 21.0).
+INSERT INTO player (Player_ID, Club_ID, name, Position, Apps, Tries, Goals, Points) VALUES (3, 1, 'Charlie', 'Midfielder', 2.0, 1.0, '0', 28.0);
+```

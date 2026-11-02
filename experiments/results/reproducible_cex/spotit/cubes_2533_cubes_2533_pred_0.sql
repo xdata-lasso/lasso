@@ -1,0 +1,58 @@
+-- Schema DDL
+CREATE TABLE "COUNTY" (
+    "COUNTY_ID" INT,
+    "COUNTY_NAME" TEXT,
+    "POPULATION" FLOAT,
+    "ZIP_CODE" TEXT,
+    PRIMARY KEY ("COUNTY_ID")
+);
+CREATE TABLE "PARTY" (
+    "PARTY_ID" INT,
+    "YEAR" FLOAT,
+    "PARTY" TEXT,
+    "GOVERNOR" TEXT,
+    "LIEUTENANT_GOVERNOR" TEXT,
+    "COMPTROLLER" TEXT,
+    "ATTORNEY_GENERAL" TEXT,
+    "US_SENATE" TEXT,
+    PRIMARY KEY ("PARTY_ID")
+);
+CREATE TABLE "ELECTION" (
+    "ELECTION_ID" INT,
+    "DISTRICT" INT,
+    "PARTY" INT,
+    "COUNTIES_REPRESENTED" TEXT,
+    "DELEGATE" TEXT,
+    "FIRST_ELECTED" FLOAT,
+    "COMMITTEE" TEXT,
+    PRIMARY KEY ("ELECTION_ID"),
+    FOREIGN KEY ("DISTRICT") REFERENCES "COUNTY"("COUNTY_ID"),
+    FOREIGN KEY ("PARTY") REFERENCES "PARTY"("PARTY_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO COUNTY VALUES (0, 12, 0, 0);
+INSERT INTO COUNTY VALUES (-1, 11, 0, 0);
+INSERT INTO PARTY VALUES (1, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO PARTY VALUES (0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO ELECTION VALUES (-1, -1, 1, 0, 0, 0, 0);
+INSERT INTO ELECTION VALUES (0, 0, 1, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT county_name FROM (SELECT * FROM (SELECT * FROM county ORDER BY population DESC, county.county_id NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+('11',)
+*/
+
+-- Prediction Query
+SELECT County_name FROM county ORDER BY Population DESC, county.county_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('11',)
+*/

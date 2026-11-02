@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(T2.account_id) vs COUNT(DISTINCT T2.account_id), and basic WHERE filtering (AND vs OR, '=' vs '!=', NULL handling)
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Teplice', 'north Bohemia', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'Prague', 'Prague', '200', '2', '2', '2', 2, 2, 2.0, 2, 2.0, 2.0, 2, 2, 2);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 1, 'POPLATEK MESICNE', '1995-01-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (30, 2, 'POPLATEK MESICNE', '1995-01-03');
+
+-- Multiple matching transactions for the same account (tests DISTINCT vs non-DISTINCT count)
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (100, 10, '1996-01-01', 'PRIJEM', 'PREVOD Z UCTU', 500, 1500, 'UROK', 'AB', 999);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (101, 10, '1996-01-02', 'PRIJEM', 'PREVOD Z UCTU', 600, 2100, 'UROK', 'AB', 999);
+
+-- Non-matching bank (wrong bank value & NULL bank value) in matching district
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (102, 10, '1996-01-03', 'PRIJEM', 'PREVOD Z UCTU', 700, 2800, 'UROK', 'CD', 999);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (103, 20, '1996-01-04', 'PRIJEM', 'VKLAD', 800, 800, NULL, NULL, NULL);
+
+-- Matching bank in non-matching district
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (104, 30, '1996-01-05', 'PRIJEM', 'PREVOD Z UCTU', 900, 1900, 'UROK', 'AB', 888);
+```
+
+```sql
+-- DATASET 2
+-- Tests wrong table usage (e.g. joining with `order` or `client` instead of `trans` or `account`), and wrong column usage (e.g. A2 vs A3, k_symbol/operation/type vs bank)
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'north Bohemia', 'south Bohemia', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'Most', 'north Bohemia', '200', '2', '2', '2', 2, 2, 2.0, 2, 2.0, 2.0, 2, 2, 2);
+
+-- Account 1 in district 1 (A2='north Bohemia', A3='south Bohemia')
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+-- Account 2 in district 2 (A2='Most', A3='north Bohemia')
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 2, 'POPLATEK MESICNE', '1995-01-02');
+
+-- Client in district 2 linked to Account 1 (tests joining district to client instead of account)
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 2);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 1, 'OWNER');
+
+-- Order with bank_to = 'AB' for Account 2 (tests querying `order` table instead of `trans` table)
+INSERT INTO "order" (order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (1, 2, 'AB', 12345, 500.0, 'SIPO');
+
+-- Trans for Account 1 with bank = 'AB' (fails on district A3)
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 1, '1996-01-01', 'PRIJEM', 'PREVOD Z UCTU', 100, 1000, 'UROK', 'AB', 123);
+
+-- Trans for Account 2 with k_symbol = 'AB' and bank = 'XY' (tests checking wrong column in trans)
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 2, '1996-01-02', 'AB', 'AB', 200, 1200, 'AB', 'XY', 123);
+```
+
+```sql
+-- DATASET 3
+-- Tests wrong join conditions (e.g. T1.district_id = T2.account_id, T2.account_id = T3.trans_id, T2.account_id = T3.account)
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'Liberec', 'north Bohemia', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'Brno', 'south Moravia', '200', '2', '2', '2', 2, 2, 2.0, 2, 2.0, 2.0, 2, 2, 2);
+
+-- Account 10 is in district 20 (if joined on T1.district_id = T2.account_id, it falsely matches district 10)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 20, 'POPLATEK MESICNE', '1995-01-01');
+-- Account 50 is in district 10 (true match on district)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (50, 10, 'POPLATEK MESICNE', '1995-01-02');
+
+-- Trans 50 belongs to Account 10, partner account is 50 (if joined on T2.account_id = T3.trans_id or T2.account_id = T3.account, it falsely matches Account 50)
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (50, 10, '1996-01-01', 'PRIJEM', 'PREVOD Z UCTU', 100, 1000, 'UROK', 'AB', 50);
+
+-- Trans 99 belongs to Account 50 (true match for reference query)
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (99, 50, '1996-01-02', 'PRIJEM', 'PREVOD Z UCTU', 200, 2000, 'UROK', 'AB', 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests case sensitivity, substring/LIKE mutations (e.g. LIKE '%AB%', LIKE '%Bohemia%'), and OUTER JOIN mutations with COUNT(*)
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Decin', 'north Bohemia', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'Usti', 'North Bohemia', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'Tabor', 'central Bohemia', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Account 1 in 'north Bohemia' with NO transactions (tests LEFT JOIN + COUNT(T2.account_id) or COUNT(*) where trans filter is in ON clause)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+-- Account 2 in 'north Bohemia' with near-miss bank values
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK MESICNE', '1995-01-02');
+-- Account 3 in 'North Bohemia' (case sensitivity)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 2, 'POPLATEK MESICNE', '1995-01-03');
+-- Account 4 in 'central Bohemia' (substring match on 'Bohemia')
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (4, 3, 'POPLATEK MESICNE', '1995-01-04');
+
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 2, '1996-01-01', 'PRIJEM', 'PREVOD Z UCTU', 100, 1000, 'UROK', 'ab', 111);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 2, '1996-01-02', 'PRIJEM', 'PREVOD Z UCTU', 100, 1100, 'UROK', 'ABC', 111);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (3, 3, '1996-01-03', 'PRIJEM', 'PREVOD Z UCTU', 100, 1000, 'UROK', 'AB', 111);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (4, 4, '1996-01-04', 'PRIJEM', 'PREVOD Z UCTU', 100, 1000, 'UROK', 'AB', 111);
+```
+
+```sql
+-- DATASET 5
+-- Tests COUNT(T2.account_id) vs COUNT(T3.account) or COUNT(T3.k_symbol) or COUNT(T1.A12) when nullable columns contain NULL
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Chomutov', 'north Bohemia', '100', '1', '1', '1', 1, 1, 1.0, 1, NULL, 1.0, 1, NULL, 1);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK MESICNE', '1995-01-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 1, 'POPLATEK MESICNE', '1995-01-03');
+
+-- Matching rows where nullable columns in trans (operation, k_symbol, account) are NULL
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 1, '1996-01-01', 'PRIJEM', NULL, 100, 1000, NULL, 'AB', NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 2, '1996-01-02', 'VYDAJ', NULL, 200, 2000, NULL, 'AB', NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (3, 3, '1996-01-03', 'PRIJEM', 'PREVOD Z UCTU', 300, 3000, 'UROK', 'AB', 12345);
+```

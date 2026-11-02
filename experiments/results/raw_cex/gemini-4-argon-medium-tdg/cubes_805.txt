@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests basic counting, DISTINCT elimination (multiple rooms on the same floor), and inverse ordering between count and blockfloor.
+-- Also includes a Block with no Rooms to test LEFT JOIN vs INNER JOIN mutations on Block.
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 10);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (2, 20);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (3, 30);
+
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 10, 'Single', 0);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (102, 1, 10, 'Double', 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (103, 1, 10, 'Single', NULL);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (201, 2, 20, 'Suite', 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests cross-matched Foreign Keys: Rooms where BlockFloor belongs to one Block row and BlockCode belongs to another Block row.
+-- Tests whether the query counts all rooms in the Room table per floor vs only rooms that validly join with a single Block row.
+-- Also tests ties in count___ to verify secondary sorting on blockfloor.
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 10);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (2, 20);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (3, 30);
+
+-- Floor 1 has 1 valid room matching (1, 10), and 1 mismatched room (1, 20). Total rooms on Floor 1 = 2.
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 10, 'Single', 0);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (102, 1, 20, 'Single', 0);
+
+-- Floor 2 has 2 valid rooms matching (2, 20). Total rooms on Floor 2 = 2.
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (201, 2, 20, 'Double', 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (202, 2, 20, 'Double', 0);
+
+-- Floor 3 has ONLY a mismatched room (3, 10). It gets counted in RHS, but filtered out in LHS inner join.
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (301, 3, 10, 'Suite', 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Room foreign keys (BlockFloor and BlockCode) and NULL values in non-key columns (RoomType, Unavailable).
+-- Kills mutants that replace COUNT(*) with COUNT(RoomType) or COUNT(Unavailable), or use LEFT/RIGHT joins that preserve NULL floors.
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 10);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (2, 20);
+
+-- Floor 1 has 1 room with NULL attributes and 1 room with NULL BlockCode (which increments Floor 1's COUNT(*) to 2, though only 1 room joins with Block).
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 10, NULL, NULL);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (102, 1, NULL, 'Single', 1);
+
+-- Floor 2 has 1 valid room.
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (201, 2, 20, 'Double', 0);
+
+-- Rooms with NULL BlockFloor.
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (901, NULL, 10, 'Single', 0);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (902, NULL, NULL, 'Suite', 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests sorting order (ASC vs DESC on both count___ and blockfloor), negative/zero floor numbers, and identical attribute values across rooms (to kill COUNT(DISTINCT ...) mutants).
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (-1, 10);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (0, 20);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (5, 50);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (10, 100);
+
+-- Floor 10: 1 room
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (1001, 10, 100, 'SameType', 1);
+
+-- Floor 5: 2 rooms with identical RoomType and Unavailable
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (501, 5, 50, 'SameType', 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (502, 5, 50, 'SameType', 1);
+
+-- Floor -1: 2 rooms (tie in count___ with Floor 5, tests secondary sort order on blockfloor)
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (11, -1, 10, 'SameType', 0);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (12, -1, 10, 'SameType', 0);
+
+-- Floor 0: 3 rooms
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (1, 0, 20, 'SameType', 0);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (2, 0, 20, 'SameType', 0);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (3, 0, 20, 'SameType', 0);
+```
+
+```sql
+-- DATASET 5
+-- Edge case: Blocks exist, and Rooms exist, but zero Rooms match a valid (BlockFloor, BlockCode) pair.
+-- The Reference Query should return an empty result set. Kills mutants that use OUTER JOINs or omit the Block join condition.
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 10);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (2, 20);
+
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 20, 'Single', 0);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (201, 2, 10, 'Double', 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (301, NULL, NULL, 'Suite', 0);
+```

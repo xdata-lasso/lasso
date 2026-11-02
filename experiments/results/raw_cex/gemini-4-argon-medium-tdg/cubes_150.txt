@@ -1,0 +1,63 @@
+```sql
+-- DATASET 1
+-- Tests INNER JOIN vs LEFT/RIGHT/FULL OUTER JOIN, duplicate output rows (DISTINCT vs ALL), and basic two-column ORDER BY
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Poodle');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Small');
+
+-- Owner 1 has multiple dogs (including two with the exact same name to test DISTINCT)
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name", "street", "city", "state", "zip_code", "email_address", "home_phone", "cell_number") VALUES (1, 'Alice', 'Smith', '123 Maple', 'Austin', 'TX', '78701', 'alice@example.com', '555-0101', '555-0102');
+-- Owner 2 has one dog
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name", "street", "city", "state", "zip_code", "email_address", "home_phone", "cell_number") VALUES (2, 'Bob', 'Jones', '456 Oak', 'Dallas', 'TX', '75201', 'bob@example.com', '555-0201', '555-0202');
+-- Owner 3 has NO dogs (tests RIGHT JOIN / LEFT JOIN from Owners)
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name", "street", "city", "state", "zip_code", "email_address", "home_phone", "cell_number") VALUES (3, 'Charlie', 'Brown', '789 Pine', 'Houston', 'TX', '77001', 'charlie@example.com', '555-0301', '555-0302');
+
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "abandoned_yn", "name", "age", "date_of_birth", "gender", "weight", "date_arrived", "date_adopted", "date_departed") VALUES (101, 1, 'S1', 'B1', '0', 'Zoe', '3', '2020-01-01', 'F', '10', '2020-02-01', '2020-03-01', NULL);
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "abandoned_yn", "name", "age", "date_of_birth", "gender", "weight", "date_arrived", "date_adopted", "date_departed") VALUES (102, 1, 'S1', 'B1', '1', 'Buddy', '5', '2018-05-01', 'M', '15', '2019-01-01', NULL, NULL);
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "abandoned_yn", "name", "age", "date_of_birth", "gender", "weight", "date_arrived", "date_adopted", "date_departed") VALUES (103, 1, 'S1', 'B1', '0', 'Buddy', '2', '2021-06-01', 'M', '12', '2021-07-01', '2021-08-01', '2022-01-01');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "abandoned_yn", "name", "age", "date_of_birth", "gender", "weight", "date_arrived", "date_adopted", "date_departed") VALUES (104, 2, 'S1', 'B1', '0', 'Max', '4', '2019-03-01', 'M', '20', '2019-04-01', '2019-05-01', NULL);
+-- Dog 105 has NULL owner_id (tests LEFT JOIN from Dogs)
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "abandoned_yn", "name", "age", "date_of_birth", "gender", "weight", "date_arrived", "date_adopted", "date_departed") VALUES (105, NULL, 'S1', 'B1', '1', 'Ghost', '1', '2022-01-01', 'F', '8', '2022-02-01', NULL, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in ORDER BY (specifically `first_name` ASC NULLS FIRST vs `name` ASC NULLS LAST) and column confusion (e.g. last_name vs first_name)
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'Aaron', 'Zeta');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (2, NULL, 'Alpha');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (3, 'Beta', 'Beta');
+
+-- Dogs for Owner 1 ('Aaron'): includes a NULL dog name to specifically test `name NULLS LAST`
+INSERT INTO "Dogs" ("dog_id", "owner_id", "name") VALUES (1, 1, 'Rex');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "name") VALUES (2, 1, NULL);
+INSERT INTO "Dogs" ("dog_id", "owner_id", "name") VALUES (3, 1, 'Ace');
+
+-- Dogs for Owner 2 (NULL first_name): tests default NULLS FIRST on first_name combined with NULLS LAST on name
+INSERT INTO "Dogs" ("dog_id", "owner_id", "name") VALUES (4, 2, NULL);
+INSERT INTO "Dogs" ("dog_id", "owner_id", "name") VALUES (5, 2, 'Buster');
+
+-- Dog for Owner 3 ('Beta')
+INSERT INTO "Dogs" ("dog_id", "owner_id", "name") VALUES (6, 3, 'Coco');
+```
+
+```sql
+-- DATASET 3
+-- Tests wrong join predicate (e.g., dog_id = owner_id), unnecessary INNER JOINs with other tables (Treatments, Breeds, Sizes, Professionals), and bogus WHERE filters on Dogs/Owners columns
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Bulldog');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('M', 'Medium');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T1', 'Vaccination');
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "last_name") VALUES (99, 'VET', 'Dr. Vet', 'Doc');
+
+-- Owner IDs and Dog IDs intentionally overlap with mismatched relationships to kill `dog_id = owner_id` mutants
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name", "city", "state") VALUES (10, 'Zack', 'Taylor', 'NYC', 'NY');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name", "city", "state") VALUES (20, 'Wendy', 'Adams', 'LA', 'CA');
+
+-- Dog 10 belongs to Owner 20 (NOT Owner 10), and has NULLs for breed_code and size_code (kills mutants that INNER JOIN Breeds or Sizes)
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "abandoned_yn", "name", "gender") VALUES (10, 20, NULL, NULL, 'Y', 'Fido', 'M');
+
+-- Dog 20 belongs to Owner 10 (NOT Owner 20), has valid breed/size and a treatment record
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "abandoned_yn", "name", "gender") VALUES (20, 10, 'M', 'B1', 'N', 'Spot', 'F');
+
+-- Only Dog 20 has treatments (kills mutants that INNER JOIN Treatments or duplicate rows via Treatments join)
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (500, 20, 99, 'T1', '2023-01-01', 50.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (501, 20, 99, 'T1', '2023-02-01', 75.0);
+```

@@ -1,0 +1,23 @@
+-- Schema DDL
+CREATE TABLE Products (product_id INTEGER PRIMARY KEY, name TEXT, category TEXT, price REAL, cost REAL, stock_quantity INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO Products (product_id, name, category, price, cost, stock_quantity) VALUES (1, 'Product A', 'Electronics', 100.0, 0.0, 10);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM Products WHERE price - cost > 50;
+
+/*
+Gold Result:
+('Product A',)
+*/
+
+-- Prediction Query
+SELECT name FROM Products WHERE price * cost > 50;
+
+/*
+Prediction Result:
+*/

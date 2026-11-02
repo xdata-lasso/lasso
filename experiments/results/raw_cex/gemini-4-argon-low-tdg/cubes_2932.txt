@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, ordering, case sensitivity, substring/LIKE mutations, NULLs, and missing foreign keys (which would fail if mutant uses INNER JOINs on EMPLOYEE, COURSE, or ENROLL).
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (101, 'Smith', 'John', 'A', 'PROF', '2010-08-15', '1975-04-12');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "SCHOOL_CODE", "DEPT_ADDRESS", "DEPT_EXTENSION") VALUES ('CS', 101, 'Computer Science', 'ENG', 'KLR100', '1234');
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('CS101', 'CS', 'Intro to CS', 4.0);
+
+-- Matching row with valid FKs, inserted in reverse order of CLASS_CODE to test ORDER BY
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('10050', 101, 'CS101', '1', 'MWF 9:00', 'KLR209');
+
+-- Matching row with NULL FKs (kills mutants that unnecessarily INNER JOIN with COURSE or EMPLOYEE)
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('10010', NULL, NULL, '2', 'TTh 10:00', 'KLR209');
+
+-- Non-matching row (kills mutants that drop WHERE clause or use != / <>)
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('10020', 101, 'CS101', '3', 'MWF 11:00', 'KLR208');
+
+-- Case-sensitivity test (kills mutants using COLLATE NOCASE or UPPER/LOWER)
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('10030', 101, 'CS101', '4', 'MWF 12:00', 'klr209');
+
+-- Substring / LIKE / Prefix test (kills mutants using LIKE '%KLR209%' or >= 'KLR209')
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('10040', 101, 'CS101', '5', 'MWF 1:00', 'KLR209A');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('10005', 101, 'CS101', '6', 'MWF 2:00', 'KLR200');
+
+-- NULL room test (kills mutants mishandling NULLs)
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('10060', 101, 'CS101', '7', 'MWF 3:00', NULL);
+
+-- Decoy value in another column (kills mutants filtering on CLASS_TIME or CRS_CODE instead of CLASS_ROOM)
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('10070', 101, 'CS101', '8', 'KLR209', 'KLR100');
+```
+
+```sql
+-- DATASET 2
+-- Tests against mutants that join with ENROLL without DISTINCT (causing duplicate rows) or order by the wrong column (e.g., CLASS_SECTION or PROF_NUM instead of CLASS_CODE).
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (1, 'Adams', 'Amy', 'B', 'PROF', '2015-01-01', '1980-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (2, 'Baker', 'Bob', 'C', 'PROF', '2016-01-01', '1982-01-01');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "SCHOOL_CODE", "DEPT_ADDRESS", "DEPT_EXTENSION") VALUES ('MATH', 1, 'Mathematics', 'SCI', 'BLD1', '1111');
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('M1', 'MATH', 'Calculus I', 3.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('M2', 'MATH', 'Calculus II', 3.0);
+
+-- Insert classes where CLASS_CODE order ('A10', 'B2', 'C1') differs from alphanumeric vs numeric, and differs from PROF_NUM, CRS_CODE, CLASS_SECTION, and insertion order.
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('C1', 1, 'M1', '01', '08:00', 'KLR209');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('A10', 2, 'M2', '03', '14:00', 'KLR209');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('B2', 1, 'M2', '02', '10:00', 'KLR209');
+
+-- Multiple students enrolled in the same class to kill mutants that join CLASS with ENROLL without DISTINCT
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT", "STU_DOB", "STU_HRS", "STU_CLASS", "STU_GPA", "STU_TRANSFER", "STU_PHONE", "PROF_NUM") VALUES (501, 'MATH', 'Doe', 'Jane', 'D', '2000-05-05', 30, 'SO', 3.5, 0.0, '9999', 1);
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT", "STU_DOB", "STU_HRS", "STU_CLASS", "STU_GPA", "STU_TRANSFER", "STU_PHONE", "PROF_NUM") VALUES (502, 'MATH', 'Roe', 'Richard', 'E', '2001-06-06', 15, 'FR', 3.0, 0.0, '8888', 2);
+
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (501, 'C1', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (502, 'C1', 'B');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (501, 'A10', 'A');
+```
+
+```sql
+-- DATASET 3
+-- Tests lexicographical sorting vs numerical sorting on CLASS_CODE (TEXT column), and kills LIMIT 1 / MAX / MIN aggregation mutants.
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('9', NULL, NULL, '1', 'MWF 9', 'KLR209');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('10', NULL, NULL, '2', 'MWF 10', 'KLR209');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('2', NULL, NULL, '3', 'MWF 11', 'KLR209');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('100', NULL, NULL, '4', 'MWF 12', 'KLR209');
+```
+
+```sql
+-- DATASET 4
+-- Empty result set for target room (all rows have different rooms). Kills mutants with OR conditions, IS NULL, or inverted predicates.
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('3001', NULL, NULL, '1', 'MWF 8:00', 'KLR210');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('3002', NULL, NULL, '2', 'MWF 9:00', 'KLR208');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('3003', NULL, NULL, '3', 'MWF 10:00', NULL);
+```

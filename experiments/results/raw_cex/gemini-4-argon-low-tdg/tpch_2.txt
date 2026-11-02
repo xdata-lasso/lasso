@@ -1,0 +1,190 @@
+```sql
+-- DATASET 1
+-- Focus: Predicate boundaries on PART (p_size = 9 vs 8, 10) and p_type LIKE '%TIN' (suffix vs prefix/substring/exact), and REGION r_name = 'MIDDLE EAST'.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'MIDDLE EAST', 'Target region');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (2, 'EUROPE', 'Non-target region');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (3, 'MIDDLE EAST ', 'Trailing space region');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (10, 'EGYPT', 1, 'In Middle East');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (20, 'FRANCE', 2, 'In Europe');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (30, 'JORDAN', 3, 'In Middle East trailing space');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (100, 'Supp_ME', 'Addr 100', 10, '111-111', 500.00, 'Valid supplier');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (200, 'Supp_EU', 'Addr 200', 20, '222-222', 600.00, 'Europe supplier');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (300, 'Supp_ME_Space', 'Addr 300', 30, '333-333', 700.00, 'Trailing space region supplier');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part Valid Suffix', 'Mfgr1', 'Brand1', 'LARGE BRUSHED TIN', 9, 'SM CASE', 100.00, 'Valid');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (2, 'Part Valid Exact', 'Mfgr2', 'Brand2', 'TIN', 9, 'SM CASE', 100.00, 'Valid exact TIN');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (3, 'Part Size 8', 'Mfgr3', 'Brand3', 'LARGE BRUSHED TIN', 8, 'SM CASE', 100.00, 'Invalid size 8');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (4, 'Part Size 10', 'Mfgr4', 'Brand4', 'LARGE BRUSHED TIN', 10, 'SM CASE', 100.00, 'Invalid size 10');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (5, 'Part Type Prefix', 'Mfgr5', 'Brand5', 'TIN LARGE', 9, 'SM CASE', 100.00, 'Invalid type prefix');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (6, 'Part Type Mid', 'Mfgr6', 'Brand6', 'LARGE TIN BRUSHED', 9, 'SM CASE', 100.00, 'Invalid type substring');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (7, 'Part Valid 7', 'Mfgr7', 'Brand7', 'SMALL TIN', 9, 'SM CASE', 100.00, 'Valid part for non-ME supplier');
+
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (1, 100, 10, 50.00, 'Should match');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (2, 100, 10, 40.00, 'Should match');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (3, 100, 10, 30.00, 'Filtered by size 8');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (4, 100, 10, 30.00, 'Filtered by size 10');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (5, 100, 10, 30.00, 'Filtered by type TIN LARGE');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (6, 100, 10, 30.00, 'Filtered by type LARGE TIN BRUSHED');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (7, 200, 10, 10.00, 'Filtered by Europe');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (7, 300, 10, 10.00, 'Filtered by trailing space region');
+```
+
+```sql
+-- DATASET 2
+-- Focus: Subquery correlation, MIN vs MAX/AVG, and region filtering inside the subquery vs outer query.
+-- Tests:
+-- 1. Non-Middle East supplier has a strictly lower supplycost (5.00) than the cheapest Middle East supplier (25.00) for Part 1. If the subquery omits the region filter, MIN(ps_supplycost) becomes 5.00, and the Middle East supplier (25.00) is lost.
+-- 2. Part 2 has a Middle East supplier with a lower global cost (10.00) than Part 1's min cost (25.00). If the subquery omits `p_partkey = ps_partkey`, Part 1 won't match.
+-- 3. Multiple Middle East suppliers for Part 1 with different costs (25.00, 50.00, 75.00) to kill MAX, AVG, SUM, or missing subquery mutations.
+-- 4. Tie for MIN(ps_supplycost) on Part 3 among two Middle East suppliers (both at 15.00) to ensure both are returned.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'MIDDLE EAST', 'Target');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (2, 'ASIA', 'Other');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'IRAQ', 1, 'ME 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'IRAN', 1, 'ME 2');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (3, 'JAPAN', 2, 'ASIA 1');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'ME_Supp_Cheap', 'Addr 1', 1, '100-1', 1000.00, 'ME 1');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (2, 'ME_Supp_Mid', 'Addr 2', 1, '100-2', 2000.00, 'ME 2');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (3, 'ME_Supp_Exp', 'Addr 3', 2, '100-3', 3000.00, 'ME 3');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (4, 'ASIA_Supp_SuperCheap', 'Addr 4', 3, '100-4', 4000.00, 'ASIA 1');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part 1', 'Mfgr1', 'Brand1', 'COPPER TIN', 9, 'BOX', 50.00, 'P1');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (2, 'Part 2', 'Mfgr2', 'Brand2', 'STEEL TIN', 9, 'BOX', 60.00, 'P2');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (3, 'Part 3 Tie', 'Mfgr3', 'Brand3', 'NICKEL TIN', 9, 'BOX', 70.00, 'P3');
+
+-- Part 1: Asia supplier has cost 5.00; ME suppliers have 25.00, 50.00, 75.00. True ME min is 25.00.
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (1, 4, 100, 5.00, 'Asia cheapest overall');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (1, 1, 100, 25.00, 'ME cheapest');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (1, 2, 100, 50.00, 'ME mid');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (1, 3, 100, 75.00, 'ME expensive');
+
+-- Part 2: ME supplier has cost 10.00 (cheaper than Part 1s ME min of 25.00, testing correlation).
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (2, 2, 100, 10.00, 'ME cheapest for P2');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (2, 3, 100, 20.00, 'ME second for P2');
+
+-- Part 3: Two ME suppliers tied at 15.00.
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (3, 1, 100, 15.00, 'ME tie 1');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (3, 3, 100, 15.00, 'ME tie 2');
+```
+
+```sql
+-- DATASET 3
+-- Focus: Exhaustive ORDER BY tie-breakers and sorting directions.
+-- Primary sort: s_acctbal DESC
+-- Tie-breaker 1: n_name ASC
+-- Tie-breaker 2: s_name ASC
+-- Tie-breaker 3: p_partkey ASC
+-- Also includes negative, zero, and positive s_acctbal values.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'MIDDLE EAST', 'Target');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'EGYPT', 1, 'N1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'JORDAN', 1, 'N2');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (3, 'SAUDI ARABIA', 1, 'N3');
+
+-- Suppliers with various s_acctbal and names to test hierarchy of tie-breakers:
+-- Group A: s_acctbal = 500.00, different nations ('EGYPT' vs 'JORDAN')
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (10, 'Supp_Z', 'Addr 10', 1, '111', 500.00, 'S10');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (20, 'Supp_A', 'Addr 20', 2, '222', 500.00, 'S20');
+
+-- Group B: s_acctbal = 500.00, same nation ('JORDAN'), different s_name ('Supp_A' vs 'Supp_B')
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (30, 'Supp_B', 'Addr 30', 2, '333', 500.00, 'S30');
+
+-- Group C: s_acctbal = 500.00, same nation ('SAUDI ARABIA'), same s_name ('Supp_Same'), different s_suppkey (50 vs 40)
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (50, 'Supp_Same', 'Addr 50', 3, '555', 500.00, 'S50');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (40, 'Supp_Same', 'Addr 40', 3, '444', 500.00, 'S40');
+
+-- Group D: Negative and zero s_acctbal
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (60, 'Supp_Zero', 'Addr 60', 1, '666', 0.00, 'S60');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (70, 'Supp_Neg', 'Addr 70', 1, '777', -150.25, 'S70');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (80, 'Supp_High', 'Addr 80', 1, '888', 9999.99, 'S80');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (10, 'P10', 'Mfgr1', 'B1', 'POLISHED TIN', 9, 'LG BOX', 10.00, 'C10');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (20, 'P20', 'Mfgr2', 'B2', 'POLISHED TIN', 9, 'LG BOX', 10.00, 'C20');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (30, 'P30', 'Mfgr3', 'B3', 'POLISHED TIN', 9, 'LG BOX', 10.00, 'C30');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (40, 'P40', 'Mfgr4', 'B4', 'POLISHED TIN', 9, 'LG BOX', 10.00, 'C40');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (50, 'P50', 'Mfgr5', 'B5', 'POLISHED TIN', 9, 'LG BOX', 10.00, 'C50');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (60, 'P60', 'Mfgr6', 'B6', 'POLISHED TIN', 9, 'LG BOX', 10.00, 'C60');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (70, 'P70', 'Mfgr7', 'B7', 'POLISHED TIN', 9, 'LG BOX', 10.00, 'C70');
+
+-- Supplier 10 supplies two parts (p_partkey 20 and 10) at min cost to test p_partkey ASC tie-breaker for identical supplier
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (20, 10, 5, 1.00, 'PS20_10');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (10, 10, 5, 1.00, 'PS10_10');
+
+-- Supplier 20 and 30 supply parts 30 and 40
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (30, 20, 5, 1.00, 'PS30_20');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (40, 30, 5, 1.00, 'PS40_30');
+
+-- Suppliers 40 and 50 (identical s_acctbal, n_name, s_name) both supply the SAME part 50 at tied min cost 1.00 (tests supplier.s_suppkey ASC tie-breaker)
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (50, 50, 5, 1.00, 'PS50_50');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (50, 40, 5, 1.00, 'PS50_40');
+
+-- Suppliers 60, 70, 80 supply parts 60, 70, 10
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (60, 60, 5, 1.00, 'PS60_60');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (70, 70, 5, 1.00, 'PS70_70');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (10, 80, 5, 1.00, 'PS10_80');
+```
+
+```sql
+-- DATASET 4
+-- Focus: Join key integrity in both outer query and subquery.
+-- Ensures that cross-product rows or mismatched foreign keys (e.g., matching ps_partkey to s_suppkey, or omitting s_suppkey = ps_suppkey in subquery) are caught.
+-- Also tests 0.00 supplycost and negative supplycost edge cases.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'MIDDLE EAST', 'ME');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (2, 'AMERICA', 'AM');
+
+-- Two nations in MIDDLE EAST and one in AMERICA
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'KUWAIT', 1, 'ME nation 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'LEBANON', 1, 'ME nation 2');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (3, 'USA', 2, 'AM nation');
+
+-- Suppliers with keys overlapping with partkeys (1, 2, 3) to catch wrong join column mutations (like p_partkey = s_suppkey)
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'Supp_One_ME', 'Addr 1', 1, '111-001', 250.50, 'Comment 1');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (2, 'Supp_Two_ME', 'Addr 2', 2, '111-002', 250.50, 'Comment 2');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (3, 'Supp_Three_AM', 'Addr 3', 3, '111-003', 900.00, 'Comment 3');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part_One', 'Mfgr_A', 'Brand_A', 'ANODIZED TIN', 9, 'WRAP', 12.34, 'P1');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (2, 'Part_Two', 'Mfgr_B', 'Brand_B', 'ANODIZED TIN', 9, 'WRAP', 23.45, 'P2');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (3, 'Part_Three', 'Mfgr_C', 'Brand_C', 'ANODIZED TIN', 9, 'WRAP', 34.56, 'P3');
+
+-- Part 1 is supplied by Supplier 2 (not Supplier 1!) at cost 0.00, and Supplier 1 at cost 50.00.
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (1, 2, 99, 0.00, 'Zero cost by Supp 2');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (1, 1, 99, 50.00, 'Higher cost by Supp 1');
+
+-- Part 2 is supplied by Supplier 1 at cost 10.00, and Supplier 3 (America) at cost 0.00.
+-- If s_suppkey = ps_suppkey is omitted in subquery, Supplier 3s partsupp row might join with Supplier 1 (ME) and corrupt the min cost to 0.00.
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (2, 1, 88, 10.00, 'ME cost 10');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (2, 3, 88, 0.00, 'AM cost 0');
+
+-- Part 3 is ONLY supplied by America Supplier 3 (should not appear in result at all).
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (3, 3, 77, 5.00, 'AM only');
+```
+
+```sql
+-- DATASET 5
+-- Focus: Empty result set verification & case sensitivity / pattern edge cases.
+-- Every row here fails exactly ONE condition of the query, so the Reference Query must return 0 rows, whereas any relaxed mutant will return >= 1 rows.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'MIDDLE EAST', 'Valid region');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (2, 'AFRICA', 'Invalid region');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'EGYPT', 1, 'Valid nation');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'KENYA', 2, 'Invalid nation');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'S_Valid_ME', 'Addr 1', 1, '111', 100.00, 'Valid ME supplier');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (2, 'S_Invalid_AF', 'Addr 2', 2, '222', 200.00, 'Invalid AF supplier');
+
+-- Part 1: Valid type '%TIN', invalid size (19 instead of 9)
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'P1', 'M1', 'B1', 'BRUSHED TIN', 19, 'BOX', 10.00, 'Wrong size');
+-- Part 2: Valid size 9, invalid type ('BRUSHED BRASS')
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (2, 'P2', 'M2', 'B2', 'BRUSHED BRASS', 9, 'BOX', 10.00, 'Wrong type');
+-- Part 3: Valid size 9, valid type 'BRUSHED TIN', but only supplied by Africa supplier
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (3, 'P3', 'M3', 'B3', 'BRUSHED TIN', 9, 'BOX', 10.00, 'Only Africa supplier');
+-- Part 4: Valid size 9, valid type 'BRUSHED TIN', has ME supplier, but no partsupp link
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (4, 'P4', 'M4', 'B4', 'BRUSHED TIN', 9, 'BOX', 10.00, 'No partsupp');
+
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (1, 1, 10, 5.00, 'Fails p_size = 9');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (2, 1, 10, 5.00, 'Fails p_type LIKE %TIN');
+INSERT INTO partsupp (ps_partkey, ps_suppkey, ps_availqty, ps_supplycost, ps_comment) VALUES (3, 2, 10, 5.00, 'Fails r_name = MIDDLE EAST');
+```

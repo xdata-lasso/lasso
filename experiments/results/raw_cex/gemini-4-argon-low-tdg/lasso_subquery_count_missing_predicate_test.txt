@@ -1,0 +1,112 @@
+```sql
+-- DATASET 1
+-- Tests basic threshold conditions for friend counts: 0, 1, 2, and 3 friends.
+-- Catches boundary mutants like n > 2, n = 2, n >= 1, n <= 2, or missing WHERE clauses.
+INSERT INTO "Student" ("id", "name", "grade") VALUES (1, 'ZeroFriends', 9);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (2, 'OneFriend', 10);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (3, 'TwoFriends', 11);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (4, 'ThreeFriends', 12);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 1);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (3, 1);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (3, 2);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (4, 1);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (4, 2);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (4, 3);
+```
+
+```sql
+-- DATASET 2
+-- Tests asymmetric friendship directions (student_id vs friend_id).
+-- Student 1 is a friend to many (friend_id = 1), but has 0 friends of their own (student_id = 1).
+-- Student 2 has 2 friends (student_id = 2), but is a friend to 0.
+-- Catches mutants that group/join on friend_id instead of student_id.
+INSERT INTO "Student" ("id", "name", "grade") VALUES (1, 'PopularTarget', 10);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (2, 'ActiveBefriender', 10);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (3, 'HelperA', 11);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (4, 'HelperB', 12);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 1);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 3);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (3, 1);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (4, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests duplicate student names with different IDs.
+-- Two students named 'Alex' both have >= 2 friends, and one 'Alex' has 1 friend.
+-- Catches mutants that use SELECT DISTINCT name, or GROUP BY S.name instead of S.id / F.student_id.
+INSERT INTO "Student" ("id", "name", "grade") VALUES (1, 'Alex', 9);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (2, 'Alex', 10);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (3, 'Alex', 11);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (4, 'Sam', 12);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (5, 'Taylor', 12);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (1, 4);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (1, 5);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 4);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 5);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (3, 4);
+```
+
+```sql
+-- DATASET 4
+-- Tests duplicate names where each individual has only 1 friend, but combined they have 2.
+-- If a mutant incorrectly groups by S.name before counting, 'Jordan' will falsely appear in the result.
+INSERT INTO "Student" ("id", "name", "grade") VALUES (1, 'Jordan', 10);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (2, 'Jordan', 11);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (3, 'Casey', 10);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (1, 2);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 3);
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion between id, grade, and friend count (n).
+-- Student 1 has grade = 1 (which is < 2) and id = 1 (< 2), but n = 2.
+-- Student 2 has grade = 3 (>= 2) and id = 2 (>= 2), but n = 1.
+-- Catches mutants that filter on grade >= 2 or id >= 2 instead of n >= 2, or join on S.grade = F.student_id.
+INSERT INTO "Student" ("id", "name", "grade") VALUES (1, 'LowGradeHighFriends', 1);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (2, 'HighGradeLowFriends', 3);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (3, 'Dummy', 0);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (1, 2);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (1, 3);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 1);
+```
+
+```sql
+-- DATASET 6
+-- Tests NULL values in Student columns (name and grade) and empty/non-matching sets.
+-- Student 1 has NULL name and 2 friends. Student 2 has NULL grade and 2 friends.
+-- Catches mutants that use COUNT(name) or COUNT(grade) or filter out NULL grades/names prematurely.
+INSERT INTO "Student" ("id", "name", "grade") VALUES (1, NULL, 10);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (2, 'NullGradeStudent', NULL);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (3, 'Regular', 11);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (1, 2);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (1, 3);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 1);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 3);
+```
+
+```sql
+-- DATASET 7
+-- Tests the scenario where the Friend table has rows, but NO student has >= 2 friends.
+-- Catches mutants without GROUP BY (which would count total rows in Friend and return all joined students).
+INSERT INTO "Student" ("id", "name", "grade") VALUES (1, 'Alice', 10);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (2, 'Bob', 10);
+INSERT INTO "Student" ("id", "name", "grade") VALUES (3, 'Charlie', 10);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (1, 2);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 3);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (3, 1);
+```

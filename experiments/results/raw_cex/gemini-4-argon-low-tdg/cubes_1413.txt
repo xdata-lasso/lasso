@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests standard anti-join, duplicate project_details (SELECT vs SELECT DISTINCT), ordering (ASC vs DESC), and multiple outcomes per project.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('UNI', 'University');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'UNI', 'Org 1');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (2, 'UNI', 'Org 2');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('OUT1', 'Outcome 1');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('OUT2', 'Outcome 2');
+
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Zeta Project');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (2, 1, 'Alpha Project');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (3, 2, 'Alpha Project');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (4, 1, 'Beta Project');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (5, 2, 'Gamma Project');
+
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('OUT1', 4, 'Beta Outcome 1');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('OUT2', 4, 'Beta Outcome 2');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('OUT1', 5, 'Gamma Outcome 1');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Project_Outcomes.project_id (kills NOT IN vs NOT EXISTS / LEFT JOIN IS NULL mutations) and NULLs in project_details.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('GOV', 'Government');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (10, 'GOV', 'Gov Agency');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('PAPER', 'Published Paper');
+
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (10, 10, 'Project Ten');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (20, 10, 'Project Twenty');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (30, 10, NULL);
+
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('PAPER', 10, 'Paper for Project 10');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('PAPER', NULL, 'Unassigned Outcome');
+```
+
+```sql
+-- DATASET 3
+-- Tests wrong table references (e.g., querying Project_Staff or Tasks instead of Project_Outcomes) and wrong join column mutations (e.g., joining on organisation_id instead of project_id).
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('CORP', 'Corporation');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'CORP', 'Corp 1');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (2, 'CORP', 'Corp 2');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('PAT', 'Patent');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('LEAD', 'Project Lead');
+
+-- Project 1 has org_id = 2; Project 2 has org_id = 1.
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 2, 'Project One');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (2, 1, 'Project Two');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (3, 2, 'Project Three');
+
+-- Project 1 has an outcome. If a mutant checks LHS.organisation_id = RHS.project_id, Project 2 (org_id=1) will be falsely excluded instead of Project 1 (org_id=2).
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('PAT', 1, 'Patent for Project 1');
+
+-- Project 2 has Staff and Tasks, but NO Outcomes. Kills mutants that check Project_Staff or Tasks instead of Project_Outcomes.
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (101.0, 'LEAD', 2, '2023-01-01', '2023-12-31', 'Staff on Proj 2');
+INSERT INTO "Tasks" ("task_id", "project_id", "task_details", "eg Agree Objectives") VALUES (1, 2, 'Task for Proj 2', 'Y');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty Project_Outcomes table (boundary condition where all projects should be returned) and NULL organisation_id in Projects (kills inner join to Organisations).
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (100, NULL, 'Orphan Org Project B');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (200, NULL, 'Orphan Org Project A');
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary condition where EVERY project has at least one outcome (expected output is empty set) and tests column confusion between project_details and outcome_details.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('NGO', 'Non-Profit');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (5, 'NGO', 'NGO 5');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('REP', 'Report');
+
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 5, 'Shared Detail');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (2, 5, 'Unique Project Detail');
+
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('REP', 1, 'Different Detail');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('REP', 2, 'Shared Detail');
+```

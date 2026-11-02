@@ -1,0 +1,270 @@
+```sql
+-- DATASET 1
+-- Tests HAVING COUNT(RA.B) > 3 boundary condition (Group 'b1' has count 4, Group 'b2' has count 3),
+-- distinct values at every table column to catch wrong SELECT projections or wrong join conditions,
+-- and tests GROUP BY omission vs presence.
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a4', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a5', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a6', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a7', 'b2');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'a5');
+INSERT INTO RB (A2, B) VALUES ('c1', 'a2');
+
+INSERT INTO RC (A3, B) VALUES ('a1', 'c1');
+INSERT INTO RC (A3, B) VALUES ('a5', 'b2');
+INSERT INTO RC (A3, B) VALUES ('d1', 'b1');
+
+INSERT INTO RD (A4, B) VALUES ('c1', 'd1');
+INSERT INTO RD (A4, B) VALUES ('b2', 'a5');
+INSERT INTO RD (A4, B) VALUES ('e1', 'a1');
+
+INSERT INTO RE (A5, B) VALUES ('d1', 'e1');
+INSERT INTO RE (A5, B) VALUES ('a5', 'b2');
+INSERT INTO RE (A5, B) VALUES ('f1', 'c1');
+
+INSERT INTO RF (A6, B) VALUES ('e1', 'f1');
+INSERT INTO RF (A6, B) VALUES ('b2', 'a5');
+INSERT INTO RF (A6, B) VALUES ('g1', 'd1');
+
+INSERT INTO RG (A7, B) VALUES ('f1', 'g1');
+INSERT INTO RG (A7, B) VALUES ('a5', 'b2');
+INSERT INTO RG (A7, B) VALUES ('h1', 'e1');
+
+INSERT INTO RH (A8, B) VALUES ('g1', 'h1');
+INSERT INTO RH (A8, B) VALUES ('b2', 'a5');
+INSERT INTO RH (A8, B) VALUES ('i1', 'f1');
+
+INSERT INTO RI (A9, B) VALUES ('h1', 'i1');
+INSERT INTO RI (A9, B) VALUES ('a5', 'b2');
+INSERT INTO RI (A9, B) VALUES ('j1', 'g1');
+
+INSERT INTO RJ (A10, B) VALUES ('i1', 'j1');
+INSERT INTO RJ (A10, B) VALUES ('b2', 'a5');
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple qualifying groups (Count 4 and Count 5) and ensures GROUP BY RA.B
+-- is not mutated to GROUP BY RB.B, RC.B, etc., or omitted altogether.
+-- Also includes broken chains at RJ (missing RJ match) to catch missing join with RJ or LEFT JOIN mutations.
+INSERT INTO RA (A1, B) VALUES ('x1', 'gA');
+INSERT INTO RA (A1, B) VALUES ('x2', 'gA');
+INSERT INTO RA (A1, B) VALUES ('x3', 'gA');
+INSERT INTO RA (A1, B) VALUES ('x4', 'gA');
+
+INSERT INTO RA (A1, B) VALUES ('y1', 'gB');
+INSERT INTO RA (A1, B) VALUES ('y2', 'gB');
+INSERT INTO RA (A1, B) VALUES ('y3', 'gB');
+INSERT INTO RA (A1, B) VALUES ('y4', 'gB');
+INSERT INTO RA (A1, B) VALUES ('y5', 'gB');
+
+INSERT INTO RA (A1, B) VALUES ('z1', 'gC');
+INSERT INTO RA (A1, B) VALUES ('z2', 'gC');
+INSERT INTO RA (A1, B) VALUES ('z3', 'gC');
+INSERT INTO RA (A1, B) VALUES ('z4', 'gC');
+
+INSERT INTO RB (A2, B) VALUES ('gA', 'x1');
+INSERT INTO RB (A2, B) VALUES ('gB', 'x1');
+INSERT INTO RB (A2, B) VALUES ('gC', 'z1');
+
+INSERT INTO RC (A3, B) VALUES ('x1', 'gA');
+INSERT INTO RC (A3, B) VALUES ('z1', 'gC');
+
+INSERT INTO RD (A4, B) VALUES ('gA', 'x1');
+INSERT INTO RD (A4, B) VALUES ('gC', 'z1');
+
+INSERT INTO RE (A5, B) VALUES ('x1', 'gA');
+INSERT INTO RE (A5, B) VALUES ('z1', 'gC');
+
+INSERT INTO RF (A6, B) VALUES ('gA', 'x1');
+INSERT INTO RF (A6, B) VALUES ('gC', 'z1');
+
+INSERT INTO RG (A7, B) VALUES ('x1', 'gA');
+INSERT INTO RG (A7, B) VALUES ('z1', 'gC');
+
+INSERT INTO RH (A8, B) VALUES ('gA', 'x1');
+INSERT INTO RH (A8, B) VALUES ('gC', 'z1');
+
+INSERT INTO RI (A9, B) VALUES ('x1', 'gA');
+INSERT INTO RI (A9, B) VALUES ('z1', 'gC');
+
+INSERT INTO RJ (A10, B) VALUES ('gA', 'x1');
+```
+
+```sql
+-- DATASET 3
+-- Tests broken chains at middle tables (RD, RE, RF, RG, RH, RI) and NULL handling.
+-- Each broken chain has 4 rows in RA, so if any INNER JOIN is mutated to LEFT JOIN or dropped,
+-- that group will falsely appear in the output.
+INSERT INTO RA (A1, B) VALUES ('m1', 'valid');
+INSERT INTO RA (A1, B) VALUES ('m2', 'valid');
+INSERT INTO RA (A1, B) VALUES ('m3', 'valid');
+INSERT INTO RA (A1, B) VALUES ('m4', 'valid');
+
+INSERT INTO RA (A1, B) VALUES ('n1', 'brkRE');
+INSERT INTO RA (A1, B) VALUES ('n2', 'brkRE');
+INSERT INTO RA (A1, B) VALUES ('n3', 'brkRE');
+INSERT INTO RA (A1, B) VALUES ('n4', 'brkRE');
+
+INSERT INTO RA (A1, B) VALUES ('p1', 'brkRH');
+INSERT INTO RA (A1, B) VALUES ('p2', 'brkRH');
+INSERT INTO RA (A1, B) VALUES ('p3', 'brkRH');
+INSERT INTO RA (A1, B) VALUES ('p4', 'brkRH');
+
+INSERT INTO RA (A1, B) VALUES ('q1', NULL);
+INSERT INTO RA (A1, B) VALUES ('q2', NULL);
+INSERT INTO RA (A1, B) VALUES ('q3', NULL);
+INSERT INTO RA (A1, B) VALUES ('q4', NULL);
+
+INSERT INTO RB (A2, B) VALUES ('valid', 'm1');
+INSERT INTO RB (A2, B) VALUES ('brkRE', 'n1');
+INSERT INTO RB (A2, B) VALUES ('brkRH', 'p1');
+
+INSERT INTO RC (A3, B) VALUES ('m1', 'valid');
+INSERT INTO RC (A3, B) VALUES ('n1', 'brkRE');
+INSERT INTO RC (A3, B) VALUES ('p1', 'brkRH');
+
+INSERT INTO RD (A4, B) VALUES ('valid', 'm1');
+INSERT INTO RD (A4, B) VALUES ('brkRE', NULL);
+INSERT INTO RD (A4, B) VALUES ('brkRH', 'p1');
+
+INSERT INTO RE (A5, B) VALUES ('m1', 'valid');
+INSERT INTO RE (A5, B) VALUES ('p1', 'brkRH');
+
+INSERT INTO RF (A6, B) VALUES ('valid', 'm1');
+INSERT INTO RF (A6, B) VALUES ('brkRH', 'p1');
+
+INSERT INTO RG (A7, B) VALUES ('m1', 'valid');
+INSERT INTO RG (A7, B) VALUES ('p1', NULL);
+
+INSERT INTO RH (A8, B) VALUES ('valid', 'm1');
+
+INSERT INTO RI (A9, B) VALUES ('m1', 'valid');
+
+INSERT INTO RJ (A10, B) VALUES ('valid', 'm1');
+```
+
+```sql
+-- DATASET 4
+-- Tests reverse FK join mutation (e.g., joining RB.B = RA.A1 instead of RA.B = RB.A2,
+-- or RC.B = RB.A2 instead of RB.B = RC.A3, etc.).
+-- Here, standard FK path has 4 rows for 'fk_b', whereas the forward query path (RA.B = RB.A2 ...) has only 2 rows for 'fk_b'.
+-- Conversely, 'q_b' has 4 rows in the query path, but only 1 row in the FK path.
+INSERT INTO RA (A1, B) VALUES ('r1', 'q_b');
+INSERT INTO RA (A1, B) VALUES ('r2', 'q_b');
+INSERT INTO RA (A1, B) VALUES ('r3', 'q_b');
+INSERT INTO RA (A1, B) VALUES ('r4', 'q_b');
+INSERT INTO RA (A1, B) VALUES ('r5', 'fk_b');
+INSERT INTO RA (A1, B) VALUES ('r6', 'fk_b');
+
+INSERT INTO RB (A2, B) VALUES ('q_b', 'r1');
+INSERT INTO RB (A2, B) VALUES ('b_1', 'r5');
+INSERT INTO RB (A2, B) VALUES ('b_2', 'r5');
+INSERT INTO RB (A2, B) VALUES ('b_3', 'r5');
+INSERT INTO RB (A2, B) VALUES ('b_4', 'r5');
+
+INSERT INTO RC (A3, B) VALUES ('r1', 'q_b');
+INSERT INTO RC (A3, B) VALUES ('c_1', 'b_1');
+INSERT INTO RC (A3, B) VALUES ('c_2', 'b_2');
+INSERT INTO RC (A3, B) VALUES ('c_3', 'b_3');
+INSERT INTO RC (A3, B) VALUES ('c_4', 'b_4');
+
+INSERT INTO RD (A4, B) VALUES ('q_b', 'r1');
+INSERT INTO RD (A4, B) VALUES ('d_1', 'c_1');
+INSERT INTO RD (A4, B) VALUES ('d_2', 'c_2');
+INSERT INTO RD (A4, B) VALUES ('d_3', 'c_3');
+INSERT INTO RD (A4, B) VALUES ('d_4', 'c_4');
+
+INSERT INTO RE (A5, B) VALUES ('r1', 'q_b');
+INSERT INTO RE (A5, B) VALUES ('e_1', 'd_1');
+INSERT INTO RE (A5, B) VALUES ('e_2', 'd_2');
+INSERT INTO RE (A5, B) VALUES ('e_3', 'd_3');
+INSERT INTO RE (A5, B) VALUES ('e_4', 'd_4');
+
+INSERT INTO RF (A6, B) VALUES ('q_b', 'r1');
+INSERT INTO RF (A6, B) VALUES ('f_1', 'e_1');
+INSERT INTO RF (A6, B) VALUES ('f_2', 'e_2');
+INSERT INTO RF (A6, B) VALUES ('f_3', 'e_3');
+INSERT INTO RF (A6, B) VALUES ('f_4', 'e_4');
+
+INSERT INTO RG (A7, B) VALUES ('r1', 'q_b');
+INSERT INTO RG (A7, B) VALUES ('g_1', 'f_1');
+INSERT INTO RG (A7, B) VALUES ('g_2', 'f_2');
+INSERT INTO RG (A7, B) VALUES ('g_3', 'f_3');
+INSERT INTO RG (A7, B) VALUES ('g_4', 'f_4');
+
+INSERT INTO RH (A8, B) VALUES ('q_b', 'r1');
+INSERT INTO RH (A8, B) VALUES ('h_1', 'g_1');
+INSERT INTO RH (A8, B) VALUES ('h_2', 'g_2');
+INSERT INTO RH (A8, B) VALUES ('h_3', 'g_3');
+INSERT INTO RH (A8, B) VALUES ('h_4', 'g_4');
+
+INSERT INTO RI (A9, B) VALUES ('r1', 'q_b');
+INSERT INTO RI (A9, B) VALUES ('i_1', 'h_1');
+INSERT INTO RI (A9, B) VALUES ('i_2', 'h_2');
+INSERT INTO RI (A9, B) VALUES ('i_3', 'h_3');
+INSERT INTO RI (A9, B) VALUES ('i_4', 'h_4');
+
+INSERT INTO RJ (A10, B) VALUES ('q_b', 'r1');
+INSERT INTO RJ (A10, B) VALUES ('j_1', 'i_1');
+INSERT INTO RJ (A10, B) VALUES ('j_2', 'i_2');
+INSERT INTO RJ (A10, B) VALUES ('j_3', 'i_3');
+INSERT INTO RJ (A10, B) VALUES ('j_4', 'i_4');
+```
+
+```sql
+-- DATASET 5
+-- Tests COUNT(RA.B) vs COUNT(DISTINCT RA.B) or COUNT(DISTINCT RA.A1) or COUNT(RJ.B).
+-- Here RJ.B is NULL for the qualifying group 'g_null', which kills mutants using COUNT(RJ.B).
+-- Also includes a group with exactly 1 row and 2 rows to catch HAVING COUNT < 3, <= 3, = 3, != 3.
+INSERT INTO RA (A1, B) VALUES ('u1', 'g_nul');
+INSERT INTO RA (A1, B) VALUES ('u2', 'g_nul');
+INSERT INTO RA (A1, B) VALUES ('u3', 'g_nul');
+INSERT INTO RA (A1, B) VALUES ('u4', 'g_nul');
+
+INSERT INTO RA (A1, B) VALUES ('v1', 'g_two');
+INSERT INTO RA (A1, B) VALUES ('v2', 'g_two');
+
+INSERT INTO RA (A1, B) VALUES ('w1', 'g_one');
+
+INSERT INTO RB (A2, B) VALUES ('g_nul', 'u1');
+INSERT INTO RB (A2, B) VALUES ('g_two', 'v1');
+INSERT INTO RB (A2, B) VALUES ('g_one', 'w1');
+
+INSERT INTO RC (A3, B) VALUES ('u1', 'g_nul');
+INSERT INTO RC (A3, B) VALUES ('v1', 'g_two');
+INSERT INTO RC (A3, B) VALUES ('w1', 'g_one');
+
+INSERT INTO RD (A4, B) VALUES ('g_nul', 'u1');
+INSERT INTO RD (A4, B) VALUES ('g_two', 'v1');
+INSERT INTO RD (A4, B) VALUES ('g_one', 'w1');
+
+INSERT INTO RE (A5, B) VALUES ('u1', 'g_nul');
+INSERT INTO RE (A5, B) VALUES ('v1', 'g_two');
+INSERT INTO RE (A5, B) VALUES ('w1', 'g_one');
+
+INSERT INTO RF (A6, B) VALUES ('g_nul', 'u1');
+INSERT INTO RF (A6, B) VALUES ('g_two', 'v1');
+INSERT INTO RF (A6, B) VALUES ('g_one', 'w1');
+
+INSERT INTO RG (A7, B) VALUES ('u1', 'g_nul');
+INSERT INTO RG (A7, B) VALUES ('v1', 'g_two');
+INSERT INTO RG (A7, B) VALUES ('w1', 'g_one');
+
+INSERT INTO RH (A8, B) VALUES ('g_nul', 'u1');
+INSERT INTO RH (A8, B) VALUES ('g_two', 'v1');
+INSERT INTO RH (A8, B) VALUES ('g_one', 'w1');
+
+INSERT INTO RI (A9, B) VALUES ('u1', 'g_nul');
+INSERT INTO RI (A9, B) VALUES ('v1', 'g_two');
+INSERT INTO RI (A9, B) VALUES ('w1', 'g_one');
+
+INSERT INTO RJ (A10, B) VALUES ('g_nul', NULL);
+INSERT INTO RJ (A10, B) VALUES ('g_two', 'v1');
+INSERT INTO RJ (A10, B) VALUES ('g_one', 'w1');
+```

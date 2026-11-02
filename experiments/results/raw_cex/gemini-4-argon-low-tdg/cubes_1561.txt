@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (dept_name = 'Comp. Sci.'), duplicate names (SELECT vs SELECT DISTINCT),
+-- ascending order by name, and tie-breaking by ID when names are identical.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Biology', 'Watson', 90000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('History', 'Painter', 50000.00);
+
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('10102', 'Comp. Sci.', 'Zack', 80000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('10101', 'Comp. Sci.', 'Alice', 90000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('10103', 'Comp. Sci.', 'Alice', 75000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('10104', 'Biology', 'Bob', 65000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('10105', NULL, 'Charlie', 60000.00);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in name and ID (since SQLite allows NULL in text PKs unless NOT NULL is specified),
+-- and tests INNER JOIN mutations (e.g., joining with teaches, advisor, or student).
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+
+-- Instructors in Comp. Sci. without any teaches or advisor records (kills unnecessary INNER JOIN mutants)
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('20002', 'Comp. Sci.', 'Bravo', 70000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('20001', 'Comp. Sci.', 'Alpha', 70000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('20003', 'Comp. Sci.', NULL, 70000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES (NULL, 'Comp. Sci.', 'Alpha', 70000.00);
+
+-- Student in Comp. Sci. to kill mutants that mistakenly query the "student" table instead of "instructor"
+INSERT INTO "student" ("ID", "dept_name", "name", "tot_cred") VALUES ('90001', 'Comp. Sci.', 'StudentOnly', 30);
+```
+
+```sql
+-- DATASET 3
+-- Tests string comparison edge cases (case sensitivity, trailing spaces, substrings like 'Comp. Sci')
+-- and checks if a mutant erroneously joins with "teaches" causing row duplication for instructors teaching multiple sections.
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('Taylor', '3128', 50);
+
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('comp. sci.', 'Taylor', 100000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Comp. Sci', 'Taylor', 100000.00);
+
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('CS-101', 'Comp. Sci.', 'Intro to CS', 4);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('CS-102', 'Comp. Sci.', 'Data Structures', 4);
+
+INSERT INTO "section" ("course_id", "sec_id", "semester", "year", "building", "room_number", "time_slot_id") VALUES ('CS-101', '1', 'Fall', 2023, 'Taylor', '3128', 'A');
+INSERT INTO "section" ("course_id", "sec_id", "semester", "year", "building", "room_number", "time_slot_id") VALUES ('CS-102', '2', 'Spring', 2024, 'Taylor', '3128', 'B');
+
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('30001', 'Comp. Sci.', 'Srinivasan', 65000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('30002', 'comp. sci.', 'LowercaseDept', 65000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('30003', 'Comp. Sci', 'MissingDotDept', 65000.00);
+
+-- Srinivasan teaches two sections; a mutant joining with "teaches" without DISTINCT will return Srinivasan twice.
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "semester", "year") VALUES ('30001', 'CS-101', '1', 'Fall', 2023);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "semester", "year") VALUES ('30001', 'CS-102', '2', 'Spring', 2024);
+```
+
+```sql
+-- DATASET 4
+-- Tests ordering where insertion order, salary order, and ID order strictly conflict with name order.
+-- Also tests advising multiple students to catch mutants joining with "advisor".
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('1', 'Comp. Sci.', 'C_Name', 90000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('2', 'Comp. Sci.', 'B_Name', 50000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('3', 'Comp. Sci.', 'A_Name', 70000.00);
+
+INSERT INTO "student" ("ID", "dept_name", "name", "tot_cred") VALUES ('S1', 'Comp. Sci.', 'Stud1', 10);
+INSERT INTO "student" ("ID", "dept_name", "name", "tot_cred") VALUES ('S2', 'Comp. Sci.', 'Stud2', 20);
+
+-- Instructor 3 advises two students; joining with advisor will duplicate 'A_Name' and drop 'C_Name' and 'B_Name'.
+INSERT INTO "advisor" ("s_ID", "i_ID") VALUES ('S1', '3');
+INSERT INTO "advisor" ("s_ID", "i_ID") VALUES ('S2', '3');
+```
+
+```sql
+-- DATASET 5
+-- Empty match test: database has departments and instructors, but none in 'Comp. Sci.'.
+-- Kills mutants with missing WHERE clauses, OR conditions instead of AND, or != 'Comp. Sci.'.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Physics', 'Watson', 80000.00);
+
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('50001', 'Physics', 'Einstein', 95000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('50002', 'Physics', 'Bohr', 85000.00);
+```

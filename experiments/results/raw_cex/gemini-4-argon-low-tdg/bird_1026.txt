@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests basic counting (1 loss vs 2 losses), season filtering, goal difference boundaries (win, draw, loss), and join key correctness (id vs team_api_id vs team_fifa_api_id).
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 100, 1000, 'Alpha FC', 'ALP');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 200, 2000, 'Beta FC', 'BET');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (3, 300, 3000, 'Gamma FC', 'GAM');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (4, 400, 4000, 'Delta FC', 'DEL');
+
+-- Alpha FC: 0 home losses in 2015/2016 (has a draw, a win, and a loss in wrong season) -> filtered out by WHERE
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, '2015/2016', 100, 200, 2, 2);
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (2, '2015/2016', 100, 300, 3, 1);
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (3, '2014/2015', 100, 400, 0, 2);
+
+-- Beta FC: 1 home loss in 2015/2016 -> Target winner (COUNT = 1)
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (4, '2015/2016', 200, 100, 1, 2);
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (5, '2015/2016', 200, 300, 2, 0);
+
+-- Gamma FC: 2 home losses in 2015/2016 -> Loses to Beta FC on COUNT(*) ASC (COUNT = 2)
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (6, '2015/2016', 300, 100, 0, 1);
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (7, '2015/2016', 300, 200, 2, 4);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on team_long_name ASC NULLS LAST when COUNT(*) is equal, and tests home_team_api_id vs away_team_api_id join/group mutations.
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (10, 101, 1001, 'Zeta United', 'ZET');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (20, 202, 2002, 'Acme Athletic', 'ACM');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (30, 303, 3003, NULL, 'NUL');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (40, 404, 4004, 'Away Only FC', 'AWY');
+
+-- Zeta United: 1 home loss
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, '2015/2016', 101, 404, 0, 3);
+
+-- Acme Athletic: 1 home loss (Should win tie-breaker over Zeta United and NULL team)
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (2, '2015/2016', 202, 404, 1, 2);
+
+-- NULL Team: 1 home loss (NULLS LAST pushes this after Zeta United)
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (3, '2015/2016', 303, 404, 0, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY matchData.home_team_api_id vs GROUP BY teamDetails.team_long_name when two distinct teams share the same team_long_name.
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 111, 1110, 'Duplicate Name FC', 'DN1');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 222, 2220, 'Duplicate Name FC', 'DN2');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (3, 333, 3330, 'Middle Name FC', 'MID');
+
+-- Team 111 ('Duplicate Name FC') has 2 home losses
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, '2015/2016', 111, 333, 0, 1);
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (2, '2015/2016', 111, 333, 1, 2);
+
+-- Team 222 ('Duplicate Name FC') has 2 home losses
+-- If grouped by home_team_api_id, each has COUNT = 2. If grouped by team_long_name, 'Duplicate Name FC' has COUNT = 4.
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (3, '2015/2016', 222, 333, 0, 2);
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (4, '2015/2016', 222, 333, 2, 3);
+
+-- Team 333 ('Middle Name FC') has 3 home losses
+-- Under Gold Query (GROUP BY home_team_api_id), 'Duplicate Name FC' wins with COUNT = 2 vs 3.
+-- Under mutant (GROUP BY team_long_name), 'Middle Name FC' wins with COUNT = 3 vs 4.
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (5, '2015/2016', 333, 111, 0, 1);
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (6, '2015/2016', 333, 111, 0, 2);
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (7, '2015/2016', 333, 222, 1, 3);
+```
+
+```sql
+-- DATASET 4
+-- Tests COUNT(*) vs COUNT(teamDetails.team_long_name) when a team with NULL name has the fewest home losses (1 loss vs 2 losses).
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 10, 100, NULL, 'NUL');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 20, 200, 'Named Club', 'NAM');
+
+-- Team 10 (NULL name) has 1 home loss (Gold returns NULL; mutant excluding NULLs or using COUNT(team_long_name) behaves differently)
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, '2015/2016', 10, 20, 0, 1);
+
+-- Team 20 ('Named Club') has 2 home losses
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (2, '2015/2016', 20, 10, 0, 1);
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (3, '2015/2016', 20, 10, 1, 2);
+```
+
+```sql
+-- DATASET 5
+-- Tests COUNT(*) vs SUM(home_team_goal - away_team_goal) or ordering by goal difference instead of match count.
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 501, 5001, 'Heavy Loser FC', 'HVY');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 502, 5002, 'Frequent Loser FC', 'FRQ');
+
+-- Heavy Loser FC: 1 home loss, but by a huge margin (-10 goal diff, 2 home goals, 12 away goals)
+-- COUNT(*) = 1 (Wins in Gold Query)
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, '2015/2016', 501, 502, 2, 12);
+
+-- Frequent Loser FC: 2 home losses, each by a tiny margin (total -2 goal diff, 0 home goals, 2 away goals)
+-- COUNT(*) = 2
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (2, '2015/2016', 502, 501, 0, 1);
+INSERT INTO Match (id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (3, '2015/2016', 502, 501, 0, 1);
+```

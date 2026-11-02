@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests: Total nominations across all festivals is 2 (n = 2 boundary), split across two different festivals (1 nomination each).
+-- Catches: Mutants that use GROUP BY festival_id HAVING COUNT(*) >= 2 or COUNT(*) OVER (PARTITION BY festival_id), as well as n > 2 vs n >= 2.
+-- Also tests un-nominated festivals and artworks, and ordering by festival_id.
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (10, 'Alpha Fest', 'Chair A', 'Loc A', 2020, 100);
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (5, 'Beta Fest', NULL, NULL, 2021, 200);
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (1, 'Unnominated Fest', 'Chair C', 'Loc C', 2022, 300);
+
+INSERT INTO "artwork" ("Artwork_ID", "Type", "Name") VALUES (100, 'Painting', 'Art 1');
+INSERT INTO "artwork" ("Artwork_ID", "Type", "Name") VALUES (200, NULL, 'Art 2');
+INSERT INTO "artwork" ("Artwork_ID", "Type", "Name") VALUES (300, 'Sculpture', 'Unnominated Art');
+
+INSERT INTO "nomination" ("Artwork_ID", "Festival_ID", "Result") VALUES (100, 10, 'Won');
+INSERT INTO "nomination" ("Artwork_ID", "Festival_ID", "Result") VALUES (200, 5, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests: Total nominations is 1 (n = 1 < 2 boundary).
+-- Catches: Mutants that omit the WHERE (n >= 2) condition, use n >= 1, or use LEFT JOIN instead of INNER JOIN with nomination.
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (1, 'Solo Fest', 'Chair 1', 'Loc 1', 2020, 500);
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (2, 'Second Fest', 'Chair 2', 'Loc 2', 2021, 600);
+
+INSERT INTO "artwork" ("Artwork_ID", "Type", "Name") VALUES (10, 'Film', 'Movie A');
+INSERT INTO "artwork" ("Artwork_ID", "Type", "Name") VALUES (20, 'Music', 'Song B');
+
+INSERT INTO "nomination" ("Artwork_ID", "Festival_ID", "Result") VALUES (10, 1, 'Nominated');
+```
+
+```sql
+-- DATASET 3
+-- Tests: Multiple nominations for the same festival, plus another festival with 1 nomination (total n = 3 > 2).
+-- Catches: Missing DISTINCT keyword, wrong PARTITION BY (e.g. PARTITION BY festival_id would drop Festival 2, PARTITION BY artwork_id would drop Artwork 20), and NULLS LAST / ordering variations.
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (1, 'Multi Fest', 'Alice', 'NY', 2019, 1000);
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (2, NULL, 'Bob', 'LA', 2020, 500);
+
+INSERT INTO "artwork" ("Artwork_ID", "Type", "Name") VALUES (10, 'Painting', 'Sunflowers');
+INSERT INTO "artwork" ("Artwork_ID", "Type", "Name") VALUES (20, 'Sculpture', 'The Thinker');
+
+INSERT INTO "nomination" ("Artwork_ID", "Festival_ID", "Result") VALUES (10, 1, 'Won');
+INSERT INTO "nomination" ("Artwork_ID", "Festival_ID", "Result") VALUES (20, 1, 'Lost');
+INSERT INTO "nomination" ("Artwork_ID", "Festival_ID", "Result") VALUES (10, 2, 'Won');
+```
+
+```sql
+-- DATASET 4
+-- Tests: Two different festivals having the exact same Festival_Name (including NULLs), and one artwork nominated in two festivals (n = 2).
+-- Catches: Mutants that project only festival_name, group by festival_name, or partition by artwork_id vs festival_id.
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (3, 'Same Name Fest', 'C1', 'L1', 2020, 10);
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (1, 'Same Name Fest', 'C2', 'L2', 2021, 20);
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (2, NULL, 'C3', 'L3', 2022, 30);
+
+INSERT INTO "artwork" ("Artwork_ID", "Type", "Name") VALUES (1, 'Photo', 'Snap');
+
+INSERT INTO "nomination" ("Artwork_ID", "Festival_ID", "Result") VALUES (1, 3, 'Finalist');
+INSERT INTO "nomination" ("Artwork_ID", "Festival_ID", "Result") VALUES (1, 1, 'Winner');
+```
+
+```sql
+-- DATASET 5
+-- Tests: Single festival with 2 nominations (n = 2), while another festival has 0 nominations.
+-- Catches: Mutants that check COUNT(DISTINCT festival_id) >= 2 instead of total nominations >= 2, or fail to filter out un-nominated festivals when n >= 2 holds globally.
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (10, 'Active Fest', 'Chair X', 'Paris', 2023, 1500);
+INSERT INTO "festival_detail" ("Festival_ID", "Festival_Name", "Chair_Name", "Location", "Year", "Num_of_Audience") VALUES (20, 'Empty Fest', 'Chair Y', 'London', 2023, 800);
+
+INSERT INTO "artwork" ("Artwork_ID", "Type", "Name") VALUES (1, 'Poem', 'Rhyme 1');
+INSERT INTO "artwork" ("Artwork_ID", "Type", "Name") VALUES (2, 'Poem', 'Rhyme 2');
+
+INSERT INTO "nomination" ("Artwork_ID", "Festival_ID", "Result") VALUES (1, 10, 'Won');
+INSERT INTO "nomination" ("Artwork_ID", "Festival_ID", "Result") VALUES (2, 10, 'Won');
+```

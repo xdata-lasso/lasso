@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Unmatched Professionals and Treatment_Types (catches LEFT/RIGHT/FULL OUTER JOIN or pure CROSS JOIN mutants).
+-- 2. Duplicate (first_name, treatment_type_description) pairs from the same professional performing multiple treatments (catches missing DISTINCT).
+-- 3. Duplicate (first_name, treatment_type_description) pairs from different professionals sharing a first_name or different treatment_type_codes sharing a description (catches GROUP BY professional_id / treatment_type_code instead of the projected columns).
+-- 4. Correct join condition enforcement between Treatments, Professionals, and Treatment_Types (catches partial join conditions).
+-- 5. Ordering by first_name and treatment_type_description.
+
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Bulldog');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Small');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name", "street", "city", "state", "zip_code", "email_address", "home_phone", "cell_number") VALUES (1, 'OwnerGrace', 'Smith', '123 Main', 'CityA', 'ST', '11111', 'g@s.com', '111-1111', '222-2222');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "abandoned_yn", "name", "age", "date_of_birth", "gender", "weight", "date_arrived", "date_adopted", "date_departed") VALUES (1, 1, 'S1', 'B1', '0', 'Rex', '3', '2020-01-01', 'M', '20', '2021-01-01', '2021-02-01', '2021-03-01');
+
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T1', 'Vaccination');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T2', 'Surgery');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T3', 'Vaccination');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T4', 'Dental');
+
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "street", "city", "state", "zip_code", "last_name", "email_address", "home_phone", "cell_number") VALUES (1, 'Vet', 'Alice', 'St 1', 'City', 'ST', '00001', 'Brown', 'a1@vet.com', '111', '111');
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "street", "city", "state", "zip_code", "last_name", "email_address", "home_phone", "cell_number") VALUES (2, 'Vet', 'Bob', 'St 2', 'City', 'ST', '00002', 'White', 'b@vet.com', '222', '222');
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "street", "city", "state", "zip_code", "last_name", "email_address", "home_phone", "cell_number") VALUES (3, 'Nurse', 'Alice', 'St 3', 'City', 'ST', '00003', 'Green', 'a2@vet.com', '333', '333');
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "street", "city", "state", "zip_code", "last_name", "email_address", "home_phone", "cell_number") VALUES (4, 'Vet', 'Charlie', 'St 4', 'City', 'ST', '00004', 'Black', 'c@vet.com', '444', '444');
+
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (1, 1, 1, 'T1', '2022-01-01', 50.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (2, 1, 1, 'T1', '2022-01-02', 60.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (3, 1, 3, 'T3', '2022-01-03', 70.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (4, 1, 2, 'T2', '2022-01-04', 150.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (5, 1, 1, 'T2', '2022-01-05', 200.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL values in first_name and treatment_type_description (catches NULLS FIRST vs NULLS LAST and incorrect WHERE IS NOT NULL filters).
+-- 2. Treatments with NULL foreign keys (professional_id IS NULL or treatment_type_code IS NULL) which should be excluded by the INNER JOIN.
+-- 3. Treatments with NULL dog_id (catches unnecessary INNER JOIN with Dogs/Owners).
+-- 4. Confusing Owner first_name or Dog name with Professional first_name, or role_code/size_description/breed_name with treatment_type_description.
+
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Golden Retriever');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Large');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'OwnerZack', 'Taylor');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (1, 1, 'S1', 'B1', 'DogBuddy');
+
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T1', 'Checkup');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T2', NULL);
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T3', 'Acupuncture');
+
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "last_name") VALUES (1, 'RoleX', 'Zane', 'Doe');
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "last_name") VALUES (2, 'RoleY', NULL, 'Moe');
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "last_name") VALUES (3, 'RoleZ', 'Aaron', 'Poe');
+
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "cost_of_treatment") VALUES (1, NULL, 1, 'T1', 0.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "cost_of_treatment") VALUES (2, 1, 1, 'T2', 100.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "cost_of_treatment") VALUES (3, 1, 2, 'T1', 50.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "cost_of_treatment") VALUES (4, 1, 3, 'T3', NULL);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "cost_of_treatment") VALUES (5, 1, NULL, 'T1', 25.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "cost_of_treatment") VALUES (6, 1, 1, NULL, 25.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Accidental join on professional_id = treatment_id or professional_id = dog_id or treatment_type_code = role_code.
+-- 2. Multi-column sorting tie-breakers (same first_name with multiple distinct treatment_type_descriptions, and vice versa).
+-- 3. Empty Dogs/Owners tables while Treatments has valid matches to Professionals and Treatment_Types.
+
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('VET', 'Z-Therapy');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('NUR', 'A-Therapy');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('SUR', 'M-Therapy');
+
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "last_name") VALUES (10, 'VET', 'David', 'Lee');
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "last_name") VALUES (20, 'NUR', 'David', 'Kim');
+INSERT INTO "Professionals" ("professional_id", "role_code", "first_name", "last_name") VALUES (30, 'SUR', 'Brenda', 'Fox');
+
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (10, NULL, 30, 'NUR', '2023-05-01', 10.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (20, NULL, 10, 'VET', '2023-05-02', 20.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (30, NULL, 20, 'SUR', '2023-05-03', 30.0);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (40, NULL, 10, 'NUR', '2023-05-04', 40.0);
+```

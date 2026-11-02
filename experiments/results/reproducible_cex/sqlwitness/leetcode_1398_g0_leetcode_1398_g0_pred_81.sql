@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "customer_name" TEXT(255));
+
+CREATE TABLE "Orders" ("order_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "product_name" TEXT(255), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO customers (customer_id, customer_name) VALUES (1, 'default2'), (0, NULL), (2, 'default2'), (3, 'B');
+INSERT INTO orders (order_id, customer_id, product_name) VALUES (1, 2, 'A'), (0, 1, 'B'), (2, NULL, 'B'), (3, 1, 'default2'), (4, 1, 'B'), (5, 0, 'default1'), (6, 1, 'default2'), (7, 3, 'A'), (8, NULL, 'A'), (9, 2, NULL), (10, NULL, 'B'), (11, NULL, 'A'), (12, 2, 'A'), (13, 1, 'default2'), (14, 2, 'default1'), (15, 2, 'default2'), (16, 2, 'A'), (17, 3, 'B'), (18, NULL, 'B'), (19, 3, 'default2'), (20, 1, 'C'), (21, 2, 'default1'), (22, 1, 'C'), (23, 2, NULL), (24, NULL, 'C'), (25, 3, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CUSTOMER_ID, CUSTOMER_NAME FROM CUSTOMERS WHERE CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'A') AND CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'B') AND NOT CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'C') ORDER BY CUSTOMER_ID;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH A AS (SELECT CUSTOMERS.CUSTOMER_ID, CUSTOMER_NAME, ORDER_ID FROM CUSTOMERS INNER JOIN ORDERS ON CUSTOMERS.CUSTOMER_ID = ORDERS.CUSTOMER_ID WHERE PRODUCT_NAME = 'A'), B AS (SELECT A.CUSTOMER_ID, CUSTOMER_NAME, A.ORDER_ID FROM A INNER JOIN ORDERS ON A.CUSTOMER_ID = ORDERS.CUSTOMER_ID WHERE PRODUCT_NAME = 'B') SELECT B.CUSTOMER_ID, CUSTOMER_NAME FROM B WHERE NOT B.CUSTOMER_ID IN (SELECT CUSTOMERS.CUSTOMER_ID FROM CUSTOMERS INNER JOIN ORDERS ON CUSTOMERS.CUSTOMER_ID = ORDERS.CUSTOMER_ID WHERE PRODUCT_NAME = 'C');
+
+/*
+Prediction Result:
+(3, 'B')
+*/

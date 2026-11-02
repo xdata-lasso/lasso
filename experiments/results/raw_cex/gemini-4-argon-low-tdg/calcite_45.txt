@@ -1,0 +1,55 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions around SAL = 2 (SAL = 1, 2, 3) with unique ENAMEs.
+-- Kills mutants with off-by-one errors (R >= 2, R > 3, R < 2, R = 2) or negated outer predicates (EMPNO IN ...).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (101, 10, 'ALICE', 'CLERK', NULL, '2020-01-01', 1, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (102, 10, 'BOB', 'SALESMAN', 101, '2020-01-02', 2, 100, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (103, 10, 'CHARLIE', 'MANAGER', 101, '2020-01-03', 3, 200, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests correlation on ENAME vs EMPNO when multiple employees share the same ENAME.
+-- Kills mutants that replace `EMP.ENAME = ENAME` with `TRUE`, `EMP.ENAME <> ENAME`, or correlate on `EMP.DEPTNO = DEPTNO`, or change `NOT EMPNO IN (SELECT EMPNO ...)` to `NOT EXISTS (SELECT * ...)`.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'RESEARCH');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'SALES');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (201, 10, 'SMITH', 'CLERK', NULL, '2021-05-10', 2, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (202, 10, 'SMITH', 'ANALYST', 201, '2021-05-11', 5, 50, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (203, 20, 'JONES', 'MANAGER', NULL, '2021-05-12', 2, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (204, 10, 'ADAMS', 'CLERK', 202, '2021-05-13', 10, 0, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests negative, zero, and extreme values for SAL, as well as column confusion (e.g., SAL confused with COMM, EMPNO, DEPTNO, MGR, or SLACKER).
+-- Kills mutants that project the wrong column as R (e.g., COMM AS R, EMPNO AS R, DEPTNO AS R, SLACKER AS R) or project the wrong column in the IN list (e.g., SELECT SAL, SELECT DEPTNO, SELECT MGR).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (1, 'HR');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (5, 'IT');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 5, 'NEGATIVE_SAL', 'CLERK', 10, '2019-03-01', -5, 10, 5);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 1, 'ZERO_SAL', 'CLERK', 2, '2019-03-02', 0, 5, 3);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 1, 'HIGH_SAL_LOW_OTHER', 'PRESIDENT', 1, '2019-03-03', 100, 0, 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set from the outer query (all employees have SAL > 2) and potential table confusion with EMPNULLABLES, EMP_B, or BONUS.
+-- Kills mutants that query the wrong table in either the outer query or inner subquery, or fail when all rows are filtered out.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'OPERATIONS');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (401, 10, 'KING', 'PRESIDENT', NULL, '2018-01-01', 5000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (402, 10, 'FORD', 'ANALYST', 401, '2018-01-02', 3000, 0, 0);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('KING', 'PRESIDENT', 1, 0);
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (401, 10, 'KING', 'PRESIDENT', NULL, '2018-01-01', 1, 0, 0);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (401, 10, 'KING', 'PRESIDENT', NULL, '2018-01-01', 1, 0, 0, '1970-01-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests logical operator mutations (AND vs OR in `WHERE R > 2 AND EMP.ENAME = ENAME`) and duplicate rows / self-join multiplication.
+-- Kills mutants that replace `AND` with `OR` in the subquery WHERE clause, or rewrite the `NOT IN` as an inner/outer join without deduplication when duplicate ENAMEs exist.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'MARKETING');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (501, 30, 'DUP_LOW', 'CLERK', NULL, '2022-06-01', 1, 10, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (502, 30, 'DUP_LOW', 'SALESMAN', 501, '2022-06-02', 2, 20, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (503, 30, 'DUP_HIGH', 'MANAGER', 501, '2022-06-03', 3, 30, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (504, 30, 'DUP_HIGH', 'ANALYST', 503, '2022-06-04', 4, 40, 1);
+```

@@ -1,0 +1,60 @@
+-- Schema DDL
+CREATE TABLE "Addresses" ("address_id" INTEGER PRIMARY KEY, "address_details" TEXT(255));
+
+CREATE TABLE "Staff" ("staff_id" INTEGER PRIMARY KEY, "staff_gender" TEXT(1), "staff_name" TEXT(80));
+
+CREATE TABLE "Suppliers" ("supplier_id" INTEGER PRIMARY KEY, "supplier_name" TEXT(80), "supplier_phone" TEXT(80));
+
+CREATE TABLE "Department_Store_Chain" ("dept_store_chain_id" INTEGER PRIMARY KEY, "dept_store_chain_name" TEXT(80));
+
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "payment_method_code" TEXT(10), "customer_code" TEXT(20), "customer_name" TEXT(80), "customer_address" TEXT(255), "customer_phone" TEXT(80), "customer_email" TEXT(80));
+
+CREATE TABLE "Products" ("product_id" INTEGER PRIMARY KEY, "product_type_code" TEXT(10), "product_name" TEXT(80), "product_price" REAL(19, 4));
+
+CREATE TABLE "Supplier_Addresses" ("supplier_id" INTEGER, "address_id" INTEGER, "date_from" DATETIME, "date_to" DATETIME, PRIMARY KEY ("supplier_id", "address_id"), FOREIGN KEY ("supplier_id") REFERENCES "Suppliers" ("supplier_id"), FOREIGN KEY ("address_id") REFERENCES "Addresses" ("address_id"));
+
+CREATE TABLE "Customer_Addresses" ("customer_id" INTEGER, "address_id" INTEGER, "date_from" DATETIME, "date_to" DATETIME, PRIMARY KEY ("customer_id", "address_id"), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"), FOREIGN KEY ("address_id") REFERENCES "Addresses" ("address_id"));
+
+CREATE TABLE "Customer_Orders" ("order_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "order_status_code" TEXT(10), "order_date" DATETIME, FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+CREATE TABLE "Department_Stores" ("dept_store_id" INTEGER PRIMARY KEY, "dept_store_chain_id" INTEGER, "store_name" TEXT(80), "store_address" TEXT(255), "store_phone" TEXT(80), "store_email" TEXT(80), FOREIGN KEY ("dept_store_chain_id") REFERENCES "Department_Store_Chain" ("dept_store_chain_id"));
+
+CREATE TABLE "Departments" ("department_id" INTEGER PRIMARY KEY, "dept_store_id" INTEGER, "department_name" TEXT(80), FOREIGN KEY ("dept_store_id") REFERENCES "Department_Stores" ("dept_store_id"));
+
+CREATE TABLE "Order_Items" ("order_item_id" INTEGER PRIMARY KEY, "product_id" INTEGER, "order_id" INTEGER, FOREIGN KEY ("product_id") REFERENCES "Products" ("product_id"), FOREIGN KEY ("order_id") REFERENCES "Customer_Orders" ("order_id"));
+
+CREATE TABLE "Product_Suppliers" ("product_id" INTEGER, "supplier_id" INTEGER, "date_supplied_from" DATETIME, "date_supplied_to" DATETIME, "total_amount_purchased" TEXT(80), "total_value_purchased" REAL(19, 4), PRIMARY KEY ("product_id", "supplier_id"), FOREIGN KEY ("product_id") REFERENCES "Products" ("product_id"), FOREIGN KEY ("supplier_id") REFERENCES "Suppliers" ("supplier_id"));
+
+CREATE TABLE "Staff_Department_Assignments" ("staff_id" INTEGER, "department_id" INTEGER, "date_assigned_from" DATETIME, "job_title_code" TEXT(10), "date_assigned_to" DATETIME, PRIMARY KEY ("staff_id", "department_id"), FOREIGN KEY ("staff_id") REFERENCES "Staff" ("staff_id"), FOREIGN KEY ("department_id") REFERENCES "Departments" ("department_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "customers" ("customer_id", "payment_method_code", "customer_code", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (1001, 'purpose', 'site', 'Noah Rhodes', '863 Lawrence Valleys
+Port Lindachester, MA 36922', '(534)719-2832x764', 'camposmichelle@example.org');
+INSERT INTO "customers" ("customer_id", "payment_method_code", "customer_code", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (1002, 'brother', 'face', 'Angie Henderson', '16155 Roman Stream Suite 816
+New Kellystad, OK 25704', '001-903-405-6413x95376', 'laurahenderson@example.org');
+INSERT INTO "customers" ("customer_id", "payment_method_code", "customer_code", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (1003, 'ago', 'election', 'Daniel Wagner', '341 Michelle Light
+Shawnstad, GA 49021', '423-988-4969x653', 'djames@example.net');
+INSERT INTO "customer_orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (1004, 1001, 'enter', '1970-01-01');
+INSERT INTO "customer_orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (1005, 1001, 'on', '1970-01-02');
+INSERT INTO "customer_orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (1006, 1001, 'traditional', '1970-01-03');
+INSERT INTO "customer_orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (1007, 1001, 'Cancelled', '1973-04-04');
+INSERT INTO "customer_orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (1008, 1001, 'Cancelled', '1973-04-04');
+INSERT INTO "customer_orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (1009, 1001, 'Cancelled', '1973-04-04');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT "customer_id" FROM (SELECT "LHS"."order_date" AS "order_date", "LHS"."order_status_code" AS "order_status_code", "LHS"."minorder_date" AS "minorder_date", "RHS"."order_id" AS "order_id", "RHS"."customer_id" AS "customer_id", "RHS"."order_status_code" AS "order_status_code_other", "RHS"."order_date" AS "order_date_other" FROM (SELECT * FROM (SELECT "order_date", "order_status_code", MIN("order_date") AS "minorder_date" FROM "customer_orders" GROUP BY "order_date", "order_status_code") WHERE ("order_status_code" = 'Cancelled' OR minorder_date > order_date)) AS LHS CROSS JOIN customer_orders AS RHS) WHERE (order_date = minorder_date AND order_date <= order_date_other) ORDER BY customer_id, "customer_id" NULLS LAST;
+
+/*
+Gold Result:
+(1001,)
+*/
+
+-- Prediction Query
+SELECT DISTINCT customer_id FROM Customer_Orders WHERE order_date > (SELECT MIN(order_date) FROM Customer_Orders WHERE order_status_code = 'Cancelled');
+
+/*
+Prediction Result:
+*/

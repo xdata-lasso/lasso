@@ -1,0 +1,42 @@
+-- Schema DDL
+CREATE TABLE "EMP" ("EMPNO" INTEGER NOT NULL PRIMARY KEY, "DEPTNO" INTEGER NOT NULL, "ENAME" TEXT(255) NOT NULL, "JOB" TEXT(255) NOT NULL, "MGR" INTEGER, "HIREDATE" DATE NOT NULL, "SAL" INTEGER NOT NULL, "COMM" INTEGER NOT NULL, "SLACKER" INTEGER NOT NULL, FOREIGN KEY ("DEPTNO") REFERENCES "DEPT" ("DEPTNO"));
+
+CREATE TABLE "DEPT" ("DEPTNO" INTEGER NOT NULL PRIMARY KEY, "NAME" TEXT(255) NOT NULL);
+
+CREATE TABLE "BONUS" ("ENAME" TEXT(255) NOT NULL, "JOB" TEXT(255) NOT NULL, "SAL" INTEGER NOT NULL, "COMM" INTEGER NOT NULL);
+
+CREATE TABLE "EMPNULLABLES" ("EMPNO" INTEGER PRIMARY KEY, "DEPTNO" INTEGER, "ENAME" TEXT(255), "JOB" TEXT(255), "MGR" INTEGER, "HIREDATE" DATE, "SAL" INTEGER, "COMM" INTEGER, "SLACKER" INTEGER, FOREIGN KEY ("DEPTNO") REFERENCES "DEPT" ("DEPTNO"));
+
+CREATE TABLE "EMPNULLABLES_20" ("EMPNO" INTEGER PRIMARY KEY, "DEPTNO" INTEGER, "ENAME" TEXT(255), "JOB" TEXT(255), "MGR" INTEGER, "HIREDATE" DATE, "SAL" INTEGER, "COMM" INTEGER, "SLACKER" INTEGER, FOREIGN KEY ("DEPTNO") REFERENCES "DEPT" ("DEPTNO"));
+
+CREATE TABLE "EMP_B" ("EMPNO" INTEGER NOT NULL PRIMARY KEY, "DEPTNO" INTEGER NOT NULL, "ENAME" TEXT(255) NOT NULL, "JOB" TEXT(255) NOT NULL, "MGR" INTEGER, "HIREDATE" DATE NOT NULL, "SAL" INTEGER NOT NULL, "COMM" INTEGER NOT NULL, "SLACKER" INTEGER NOT NULL, "BIRTHDATE" DATE NOT NULL, FOREIGN KEY ("DEPTNO") REFERENCES "DEPT" ("DEPTNO"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "EMP" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker") VALUES (11, 11, '11', '11', 11, '1000-01-12', 874, 11, 11);
+INSERT INTO "DEPT" ("deptno", "name") VALUES (11, '11');
+INSERT INTO "BONUS" ("ename", "job", "sal", "comm") VALUES ('11', '11', 11, 11);
+INSERT INTO "BONUS" ("ename", "job", "sal", "comm") VALUES ('11', '11', 11, 11);
+INSERT INTO "EMPNULLABLES" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker") VALUES (13, 11, '11', '11', 11, '1000-01-12', 11, 11, 11);
+INSERT INTO "EMPNULLABLES" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker") VALUES (12, 11, '11', '11', 11, '1000-01-12', 11, 11, 11);
+INSERT INTO "EMPNULLABLES_20" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker") VALUES (15, 11, '11', '11', 11, '1000-01-12', 11, 11, 11);
+INSERT INTO "EMPNULLABLES_20" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker") VALUES (14, 11, '11', '11', 11, '1000-01-12', 11, 11, 11);
+INSERT INTO "EMP_B" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker", "birthdate") VALUES (11, 11, '11', '11', 11, '1000-01-12', 11, 11, 11, '1000-01-12');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT AVG(SAL), AVG(SAL) FROM EMP;
+
+/*
+Gold Result:
+(874.0, 874.0)
+*/
+
+-- Prediction Query
+SELECT AVG(SAL), CAST(CAST(CASE WHEN COUNT(*) = 0 THEN NULL ELSE COALESCE(SUM(SAL), 0) END AS REAL) / COUNT(*) AS INTEGER) FROM EMP;
+
+/*
+Prediction Result:
+(874.0, 874)
+*/

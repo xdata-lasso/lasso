@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Missing DISTINCT (S1 takes two non-F courses).
+-- 2. Universal vs Existential quantification on <> 'F' (S1 has both 'A' and 'F'; Gold includes S1, NOT EXISTS(...='F') excludes S1).
+-- 3. Student with ONLY 'F' grade (S2; Gold excludes).
+-- 4. Student with NULL grade (S3; Gold excludes because NULL <> 'F' is UNKNOWN).
+-- 5. Student with no takes records (S4; tests INNER JOIN vs LEFT JOIN).
+-- 6. Duplicate student names with different IDs (S1 and S5 both named 'Alice'; tests GROUP BY name vs GROUP BY id, name).
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'Taylor', 100000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS101', 'Intro CS', 'CS', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS102', 'Data Structures', 'CS', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS103', 'Algorithms', 'CS', 4);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('CS101', '1', 'Fall', 2020);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('CS102', '1', 'Spring', 2021);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('CS103', '1', 'Fall', 2021);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S1', 'Alice', 'CS', 8);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S2', 'Bob', 'CS', 0);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S3', 'Charlie', 'CS', 0);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S4', 'David', 'CS', 0);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S5', 'Alice', 'CS', 4);
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S1', 'CS101', '1', 'Fall', 2020, 'A');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S1', 'CS102', '1', 'Spring', 2021, 'B');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S1', 'CS103', '1', 'Fall', 2021, 'F');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S2', 'CS101', '1', 'Fall', 2020, 'F');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S3', 'CS101', '1', 'Fall', 2020, NULL);
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S5', 'CS101', '1', 'Fall', 2020, 'C');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Inequality boundary mutants: grade < 'F' vs grade > 'F' vs grade <> 'F'.
+--    'A' is < 'F', 'G' and 'P' (Pass) are > 'F'.
+-- 2. Case sensitivity & substring/pattern mutants: 'f' (lowercase), 'F+' or 'FA'.
+-- 3. Missing join condition (s.id = t.id) when some students only have 'F' and others have non-'F'.
+INSERT INTO department (dept_name, building, budget) VALUES ('Math', 'Watson', 50000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('M101', 'Calc I', 'Math', 3);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('M101', '1', 'Fall', 2022);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('101', 'Eve', 'Math', 3);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('102', 'Frank', 'Math', 3);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('103', 'Grace', 'Math', 3);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('104', 'Heidi', 'Math', 0);
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('101', 'M101', '1', 'Fall', 2022, 'P');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('102', 'M101', '1', 'Fall', 2022, 'f');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('103', 'M101', '1', 'Fall', 2022, 'D');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('104', 'M101', '1', 'Fall', 2022, 'F');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Wrong join column / attribute confusion (e.g., s.id = t.course_id, s.id = t.sec_id, s.name = t.grade, tot_cred filters).
+-- 2. Retaking the exact same course in different semesters (one 'F', one 'A').
+-- 3. Student with NULL dept_name and 0 tot_cred (tests extra unwanted predicates on student table).
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('S1', 'confusing_id', NULL, 3);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('S1', 'S2', 'Fall', 2019);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('S1', 'S2', 'Spring', 2020);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S1', 'F', NULL, 0);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S2', 'Ivan', NULL, 0);
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S1', 'S1', 'S2', 'Fall', 2019, 'F');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S1', 'S1', 'S2', 'Spring', 2020, 'A');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S2', 'S1', 'S2', 'Fall', 2019, 'F');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty result set handling when all takes rows have grade = 'F' or NULL (kills OR vs AND mutants in WHERE: s.id = t.id OR t.grade <> 'F').
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('C1', 'Bio', NULL, 4);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('C1', '1', 'Winter', 2020);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('901', 'Judy', NULL, 4);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('902', 'Karl', NULL, 0);
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('901', 'C1', '1', 'Winter', 2020, 'F');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('902', 'C1', '1', 'Winter', 2020, NULL);
+```

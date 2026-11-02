@@ -1,0 +1,55 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset where each column's maximum and minimum belongs to a distinct candidate, and Candidate_ID differs from People_ID.
+INSERT INTO people (People_ID, Sex, Name, Date_of_Birth, Height, Weight) VALUES (101, 'F', 'Alice', '1980-01-01', 165.0, 60.0);
+INSERT INTO people (People_ID, Sex, Name, Date_of_Birth, Height, Weight) VALUES (102, 'M', 'Bob', '1975-05-12', 180.0, 80.0);
+INSERT INTO people (People_ID, Sex, Name, Date_of_Birth, Height, Weight) VALUES (103, 'F', 'Charlie', '1990-11-23', 170.0, 65.0);
+INSERT INTO people (People_ID, Sex, Name, Date_of_Birth, Height, Weight) VALUES (104, 'M', 'David', '1985-07-19', 175.0, 75.0);
+
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (1, 104, 'SourceA', '2023-01-01', 0.90, 0.20, 0.20, 0.30);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (2, 103, 'SourceB', '2023-01-02', 0.20, 0.90, 0.20, 0.40);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (3, 102, 'SourceC', '2023-01-03', 0.20, 0.20, 0.90, 0.85);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (4, 101, 'SourceD', '2023-01-04', 0.10, 0.10, 0.10, 0.10);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on the maximum Unsure_rate (secondary sort on Candidate_ID ASC) and detects queries using WHERE Unsure_rate = MAX(Unsure_rate) without LIMIT 1.
+INSERT INTO people (People_ID, Sex, Name, Date_of_Birth, Height, Weight) VALUES (1, 'M', 'John', '1982-03-15', 178.0, 72.0);
+INSERT INTO people (People_ID, Sex, Name, Date_of_Birth, Height, Weight) VALUES (2, 'F', 'Jane', '1988-08-22', 162.0, 55.0);
+INSERT INTO people (People_ID, Sex, Name, Date_of_Birth, Height, Weight) VALUES (3, 'M', 'Jim', '1979-12-05', 182.0, 85.0);
+
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (50, 1, 'PollX', '2023-02-01', 0.30, 0.30, 0.15, 0.75);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (10, 2, 'PollY', '2023-02-02', 0.25, 0.25, 0.25, 0.75);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (30, 3, 'PollZ', '2023-02-03', 0.40, 0.30, 0.20, 0.50);
+```
+
+```sql
+-- DATASET 3
+-- Tests Unsure_rate with NULL values (in SQLite, NULL is considered the smallest value, so ORDER BY Unsure_rate DESC puts NULLs first unless handled or avoided) and orphan People_IDs (to catch inner joins with people table).
+INSERT INTO people (People_ID, Sex, Name, Date_of_Birth, Height, Weight) VALUES (201, 'F', 'Sarah', '1992-04-10', 168.0, 58.0);
+
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (10, NULL, 'Poll1', '2023-03-01', 0.40, 0.20, 0.10, 0.60);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (20, 201, 'Poll2', '2023-03-02', 0.50, 0.20, 0.10, 0.20);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (30, 201, 'Poll3', '2023-03-03', 0.30, 0.30, 0.30, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL Candidate_ID (allowed in SQLite INTEGER PRIMARY KEY unless STRICT/NOT NULL) combined with NULLS LAST on the secondary sort.
+INSERT INTO people (People_ID, Sex, Name, Date_of_Birth, Height, Weight) VALUES (1, 'M', 'Tom', '1980-01-01', 180.0, 80.0);
+
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (NULL, 1, 'PollA', '2023-04-01', 0.10, 0.10, 0.10, 0.90);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (5, 1, 'PollB', '2023-04-02', 0.10, 0.10, 0.10, 0.90);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (2, 1, 'PollC', '2023-04-03', 0.50, 0.20, 0.20, 0.10);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple candidates referencing the exact same People_ID to catch faulty GROUP BY People_ID or DISTINCT People_ID mutations.
+INSERT INTO people (People_ID, Sex, Name, Date_of_Birth, Height, Weight) VALUES (99, 'F', 'Emma', '1985-06-15', 166.0, 59.0);
+
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (101, 99, 'PollA', '2023-05-01', 0.45, 0.25, 0.15, 0.15);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (102, 99, 'PollB', '2023-05-02', 0.15, 0.15, 0.15, 0.55);
+INSERT INTO candidate (Candidate_ID, People_ID, Poll_Source, Date, Support_rate, Consider_rate, Oppose_rate, Unsure_rate) VALUES (103, 99, 'PollC', '2023-05-03', 0.20, 0.20, 0.25, 0.35);
+```

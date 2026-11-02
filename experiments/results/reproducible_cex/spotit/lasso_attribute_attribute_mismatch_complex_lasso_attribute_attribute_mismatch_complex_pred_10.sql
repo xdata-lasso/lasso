@@ -1,0 +1,72 @@
+-- Schema DDL
+CREATE TABLE "DEPARTMENTS" (
+    "DEPARTMENT_ID" INT,
+    "DEPARTMENT_NAME" TEXT,
+    "MANAGER_ID" INT,
+    "LOCATION" TEXT,
+    PRIMARY KEY ("DEPARTMENT_ID")
+);
+CREATE TABLE "EMPLOYEES" (
+    "EMPLOYEE_ID" INT,
+    "FIRST_NAME" TEXT,
+    "LAST_NAME" TEXT,
+    "EMAIL" TEXT,
+    "PHONE" TEXT,
+    "HIRE_DATE" DATE,
+    "JOB_ID" TEXT,
+    "SALARY" FLOAT,
+    "COMMISSION_PCT" FLOAT,
+    "MANAGER_ID" INT,
+    "DEPARTMENT_ID" INT,
+    PRIMARY KEY ("EMPLOYEE_ID"),
+    FOREIGN KEY ("DEPARTMENT_ID") REFERENCES "DEPARTMENTS"("DEPARTMENT_ID"),
+    FOREIGN KEY ("JOB_ID") REFERENCES "JOBS"("JOB_ID")
+);
+CREATE TABLE "JOBS" (
+    "JOB_ID" TEXT,
+    "JOB_TITLE" TEXT,
+    "MIN_SALARY" FLOAT,
+    "MAX_SALARY" FLOAT,
+    PRIMARY KEY ("JOB_ID")
+);
+CREATE TABLE "JOBHISTORY" (
+    "EMPLOYEE_ID" INT,
+    "START_DATE" DATE,
+    "END_DATE" DATE,
+    "JOB_ID" TEXT,
+    "DEPARTMENT_ID" INT,
+    FOREIGN KEY ("EMPLOYEE_ID") REFERENCES "EMPLOYEES"("EMPLOYEE_ID"),
+    FOREIGN KEY ("JOB_ID") REFERENCES "JOBS"("JOB_ID"),
+    FOREIGN KEY ("DEPARTMENT_ID") REFERENCES "DEPARTMENTS"("DEPARTMENT_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO DEPARTMENTS VALUES (1, 18, 0, 19);
+INSERT INTO DEPARTMENTS VALUES (0, 25, 0, 26);
+INSERT INTO EMPLOYEES VALUES (1, 13, 14, 15, 16, '0001-01-01', 8, 50001, 17, 0, 0);
+INSERT INTO EMPLOYEES VALUES (0, 20, 21, 22, 23, '0001-01-01', 8, 50001, 24, 0, 0);
+INSERT INTO JOBS VALUES (8, 0, 0, 0);
+INSERT INTO JOBS VALUES (5, 0, 0, 0);
+INSERT INTO JOBHISTORY VALUES (1, '0001-01-01', '0001-01-01', 8, 1);
+INSERT INTO JOBHISTORY VALUES (1, '0001-01-01', '0001-01-01', 8, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT e.first_name, e.last_name, d.department_name FROM Employees AS e JOIN Departments AS d ON e.department_id = d.department_id WHERE e.salary > 50000;
+
+/*
+Gold Result:
+('13', '14', '25')
+('20', '21', '25')
+*/
+
+-- Prediction Query
+SELECT e.first_name, employee_id, d.department_name FROM Employees AS e JOIN Departments AS d ON e.department_id = d.department_id WHERE e.salary > 50000;
+
+/*
+Prediction Result:
+('13', 1, '25')
+('20', 0, '25')
+*/

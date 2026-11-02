@@ -1,0 +1,100 @@
+```sql
+-- DATASET 1
+-- Tests basic aggregation vs single-row filtering, boundary conditions (30000), and date filtering across multiple rows per customer.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'EUR');
+
+-- Customer 1: Two rows in 2012 summing to 25000 (< 30000), plus a 2013 row that would push the sum over 30000 if date filter is missing/wrong.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 15000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 10000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201301', 10000.0);
+
+-- Customer 2: Two rows in 2012, each < 30000, but summing to 35000 (>= 30000). Catches WHERE Consumption < 30000 instead of HAVING SUM(Consumption) < 30000, or MAX/AVG instead of SUM.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 18000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201202', 17000.0);
+
+-- Customer 3: Exact boundary 30000. Catches <= 30000 instead of < 30000.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201205', 30000.0);
+
+-- Customer 4: Wrong segment ('SME'), valid 2012 consumption < 30000. Catches missing/wrong Segment filter.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201201', 5000.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests LEFT JOIN vs INNER JOIN, NULL Consumption handling, and substring position accuracy on Date.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, NULL, 'EUR');
+
+-- Customer 1: Has no yearmonth records. Catches LEFT JOIN if paired with COALESCE(SUM, 0) < 30000.
+
+-- Customer 2: Has only NULL consumption in 2012. SUM(NULL) is NULL, which is not < 30000.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', NULL);
+
+-- Customer 3: Date contains '2012' at wrong position (e.g., '20112012'). Catches LIKE '%2012%' or wrong SUBSTRING indices.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '20112012', 5000.0);
+
+-- Customer 4: NULL Segment. Catches IS NOT 'KAM' or improper NULL handling.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201201', 5000.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY correctness (grouping by CustomerID vs grouping by Date, Currency, or missing GROUP BY).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'CZK');
+
+-- Customers 1, 2, 3 each have < 30000 in 2012 individually, but their combined sum is 45000 (>= 30000).
+-- Also they share the same Date '201201' and Customers 1 & 2 share Currency 'EUR' (sum 32000 >= 30000).
+-- Catches grouping by Date, grouping by Segment, grouping by Currency, or omitting GROUP BY entirely.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 16000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 16000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 13000.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests SUM vs MIN/AVG/COUNT, duplicate consumption values (SUM(DISTINCT)), and case/whitespace sensitivity on 'KAM'.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'kam', 'EUR');
+
+-- Customer 1: Two identical consumption values of 16000 in 2012.
+-- SUM(Consumption) = 32000 (not < 30000).
+-- SUM(DISTINCT Consumption) = 16000 (< 30000).
+-- AVG(Consumption) = 16000 (< 30000).
+-- Catches SUM(DISTINCT ...) and AVG(...) or MIN(...).
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 16000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 16000.0);
+
+-- Customer 2: One row > 30000 and one row < 0 (or small) vs MIN.
+-- Here one row is 35000 and one row is 1000. SUM is 36000 (>= 30000), MIN is 1000 (< 30000), AVG is 18000 (< 30000).
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201203', 35000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201204', 1000.0);
+
+-- Customer 3: Lowercase 'kam'. Catches case-insensitive comparisons if mutated.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 5000.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests outer COUNT(*) vs returning the rows directly, or SUM/COUNT(CustomerID) without subquery when multiple rows exist.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'KAM', 'EUR');
+
+-- Both customers qualify (SUM < 30000 in 2012), each having multiple rows in 2012.
+-- Expected Gold Query output: 2.
+-- If mutant omits outer COUNT(*) and returns T2.CustomerID, it returns 2 rows (10 and 20) instead of 1 row with value 2.
+-- If mutant counts rows before grouping, it returns 5 instead of 2.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201201', 1000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201202', 2000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201203', NULL);
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201201', 29999.9);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201212', 0.0);
+```

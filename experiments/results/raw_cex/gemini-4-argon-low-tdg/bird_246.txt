@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, substring boundary/offset errors, LIKE '%45%' vs SUBSTRING, and atom_id vs atom_id2 confusion.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_45', 'TR001', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_10', 'TR001', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR045_10', 'TR001', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_145', 'TR001', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_450', 'TR001', 's');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_MATCH_EXACT', 'TR001', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_MATCH_LONG', 'TR001', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_WRONG_POS_EARLY', 'TR001', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_WRONG_POS_LATE', 'TR001', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_WRONG_COL_ATOM2', 'TR001', '=');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR001_45', 'TR001_10', 'B_MATCH_EXACT');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR001_450', 'TR001_10', 'B_MATCH_LONG');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR045_10', 'TR001_10', 'B_WRONG_POS_EARLY');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR001_145', 'TR001_10', 'B_WRONG_POS_LATE');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR001_10', 'TR001_45', 'B_WRONG_COL_ATOM2');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate preservation (SELECT vs SELECT DISTINCT) when multiple connected rows reference the same bond_id and satisfy the condition.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR002_45_A', 'TR002', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR002_45_B', 'TR002', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR002_99', 'TR002', 'h');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_DUP', 'TR002', '-');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR002_45_A', 'TR002_99', 'B_DUP');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR002_45_B', 'TR002_99', 'B_DUP');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN, NULL bond_id in connected, NULL bond_type in bond, and bond_id having '45' at pos 7 instead of atom_id.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR003', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR003_45', 'TR003', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR003_12', 'TR003', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR003_45_NULLBOND', 'TR003', 'o');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR003_12_B1', 'TR003', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR003_45_B2', 'TR003', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR003_45_UNCONN', 'TR003', '#');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR003_45', 'TR003_12', 'TR003_12_B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR003_12', 'TR003_45', 'TR003_45_B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR003_45_NULLBOND', 'TR003_12', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests SUBSTRING length issues (e.g., omitting length argument `SUBSTRING(atom_id, 7)` or using length 1 or 3) and short strings.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR004', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('SHORT', 'TR004', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_4', 'TR004', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_45', 'TR004', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_45_X', 'TR004', 'n');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_SHORT', 'TR004', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_LEN1', 'TR004', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_EXACT_7_2', 'TR004', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_WITH_SUFFIX', 'TR004', '-');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('SHORT', 'TR004_4', 'B_SHORT');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR004_4', 'SHORT', 'B_LEN1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR004_45', 'SHORT', 'B_EXACT_7_2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR004_45_X', 'SHORT', 'B_WITH_SUFFIX');
+```
+
+```sql
+-- DATASET 5
+-- Tests accidental join condition on molecule_id (e.g., joining bond and atom via molecule_id instead of connected via bond_id).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('MOL01_45', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('MOL01_10', 'M1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('MOL02_99', 'M2', 'o');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_M1_UNCONN', 'M1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_M2_CONN_TO_M1_ATOM', 'M2', '-');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('MOL01_45', 'MOL01_10', 'B_M2_CONN_TO_M1_ATOM');
+```

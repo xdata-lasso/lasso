@@ -1,0 +1,34 @@
+-- Schema DDL
+CREATE TABLE "device" ("Device_ID" INTEGER PRIMARY KEY, "Device" TEXT, "Carrier" TEXT, "Package_Version" TEXT, "Applications" TEXT, "Software_Platform" TEXT);
+
+CREATE TABLE "shop" ("Shop_ID" INTEGER PRIMARY KEY, "Shop_Name" TEXT, "Location" TEXT, "Open_Date" TEXT, "Open_Year" INTEGER);
+
+CREATE TABLE "stock" ("Shop_ID" INTEGER, "Device_ID" INTEGER, "Quantity" INTEGER, PRIMARY KEY ("Shop_ID", "Device_ID"), FOREIGN KEY ("Device_ID") REFERENCES "device" ("Device_ID"), FOREIGN KEY ("Shop_ID") REFERENCES "shop" ("Shop_ID"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (1, 'Zulu Shop', 'Loc A', '2023-05-01', 2023);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (2, 'Bravo Shop', 'Loc C', '2020-06-15', 2020);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (3, 'Alpha Shop', 'Loc B', '2010-01-10', 2010);
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (1, 'Dev A', 'Carrier 1', '1.0', 'App 1', 'OS 1');
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (1, 1, 50);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (2, 1, 20);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT shop_name FROM (SELECT * FROM (SELECT * FROM (SELECT shop_id, shop_name, MAX(open_year) AS maxopen_year FROM shop GROUP BY shop_id, shop_name) ORDER BY shop_id DESC) LIMIT 1);
+
+/*
+Gold Result:
+('Alpha Shop',)
+*/
+
+-- Prediction Query
+SELECT Shop_Name FROM shop ORDER BY Open_Year DESC, shop.shop_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('Zulu Shop',)
+*/

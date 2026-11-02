@@ -1,0 +1,126 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary condition COUNT(RA.B) = 4 vs COUNT(RA.B) = 3, and distinguishes column selection (RA.B vs RB.B vs RC.B vs RD.B vs RA.A1).
+-- Group 'b1' has 4 matching rows in RA. Group 'b2' has 3 matching rows in RA.
+INSERT INTO RA (A1, B) VALUES ('c1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('x1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('x2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('x3', 'b1');
+INSERT INTO RA (A1, B) VALUES ('c2', 'b2');
+INSERT INTO RA (A1, B) VALUES ('y1', 'b2');
+INSERT INTO RA (A1, B) VALUES ('y2', 'b2');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'c1');
+INSERT INTO RB (A2, B) VALUES ('d1', 'c1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'c2');
+INSERT INTO RB (A2, B) VALUES ('d2', 'c2');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'd1');
+INSERT INTO RC (A3, B) VALUES ('e1', 'd1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'd2');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'e1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c2');
+```
+
+```sql
+-- DATASET 2
+-- Tests inner join enforcement and outer join mutations.
+-- Group 'b_no_rb' has 4 rows in RA, but no match in RB.
+-- Group 'b_no_rc' has 4 rows in RA, matches RB, but RB.B has no match in RC.
+-- Group 'b_no_rd' has 4 rows in RA, matches RB and RC, but RC.B has no match in RD.
+INSERT INTO RA (A1, B) VALUES ('a1', 'b_nb');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b_nb');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b_nb');
+INSERT INTO RA (A1, B) VALUES ('a4', 'b_nb');
+
+INSERT INTO RA (A1, B) VALUES ('a5', 'b_nc');
+INSERT INTO RA (A1, B) VALUES ('a6', 'b_nc');
+INSERT INTO RA (A1, B) VALUES ('a7', 'b_nc');
+INSERT INTO RA (A1, B) VALUES ('a8', 'b_nc');
+
+INSERT INTO RA (A1, B) VALUES ('a9', 'b_nd');
+INSERT INTO RA (A1, B) VALUES ('a10', 'b_nd');
+INSERT INTO RA (A1, B) VALUES ('a11', 'b_nd');
+INSERT INTO RA (A1, B) VALUES ('a12', 'b_nd');
+
+INSERT INTO RB (A2, B) VALUES ('b_nc', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b_nd', 'a9');
+INSERT INTO RB (A2, B) VALUES ('d_ms', 'a9');
+
+INSERT INTO RC (A3, B) VALUES ('a9', 'd_ms');
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY column mutations and HAVING COUNT(DISTINCT ...) mutations.
+-- Two distinct RA.B values ('b1' and 'b2') map to the same RB.B ('c1'), RC.B ('d1'), and RD.B ('e1').
+-- Each RA.B has only 2 rows in RA, so neither should pass HAVING COUNT(RA.B) > 3.
+-- However, if a mutant groups by RB.B, RC.B, or RD.B, or omits GROUP BY, the combined count is 4, falsely returning a result.
+INSERT INTO RA (A1, B) VALUES ('c1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('x1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('y1', 'b2');
+INSERT INTO RA (A1, B) VALUES ('y2', 'b2');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'c1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'c1');
+INSERT INTO RB (A2, B) VALUES ('d1', 'c1');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'd1');
+INSERT INTO RC (A3, B) VALUES ('e1', 'd1');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'e1');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong join conditions (e.g., joining on FK directions like RA.A1 = RB.B, RB.A2 = RC.B, RC.A3 = RD.B).
+-- Here, standard FK chains have 4 copies in RA, while the reference query's reverse-FK join chain is broken.
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a4', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a5', 'b2');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b3', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b4', 'a1');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'b1');
+INSERT INTO RC (A3, B) VALUES ('c3', 'b1');
+INSERT INTO RC (A3, B) VALUES ('c4', 'b1');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d3', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d4', 'c1');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple qualifying groups, sorting/ordering mutations, and ensures extra tables (RE..RJ) being joined would fail.
+-- Both 'b1' (5 rows) and 'b2' (4 rows) qualify, while RE..RJ are empty.
+INSERT INTO RA (A1, B) VALUES ('c1', 'b2');
+INSERT INTO RA (A1, B) VALUES ('x1', 'b2');
+INSERT INTO RA (A1, B) VALUES ('x2', 'b2');
+INSERT INTO RA (A1, B) VALUES ('x3', 'b2');
+
+INSERT INTO RA (A1, B) VALUES ('c2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('y1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('y2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('y3', 'b1');
+INSERT INTO RA (A1, B) VALUES ('y4', 'b1');
+
+INSERT INTO RB (A2, B) VALUES ('b2', 'c1');
+INSERT INTO RB (A2, B) VALUES ('d1', 'c1');
+INSERT INTO RB (A2, B) VALUES ('b1', 'c2');
+INSERT INTO RB (A2, B) VALUES ('d2', 'c2');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'd1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'd2');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c2');
+```

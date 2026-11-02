@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests standard GROUP BY behavior, multiple groups with different sizes, 
+-- duplicate column values (to kill COUNT(DISTINCT ...) mutants), 
+-- and 0/negative values (to kill WHERE price > 0 or stock_quantity > 0 mutants).
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (1, 'Laptop', 'Electronics', 1000.0, 10);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (2, 'Laptop', 'Electronics', 1000.0, 10);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (3, 'Mouse', 'Electronics', 0.0, 0);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (4, 'Shirt', 'Apparel', 25.5, 5);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (5, 'Pants', 'Apparel', -10.0, -5);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (6, 'Novel', 'Books', 15.0, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY and COUNT:
+-- 1. NULL category (should form its own group in GROUP BY, kills WHERE category IS NOT NULL or COUNT(category) mutants).
+-- 2. NULLs in other columns (kills COUNT(name), COUNT(price), COUNT(stock_quantity) mutants).
+-- 3. Empty string category (ensures '' is grouped separately from NULL).
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (1, NULL, 'Electronics', NULL, NULL);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (2, 'Phone', 'Electronics', 500.0, 5);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (3, 'Mystery Item 1', NULL, 10.0, 2);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (4, NULL, NULL, NULL, NULL);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (5, 'Blank Category Item', '', 5.0, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests unintended JOINs with OrderItems, Orders, and Users.
+-- Includes a product never ordered (kills INNER JOIN OrderItems),
+-- and a product ordered multiple times in different quantities (kills JOIN without DISTINCT or SUM(quantity) mutants).
+INSERT INTO Users (user_id, name, email, registration_date, is_active) VALUES (1, 'Alice', 'alice@example.com', '2023-01-01', 1);
+INSERT INTO Orders (order_id, user_id, order_date, total_amount, status) VALUES (101, 1, '2023-01-02', 150.0, 'completed');
+INSERT INTO Orders (order_id, user_id, order_date, total_amount, status) VALUES (102, 1, '2023-01-03', 50.0, 'pending');
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (1, 'Keyboard', 'Electronics', 50.0, 10);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (2, 'Unordered Gadget', 'Electronics', 200.0, 5);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (3, 'Unordered Book', 'Books', 20.0, 100);
+INSERT INTO OrderItems (order_item_id, order_id, product_id, quantity, unit_price) VALUES (1001, 101, 1, 2, 50.0);
+INSERT INTO OrderItems (order_item_id, order_id, product_id, quantity, unit_price) VALUES (1002, 102, 1, 1, 50.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests case sensitivity and whitespace handling in GROUP BY,
+-- as well as HAVING clause mutants (e.g., HAVING COUNT(*) > 1).
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (1, 'Item A', 'Toys', 10.0, 10);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (2, 'Item B', 'toys', 12.0, 8);
+INSERT INTO Products (product_id, name, category, price, stock_quantity) VALUES (3, 'Item C', 'Toys ', 15.0, 5);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty Products table while other tables are populated.
+-- Kills mutants that omit GROUP BY (since SELECT category, COUNT(*) FROM Products without GROUP BY returns (NULL, 0) on an empty table in SQLite, whereas with GROUP BY it returns 0 rows).
+INSERT INTO Users (user_id, name, email, registration_date, is_active) VALUES (1, 'Bob', 'bob@example.com', '2023-05-01', 0);
+INSERT INTO Orders (order_id, user_id, order_date, total_amount, status) VALUES (1, 1, '2023-05-02', 0.0, 'cancelled');
+```

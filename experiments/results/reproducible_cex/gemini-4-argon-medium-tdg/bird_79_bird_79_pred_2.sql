@@ -1,0 +1,38 @@
+-- Schema DDL
+CREATE TABLE frpm (CDSCode TEXT NOT NULL PRIMARY KEY, "Academic Year" TEXT NULL, "County Code" TEXT NULL, "District Code" INTEGER NULL, "School Code" TEXT NULL, "County Name" TEXT NULL, "District Name" TEXT NULL, "School Name" TEXT NULL, "District Type" TEXT NULL, "School Type" TEXT NULL, "Educational Option Type" TEXT NULL, "NSLP Provision Status" TEXT NULL, "Charter School (Y/N)" INTEGER NULL, "Charter School Number" TEXT NULL, "Charter Funding Type" TEXT NULL, IRC INTEGER NULL, "Low Grade" TEXT NULL, "High Grade" TEXT NULL, "Enrollment (K-12)" REAL NULL, "Free Meal Count (K-12)" REAL NULL, "Percent (%) Eligible Free (K-12)" REAL NULL, "FRPM Count (K-12)" REAL NULL, "Percent (%) Eligible FRPM (K-12)" REAL NULL, "Enrollment (Ages 5-17)" REAL NULL, "Free Meal Count (Ages 5-17)" REAL NULL, "Percent (%) Eligible Free (Ages 5-17)" REAL NULL, "FRPM Count (Ages 5-17)" REAL NULL, "Percent (%) Eligible FRPM (Ages 5-17)" REAL NULL, "2013-14 CALPADS Fall 1 Certification Status" INTEGER NULL, FOREIGN KEY (CDSCode) REFERENCES schools (CDSCode));
+
+CREATE TABLE satscores (cds TEXT NOT NULL PRIMARY KEY, rtype TEXT NOT NULL, sname TEXT NULL, dname TEXT NULL, cname TEXT NULL, enroll12 INTEGER NOT NULL, NumTstTakr INTEGER NOT NULL, AvgScrRead INTEGER NULL, AvgScrMath INTEGER NULL, AvgScrWrite INTEGER NULL, NumGE1500 INTEGER NULL, FOREIGN KEY (cds) REFERENCES schools (CDSCode));
+
+CREATE TABLE schools (CDSCode TEXT NOT NULL PRIMARY KEY, NCESDist TEXT NULL, NCESSchool TEXT NULL, StatusType TEXT NOT NULL, County TEXT NOT NULL, District TEXT NOT NULL, School TEXT NULL, Street TEXT NULL, StreetAbr TEXT NULL, City TEXT NULL, Zip TEXT NULL, State TEXT NULL, MailStreet TEXT NULL, MailStrAbr TEXT NULL, MailCity TEXT NULL, MailZip TEXT NULL, MailState TEXT NULL, Phone TEXT NULL, Ext TEXT NULL, Website TEXT NULL, OpenDate DATE NULL, ClosedDate DATE NULL, Charter INTEGER NULL, CharterNum TEXT NULL, FundingType TEXT NULL, DOC TEXT NOT NULL, DOCType TEXT NOT NULL, SOC TEXT NULL, SOCType TEXT NULL, EdOpsCode TEXT NULL, EdOpsName TEXT NULL, EILCode TEXT NULL, EILName TEXT NULL, GSoffered TEXT NULL, GSserved TEXT NULL, Virtual TEXT NULL, Magnet INTEGER NULL, Latitude REAL NULL, Longitude REAL NULL, AdmFName1 TEXT NULL, AdmLName1 TEXT NULL, AdmEmail1 TEXT NULL, AdmFName2 TEXT NULL, AdmLName2 TEXT NULL, AdmEmail2 TEXT NULL, AdmFName3 TEXT NULL, AdmLName3 TEXT NULL, AdmEmail3 TEXT NULL, LastUpdate DATE NOT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+-- Scenario: Santa Barbara has more 'F' virtual schools than San Diego, but San Diego has more total schools (including non-'F' and NULL Virtuals). Another county (Los Angeles) has the most 'F' schools overall.
+-- Tests: OR condition, Virtual = 'F' filter, COUNT(Virtual) vs COUNT(*), County filter, GROUP BY, ORDER BY DESC, LIMIT 1, and unnecessary JOINs to frpm/satscores.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Virtual) VALUES ('101', 'Active', 'Santa Barbara', 'SB Dist 1', '01', 'Doc', '2020-01-01', 'F');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Virtual) VALUES ('102', 'Active', 'Santa Barbara', 'SB Dist 2', '01', 'Doc', '2020-01-01', 'F');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Virtual) VALUES ('103', 'Active', 'San Diego', 'SD Dist 1', '01', 'Doc', '2020-01-01', 'F');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Virtual) VALUES ('104', 'Active', 'San Diego', 'SD Dist 2', '01', 'Doc', '2020-01-01', 'V');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Virtual) VALUES ('105', 'Active', 'San Diego', 'SD Dist 3', '01', 'Doc', '2020-01-01', NULL);
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Virtual) VALUES ('106', 'Active', 'Los Angeles', 'LA Dist 1', '01', 'Doc', '2020-01-01', 'F');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Virtual) VALUES ('107', 'Active', 'Los Angeles', 'LA Dist 2', '01', 'Doc', '2020-01-01', 'F');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate, Virtual) VALUES ('108', 'Active', 'Los Angeles', 'LA Dist 3', '01', 'Doc', '2020-01-01', 'F');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT County, COUNT(Virtual) FROM schools WHERE (County = 'San Diego' OR County = 'Santa Barbara') AND Virtual = 'F' GROUP BY County ORDER BY COUNT(Virtual) DESC, County NULLS LAST LIMIT 1;
+
+/*
+Gold Result:
+('Santa Barbara', 2)
+*/
+
+-- Prediction Query
+SELECT "County", COUNT("School") AS "NumberOfSchools" FROM "schools" WHERE "Virtual" = 'F' AND "County" IN ('San Diego', 'Santa Barbara') GROUP BY "County" ORDER BY "NumberOfSchools" DESC, "County" NULLS LAST, NumberOfSchools NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('San Diego', 0)
+*/

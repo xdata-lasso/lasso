@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests the non-trivial cross-table join condition where Customer A's order ID equals Customer B's ID, and Customer B's order ID equals Customer A's ID.
+-- Also tests DISTINCT and ORDER BY customer_name, and filters out customers whose orders have no items.
+INSERT INTO "Products" ("product_id", "product_details") VALUES (101, 'Laptop');
+INSERT INTO "Products" ("product_id", "product_details") VALUES (102, 'Mouse');
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Zoe', '2020-01-01', 'None');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', 'Alice', '2020-01-02', 'None');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Card', 'Bob', '2020-01-03', 'None');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (4, 'Cash', 'Charlie', '2020-01-04', 'None');
+
+-- Cross-matched orders: Customer 1 has Order 2; Customer 2 has Order 1.
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (2, 1, 'Shipped', '2021-01-01', 'Order 2 by Cust 1');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (1, 2, 'Pending', '2021-01-02', 'Order 1 by Cust 2');
+
+-- Self-matched order: Customer 3 has Order 3, with multiple items to test DISTINCT.
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (3, 3, 'Delivered', '2021-01-03', 'Order 3 by Cust 3');
+
+-- Unmatched order: Customer 4 has Order 4, but no Order_Items.
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (4, 4, 'Cancelled', '2021-01-04', 'Order 4 by Cust 4');
+
+-- Order_Items: Order 2 has items, Order 1 has NO items (so Zoe matches, Alice does not).
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (2, 101, '1');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (3, 101, '2');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (3, 102, '5');
+```
+
+```sql
+-- DATASET 2
+-- Tests partial join condition matches (only LHS.customer_id = RHS.order_id OR only LHS.order_id = RHS.customer_id, not both).
+-- The reference query should return an empty result set here, catching mutants that weaken the AND in the join predicate or drop the outer join.
+INSERT INTO "Products" ("product_id", "product_details") VALUES (201, 'Keyboard');
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (10, 'Card', 'David', '2020-05-01', 'Details');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (20, 'Cash', 'Eve', '2020-05-02', 'Details');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (30, 'Card', 'Frank', '2020-05-03', 'Details');
+
+-- Customer 10 has Order 20; Customer 20 has Order 30 (Partial match: 20 = 20, but 30 != 10).
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (20, 10, 'Shipped', '2021-05-01', 'D1');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (30, 20, 'Shipped', '2021-05-02', 'D2');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (40, 30, 'Shipped', '2021-05-03', 'D3');
+
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (20, 201, '1');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (30, 201, '1');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (40, 201, '1');
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple customers with identical names, NULL attributes, and reverse insertion order vs alphabetical order.
+INSERT INTO "Products" ("product_id", "product_details") VALUES (301, 'Monitor');
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (5, NULL, 'Charlie', NULL, NULL);
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (6, NULL, 'Alice', NULL, NULL);
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (7, NULL, 'Charlie', NULL, NULL);
+
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (5, 5, NULL, NULL, NULL);
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (6, 6, NULL, NULL, NULL);
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (7, 7, NULL, NULL, NULL);
+
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (5, 301, NULL);
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (6, 301, NULL);
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (7, 301, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests asymmetric cross-join where both customers have order items, ensuring both are returned and ordered properly,
+-- alongside a customer with orders and items that only matches one side of the symmetric condition.
+INSERT INTO "Products" ("product_id", "product_details") VALUES (1, 'Book');
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (10, 'Card', 'Grace', '2022-01-01', 'VIP');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (20, 'Cash', 'Heidi', '2022-01-02', 'Regular');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (30, 'Cash', 'Ivan', '2022-01-03', 'Regular');
+
+-- Grace (10) has Order 20; Heidi (20) has Order 10. Both have items.
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (20, 10, 'Paid', '2022-02-01', 'Grace Order');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (10, 20, 'Paid', '2022-02-02', 'Heidi Order');
+
+-- Grace (10) also has Order 30, and Ivan (30) has Order 99 (not 10).
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (30, 10, 'Paid', '2022-02-03', 'Grace Order 2');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (99, 30, 'Paid', '2022-02-04', 'Ivan Order');
+
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (20, 1, '10');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (10, 1, '20');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (30, 1, '30');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (99, 1, '40');
+```

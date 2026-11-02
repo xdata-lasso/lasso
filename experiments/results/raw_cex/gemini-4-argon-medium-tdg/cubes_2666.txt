@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests basic anti-join logic (LHS.country = RHS.country AND LHS.year = RHS.year),
+-- distinctness, and ordering.
+-- C1: Only 'Friendly' -> Excluded.
+-- C2: 'League' and 'Friendly' in same year (2020) -> Excluded (catches simple "!= 'Friendly'" mutants).
+-- C3: 'Friendly' in 2020, 'Cup' in 2021 -> Included (catches "EXCEPT SELECT Country WHERE type='Friendly'" mutants).
+-- C4: Only non-Friendly across multiple rows -> Included once (catches missing DISTINCT).
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (1, 2020.0, 'Friendly', 'C1_OnlyFriendly');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (2, 2020.0, 'Friendly', 'C2_SameYearMix');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (3, 2020.0, 'League', 'C2_SameYearMix');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (4, 2020.0, 'Friendly', 'C3_DiffYearMix');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (5, 2021.0, 'Cup', 'C3_DiffYearMix');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (6, 2020.0, 'Tournament', 'C4_NoFriendly');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (7, 2021.0, 'League', 'C4_NoFriendly');
+```
+
+```sql
+-- DATASET 2
+-- Tests dropping the LHS.country = RHS.country condition (correlated only on Year).
+-- In 2020, Country_A has a 'Friendly', while Country_B has a 'League'.
+-- Country_B should be included, but a mutant missing the country correlation will exclude it.
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (1, 2020.0, 'Friendly', 'Country_A');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (2, 2020.0, 'League', 'Country_B');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Country, Year, and Competition_type, as well as NULLS LAST ordering.
+-- Row 1 & 2: NULL Country with 'Friendly' and 'League' in same year -> NULL Country is STILL included because NULL = NULL is unknown in SQL, so NOT EXISTS is true!
+-- Row 3 & 4: Country_NullYear has 'Friendly' in 2020, and 'League' in NULL Year -> Included.
+-- Row 5: Country_NullType has NULL Competition_type -> Included.
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (1, 2020.0, 'Friendly', NULL);
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (2, 2020.0, 'League', NULL);
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (3, 2020.0, 'Friendly', 'Country_NullYear');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (4, NULL, 'League', 'Country_NullYear');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (5, 2020.0, NULL, 'Country_NullType');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (6, 2020.0, 'Cup', 'Alpha_Country');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (7, 2020.0, 'Cup', 'Zeta_Country');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL Country when ONLY a 'Friendly' row exists for NULL Country.
+-- Even if the row itself is 'Friendly', if Country is NULL, LHS.country = RHS.country evaluates to UNKNOWN,
+-- so NOT EXISTS evaluates to TRUE, returning NULL in the final result!
+-- Also tests string case sensitivity ('friendly' vs 'Friendly').
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (1, 2020.0, 'Friendly', NULL);
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (2, 2020.0, 'friendly', 'Country_Lowercase');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (3, 2020.0, 'Friendly ', 'Country_TrailingSpace');
+```
+
+```sql
+-- DATASET 5
+-- Tests mutants that unnecessarily join with other tables (e.g., competition_result, club).
+-- Some competitions have results in competition_result, while others do not.
+INSERT INTO "club" ("Club_ID", "name", "Region", "Start_year") VALUES (1, 'Club_A', 'Reg_1', '1990');
+INSERT INTO "club" ("Club_ID", "name", "Region", "Start_year") VALUES (2, 'Club_B', 'Reg_2', '1995');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (1, 2022.0, 'League', 'Country_With_Result');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (2, 2022.0, 'Cup', 'Country_Without_Result');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (3, 2022.0, 'Friendly', 'Country_Friendly_With_Result');
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (1, 1, 2, '2-1');
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (3, 1, 2, '0-0');
+```
+
+```sql
+-- DATASET 6
+-- Tests boundary conditions where all rows are excluded (empty result set) vs multiple friendlies in same year.
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (1, 2018.0, 'Friendly', 'France');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (2, 2018.0, 'Friendly', 'France');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (3, 2018.0, 'League', 'France');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (4, 2019.0, 'Friendly', 'Brazil');
+```

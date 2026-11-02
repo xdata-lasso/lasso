@@ -1,0 +1,39 @@
+-- Schema DDL
+CREATE TABLE "grapes" ("ID" INTEGER PRIMARY KEY, "Grape" TEXT UNIQUE, "Color" TEXT);
+
+CREATE TABLE "appellations" ("No" INTEGER PRIMARY KEY, "Appelation" TEXT UNIQUE, "County" TEXT, "State" TEXT, "Area" TEXT, "isAVA" TEXT);
+
+CREATE TABLE "wine" ("Appelation" TEXT, "Grape" TEXT, "No" INTEGER, "Winery" TEXT, "State" TEXT, "Name" TEXT, "Year" INTEGER, "Price" INTEGER, "Score" INTEGER, "Cases" INTEGER, "Drink" TEXT, FOREIGN KEY ("Appelation") REFERENCES "appellations" ("Appelation"), FOREIGN KEY ("Grape") REFERENCES "grapes" ("Grape"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (1, 'Merlot', 'Red');
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (2, 'Chardonnay', 'White');
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (3, 'Syrah', 'Red');
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (4, 'Riesling', 'White');
+INSERT INTO "appellations" ("No", "Appelation", "County", "State", "Area", "isAVA") VALUES (100, 'Napa Valley', 'Napa', 'CA', 'North Coast', 'Yes');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Merlot', 1, 'Winery A', 'CA', 'Reserve', 2015, 50, 90, 100, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Merlot', 1, 'Winery B', 'CA', 'Estate', 2016, 70, 92, 200, 'Hold');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Chardonnay', 2, 'Winery C', 'CA', 'Classic', 2018, 30, 88, 500, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Syrah', 99, 'Winery D', 'CA', 'Special', 2017, 40, 89, 150, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Riesling', 3, 'Winery E', 'CA', 'Sweet', 2019, 25, 85, 300, 'Now');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT color FROM (SELECT LHS.grape AS grape, LHS.no AS NO, LHS.meanprice AS meanprice, RHS.color AS color FROM (SELECT grape, NO, AVG(price) AS meanprice FROM wine GROUP BY grape, NO) AS LHS INNER JOIN grapes AS RHS ON (LHS.no = RHS.id AND LHS.grape = RHS.grape)) ORDER BY color;
+
+/*
+Gold Result:
+('Red',)
+('White',)
+*/
+
+-- Prediction Query
+SELECT T1.Color FROM GRAPES AS T1 JOIN WINE AS T2 ON T1.Grape = T2.Grape GROUP BY T2.Grape ORDER BY AVG(Price) DESC, T1.Color NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('Red',)
+*/

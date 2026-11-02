@@ -1,0 +1,95 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. All 4 combinations of NULL / NOT NULL for (cardKingdomFoilId, cardKingdomId) within 'Coldsnap' (catches AND vs OR, missing NOT, checking only one column).
+-- 2. Floating-point division (2 out of 7 = 28.5714...%) vs integer division (200 / 7 = 28 or 2 / 7 = 0).
+-- 3. Duplicate values in cardKingdomFoilId and cardKingdomId to catch COUNT(DISTINCT ...) mutants.
+-- 4. Different id vs set.id to catch wrong join condition (e.g., T1.id = T2.id).
+-- 5. Filtering by T2.name = 'Coldsnap' vs other set names or no WHERE clause.
+-- 6. Unmatched cards (NULL or non-existent setCode) and unmatched sets to catch LEFT/RIGHT JOIN mutants.
+INSERT INTO "sets" (id, code, name) VALUES (10, 'CSP', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (20, 'ICE', 'Ice Age');
+INSERT INTO "sets" (id, code, name) VALUES (30, 'EMPTY', 'Coldsnap');
+
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (1, 'uuid-1', 'CSP', 'F100', 'R100');
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (2, 'uuid-2', 'CSP', 'F100', 'R100');
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (3, 'uuid-3', 'CSP', 'F200', NULL);
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (4, 'uuid-4', 'CSP', 'F300', NULL);
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (5, 'uuid-5', 'CSP', NULL, 'R200');
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (6, 'uuid-6', 'CSP', NULL, NULL);
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (7, 'uuid-7', 'CSP', NULL, NULL);
+
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (10, 'uuid-10', 'ICE', 'F999', 'R999');
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (20, 'uuid-20', NULL, 'F888', 'R888');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Zero matching cards in 'Coldsnap' (numerator is 0, denominator is 3).
+-- 2. Catches mutants that use WHERE instead of CASE WHEN (which would result in 0 rows -> NULL or division by zero instead of 0.0).
+-- 3. Catches mutants that omit ELSE 0 in CASE WHEN (which would cause SUM to return NULL instead of 0.0 when no rows match the condition).
+-- 4. Asymmetric NULL counts: 1 card with only cardKingdomFoilId, 2 cards with only cardKingdomId.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'CSP2', 'Coldsnap Promos');
+
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (101, 'uuid-201', 'CSP', 'F1', NULL);
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (102, 'uuid-202', 'CSP', NULL, 'R1');
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (103, 'uuid-203', 'CSP', NULL, 'R2');
+
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (104, 'uuid-204', 'CSP2', 'F2', 'R3');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple sets named 'Coldsnap' with different codes (catches GROUP BY T2.code or GROUP BY T2.id mutants which would return multiple rows instead of a single scalar aggregate).
+-- 2. HasFoil / HasNonFoil flags set opposite to cardKingdomFoilId / cardKingdomId presence (catches mutants that check hasFoil = 1 AND hasNonFoil = 1 instead of the ID columns).
+-- 3. Auxiliary tables populated with multiple rows per card (catches unnecessary joins to legalities, rulings, or foreign_data that would multiply row counts).
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP_A', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'CSP_B', 'Coldsnap');
+
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId, hasFoil, hasNonFoil) VALUES (1, 'u-1', 'CSP_A', 'F1', 'R1', 0, 0);
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId, hasFoil, hasNonFoil) VALUES (2, 'u-2', 'CSP_B', NULL, 'R2', 1, 1);
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId, hasFoil, hasNonFoil) VALUES (3, 'u-3', 'CSP_B', NULL, NULL, 1, 1);
+
+INSERT INTO "legalities" (id, format, status, uuid) VALUES (1, 'Modern', 'Legal', 'u-1');
+INSERT INTO "legalities" (id, format, status, uuid) VALUES (2, 'Legacy', 'Legal', 'u-1');
+INSERT INTO "rulings" (id, date, text, uuid) VALUES (1, '2006-07-21', 'Ruling 1', 'u-1');
+INSERT INTO "rulings" (id, date, text, uuid) VALUES (2, '2006-07-22', 'Ruling 2', 'u-1');
+INSERT INTO "foreign_data" (id, language, name, uuid) VALUES (1, 'German', 'Kaelteeinbruch', 'u-1');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'German', 'CSP_A', 'Kaelteeinbruch');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Confusing column names: card.name = 'Coldsnap' in a set NOT named 'Coldsnap' (catches T1.name = 'Coldsnap' instead of T2.name = 'Coldsnap').
+-- 2. Set code = 'Coldsnap' where set name is NOT 'Coldsnap' (catches T2.code = 'Coldsnap' or T1.setCode = 'Coldsnap').
+-- 3. Other ID columns populated (mtgoFoilId, mtgoId, mcmId, tcgplayerProductId) while cardKingdomFoilId / cardKingdomId are NULL (catches wrong column selection).
+-- 4. 100% match rate in actual 'Coldsnap' set vs 0% in decoy sets.
+INSERT INTO "sets" (id, code, name, block, mcmName, parentCode) VALUES (1, 'REAL_CSP', 'Coldsnap', 'Ice Age', 'Coldsnap', 'ICE');
+INSERT INTO "sets" (id, code, name, block, mcmName, parentCode) VALUES (2, 'Coldsnap', 'Not Coldsnap', 'Coldsnap', 'Other', 'Coldsnap');
+
+INSERT INTO "cards" (id, uuid, name, setCode, cardKingdomFoilId, cardKingdomId, mtgoFoilId, mtgoId) VALUES (1, 'c-1', 'Snow-Covered Island', 'REAL_CSP', 'CKF1', 'CK1', NULL, NULL);
+INSERT INTO "cards" (id, uuid, name, setCode, cardKingdomFoilId, cardKingdomId, mtgoFoilId, mtgoId) VALUES (2, 'c-2', 'Coldsnap', 'Coldsnap', NULL, NULL, 'MF1', 'M1');
+INSERT INTO "cards" (id, uuid, name, setCode, cardKingdomFoilId, cardKingdomId, mtgoFoilId, mtgoId) VALUES (3, 'c-3', 'Other Card', 'Coldsnap', NULL, 'CK2', 'MF2', 'M2');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Case sensitivity and exact string match for 'Coldsnap' (e.g., 'coldsnap', 'Coldsnap Theme Decks').
+-- 2. Empty string '' vs NULL in cardKingdomFoilId and cardKingdomId, and '0' string values.
+-- 3. Ratio 1 out of 3 (33.333333333333336%) to test precision and order of multiplication/division.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'CST', 'Coldsnap Theme Decks');
+INSERT INTO "sets" (id, code, name) VALUES (3, 'LOW', 'coldsnap');
+
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (1, 'd5-1', 'CSP', '0', '0');
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (2, 'd5-2', 'CSP', '123', NULL);
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (3, 'd5-3', 'CSP', NULL, '456');
+
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (4, 'd5-4', 'CST', '789', '789');
+INSERT INTO "cards" (id, uuid, setCode, cardKingdomFoilId, cardKingdomId) VALUES (5, 'd5-5', 'LOW', '999', '999');
+```

@@ -1,0 +1,91 @@
+```sql
+-- DATASET 1
+-- General case: Mix of used (once and multiple times) and unused colors.
+-- Gold query returns 1 row with count___ = 2 (C3, C4).
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C1', 'Red');
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C2', 'Blue');
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C3', 'Green');
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C4', 'Yellow');
+
+INSERT INTO Ref_Product_Categories (product_category_code, product_category_description, unit_of_measure) VALUES ('CAT1', 'Electronics', 'Each');
+
+INSERT INTO Products (product_id, color_code, product_category_code, product_name, typical_buying_price, typical_selling_price, product_description, other_product_details) VALUES (1, 'C1', 'CAT1', 'Prod1', '10', '20', 'Desc1', 'Det1');
+INSERT INTO Products (product_id, color_code, product_category_code, product_name, typical_buying_price, typical_selling_price, product_description, other_product_details) VALUES (2, 'C1', 'CAT1', 'Prod2', '15', '25', 'Desc2', 'Det2');
+INSERT INTO Products (product_id, color_code, product_category_code, product_name, typical_buying_price, typical_selling_price, product_description, other_product_details) VALUES (3, 'C2', 'CAT1', 'Prod3', '20', '30', 'Desc3', 'Det3');
+```
+
+```sql
+-- DATASET 2
+-- Edge case: All colors are used in Products (0 unused colors).
+-- Kills mutants using aggregate COUNT(*) instead of window function COUNT(*) OVER (), as window function returns 0 rows (empty result set) while aggregate COUNT(*) returns 1 row with value 0.
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C1', 'Red');
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C2', 'Blue');
+
+INSERT INTO Ref_Product_Categories (product_category_code, product_category_description, unit_of_measure) VALUES ('CAT1', 'Electronics', 'Each');
+
+INSERT INTO Products (product_id, color_code, product_category_code, product_name, typical_buying_price, typical_selling_price, product_description, other_product_details) VALUES (1, 'C1', 'CAT1', 'Prod1', '10', '20', 'Desc1', 'Det1');
+INSERT INTO Products (product_id, color_code, product_category_code, product_name, typical_buying_price, typical_selling_price, product_description, other_product_details) VALUES (2, 'C2', 'CAT1', 'Prod2', '15', '25', 'Desc2', 'Det2');
+```
+
+```sql
+-- DATASET 3
+-- NULL handling: Products table contains a NULL color_code.
+-- Kills mutants that replace NOT EXISTS with NOT IN (SELECT color_code FROM Products), because NOT IN evaluates to UNKNOWN (returning 0 rows) when the subquery contains NULL.
+-- Gold query returns 1 row with count___ = 2 (C2, C3).
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C1', 'Red');
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C2', 'Blue');
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C3', 'Green');
+
+INSERT INTO Ref_Product_Categories (product_category_code, product_category_description, unit_of_measure) VALUES ('CAT1', 'Electronics', 'Each');
+
+INSERT INTO Products (product_id, color_code, product_category_code, product_name, typical_buying_price, typical_selling_price, product_description, other_product_details) VALUES (1, 'C1', 'CAT1', 'Prod1', '10', '20', 'Desc1', 'Det1');
+INSERT INTO Products (product_id, color_code, product_category_code, product_name, typical_buying_price, typical_selling_price, product_description, other_product_details) VALUES (2, NULL, 'CAT1', 'Prod2', '15', '25', 'Desc2', 'Det2');
+```
+
+```sql
+-- DATASET 4
+-- Column confusion & NULL in outer table:
+-- 1. color_description is NULL for some unused colors (kills COUNT(color_description) mutants).
+-- 2. color_code values overlap with product_category_code, product_id, and color_description (kills wrong join predicate mutants).
+-- Gold query returns 1 row with count___ = 2 ('1', 'CAT1').
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('1', NULL);
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('CAT1', NULL);
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C3', '1');
+
+INSERT INTO Ref_Product_Categories (product_category_code, product_category_description, unit_of_measure) VALUES ('CAT1', 'Electronics', 'Each');
+
+INSERT INTO Products (product_id, color_code, product_category_code, product_name, typical_buying_price, typical_selling_price, product_description, other_product_details) VALUES (1, 'C3', 'CAT1', 'C3', '10', '20', 'Desc1', 'Det1');
+```
+
+```sql
+-- DATASET 5
+-- Empty Products table: All colors in Ref_Colors are unused.
+-- Kills inner join / EXISTS mutants and tests empty RHS relation.
+-- Gold query returns 1 row with count___ = 3.
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C1', 'Red');
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C2', 'Blue');
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C3', 'Green');
+```
+
+```sql
+-- DATASET 6
+-- Other tables populated: Ensures mutants querying Ref_Characteristic_Types, Characteristics, or Product_Characteristics instead of Ref_Colors/Products are killed.
+-- Gold query returns 1 row with count___ = 1 (C2).
+INSERT INTO Ref_Characteristic_Types (characteristic_type_code, characteristic_type_description) VALUES ('CT1', 'Weight');
+INSERT INTO Ref_Characteristic_Types (characteristic_type_code, characteristic_type_description) VALUES ('CT2', 'Size');
+INSERT INTO Ref_Characteristic_Types (characteristic_type_code, characteristic_type_description) VALUES ('CT3', 'Material');
+
+INSERT INTO Characteristics (characteristic_id, characteristic_type_code, characteristic_data_type, characteristic_name, other_characteristic_details) VALUES (1, 'CT1', 'Num', 'Char1', 'Det');
+INSERT INTO Characteristics (characteristic_id, characteristic_type_code, characteristic_data_type, characteristic_name, other_characteristic_details) VALUES (2, 'CT2', 'Text', 'Char2', 'Det');
+
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C1', 'Red');
+INSERT INTO Ref_Colors (color_code, color_description) VALUES ('C2', 'Red');
+
+INSERT INTO Ref_Product_Categories (product_category_code, product_category_description, unit_of_measure) VALUES ('CAT1', 'Electronics', 'Each');
+INSERT INTO Ref_Product_Categories (product_category_code, product_category_description, unit_of_measure) VALUES ('CAT2', 'Books', 'Each');
+INSERT INTO Ref_Product_Categories (product_category_code, product_category_description, unit_of_measure) VALUES ('CAT3', 'Clothing', 'Each');
+
+INSERT INTO Products (product_id, color_code, product_category_code, product_name, typical_buying_price, typical_selling_price, product_description, other_product_details) VALUES (1, 'C1', 'CAT1', 'Prod1', '10', '20', 'Desc1', 'Det1');
+
+INSERT INTO Product_Characteristics (product_id, characteristic_id, product_characteristic_value) VALUES (1, 1, 'Val1');
+```

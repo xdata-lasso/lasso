@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Core test: Distinguishes correct columns (baseSetSize vs totalSetSize/id), join conditions (code vs id/parentCode/keyruneCode), and exact string match vs LIKE/ILIKE/unfiltered.
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize, parentCode, keyruneCode, mcmId, tcgplayerGroupId) VALUES (1, '10E', 'Tenth Edition', 383, 510, '9ED', '9ED', 100, 200);
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize, parentCode, keyruneCode, mcmId, tcgplayerGroupId) VALUES (2, '9ED', 'Hauptset Zehnte Edition', 350, 359, '10E', '10E', 101, 201);
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize, parentCode, keyruneCode, mcmId, tcgplayerGroupId) VALUES (3, '8ED', 'Eighth Edition', 357, 360, NULL, '8ED', 102, 202);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'German', '10E', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'English', '9ED', 'Ninth Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'German', '8ED', 'Hauptset Zehnte Edition Extra');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, 'German', '8ED', 'hauptset zehnte edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (5, 'Hauptset Zehnte Edition', '8ED', 'Achte Edition');
+```
+
+```sql
+-- DATASET 2
+-- Multiplicity & DISTINCT test: Multiple translations with the target string mapping to the same set, and two different sets having the same baseSetSize. Kills SELECT DISTINCT, GROUP BY, or LIMIT 1 mutants.
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize) VALUES (10, '10E', 'Tenth Edition', 383, 500);
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize) VALUES (20, '10E_ALT', 'Tenth Edition Alt', 383, 400);
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize) VALUES (30, 'M10', 'Magic 2010', 249, 250);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'German', '10E', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Austrian German', '10E', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Swiss German', '10E_ALT', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, 'German', 'M10', 'Hauptset 2010');
+```
+
+```sql
+-- DATASET 3
+-- Outer Join, NULL handling, and Orphan row test:
+-- 1. Orphan row in set_translations with NULL setCode but matching translation (kills RIGHT JOIN / subquery without NULL check).
+-- 2. Valid match where baseSetSize is NULL (kills WHERE baseSetSize IS NOT NULL / COALESCE / COUNT(baseSetSize)).
+-- 3. Unmatched sets (kills LEFT JOIN without proper filtering).
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize) VALUES (1, '10E_NULL', 'Tenth Edition Null Size', NULL, 383);
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize) VALUES (2, 'UNMATCHED', 'Hauptset Zehnte Edition', 999, 999);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'German', '10E_NULL', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'German', NULL, 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'German', 'UNMATCHED', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Decoy table & Cross-table confusion test:
+-- Populates cards and foreign_data with 'Hauptset Zehnte Edition' to kill mutants that join the wrong tables (e.g., foreign_data instead of set_translations, or cards instead of sets).
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize) VALUES (1, '10E', 'Tenth Edition', 383, 510);
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize) VALUES (2, 'DEC', 'Decoy Set', 111, 222);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'German', '10E', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'German', 'DEC', 'Falsche Edition');
+
+INSERT INTO cards (id, uuid, name, setCode, edhrecRank) VALUES (1, 'uuid-10e-1', 'Hauptset Zehnte Edition', 'DEC', 777);
+INSERT INTO foreign_data (id, uuid, language, name, text) VALUES (1, 'uuid-10e-1', 'German', 'Hauptset Zehnte Edition', 'Hauptset Zehnte Edition');
+```
+
+```sql
+-- DATASET 5
+-- Multiple distinct results test:
+-- Multiple sets matching the translation with different baseSetSize values (including 0 and negative/large numbers) to kill MIN, MAX, SUM, AVG, ORDER BY + LIMIT mutants.
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize) VALUES (1, 'SET_A', 'Set A', 0, 100);
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize) VALUES (2, 'SET_B', 'Set B', 500, 600);
+INSERT INTO sets (id, code, name, baseSetSize, totalSetSize) VALUES (3, 'SET_C', 'Set C', 250, 300);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (10, 'de', 'SET_B', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (20, 'de', 'SET_A', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (30, 'de', 'SET_C', 'Hauptset Zehnte Edition');
+```

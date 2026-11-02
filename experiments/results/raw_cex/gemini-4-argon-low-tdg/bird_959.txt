@@ -1,0 +1,123 @@
+```sql
+-- DATASET 1
+-- Core matching vs non-matching years, and testing DISTINCT vs ALL (duplicate fastestLap values)
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'albert_park', 'Albert Park', 'http://en.wikipedia.org/wiki/Albert_Park');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'brawn', 'Brawn', 'http://en.wikipedia.org/wiki/Brawn_GP');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'button', 'Jenson', 'Button', 'http://en.wikipedia.org/wiki/Jenson_Button');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'barrichello', 'Rubens', 'Barrichello', 'http://en.wikipedia.org/wiki/Rubens_Barrichello');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO seasons (year, url) VALUES (2008, 'http://en.wikipedia.org/wiki/2008_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2009, 'http://en.wikipedia.org/wiki/2009_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://en.wikipedia.org/wiki/2010_Formula_One_season');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (10, 2008, 1, 1, 'Australian GP 2008', '2008-03-16', '1:34:50.616', 'http://en.wikipedia.org/wiki/2008_Australian_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (20, 2009, 1, 1, 'Australian GP 2009', '2009-03-29', '06:00:00', 'http://en.wikipedia.org/wiki/2009_Australian_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (30, 2010, 1, 1, 'Australian GP 2010', '2010-03-28', '1:33:36.531', 'http://en.wikipedia.org/wiki/2010_Australian_GP');
+
+-- Matches year 2009 and LIKE '_:%:__.___' (Duplicate fastestLap = 17 to kill DISTINCT mutants)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, rank, fastestLapTime, statusId) VALUES (101, 20, 1, 1, 1, '1', 1, 10, 58, '1:34:15.784', 17, 1, '1:28.020', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, rank, fastestLapTime, statusId) VALUES (102, 20, 2, 1, 2, '2', 2, 8, 58, '1:34:16.591', 17, 2, '1:29.000', 1);
+
+-- Wrong year (2008 and 2010), valid time format (kills year >= 2009, year <= 2009, year != 2009, missing year filter)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, rank, fastestLapTime, statusId) VALUES (103, 10, 1, 1, 1, '1', 1, 10, 58, '1:34:50.616', 45, 1, '1:27.418', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, rank, fastestLapTime, statusId) VALUES (104, 30, 1, 1, 1, '1', 1, 25, 58, '1:33:36.531', 51, 1, '1:28.358', 1);
+```
+
+```sql
+-- DATASET 2
+-- String pattern boundary tests for T1.time LIKE '_:%:__.___'
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'sepang', 'Sepang', 'http://en.wikipedia.org/wiki/Sepang');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'red_bull', 'Red Bull', 'http://en.wikipedia.org/wiki/Red_Bull');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'vettel', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Vettel');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO seasons (year, url) VALUES (2009, 'http://en.wikipedia.org/wiki/2009_F1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2009, 2, 1, 'Malaysian GP', '2009-04-05', '09:00:00', 'http://en.wikipedia.org/wiki/2009_Malaysian_GP');
+
+-- 1. Valid match with multi-character middle segment (e.g. '1:23:45.678')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (1, 1, 1, 1, 1, '1', 1, 10, 56, '1:23:45.678', 10, 1);
+
+-- 2. Valid match with empty middle '%' segment (e.g. '1::45.678' matches '_:%:__.___')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (2, 1, 1, 1, 2, '2', 2, 8, 56, '1::45.678', 20, 1);
+
+-- 3. Invalid: Two characters before first colon (e.g. '12:34:56.789' -> fails leading '_')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (3, 1, 1, 1, 3, '3', 3, 6, 56, '12:34:56.789', 30, 1);
+
+-- 4. Invalid: Only one character between second colon and dot (e.g. '1:23:4.567' -> fails '__')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (4, 1, 1, 1, 4, '4', 4, 5, 56, '1:23:4.567', 40, 1);
+
+-- 5. Invalid: Only two characters after dot (e.g. '1:23:45.67' -> fails '___')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (5, 1, 1, 1, 5, '5', 5, 4, 56, '1:23:45.67', 50, 1);
+
+-- 6. Invalid: Four characters after dot (e.g. '1:23:45.6789' -> fails '___')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (6, 1, 1, 1, 6, '6', 6, 3, 56, '1:23:45.6789', 60, 1);
+
+-- 7. Invalid: Relative gap time format '+18.456' or '+1:23.456' (common F1 non-winner time format)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (7, 1, 1, 1, 7, '7', 7, 2, 56, '+1:23.456', 70, 1);
+
+-- 8. Invalid: Missing second colon (e.g. '1:23.456' - typical fastestLapTime format, not race time)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (8, 1, 1, 1, 8, '8', 8, 1, 56, '1:23.456', 80, 1);
+
+-- 9. Invalid: NULL time
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (9, 1, 1, 1, 9, 'R', 9, 0, 12, NULL, 90, 1);
+```
+
+```sql
+-- DATASET 3
+-- Column confusion and table alias confusion tests:
+-- Confusing T1.fastestLap with T1.laps, T1.rank, T1.grid, T1.position, T1.fastestLapTime
+-- Confusing T1.time with T2.time or T1.fastestLapTime
+-- Confusing JOIN condition T1.raceId = T2.raceId with other IDs
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (2009, 'shanghai', 'Shanghai', 'http://en.wikipedia.org/wiki/Shanghai');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (5, 'mclaren', 'McLaren', 'http://en.wikipedia.org/wiki/McLaren');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (5, 'hamilton', 'Lewis', 'Hamilton', 'http://en.wikipedia.org/wiki/Hamilton');
+INSERT INTO status (statusId, status) VALUES (5, 'Finished');
+
+INSERT INTO seasons (year, url) VALUES (2009, 'http://en.wikipedia.org/wiki/2009_F1');
+INSERT INTO seasons (year, url) VALUES (2011, 'http://en.wikipedia.org/wiki/2011_F1');
+
+-- Race 50: year 2009, T2.time matches '_:%:__.___' ('1:00:00.000'), but T1.time in result 501 will NOT match
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (50, 2009, 2009, 2009, 'Chinese GP', '2009-04-19', '1:00:00.000', 'http://en.wikipedia.org/wiki/2009_Chinese_GP');
+
+-- Race 51: year 2011 (not 2009), round=2009, circuitId=2009 (kills T2.round = 2009 or T2.circuitId = 2009)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (51, 2011, 2009, 2009, 'Chinese GP 2011', '2011-04-17', '1:36:58.226', 'http://en.wikipedia.org/wiki/2011_Chinese_GP');
+
+-- Result 500: Matches T2.year=2009 and T1.time LIKE '_:%:__.___'. All numeric columns have distinct values, and fastestLap is NULL in another row to test NULL handling.
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (500, 50, 5, 5, 1, 2, 3, '3', 4, 6.0, 56, '1:57:43.485', 7063485, 42, 7, '1:52.592', '180.500', 5);
+
+-- Result 501: In Race 50 (year 2009), T1.time does NOT match, but T2.time DOES match and T1.fastestLapTime ('1:52:59.200') DOES match '_:%:__.___'
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (501, 50, 5, 5, 2, 4, 5, '5', 5, 4.0, 56, '+23.456', 7086941, 33, 8, '1:52:59.200', '179.000', 5);
+
+-- Result 502: In Race 50 (year 2009), T1.time matches, but fastestLap is NULL (tests whether NULL fastestLap is preserved in SELECT)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (502, 50, 5, 5, 3, 6, 7, '7', 7, 2.0, 56, '1:58:10.123', 7090123, NULL, 9, NULL, NULL, 5);
+
+-- Result 503: In Race 51 (year 2011, round 2009), T1.time matches (kills mutants checking T2.round = 2009 or T2.circuitId = 2009 or missing join condition)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (503, 51, 5, 5, 4, 1, 1, '1', 1, 25.0, 56, '1:36:58.226', 5818226, 99, 1, '1:38.999', '195.000', 5);
+```
+
+```sql
+-- DATASET 4
+-- Testing INNER JOIN vs RIGHT JOIN / LEFT JOIN / OR vs AND in WHERE clause
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'bahrain', 'Bahrain', 'http://en.wikipedia.org/wiki/Bahrain');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'ferrari', 'Ferrari', 'http://en.wikipedia.org/wiki/Ferrari');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'raikkonen', 'Kimi', 'Raikkonen', 'http://en.wikipedia.org/wiki/Raikkonen');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO seasons (year, url) VALUES (2009, 'http://en.wikipedia.org/wiki/2009_F1');
+INSERT INTO seasons (year, url) VALUES (2007, 'http://en.wikipedia.org/wiki/2007_F1');
+
+-- Race in 2009 with NO results at all (kills RIGHT JOIN races if not filtered by T1.time)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2009, 1, 1, 'Bahrain GP 2009', '2009-04-26', '1:31:48.182', 'http://en.wikipedia.org/wiki/2009_Bahrain_GP');
+
+-- Race in 2009 with a result that fails T1.time LIKE
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2009, 2, 1, 'Spanish GP 2009', '2009-05-10', '12:00:00', 'http://en.wikipedia.org/wiki/2009_Spanish_GP');
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (1, 2, 1, 1, 1, '2', 2, 8, 66, '+15.123', 28, 1);
+
+-- Race in 2007 with a result that passes T1.time LIKE (together with row above, kills WHERE T2.year = 2009 OR T1.time LIKE '_:%:__.___')
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (3, 2007, 1, 1, 'Bahrain GP 2007', '2007-04-15', '12:00:00', 'http://en.wikipedia.org/wiki/2007_Bahrain_GP');
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, statusId) VALUES (2, 3, 1, 1, 1, '1', 1, 10, 57, '1:32:15.234', 39, 1);
+```

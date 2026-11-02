@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Multiple users tied for the minimum Views (refutes ORDER BY Views ASC LIMIT 1).
+-- 2. NULL values in Views (refutes ORDER BY Views ASC without NULLS LAST, as SQLite sorts NULLs first).
+-- 3. Negative values in Views (refutes hardcoded Views = 0).
+-- 4. Distinct values in other numeric columns (Reputation, UpVotes, DownVotes, Age, AccountId) to refute wrong column selection.
+-- 5. Unrelated posts with ViewCount to refute selecting from the wrong table (posts vs users).
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (1, 500, 10, 5, 100, 1000, 25, 'Alice');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (2, 100, -5, 50, 2, 200, 18, 'Bob');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (3, 1, -5, 20, 10, 300, 40, 'Charlie');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (4, 50, NULL, 0, 0, 50, 12, 'NullUser');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (5, 1000, 100, 1, 50, 10, 99, 'MaxUser');
+
+INSERT INTO posts (Id, OwnerUserId, ViewCount, Score) VALUES (101, 1, -100, -50);
+INSERT INTO posts (Id, OwnerUserId, ViewCount, Score) VALUES (102, 5, -100, -50);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Users with no child records in posts, badges, comments, votes, postHistory (refutes unnecessary INNER JOINs with other tables).
+-- 2. Single unique minimum where minimum Views is 0 (tests boundary condition 0 vs positive numbers).
+-- 3. Ordering where the minimum Views user has the largest Id (refutes queries relying on natural PK order).
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (10, 1, 50, 1, 1, 1, 20, 'ActiveUser1');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (20, 2, 5, 2, 2, 2, 21, 'ActiveUser2');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (30, 999, 0, 999, 999, 999, 99, 'LonelyMinUser');
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 10, 'Student');
+INSERT INTO badges (Id, UserId, Name) VALUES (2, 20, 'Teacher');
+
+INSERT INTO posts (Id, OwnerUserId, ViewCount, Score, LastEditorUserId) VALUES (1, 10, 5, 10, 10);
+INSERT INTO posts (Id, OwnerUserId, ViewCount, Score, LastEditorUserId) VALUES (2, 20, 0, 5, 20);
+
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (1, 1, 10, 1);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (2, 2, 20, 1);
+
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (1, 1, 10, 2);
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (2, 2, 20, 2);
+
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1, 1, 10);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (2, 2, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. All users have NULL Views (Reference query should return empty set, refutes IS NOT DISTINCT FROM or COALESCE(Views, 0) or LIMIT 1 without WHERE).
+INSERT INTO users (Id, Reputation, Views, DisplayName) VALUES (1, 10, NULL, 'NullOne');
+INSERT INTO users (Id, Reputation, Views, DisplayName) VALUES (2, 20, NULL, 'NullTwo');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. All users have the exact same positive Views (refutes < or > instead of =, or HAVING COUNT(*) = 1, or LIMIT 1).
+-- 2. Minimum Views is a large positive integer (refutes assumptions that MIN(Views) is small or <= 0).
+INSERT INTO users (Id, Reputation, Views, DisplayName) VALUES (1, 100, 500, 'Same1');
+INSERT INTO users (Id, Reputation, Views, DisplayName) VALUES (2, 200, 500, 'Same2');
+INSERT INTO users (Id, Reputation, Views, DisplayName) VALUES (3, 300, 500, 'Same3');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. User with minimum Views has multiple child records in posts/badges/comments/votes (refutes un-deduplicated JOINs without DISTINCT).
+-- 2. Strict separation between MIN(Views), AVG(Views), MAX(Views), and SUM(Views).
+INSERT INTO users (Id, Reputation, Views, DisplayName) VALUES (1, 100, 10, 'MinWithManyPosts');
+INSERT INTO users (Id, Reputation, Views, DisplayName) VALUES (2, 100, 20, 'MidUser');
+INSERT INTO users (Id, Reputation, Views, DisplayName) VALUES (3, 100, 90, 'MaxUser');
+
+INSERT INTO posts (Id, OwnerUserId, ViewCount) VALUES (1, 1, 10);
+INSERT INTO posts (Id, OwnerUserId, ViewCount) VALUES (2, 1, 10);
+INSERT INTO posts (Id, OwnerUserId, ViewCount) VALUES (3, 2, 20);
+INSERT INTO posts (Id, OwnerUserId, ViewCount) VALUES (4, 3, 90);
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 1, 'B1');
+INSERT INTO badges (Id, UserId, Name) VALUES (2, 1, 'B2');
+INSERT INTO badges (Id, UserId, Name) VALUES (3, 2, 'B1');
+INSERT INTO badges (Id, UserId, Name) VALUES (4, 3, 'B1');
+
+INSERT INTO comments (Id, PostId, UserId) VALUES (1, 1, 1);
+INSERT INTO comments (Id, PostId, UserId) VALUES (2, 1, 1);
+INSERT INTO comments (Id, PostId, UserId) VALUES (3, 3, 2);
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (1, 1, 1);
+INSERT INTO votes (Id, PostId, UserId) VALUES (2, 2, 1);
+INSERT INTO votes (Id, PostId, UserId) VALUES (3, 3, 2);
+```

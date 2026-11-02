@@ -1,0 +1,143 @@
+```sql
+-- DATASET 1
+-- Baseline positive match: A single female client who has a disposition linked to both a loan and a card.
+-- Also tests column projection (client_id = 10, disp_id = 20, account_id = 30, loan_id = 40, card_id = 50 are all distinct).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 10000, 1.0, 1.0, 100, 10, 10);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (30, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'F', '1970-01-01', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (20, 10, 30, 'OWNER');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (40, 30, '1996-01-01', 50000, 12, 4166.6, 'A');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (50, 20, 'classic', '1997-01-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests the WHERE clause predicate (T1.gender = 'F').
+-- Client 1 is Male ('M') with a loan and card (should be excluded).
+-- Client 2 is Female ('F') with a loan and card (should be included).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 10000, 1.0, 1.0, 100, 10, 10);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1975-05-05', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (201, 1, 101, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (202, 2, 102, 'OWNER');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (301, 101, '1996-01-01', 10000, 12, 833.3, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (302, 102, '1996-01-01', 20000, 24, 833.3, 'B');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (401, 201, 'classic', '1997-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (402, 202, 'gold', '1997-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests missing INNER JOIN branches (kills mutants using LEFT JOIN or OR conditions instead of INNER JOIN).
+-- Client 1 ('F'): Has disp and loan, but NO card.
+-- Client 2 ('F'): Has disp and card, but NO loan.
+-- Client 3 ('F'): Has disp only, NO loan and NO card.
+-- Client 4 ('F'): Has NO disp at all.
+-- Expected result for Reference Query is empty set.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 10000, 1.0, 1.0, 100, 10, 10);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (103, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1971-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'F', '1972-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'F', '1973-01-01', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (201, 1, 101, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (202, 2, 102, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (203, 3, 103, 'OWNER');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (301, 101, '1996-01-01', 10000, 12, 833.3, 'A');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (402, 202, 'classic', '1997-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests exact relationship through the SAME disposition/account vs split across DIFFERENT dispositions/accounts.
+-- Client 1 ('F') has TWO dispositions:
+--   disp 201 on account 101 (which has a loan, but disp 201 has NO card).
+--   disp 202 on account 102 (which has NO loan, but disp 202 has a card).
+-- Because the join requires T2.account_id = T3.account_id AND T2.disp_id = T4.disp_id on the SAME T2 row, Client 1 must NOT be returned.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 10000, 1.0, 1.0, 100, 10, 10);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1970-01-01', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (201, 1, 101, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (202, 1, 102, 'OWNER');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (301, 101, '1996-01-01', 10000, 12, 833.3, 'A');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (402, 202, 'classic', '1997-01-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests shared account with multiple dispositions (Owner vs Disponent).
+-- Account 101 has a loan.
+-- Client 1 ('F') has disp 201 on Account 101, but NO card on disp 201.
+-- Client 2 ('M') has disp 202 on Account 101, and HAS a card on disp 202.
+-- Kills mutants that join card via account_id instead of disp_id, or fail to associate the card with the female client's specific disp_id.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 10000, 1.0, 1.0, 100, 10, 10);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'M', '1970-01-01', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (201, 1, 101, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (202, 2, 101, 'DISPONENT');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (301, 101, '1996-01-01', 10000, 12, 833.3, 'A');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (402, 202, 'classic', '1997-01-01');
+```
+
+```sql
+-- DATASET 6
+-- Tests duplicate preservation (SELECT T1.client_id vs SELECT DISTINCT T1.client_id).
+-- Client 1 ('F') has two valid dispositions (or multiple loans/cards) that both satisfy all join conditions.
+-- Reference query does NOT have DISTINCT, so Client 1 must be output twice.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 10000, 1.0, 1.0, 100, 10, 10);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1970-01-01', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (201, 1, 101, 'OWNER');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (301, 101, '1996-01-01', 10000, 12, 833.3, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (302, 101, '1997-01-01', 20000, 24, 833.3, 'C');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (401, 201, 'classic', '1997-01-01');
+```
+
+```sql
+-- DATASET 7
+-- Tests accidental cross-table ID collisions (kills mutants with wrong join keys like T1.client_id = T3.account_id, T2.disp_id = T3.loan_id, or T1.client_id = T4.disp_id).
+-- Client 1 ('F') has client_id = 1, disp_id = 2, account_id = 3.
+-- A loan exists on account 1 (matches client_id 1, not account_id 3) with loan_id = 2 (matches disp_id 2).
+-- A card exists on disp_id = 1 (matches client_id 1, not disp_id 2) with card_id = 2.
+-- Meanwhile, Client 5 ('F') is properly connected: client_id = 5, disp_id = 6, account_id = 7, loan_id = 8 (on account 7), card_id = 9 (on disp 6).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 10000, 1.0, 1.0, 100, 10, 10);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (7, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (99, 'M', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (5, 'F', '1970-01-01', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 99, 1, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 1, 3, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (6, 5, 7, 'OWNER');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 1, '1996-01-01', 10000, 12, 833.3, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (8, 7, '1996-01-01', 10000, 12, 833.3, 'A');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (2, 1, 'classic', '1997-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (9, 6, 'classic', '1997-01-01');
+```
+
+```sql
+-- DATASET 8
+-- Tests extra spurious filters on disp.type, card.type, loan.status, or account.frequency.
+-- Includes female clients with non-default / varied categorical values:
+-- Client 1 ('F'): disp.type = 'DISPONENT', card.type = 'junior', loan.status = 'D', account.frequency = 'POPLATEK TYDNE'
+-- Client 2 ('F'): disp.type = 'OWNER', card.type = 'gold', loan.status = 'B', account.frequency = 'POPLATEK PO OBRATU'
+-- Both should be returned by the Reference Query.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 10000, 1.0, 1.0, 100, 10, 10);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'POPLATEK TYDNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 1, 'POPLATEK PO OBRATU', '1995-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1965-01-01', 1);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (201, 1, 101, 'DISPONENT');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (202, 2, 102, 'OWNER');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (301, 101, '1996-01-01', 10000, 12, 833.3, 'D');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (302, 102, '1996-01-01', 50000, 36, 1388.9, 'B');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (401, 201, 'junior', '1997-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (402, 202, 'gold', '1997-01-01');
+```

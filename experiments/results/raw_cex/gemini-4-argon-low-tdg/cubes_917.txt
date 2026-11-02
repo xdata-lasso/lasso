@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests standard ordering vs insertion order, ordering by wrong columns (name, distance), descending order, and unnecessary joins with other tables.
+-- The minimum aid (10) is inserted second, has the lexicographically largest name ('Zephyr'), the largest distance (5000), and has no associated flights or certificates.
+INSERT INTO aircraft (aid, name, distance) VALUES (50, 'Boeing 747', 3000);
+INSERT INTO aircraft (aid, name, distance) VALUES (10, 'Zephyr', 5000);
+INSERT INTO aircraft (aid, name, distance) VALUES (2, 'Airbus A380', 1000);
+
+INSERT INTO employee (eid, name, salary) VALUES (101, 'Alice', 90000.00);
+
+INSERT INTO certificate (eid, aid) VALUES (101, 50);
+
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (1001, 50, 'NYC', 'LAX', 2500, '2023-01-01', '2023-01-01', 400.00);
+```
+
+```sql
+-- DATASET 2
+-- Tests numeric vs lexicographical sorting (e.g., CAST(aid AS TEXT)) and off-by-one/OFFSET errors.
+-- Numerically, 9 < 10 < 100. Lexicographically, '10' < '100' < '9'.
+-- Also tests when the minimum aid has multiple flights/certificates (kills ungrouped JOINs without LIMIT or wrong aggregations).
+INSERT INTO aircraft (aid, name, distance) VALUES (100, 'Concord', 4000);
+INSERT INTO aircraft (aid, name, distance) VALUES (10, 'Boeing 737', 2000);
+INSERT INTO aircraft (aid, name, distance) VALUES (9, 'Cessna 172', 500);
+
+INSERT INTO employee (eid, name, salary) VALUES (1, 'John', 50000.00);
+INSERT INTO employee (eid, name, salary) VALUES (2, 'Jane', 60000.00);
+
+INSERT INTO certificate (eid, aid) VALUES (1, 9);
+INSERT INTO certificate (eid, aid) VALUES (2, 9);
+
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (1, 9, 'BOS', 'JFK', 200, '2023-05-01', '2023-05-01', 150.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (2, 9, 'JFK', 'BOS', 200, '2023-05-02', '2023-05-02', 150.00);
+```
+
+```sql
+-- DATASET 3
+-- Tests negative numbers, zero, and NULL values in non-key attributes.
+-- Kills mutants that filter out NULL names (WHERE name IS NOT NULL), filter for aid > 0, or use INNER JOIN on empty child tables.
+INSERT INTO aircraft (aid, name, distance) VALUES (0, 'Glider', 100);
+INSERT INTO aircraft (aid, name, distance) VALUES (-5, NULL, NULL);
+INSERT INTO aircraft (aid, name, distance) VALUES (5, 'Jet', 1500);
+```
+
+```sql
+-- DATASET 4
+-- Single row dataset.
+-- Kills mutants that use OFFSET 1, HAVING COUNT(*) > 1, or strict inequalities against the min/max (e.g., WHERE aid < (SELECT MAX(aid)...)).
+INSERT INTO aircraft (aid, name, distance) VALUES (42, 'Solo Flyer', 1200);
+```
+
+```sql
+-- DATASET 5
+-- Tests aggregate trap in SQLite (e.g., SELECT MIN(aid), name FROM aircraft) where SQLite returns the name from the row with MIN(aid), 
+-- vs SELECT MIN(aid), MIN(name) or SELECT MIN(aid), MAX(name).
+-- Here, aid=1 has the middle name 'Bravo' and middle distance 2000.
+INSERT INTO aircraft (aid, name, distance) VALUES (3, 'Alpha', 1000);
+INSERT INTO aircraft (aid, name, distance) VALUES (1, 'Bravo', 2000);
+INSERT INTO aircraft (aid, name, distance) VALUES (2, 'Charlie', 3000);
+```
+
+```sql
+-- DATASET 6
+-- Tests behavior when the primary key `aid` is NULL (permitted in SQLite for non-INTEGER PRIMARY KEYs).
+-- In SQLite, NULLs are considered smaller than any other value in ORDER BY.
+-- Kills mutants using `WHERE aid = (SELECT MIN(aid) FROM aircraft)` (since `aid = NULL` is unknown, and `MIN(aid)` ignores NULLs).
+INSERT INTO aircraft (aid, name, distance) VALUES (1, 'First Valid', 1000);
+INSERT INTO aircraft (aid, name, distance) VALUES (NULL, 'Null Aircraft', 500);
+INSERT INTO aircraft (aid, name, distance) VALUES (2, 'Second Valid', 2000);
+```

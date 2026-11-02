@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests basic LEFT JOIN behavior: customer with no orders, customer with only excluded orders, customer with mixed orders, and customer with multiple valid orders.
+-- Catches INNER JOIN vs LEFT JOIN, WHERE vs ON clause placement, COUNT(*) vs COUNT(o_id), and NOT LIKE vs LIKE.
+INSERT INTO customer (c_id, c_name) VALUES (1, 'Alice');
+INSERT INTO customer (c_id, c_name) VALUES (2, 'Bob');
+INSERT INTO customer (c_id, c_name) VALUES (3, 'Charlie');
+INSERT INTO customer (c_id, c_name) VALUES (4, 'David');
+
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (101, 2, 'your pending accounts are here');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (102, 3, 'pending something accounts');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (103, 3, 'valid order comment');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (104, 4, 'first valid order');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (105, 4, 'second valid order');
+```
+
+```sql
+-- DATASET 2
+-- Tests string pattern matching boundaries for '%pending%accounts%'.
+-- Catches missing wildcards (e.g., 'pending%accounts%', '%pending%accounts', '%pending%', '%accounts%') and word-order inversions ('%accounts%pending%').
+INSERT INTO customer (c_id, c_name) VALUES (1, 'Cust1');
+INSERT INTO customer (c_id, c_name) VALUES (2, 'Cust2');
+INSERT INTO customer (c_id, c_name) VALUES (3, 'Cust3');
+INSERT INTO customer (c_id, c_name) VALUES (4, 'Cust4');
+INSERT INTO customer (c_id, c_name) VALUES (5, 'Cust5');
+INSERT INTO customer (c_id, c_name) VALUES (6, 'Cust6');
+
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (201, 1, 'pendingaccounts');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (202, 2, 'prefix pendingaccounts');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (203, 3, 'pendingaccounts suffix');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (204, 4, 'only pending here');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (205, 5, 'only accounts here');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (206, 6, 'accounts before pending');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in o_comment, o_c_id, and orphan orders.
+-- In SQL, NULL NOT LIKE '...' evaluates to UNKNOWN (falsy in ON clause).
+-- Catches mutants using IS NULL, COALESCE, RIGHT/FULL OUTER JOIN, or incorrect join keys (e.g., c_id = o_id).
+INSERT INTO customer (c_id, c_name) VALUES (1, 'NullCommentCust');
+INSERT INTO customer (c_id, c_name) VALUES (2, 'MixedNullCust');
+INSERT INTO customer (c_id, c_name) VALUES (10, 'IdCollisionCust');
+
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (1, 1, NULL);
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (2, 2, NULL);
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (3, 2, 'normal comment');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (10, 999, 'orphan order matching c_id 10 on o_id');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (11, NULL, 'order with null customer id');
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY c_id vs GROUP BY c_name, and COUNT(o_id) vs COUNT(o_c_id) / COUNT(DISTINCT o_c_id) / COUNT(DISTINCT o_comment).
+-- Two customers share the exact same name; one customer has multiple orders with identical comments.
+INSERT INTO customer (c_id, c_name) VALUES (1, 'DuplicateName');
+INSERT INTO customer (c_id, c_name) VALUES (2, 'DuplicateName');
+INSERT INTO customer (c_id, c_name) VALUES (3, 'UniqueName');
+
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (401, 1, 'same comment');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (402, 1, 'same comment');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (403, 2, 'same comment');
+```
+
+```sql
+-- DATASET 5
+-- Tests missing GROUP BY clause entirely.
+-- When GROUP BY is omitted in SQLite, aggregate queries return a single row even if multiple customers exist.
+INSERT INTO customer (c_id, c_name) VALUES (10, NULL);
+INSERT INTO customer (c_id, c_name) VALUES (20, NULL);
+
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (501, 10, '');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (502, 20, 'PENDING ACCOUNTS');
+```

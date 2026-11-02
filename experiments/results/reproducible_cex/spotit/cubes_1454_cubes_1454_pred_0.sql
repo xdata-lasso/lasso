@@ -1,0 +1,48 @@
+-- Schema DDL
+CREATE TABLE "SCIENTISTS" (
+    "SSN" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("SSN")
+);
+CREATE TABLE "PROJECTS" (
+    "CODE" TEXT,
+    "NAME" TEXT,
+    "HOURS" INT,
+    PRIMARY KEY ("CODE")
+);
+CREATE TABLE "ASSIGNEDTO" (
+    "SCIENTIST" INT,
+    "PROJECT" TEXT,
+    PRIMARY KEY ("SCIENTIST", "PROJECT"),
+    FOREIGN KEY ("PROJECT") REFERENCES "PROJECTS"("CODE"),
+    FOREIGN KEY ("SCIENTIST") REFERENCES "SCIENTISTS"("SSN")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO SCIENTISTS VALUES (-1, 0);
+INSERT INTO SCIENTISTS VALUES (0, -1);
+INSERT INTO PROJECTS VALUES (6, 0, 0);
+INSERT INTO PROJECTS VALUES (5, 0, 0);
+INSERT INTO ASSIGNEDTO VALUES (0, 5);
+INSERT INTO ASSIGNEDTO VALUES (0, 6);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM scientists ORDER BY name, scientists.ssn NULLS LAST;
+
+/*
+Gold Result:
+('-1',)
+('0',)
+*/
+
+-- Prediction Query
+SELECT T2.name FROM assignedto AS T1 JOIN scientists AS T2 ON T1.scientist = T2.ssn;
+
+/*
+Prediction Result:
+('-1',)
+('-1',)
+*/

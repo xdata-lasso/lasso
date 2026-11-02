@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- Tests SUM vs AVG/MIN/MAX/COUNT, SUM(DISTINCT cost), WHERE filter (case sensitivity, substring, nulls),
+-- unnecessary INNER JOINs on foreign keys (member, budget), and filtering on 'approved' status.
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Science', 'CS', 'Engineering');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Alice', 'Smith', 'alice@example.com', 'Member', 'M', '555-0101', 10001, 'MAJ1');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Tech Talk', '2023-05-01', 'Meeting', 'None', 'Room 101', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Travel', 50.0, 50.0, 100, 'Closed', 'E1');
+
+-- Matching rows: duplicate costs (15.5) to kill SUM(DISTINCT), different approved statuses, and NULL foreign keys to kill unnecessary INNER JOINs
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Parking', '2023-05-01', 15.5, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Parking', '2023-05-02', 15.5, 'false', NULL, 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Parking', '2023-05-03', 20.0, 'true', 'M1', NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Parking', '2023-05-04', NULL, 'true', NULL, NULL);
+
+-- Non-matching rows: kill missing WHERE, LIKE '%Parking%', case-insensitive match, and != 'Parking'
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP5', 'parking', '2023-05-05', 100.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP6', 'Parking Fee', '2023-05-06', 200.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP7', 'Food', '2023-05-07', 300.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP8', NULL, '2023-05-08', 400.0, 'true', 'M1', 'B1');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set for the filter (SUM should return NULL, whereas COUNT returns 0)
+-- Also tests confusion between expense.expense_description='Parking' and budget.category='Parking'
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Workshop', '2023-06-01', 'Workshop', 'Notes', 'Hall A', 'Open');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Parking', 25.0, 75.0, 100, 'Open', 'E1');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Snacks', '2023-06-01', 25.0, 'true', NULL, 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Drinks', '2023-06-02', 35.0, 'true', NULL, 'B1');
+```
+
+```sql
+-- DATASET 3
+-- Tests single matching row vs non-aggregate queries (e.g., SELECT cost FROM expense WHERE ...)
+-- By having multiple rows with different costs and one with 0.0, kills mutants that drop SUM() or filter cost > 0
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Parking', '2023-07-01', 0.0, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Parking', '2023-07-02', 12.75, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Parking', '2023-07-03', 8.25, 'true', NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between tables/columns (e.g., querying budget.spent, budget.amount, or income.amount instead of expense.cost)
+-- Also tests 1-to-many join fan-out if expense is joined with attendance or income via member
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Math', 'Mathematics', 'Science');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (20001, 'Standard', 'Washington', 'DC', 'District of Columbia', 'DC');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Bob', 'Jones', 'bob@example.com', 'Treasurer', 'L', '555-0202', 20001, 'MAJ1');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Gala', '2023-08-01', 'Social', 'Annual', 'Ballroom', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Cleanup', '2023-08-02', 'Service', 'Park', 'Main Park', 'Closed');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'M1');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E2', 'M1');
+
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2023-08-01', 500, 'Parking', 'Parking fundraiser', 'M1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC2', '2023-08-02', 600, 'Dues', 'Member dues', 'M1');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Parking', 999.0, 1.0, 1000, 'Closed', 'E1');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Parking', '2023-08-01', 42.5, 'true', 'M1', 'B1');
+```

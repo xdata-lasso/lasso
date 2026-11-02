@@ -1,0 +1,102 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions for COUNT(*): n=0 (in Products_for_Hire only), n=2, n=3, n=4.
+-- 2. Ordering: product_ids with n=3 inserted out of order (30, 10, 20) to test ORDER BY product_id.
+-- 3. Aggregation: SUM(booked_count) = 3 vs COUNT(*) = 3 (Product 40 has 2 rows summing to 3; Product 30 has 3 rows summing to 6).
+-- 4. Table confusion: View_Product_Availability has 3 rows for Product 60, whereas Products_Booked has only 1.
+-- 5. NULL handling in non-key columns: NULLs in returned_yn, returned_late_yn, booked_count, booked_amount for Product 10 to kill COUNT(column) mutants.
+
+INSERT INTO "Discount_Coupons" ("coupon_id", "date_issued", "coupon_amount") VALUES (1, '2023-01-01 00:00:00', 10.0);
+INSERT INTO "Customers" ("customer_id", "coupon_id", "good_or_bad_customer", "first_name", "last_name", "gender_mf", "date_became_customer", "date_last_hire") VALUES (1, 1, 'good', 'John', 'Doe', 'M', '2023-01-01 00:00:00', '2023-01-05 00:00:00');
+
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (1, 1, 'CONF', 'N', '2023-01-01 00:00:00', '2023-01-02 00:00:00', '1', 100.0, 0.0, 0.0, 0.0);
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (2, 1, 'CONF', 'N', '2023-01-02 00:00:00', '2023-01-03 00:00:00', '1', 100.0, 0.0, 0.0, 0.0);
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (3, 1, 'CONF', 'N', '2023-01-03 00:00:00', '2023-01-04 00:00:00', '3', 100.0, 0.0, 0.0, 0.0);
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (4, 1, 'CONF', 'N', '2023-01-04 00:00:00', '2023-01-05 00:00:00', '1', 100.0, 0.0, 0.0, 0.0);
+
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (30, 'TYPE1', 3.0, 'Prod 30', 'Desc 30');
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (10, 'TYPE1', 10.0, 'Prod 10', 'Desc 10');
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (20, 'TYPE2', 20.0, 'Prod 20', 'Desc 20');
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (40, 'TYPE2', 3.0, 'Prod 40', 'Desc 40');
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (50, 'TYPE3', 50.0, 'Prod 50', 'Desc 50');
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (60, 'TYPE3', 3.0, 'Prod 60', 'Desc 60');
+
+-- Product 30: 3 bookings (n=3), sum(booked_count)=6
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (1, 30, 'Y', 'N', 2, 20.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (2, 30, 'Y', 'N', 2, 20.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (3, 30, 'Y', 'N', 2, 20.0);
+
+-- Product 10: 3 bookings (n=3), with NULLs in non-PK columns
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (1, 10, NULL, NULL, NULL, NULL);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (2, 10, 'Y', 'N', 1, 10.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (3, 10, 'N', 'Y', 1, 10.0);
+
+-- Product 20: 3 bookings (n=3)
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (1, 20, 'Y', 'N', 5, 50.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (2, 20, 'Y', 'N', 5, 50.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (4, 20, 'Y', 'N', 5, 50.0);
+
+-- Product 40: 2 bookings (n=2), sum(booked_count)=3, booked_amount=3.0
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (1, 40, 'Y', 'N', 1, 3.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (2, 40, 'Y', 'N', 2, 3.0);
+
+-- Product 50: 4 bookings (n=4), booked_count=3 on one row
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (1, 50, 'Y', 'N', 3, 10.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (2, 50, 'Y', 'N', 1, 10.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (3, 50, 'Y', 'N', 1, 10.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (4, 50, 'Y', 'N', 1, 10.0);
+
+-- Product 60: 1 booking in Products_Booked (n=1), 3 in View_Product_Availability
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (3, 60, 'Y', 'N', 3, 3.0);
+
+INSERT INTO "View_Product_Availability" ("status_date", "product_id", "booking_id", "available_yn") VALUES ('2023-01-01 00:00:00', 60, 1, 'Y');
+INSERT INTO "View_Product_Availability" ("status_date", "product_id", "booking_id", "available_yn") VALUES ('2023-01-02 00:00:00', 60, 2, 'Y');
+INSERT INTO "View_Product_Availability" ("status_date", "product_id", "booking_id", "available_yn") VALUES ('2023-01-03 00:00:00', 60, 3, 'Y');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Confusion between grouping by booking_id vs product_id (Booking 3 has 3 products, while no product has 3 bookings except Product 3 which has 1 booking, or vice versa).
+-- 2. Here, NO product has 3 bookings (empty result expected), but:
+--    - Booking 100 has 3 products (tests GROUP BY booking_id).
+--    - Product 3 has 1 booking (tests WHERE product_id = 3 instead of n = 3).
+--    - Total rows in Products_Booked is 3 (tests missing GROUP BY).
+
+INSERT INTO "Customers" ("customer_id", "coupon_id", "good_or_bad_customer", "first_name", "last_name", "gender_mf", "date_became_customer", "date_last_hire") VALUES (1, NULL, 'good', 'Alice', 'Smith', 'F', '2023-01-01 00:00:00', '2023-01-05 00:00:00');
+
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (100, 1, 'CONF', 'N', '2023-01-01 00:00:00', '2023-01-02 00:00:00', '3', 100.0, 0.0, 0.0, 0.0);
+
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (1, 'TYPE1', 10.0, 'Prod 1', 'Desc 1');
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (2, 'TYPE1', 10.0, 'Prod 2', 'Desc 2');
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (3, 'TYPE1', 10.0, 'Prod 3', 'Desc 3');
+
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (100, 1, 'Y', 'N', 3, 30.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (100, 2, 'Y', 'N', 3, 30.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (100, 3, 'Y', 'N', 3, 30.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Unnecessary JOIN with Customers / Discount_Coupons / Payments (e.g., if a mutant joins Bookings -> Customers where customer_id is NULL, or joins Payments).
+-- 2. Bookings with NULL customer_id.
+-- 3. COUNT(DISTINCT returned_yn) or COUNT(DISTINCT booked_count) vs COUNT(*).
+-- 4. Product 3 has 3 bookings (tests that product_id = 3 is properly included when n = 3, and also Product 7 has 3 bookings).
+
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (7, NULL, NULL, NULL, NULL);
+INSERT INTO "Products_for_Hire" ("product_id", "product_type_code", "daily_hire_cost", "product_name", "product_description") VALUES (3, NULL, NULL, NULL, NULL);
+
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (1, 7, 'Y', 'N', 1, 10.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (2, 7, 'Y', 'N', 1, 10.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (3, 7, 'Y', 'N', 1, 10.0);
+
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (1, 3, 'Y', 'N', 1, 10.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (2, 3, 'Y', 'N', 1, 10.0);
+INSERT INTO "Products_Booked" ("booking_id", "product_id", "returned_yn", "returned_late_yn", "booked_count", "booked_amount") VALUES (3, 3, 'Y', 'N', 1, 10.0);
+```

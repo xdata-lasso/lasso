@@ -1,0 +1,48 @@
+-- Schema DDL
+CREATE TABLE "MOVIE" (
+    "MID" INT,
+    "TITLE" TEXT,
+    "YEAR" INT,
+    "DIRECTOR" TEXT,
+    PRIMARY KEY ("MID")
+);
+CREATE TABLE "REVIEWER" (
+    "RID" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("RID")
+);
+CREATE TABLE "RATING" (
+    "RID" INT,
+    "MID" INT,
+    "STARS" INT,
+    "RATINGDATE" DATE,
+    FOREIGN KEY ("RID") REFERENCES "REVIEWER"("RID"),
+    FOREIGN KEY ("MID") REFERENCES "MOVIE"("MID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO MOVIE VALUES (1, 0, 1980, 9);
+INSERT INTO MOVIE VALUES (0, NULL, 1980, NULL);
+INSERT INTO REVIEWER VALUES (1, 0);
+INSERT INTO REVIEWER VALUES (0, 0);
+INSERT INTO RATING VALUES (1, 1, 0, '0001-01-01');
+INSERT INTO RATING VALUES (1, 1, 0, '0001-01-01');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT TITLE FROM MOVIE WHERE (DIRECTOR = 'James Cameron' OR YEAR <= 1980) ORDER BY title, movie.mid NULLS LAST;
+
+/*
+Gold Result:
+(None,)
+('0',)
+*/
+
+-- Prediction Query
+SELECT title FROM Movie WHERE director = 'James Cameron' OR YEAR < 1980;
+
+/*
+Prediction Result:
+*/

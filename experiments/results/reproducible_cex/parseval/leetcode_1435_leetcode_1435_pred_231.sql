@@ -1,0 +1,65 @@
+-- Schema DDL
+CREATE TABLE "Sessions" ("session_id" INTEGER PRIMARY KEY, "duration" INTEGER, CHECK ("duration" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: sessions --
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483648, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483647, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483646, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483645, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483644, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483643, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483642, NULL);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483641, NULL);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483640, NULL);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483639, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483638, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483637, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483636, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483635, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483634, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483633, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483632, 1);
+
+INSERT INTO "sessions" ("session_id", "duration") VALUES (-2147483631, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT '[0-5>' AS bin, COUNT(session_id) AS total FROM sessions WHERE ((CAST(duration AS REAL) / 60) >= 0 AND (CAST(duration AS REAL) / 60) < 5) UNION SELECT '[5-10>' AS bin, COUNT(session_id) AS total FROM sessions WHERE ((CAST(duration AS REAL) / 60) >= 5 AND (CAST(duration AS REAL) / 60) < 10) UNION SELECT '[10-15>' AS bin, COUNT(session_id) AS total FROM sessions WHERE ((CAST(duration AS REAL) / 60) >= 10 AND (CAST(duration AS REAL) / 60) < 15) UNION SELECT '15 or more' AS bin, COUNT(session_id) AS total FROM sessions WHERE (CAST(duration AS REAL) / 60) >= 15;
+
+/*
+Gold Result:
+('15 or more', 0)
+('[0-5>', 15)
+('[10-15>', 0)
+('[5-10>', 0)
+*/
+
+-- Prediction Query
+WITH CTE AS (SELECT '[0-5>' AS BIN UNION SELECT '[5-10>' AS BIN UNION SELECT '[10-15>' AS BIN UNION SELECT '15 or more' AS BIN) SELECT BIN, COALESCE(TOTAL, 0) AS TOTAL FROM CTE LEFT JOIN (SELECT CASE WHEN DURATION < 300 THEN '[0-5>' WHEN DURATION >= 300 AND DURATION < 600 THEN '[5-10>' WHEN DURATION >= 600 AND DURATION < 900 THEN '[10-15>' ELSE '15 or more' END AS BIN, COUNT(*) AS TOTAL FROM SESSIONS GROUP BY BIN) AS T USING (BIN);
+
+/*
+Prediction Result:
+('15 or more', 3)
+('[0-5>', 15)
+('[10-15>', 0)
+('[5-10>', 0)
+*/

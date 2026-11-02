@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. GROUP BY T1.A16 vs GROUP BY T1.district_id (Districts 1 and 2 share the same max A16=100; grouping by A16 yields count 3, grouping by district_id yields max count 2).
+-- 2. INNER JOIN vs LEFT JOIN (District 3 has the absolute highest A16=200, but 0 accounts; LEFT JOIN would pick A16=200 with count 0 or 1 if COUNT(*), whereas INNER JOIN picks A16=100 with count 3).
+-- 3. ORDER BY T1.A16 DESC vs ORDER BY COUNT(T2.account_id) DESC (District 4 has A16=50 with 4 accounts; ordering by count DESC picks 4, ordering by A16 DESC picks 3).
+-- 4. ORDER BY T1.A16 DESC vs ASC (District 5 has A16=10 with 1 account; ASC picks 1, DESC picks 3).
+-- 5. COUNT(T2.account_id) vs COUNT(DISTINCT T1.district_id) (For A16=100, account count is 3, distinct district count is 2).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 10.0, 1000, 1.0, 1.0, 10, 10, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R1', '1000', '1', '1', '1', 1, 1, 10.0, 1000, 1.0, 1.0, 10, 20, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D3', 'R1', '1000', '1', '1', '1', 1, 1, 10.0, 1000, 1.0, 1.0, 10, 30, 200);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (4, 'D4', 'R1', '1000', '1', '1', '1', 1, 1, 10.0, 1000, 1.0, 1.0, 10, 500, 50);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (5, 'D5', 'R1', '1000', '1', '1', '1', 1, 1, 10.0, 1000, 1.0, 1.0, 10, 5, 10);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'MONTHLY', '2020-01-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 2, 'MONTHLY', '2020-01-03');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (4, 4, 'MONTHLY', '2020-01-04');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (5, 4, 'MONTHLY', '2020-01-05');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (6, 4, 'MONTHLY', '2020-01-06');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (7, 4, 'MONTHLY', '2020-01-07');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (8, 5, 'MONTHLY', '2020-01-08');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Secondary sort key: ORDER BY T1.A16 DESC, COUNT(T2.account_id) ASC vs DESC when GROUP BY is mutated to T1.district_id (Two districts share the highest A16=500, one has 1 account, the other has 3 accounts; ASC picks 1, DESC picks 3, while the true query groups them together to return 4).
+-- 2. Confounding columns: A15, A14, A11 have different rank orderings than A16 to kill column-substitution mutants (e.g., grouping or ordering by A15 instead of A16).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'D10', 'R2', '2000', '2', '2', '2', 2, 2, 20.0, 9000, 2.0, 2.0, 99, 100, 500);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'D20', 'R2', '2000', '2', '2', '2', 2, 2, 20.0, 8000, 2.0, 2.0, 88, 200, 500);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (30, 'D30', 'R2', '2000', '2', '2', '2', 2, 2, 20.0, 9999, 2.0, 2.0, 100, 900, 100);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 10, 'WEEKLY', '2021-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 20, 'WEEKLY', '2021-01-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (103, 20, 'WEEKLY', '2021-01-03');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (104, 20, 'WEEKLY', '2021-01-04');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (105, 30, 'WEEKLY', '2021-01-05');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (106, 30, 'WEEKLY', '2021-01-06');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Negative and Zero values in T1.A16 (Ensures numeric sorting on A16 DESC rather than string/lexicographical sorting or unsigned assumptions).
+-- 2. Single-account vs Multi-account boundary with negative A16 values.
+-- 3. Join condition mutations (e.g., T1.district_id = T2.account_id instead of T2.district_id).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, NULL, 1.0, 1, NULL, -10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, NULL, 1.0, 1, NULL, -5);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D3', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, NULL, 1.0, 1, NULL, 0);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'DAILY', '2022-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'DAILY', '2022-01-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 1, 'DAILY', '2022-01-03');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 2, 'DAILY', '2022-01-04');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 2, 'DAILY', '2022-01-05');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (30, 3, 'DAILY', '2022-01-06');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (40, 3, 'DAILY', '2022-01-07');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (50, 3, 'DAILY', '2022-01-08');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (60, 3, 'DAILY', '2022-01-09');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (70, 3, 'DAILY', '2022-01-10');
+```

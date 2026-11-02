@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Missing DISTINCT (card 10 has two 'Restricted' legalities)
+-- 2. Wrong join condition on id instead of uuid (card 10 matches legality id 20, while card 20 is textless)
+-- 3. Counting a nullable column like T1.name instead of T1.id
+-- 4. Filtering on T1.isTextless = 0 vs = 1 vs missing filter
+-- 5. Filtering on T2.status = 'Restricted' vs 'Banned' vs NULL vs case sensitivity ('restricted')
+-- 6. INNER JOIN vs LEFT JOIN (card 40 has no legalities)
+-- 7. AND vs OR in WHERE clause
+INSERT INTO cards (id, uuid, isTextless, name, text) VALUES (10, 'uuid-10', 0, NULL, 'Some card text');
+INSERT INTO cards (id, uuid, isTextless, name, text) VALUES (20, 'uuid-20', 1, 'Card Twenty', NULL);
+INSERT INTO cards (id, uuid, isTextless, name, text) VALUES (30, 'uuid-30', 0, 'Card Thirty', 'Some text');
+INSERT INTO cards (id, uuid, isTextless, name, text) VALUES (40, 'uuid-40', 0, 'Card Forty', 'Some text');
+INSERT INTO cards (id, uuid, isTextless, name, text) VALUES (50, 'uuid-50', 0, 'Card Fifty', 'Some text');
+
+INSERT INTO legalities (id, uuid, format, status) VALUES (1, 'uuid-10', 'vintage', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (20, 'uuid-10', 'pauper', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (10, 'uuid-20', 'vintage', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (2, 'uuid-30', 'legacy', 'Banned');
+INSERT INTO legalities (id, uuid, format, status) VALUES (3, 'uuid-30', 'modern', NULL);
+INSERT INTO legalities (id, uuid, format, status) VALUES (4, 'uuid-50', 'vintage', 'restricted');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. COUNT(DISTINCT T1.id) vs COUNT(DISTINCT T2.status) or COUNT(DISTINCT T2.format)
+-- 2. Multiple distinct cards matching the criteria (Expected count = 3)
+-- 3. Card with mixed statuses ('Restricted' and 'Legal')
+-- 4. Confusing T2.format with T2.status (format = 'Restricted')
+INSERT INTO cards (id, uuid, isTextless, name) VALUES (1, 'u-1', 0, 'SameName');
+INSERT INTO cards (id, uuid, isTextless, name) VALUES (2, 'u-2', 0, 'SameName');
+INSERT INTO cards (id, uuid, isTextless, name) VALUES (3, 'u-3', 0, 'SameName');
+INSERT INTO cards (id, uuid, isTextless, name) VALUES (4, 'u-4', 0, 'OtherName');
+
+INSERT INTO legalities (id, uuid, format, status) VALUES (101, 'u-1', 'vintage', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (102, 'u-1', 'legacy', 'Legal');
+INSERT INTO legalities (id, uuid, format, status) VALUES (103, 'u-2', 'vintage', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (104, 'u-3', 'commander', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (105, 'u-4', 'Restricted', 'Legal');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Zero matching rows (Expected count = 0)
+-- 2. Ensures query returns 0 rather than NULL or non-zero when conditions are only partially met
+-- 3. Tests boundary values for isTextless (e.g., negative or >1 if mutant uses > 0 or < 1)
+INSERT INTO cards (id, uuid, isTextless, name) VALUES (1, 'u-1', 1, 'Card A');
+INSERT INTO cards (id, uuid, isTextless, name) VALUES (2, 'u-2', 0, 'Card B');
+INSERT INTO cards (id, uuid, isTextless, name) VALUES (3, 'u-3', -1, 'Card C');
+
+INSERT INTO legalities (id, uuid, format, status) VALUES (1, 'u-1', 'vintage', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (2, 'u-2', 'vintage', 'Legal');
+INSERT INTO legalities (id, uuid, format, status) VALUES (3, 'u-3', 'vintage', 'Restricted');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Orphan legalities row (NULL uuid) to kill RIGHT JOIN / FULL OUTER JOIN or Cartesian product mutants
+-- 2. Substring matching mutants (e.g. status LIKE '%Restricted%')
+-- 3. Other boolean flags on cards confused with isTextless (isFullArt, isPromo, isReprint, etc. set to 1 while isTextless = 0, and vice versa)
+INSERT INTO cards (id, uuid, isTextless, isFullArt, isPromo, isReprint, isReserved) VALUES (100, 'u-100', 0, 1, 1, 1, 1);
+INSERT INTO cards (id, uuid, isTextless, isFullArt, isPromo, isReprint, isReserved) VALUES (200, 'u-200', 1, 0, 0, 0, 0);
+INSERT INTO cards (id, uuid, isTextless, isFullArt, isPromo, isReprint, isReserved) VALUES (300, 'u-300', 0, 0, 0, 0, 0);
+
+INSERT INTO legalities (id, uuid, format, status) VALUES (1, 'u-100', 'vintage', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (2, 'u-200', 'vintage', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (3, 'u-300', 'vintage', 'Not Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (4, NULL, 'vintage', 'Restricted');
+```

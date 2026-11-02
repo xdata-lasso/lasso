@@ -1,0 +1,56 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, sorting order (actual_order_id vs regular_order_id vs actual_order_date), NULL foreign keys, and absence of child rows in dependent tables (Actual_Order_Products, Order_Deliveries).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Card', 'Alice', '111-2222', 'alice@example.com', '2020-01-01 00:00:00');
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (10, 1);
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (20, 1);
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (50, 20, 'Success', '2023-05-01 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (10, 10, 'Failed', '2023-01-01 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (5, NULL, 'Success', '2023-12-01 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (30, 10, NULL, '2023-06-01 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests string matching sensitivity (case sensitivity, LIKE '%Success%', substring matching) and joins that could cause fan-out duplication if DISTINCT is omitted in a mutant joining child tables.
+INSERT INTO "Products" ("product_id", "product_name", "product_price", "product_description") VALUES (1, 'Widget', 9.99, 'Standard widget');
+INSERT INTO "Products" ("product_id", "product_name", "product_price", "product_description") VALUES (2, 'Gadget', 19.99, 'Advanced gadget');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '123 Main St', 'Metropolis', '10001', 'NY', 'USA');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Cash', 'Bob', '333-4444', 'bob@example.com', '2021-01-01 00:00:00');
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (100, 1);
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (1, 'Route A', 'North');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('LOC1', 1, 1, 'Warehouse 1');
+INSERT INTO "Trucks" ("truck_id", "truck_licence_number", "truck_details") VALUES (1, 'XYZ-123', 'Big Truck');
+INSERT INTO "Employees" ("employee_id", "employee_address_id", "employee_name", "employee_phone") VALUES (1, 1, 'Charlie', '555-6666');
+
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (2, 100, 'Success', '2023-02-01 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (1, 100, 'success', '2023-01-01 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (3, 100, 'Successful', '2023-03-01 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (4, 100, 'Pending', '2023-04-01 10:00:00');
+
+INSERT INTO "Actual_Order_Products" ("actual_order_id", "product_id") VALUES (2, 1);
+INSERT INTO "Actual_Order_Products" ("actual_order_id", "product_id") VALUES (2, 2);
+
+INSERT INTO "Order_Deliveries" ("driver_employee_id", "location_code", "actual_order_id", "truck_id", "delivery_status_code", "delivery_date") VALUES (1, 'LOC1', 2, 1, 'Failed', '2023-02-02 10:00:00');
+INSERT INTO "Order_Deliveries" ("driver_employee_id", "location_code", "actual_order_id", "truck_id", "delivery_status_code", "delivery_date") VALUES (1, 'LOC1', 2, 1, 'Delivered', '2023-02-03 10:00:00');
+INSERT INTO "Order_Deliveries" ("driver_employee_id", "location_code", "actual_order_id", "truck_id", "delivery_status_code", "delivery_date") VALUES (1, 'LOC1', 4, 1, 'Success', '2023-04-02 10:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests empty result set when all orders have non-matching status codes, plus checks against LIMIT 1 or aggregation mutants (MIN/MAX/COUNT) when multiple 'Success' rows exist in another dataset vs 0 rows here.
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (101, NULL, 'Cancelled', '2023-01-01 00:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (102, NULL, 'Pending', '2023-01-02 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple 'Success' rows with negative, zero, and positive IDs to kill MIN/MAX/LIMIT 1 mutants, DESC sorting mutants, and column confusion (regular_order_id = actual_order_id vs different).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Card', 'Dave', '777-8888', 'dave@example.com', '2022-01-01 00:00:00');
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (1, 1);
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (2, 1);
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (3, 1);
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (100, 1, 'Success', '2023-01-03 00:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (0, 2, 'Success', '2023-01-02 00:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (-5, 3, 'Success', '2023-01-01 00:00:00');
+```

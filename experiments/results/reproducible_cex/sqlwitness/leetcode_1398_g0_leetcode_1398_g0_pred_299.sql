@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "customer_name" TEXT(255));
+
+CREATE TABLE "Orders" ("order_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "product_name" TEXT(255), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO customers (customer_id, customer_name) VALUES (1, 'A'), (0, 'default2'), (-1, 'default2'), (2, 'B');
+INSERT INTO orders (order_id, customer_id, product_name) VALUES (1, -1, 'C'), (3, 0, 'B'), (0, 2, NULL), (2, 1, 'B'), (-1, 0, 'B'), (4, 1, 'C');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CUSTOMER_ID, CUSTOMER_NAME FROM CUSTOMERS WHERE CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'A') AND CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'B') AND NOT CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'C') ORDER BY CUSTOMER_ID;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH TEMP AS (SELECT DISTINCT A.CUSTOMER_ID, B.CUSTOMER_NAME, SUM(CASE WHEN A.PRODUCT_NAME IN ('A', 'B') THEN 1 ELSE 0 END) AS CT_AB, SUM(CASE WHEN A.PRODUCT_NAME = 'C' THEN 1 ELSE 0 END) AS CT_C FROM ORDERS AS A JOIN CUSTOMERS AS B ON A.CUSTOMER_ID = B.CUSTOMER_ID GROUP BY A.CUSTOMER_ID) SELECT CUSTOMER_ID, CUSTOMER_NAME FROM TEMP WHERE CT_AB >= 2 AND CT_C = 0;
+
+/*
+Prediction Result:
+(0, 'default2')
+*/

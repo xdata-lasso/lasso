@@ -1,0 +1,39 @@
+-- Schema DDL
+CREATE TABLE "i010_1" ("id" TEXT, "name" TEXT, "phone_number" INTEGER);
+
+CREATE TABLE "i010_2" ("id" TEXT, "date" TEXT, "phone_number" INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO i010_1 (id, name, phone_number) VALUES ('X', 'Alice', 999);
+INSERT INTO i010_2 (id, date, phone_number) VALUES ('A', '2023-01-01', 100);
+INSERT INTO i010_2 (id, date, phone_number) VALUES ('A', '2023-01-01', 100);
+INSERT INTO i010_2 (id, date, phone_number) VALUES ('A', '2023-01-02', 100);
+INSERT INTO i010_2 (id, date, phone_number) VALUES ('A', '2023-01-01', 200);
+INSERT INTO i010_2 (id, date, phone_number) VALUES ('B', '2023-01-01', 100);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT id, date, phone_number FROM i010_2 ORDER BY id, date NULLS LAST, phone_number NULLS LAST;
+
+/*
+Gold Result:
+('A', '2023-01-01', 100)
+('A', '2023-01-01', 200)
+('A', '2023-01-02', 100)
+('B', '2023-01-01', 100)
+*/
+
+-- Prediction Query
+SELECT * FROM i010_2 WHERE NOT EXISTS(SELECT * FROM i010_1 WHERE i010_1.phone_number = i010_2.phone_number);
+
+/*
+Prediction Result:
+('A', '2023-01-01', 100)
+('A', '2023-01-01', 100)
+('A', '2023-01-02', 100)
+('A', '2023-01-01', 200)
+('B', '2023-01-01', 100)
+*/

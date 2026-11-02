@@ -1,0 +1,135 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Gender filtering (WHERE T4.gender = 'Male' vs 'Female', 'male', NULL).
+-- 2. Disjoint ID spaces across tables to kill wrong join column mutations (e.g., T1.id = T2.power_id, T1.gender_id = T2.hero_id).
+-- 3. Heroes without powers and powers without heroes to kill LEFT/RIGHT JOIN mutations.
+-- 4. Unpopulated optional foreign keys in superhero to kill unnecessary INNER JOINs to alignment, colour, publisher, race, etc.
+INSERT INTO gender (id, gender) VALUES (10, 'Male');
+INSERT INTO gender (id, gender) VALUES (20, 'Female');
+INSERT INTO gender (id, gender) VALUES (30, 'male');
+INSERT INTO gender (id, gender) VALUES (40, NULL);
+
+INSERT INTO superpower (id, power_name) VALUES (1000, 'Flight');
+INSERT INTO superpower (id, power_name) VALUES (2000, 'Telepathy');
+INSERT INTO superpower (id, power_name) VALUES (3000, 'Invisibility');
+INSERT INTO superpower (id, power_name) VALUES (4000, 'Super Speed');
+INSERT INTO superpower (id, power_name) VALUES (5000, 'Pyrokinesis');
+
+INSERT INTO superhero (id, superhero_name, full_name, gender_id) VALUES (100, 'HeroMaleWithPower', 'John Doe', 10);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id) VALUES (200, 'HeroFemaleWithPower', 'Jane Doe', 20);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id) VALUES (300, 'HeroLowercaseMale', 'jim doe', 30);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id) VALUES (400, 'HeroNullGender', 'No Gender', NULL);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id) VALUES (500, 'HeroMaleNoPower', 'Powerless Guy', 10);
+
+INSERT INTO hero_power (hero_id, power_id) VALUES (100, 1000);
+INSERT INTO hero_power (hero_id, power_id) VALUES (200, 2000);
+INSERT INTO hero_power (hero_id, power_id) VALUES (300, 3000);
+INSERT INTO hero_power (hero_id, power_id) VALUES (400, 4000);
+INSERT INTO hero_power (hero_id, power_id) VALUES (NULL, 5000);
+INSERT INTO hero_power (hero_id, power_id) VALUES (100, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Duplicate preservation (kills SELECT DISTINCT T3.power_name).
+-- 2. Exact boundary around LIMIT 5 (6 identical rows returned by join; gold returns 5, DISTINCT returns 1, no LIMIT returns 6).
+-- 3. Multiple Male gender records (tests proper join vs hardcoded gender_id = 1).
+INSERT INTO gender (id, gender) VALUES (2, 'Male');
+INSERT INTO gender (id, gender) VALUES (3, 'Male');
+
+INSERT INTO superpower (id, power_name) VALUES (50, 'Super Strength');
+
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (11, 'Alpha', 2);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (12, 'Beta', 2);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (13, 'Gamma', 2);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (14, 'Delta', 3);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (15, 'Epsilon', 3);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (16, 'Zeta', 3);
+
+INSERT INTO hero_power (hero_id, power_id) VALUES (11, 50);
+INSERT INTO hero_power (hero_id, power_id) VALUES (12, 50);
+INSERT INTO hero_power (hero_id, power_id) VALUES (13, 50);
+INSERT INTO hero_power (hero_id, power_id) VALUES (14, 50);
+INSERT INTO hero_power (hero_id, power_id) VALUES (15, 50);
+INSERT INTO hero_power (hero_id, power_id) VALUES (16, 50);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Cross-table ID collision traps: T1.id, T1.gender_id, T2.hero_id, T2.power_id, T3.id, T4.id all share overlapping numbers (1, 2, 3) with different semantics.
+-- 2. Confusing text values across tables (e.g., superhero_name = 'Male', attribute_name = 'Flight', race = 'Male') to kill queries selecting from or filtering on the wrong table/column.
+INSERT INTO alignment (id, alignment) VALUES (1, 'Male');
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'ActualPower');
+INSERT INTO colour (id, colour) VALUES (1, 'Male');
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Male');
+INSERT INTO race (id, race) VALUES (1, 'Male');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'Male');
+
+INSERT INTO superpower (id, power_name) VALUES (1, 'WrongPower_ID1');
+INSERT INTO superpower (id, power_name) VALUES (2, 'WrongPower_ID2');
+INSERT INTO superpower (id, power_name) VALUES (3, 'CorrectMalePower');
+
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, alignment_id, eye_colour_id, publisher_id, race_id) VALUES (1, 'Male', 'Male', 1, 1, 1, 1, 1);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, alignment_id, eye_colour_id, publisher_id, race_id) VALUES (2, 'NotMaleName', 'NotMaleFull', 2, NULL, NULL, NULL, NULL);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, alignment_id, eye_colour_id, publisher_id, race_id) VALUES (3, 'TrapHero', 'TrapFull', 1, 1, 1, 1, 1);
+
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 3);
+INSERT INTO hero_power (hero_id, power_id) VALUES (3, 2);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 100);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. One-to-many relationship where a single Male hero has > 5 identical powers or distinct powers, testing LIMIT 1, LIMIT 4, LIMIT 5, LIMIT 6, and GROUP BY hero_id mutations.
+-- 2. Handling of NULL power_name for a valid Male hero.
+INSERT INTO gender (id, gender) VALUES (5, 'Male');
+
+INSERT INTO superpower (id, power_name) VALUES (10, NULL);
+INSERT INTO superpower (id, power_name) VALUES (11, 'PowerA');
+INSERT INTO superpower (id, power_name) VALUES (12, 'PowerB');
+INSERT INTO superpower (id, power_name) VALUES (13, 'PowerC');
+INSERT INTO superpower (id, power_name) VALUES (14, 'PowerD');
+INSERT INTO superpower (id, power_name) VALUES (15, 'PowerE');
+INSERT INTO superpower (id, power_name) VALUES (16, 'PowerF');
+
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (99, 'OmniMan', 5);
+
+INSERT INTO hero_power (hero_id, power_id) VALUES (99, 10);
+INSERT INTO hero_power (hero_id, power_id) VALUES (99, 11);
+INSERT INTO hero_power (hero_id, power_id) VALUES (99, 12);
+INSERT INTO hero_power (hero_id, power_id) VALUES (99, 13);
+INSERT INTO hero_power (hero_id, power_id) VALUES (99, 14);
+INSERT INTO hero_power (hero_id, power_id) VALUES (99, 15);
+INSERT INTO hero_power (hero_id, power_id) VALUES (99, 16);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Empty result set when data exists in all tables, but no Male hero has a power (kills mutants with OR instead of AND, != 'Male', or broken joins).
+-- 2. Substring trap: gender = 'Malevolent' or 'Female' (kills LIKE '%Male%' or LIKE 'Male%' mutations).
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'Malevolent');
+INSERT INTO gender (id, gender) VALUES (3, 'Male ');
+INSERT INTO gender (id, gender) VALUES (4, 'Male');
+
+INSERT INTO superpower (id, power_name) VALUES (1, 'Laser Vision');
+INSERT INTO superpower (id, power_name) VALUES (2, 'Time Travel');
+
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (1, 'Heroine', 1);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (2, 'EvilGuy', 2);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (3, 'SpaceGuy', 3);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (4, 'TrueMaleNoPower', 4);
+
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 2);
+INSERT INTO hero_power (hero_id, power_id) VALUES (3, 1);
+```

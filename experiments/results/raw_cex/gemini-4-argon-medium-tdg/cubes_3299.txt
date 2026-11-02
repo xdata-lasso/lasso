@@ -1,0 +1,50 @@
+```sql
+-- DATASET 1
+-- Tests standard window functions (MAX, SUM), DISTINCT reduction across multiple rows, and PARTITION BY mutants (e.g., PARTITION BY partitionid or name) alongside JOIN mutants (some users have tweets/follows, some do not).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'Alice', 'alice@example.com', 10, 5);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'Bob', 'bob@example.com', 10, 15);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'Alice', 'alice2@example.com', 20, 15);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (4, 'Charlie', 'charlie@example.com', 20, 30);
+INSERT INTO follows (f1, f2) VALUES (1, 2);
+INSERT INTO tweets (id, uid, text, createdate) VALUES (101, 1, 'Hello world', '2023-01-01 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests handling of NULL values in followers, zero followers, and duplicate follower counts (kills SUM(DISTINCT) vs SUM, COUNT vs SUM, and COALESCE mutants).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'User1', 'u1@example.com', 1, NULL);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'User2', 'u2@example.com', 1, 0);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'User3', 'u3@example.com', 2, 10);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (4, 'User4', 'u4@example.com', 2, 10);
+```
+
+```sql
+-- DATASET 3
+-- Tests edge case where all followers values are NULL (returns a single row of (NULL, NULL), whereas aggregate queries without GROUP BY vs empty table or COALESCE to 0 would differ).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'NullUser1', 'n1@example.com', 1, NULL);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'NullUser2', 'n2@example.com', 2, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty user_profiles table (window functions over empty table return 0 rows, whereas ungrouped aggregate queries like SELECT MAX(followers), SUM(followers) FROM user_profiles return 1 row of (NULL, NULL)).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'Temp', 'temp@example.com', 1, 1);
+DELETE FROM user_profiles WHERE uid = 1;
+```
+
+```sql
+-- DATASET 5
+-- Tests negative numbers and descending follower order (kills window frame mutants where default ORDER BY frame changes MAX/SUM to running MAX/SUM, and tests MIN vs MAX).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'High', 'high@example.com', 1, 100);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'Low', 'low@example.com', 2, -20);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'Mid', 'mid@example.com', 3, 5);
+```
+
+```sql
+-- DATASET 6
+-- Tests single row with non-trivial values (kills mutants that drop columns, swap MAX and SUM when 1 row makes MAX == SUM unless tested alongside multi-row, or miscalculate expressions).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (10, 'Solo', 'solo@example.com', 5, 42);
+INSERT INTO follows (f1, f2) VALUES (10, 10);
+INSERT INTO tweets (id, uid, text, createdate) VALUES (1, 10, 'Solo tweet 1', '2023-05-01 12:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (2, 10, 'Solo tweet 2', '2023-05-01 12:05:00');
+```

@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests basic positive cases (both LIKE '%*%' and IS NULL), negative power cases (normal number, empty string), boundary conditions for convertedManaCost (5, 5.5, 6, NULL), and set name filtering.
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'ICE', 'Ice Age');
+
+-- Valid Coldsnap cards with convertedManaCost > 5 and matching power
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (1, 'uuid-1', 'CSP', 6.0, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (2, 'uuid-2', 'CSP', 7.0, '1+*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (3, 'uuid-3', 'CSP', 5.5, '*+1');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (4, 'uuid-4', 'CSP', 8.0, '2*2');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (5, 'uuid-5', 'CSP', 6.0, NULL);
+
+-- Valid Coldsnap cards with convertedManaCost > 5, but non-matching power (should contribute 0 to SUM, testing COUNT(*) vs SUM)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (6, 'uuid-6', 'CSP', 6.0, '4');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (7, 'uuid-7', 'CSP', 9.0, '');
+
+-- Boundary conditions on convertedManaCost for Coldsnap (should be filtered out by WHERE)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (8, 'uuid-8', 'CSP', 5.0, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (9, 'uuid-9', 'CSP', 5.0, NULL);
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (10, 'uuid-10', 'CSP', 4.0, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (11, 'uuid-11', 'CSP', NULL, '*');
+
+-- Wrong set (Ice Age) with matching convertedManaCost and power (tests set name filter and JOIN condition)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (12, 'uuid-12', 'ICE', 6.0, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (13, 'uuid-13', 'ICE', 7.0, NULL);
+
+-- Unmatched setCode / NULL setCode (tests INNER JOIN vs LEFT JOIN)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (14, 'uuid-14', NULL, 6.0, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (15, 'uuid-15', 'NONEXISTENT', 6.0, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests the difference between SUM(CASE ... ELSE 0 END) and COUNT(...) when WHERE matches rows, but none of the rows match the CASE condition.
+-- Expected result for Reference Query is 0 (whereas a query pushing the CASE condition to WHERE and using SUM or returning NULL on ELSE would behave differently).
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (1, 'uuid-201', 'CSP', 6.0, '5');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (2, 'uuid-202', 'CSP', 7.0, '10');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (3, 'uuid-203', 'CSP', 8.0, '0');
+```
+
+```sql
+-- DATASET 3
+-- Tests when NO rows match the WHERE clause at all.
+-- SUM(...) should return NULL, whereas COUNT(...) would return 0.
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'DOM', 'Dominaria');
+
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (1, 'uuid-301', 'CSP', 5.0, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (2, 'uuid-302', 'CSP', 3.0, NULL);
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (3, 'uuid-303', 'DOM', 6.0, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (4, 'uuid-304', 'DOM', 8.0, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests ONLY the `power IS NULL` branch vs `power LIKE '%*%'` branch in isolation, plus string variations like 'NULL' as text, and `faceConvertedManaCost` vs `convertedManaCost` confusion.
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'CSP2', 'Coldsnap Theme Decks');
+
+-- Only IS NULL is true here (if a mutant drops `OR T1.power IS NULL`, it returns 0 instead of 2)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, faceConvertedManaCost, power, toughness) VALUES (1, 'uuid-401', 'CSP', 6.0, 2.0, NULL, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, faceConvertedManaCost, power, toughness) VALUES (2, 'uuid-402', 'CSP', 7.0, 3.0, NULL, '5');
+
+-- Decoy: faceConvertedManaCost > 5, but convertedManaCost <= 5
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, faceConvertedManaCost, power, toughness) VALUES (3, 'uuid-403', 'CSP', 4.0, 6.0, '*', '*');
+
+-- Decoy: toughness has '*', power does not
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, faceConvertedManaCost, power, toughness) VALUES (4, 'uuid-404', 'CSP', 6.0, 6.0, '2', '*');
+
+-- Decoy: set name is LIKE '%Coldsnap%' but not equal to 'Coldsnap'
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, faceConvertedManaCost, power, toughness) VALUES (5, 'uuid-405', 'CSP2', 6.0, 6.0, '*', '*');
+```
+
+```sql
+-- DATASET 5
+-- Tests ONLY the `power LIKE '%*%'` branch (no NULL powers), with various positions of '*' (start, middle, end, solo) to kill mutants using `= '*'` or `LIKE '*%'` or `LIKE '%*'`.
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+
+-- Prefix, suffix, middle, and exact '*'
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (1, 'uuid-501', 'CSP', 6.0, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (2, 'uuid-502', 'CSP', 6.0, '*+2');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (3, 'uuid-503', 'CSP', 6.0, '1+*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (4, 'uuid-504', 'CSP', 6.0, '1+*+2');
+```

@@ -1,0 +1,68 @@
+```sql
+-- DATASET 1
+-- Tests basic inequality filter (<> 100.0) with boundary values, negative values, and zero.
+-- Also tests ordering by date_of_transaction when transaction_id is in reverse order.
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BUY', 'Purchase');
+
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'BUY', 1, '2023-05-03 10:00:00', 100.0, '10', 'Exact match, should be excluded');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'BUY', 1, '2023-05-04 10:00:00', 99.9999, '10', 'Just below 100.0');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (3, 'BUY', 1, '2023-05-02 10:00:00', 100.0001, '10', 'Just above 100.0');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (4, 'BUY', 1, '2023-05-01 10:00:00', 0.0, '0', 'Zero amount');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (5, 'BUY', 1, '2023-05-05 10:00:00', -100.0, '10', 'Negative 100.0');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in amount_of_transaction (should be excluded by <> 100.0) 
+-- and NULL handling in date_of_transaction (should be included and sorted first in SQLite ASC).
+-- Tests duplicate date_of_transaction to ensure DISTINCT is not mistakenly used.
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('SELL', 'Sale');
+
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (10, 'SELL', 1, '2023-06-01 12:00:00', NULL, '5', 'NULL amount, should be excluded');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (20, 'SELL', 1, NULL, 50.0, '5', 'NULL date, valid amount, should be included');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (30, 'SELL', 1, '2023-06-01 12:00:00', 250.0, '25', 'Duplicate date 1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (15, 'SELL', 1, '2023-06-01 12:00:00', 300.0, '30', 'Duplicate date 2, different id for tie-breaking');
+```
+
+```sql
+-- DATASET 3
+-- Tests potential unnecessary JOINs with child/parent tables (Sales, Purchases, Transactions_Lots, Investors, Ref_Transaction_Types).
+-- Includes transactions without matching child records and transactions with NULL foreign keys.
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor 1');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (1, 1, 'Lot 1');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('T1', 'Type 1');
+
+-- Transaction with NULL foreign keys and no child records
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, NULL, NULL, '2023-01-02', 500.0, '50', 'Orphan transaction');
+
+-- Transaction with valid foreign keys and multiple child records in Purchases/Transactions_Lots (tests against fan-out/duplication from joins)
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'T1', 1, '2023-01-01', 200.0, '20', 'Linked transaction');
+
+INSERT INTO "Sales" ("sales_transaction_id", "sales_details") VALUES (2, 'Sale detail');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (2, 'Purchase detail 1');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (2, 'Purchase detail 2');
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (2, 1);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (2, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set scenario when all rows have amount_of_transaction = 100.0 or NULL.
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BUY', 'Purchase');
+
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'BUY', 1, '2023-07-01', 100.0, '10', 'Excluded 100');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'BUY', 1, '2023-07-02', 100.0000, '10', 'Excluded 100.0000');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (3, 'BUY', 1, '2023-07-03', NULL, '10', 'Excluded NULL');
+```
+
+```sql
+-- DATASET 5
+-- Tests chronological sorting of date_of_transaction vs ordering by amount_of_transaction, share_count, or transaction_id.
+-- Ensures mutants that sort by the wrong column or wrong direction (DESC vs ASC) are killed.
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (100, NULL, NULL, '2022-12-31', 50.0, '900', 'Z');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (50, NULL, NULL, '2023-01-15', 10.0, '500', 'A');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (10, NULL, NULL, '2023-01-05', 500.0, '100', 'M');
+```

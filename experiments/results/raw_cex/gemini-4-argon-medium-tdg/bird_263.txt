@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests basic calculation, fractional division (CAST AS REAL), and DISTINCT vs ALL in joins and aggregations.
+-- Molecule m1 has 2 '-' bonds (b1, b2) and 1 'cl' atom (a1). Join produces 2 rows for a1.
+-- Molecule m2 has 1 '-' bond (b3) and 1 'c' atom (a2). Join produces 1 row for a2.
+-- Total rows = 3, 'cl' rows = 2 -> Result: 66.6666...
+-- Catches: Integer division (returns 66), COUNT(DISTINCT atom_id), inner subquery DISTINCT, or IN/EXISTS instead of JOIN.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm2', 'c');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm2', '-');
+```
+
+```sql
+-- DATASET 2
+-- Tests bond_type filtering ('-' vs '=' vs '#' vs NULL) and case sensitivity / substring matching on element ('cl' vs 'CL' vs 'c').
+-- Also tests joining directly via connected table instead of molecule_id (b1 is not in connected table).
+-- Total valid rows: m1 has 1 '-' bond (b1) and 3 atoms ('cl', 'CL', 'c'). Result: 1 / 3 * 100 = 33.3333...
+-- Catches: Missing WHERE T3.bond_type = '-', wrong bond_type, case-insensitive 'cl', LIKE '%cl%', or joining through `connected`.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'CL');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm1', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm2', 'cl');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b4', 'm2', NULL);
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b2');
+```
+
+```sql
+-- DATASET 3
+-- Tests OUTER JOIN mutants and NULL molecule_id handling, as well as connected vs non-connected atoms within the same molecule.
+-- m1 has a1 ('cl') and a2 ('h') connected by b1 ('-'), plus a3 ('cl') not in `connected`.
+-- m2 has a4 ('cl') with no bonds at all.
+-- m3 has b2 ('-') with no atoms at all.
+-- a5 ('cl') and b3 ('-') have NULL molecule_id.
+-- Valid join rows for m1: a1, a2, a3 with b1 -> 3 rows, 2 of which are 'cl'. Result: 66.6666...
+-- Catches: LEFT JOIN atom->molecule->bond, RIGHT JOIN, or joining via `connected` table (which would miss a3).
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', NULL, 'cl');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm3', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', NULL, '-');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a1', 'b1');
+```
+
+```sql
+-- DATASET 4
+-- Tests 0% boundary condition (numerator is 0, denominator > 0) and prevents confusion between molecule.label = '-' and bond.bond_type = '-'.
+-- m1 has label '-' and element 'cl', but bond_type is '='.
+-- m2 has label '+' and bond_type '-', with 2 non-'cl' atoms.
+-- Result: 0.0
+-- Catches: Filtering on T2.label = '-' instead of T3.bond_type = '-', or using WHERE T.element = 'cl' in outer query instead of CASE WHEN.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm2', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm2', 'h');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm2', '-');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty join result / division by zero boundary condition (returns NULL in SQLite).
+-- Also tests incorrect join conditions (e.g., joining atom_id = bond_id or molecule_id = bond_id).
+-- No '-' bonds exist that match a molecule with atoms.
+-- Result: NULL.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('m1', 'm1', 'cl');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('m1', 'm1', '=');
+```

@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests standard filtering on document_id = 2, boundary values (1, 3), different column values to catch wrong column projections, and unreferenced parent rows to catch unnecessary joins.
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('TYPE_A', 'Description A');
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('TYPE_B', 'Description B');
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('TYPE_C', 'Description C');
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('TYPE_UNUSED', 'Unused Type');
+
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('STAT_1', 'Status 1');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('STAT_2', 'Status 2');
+
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('AGENT_1', 'Agent One', 'Desc 1');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('AGENT_2', 'Agent Two', 'Desc 2');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, 'AGENT_1', 'STAT_1', 'TYPE_A', '2023-01-01 10:00:00', 'REC_1', 'Details 1');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, 'AGENT_2', 'STAT_2', 'TYPE_B', '2023-01-02 11:00:00', 'REC_2', 'Details 2');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (3, 'AGENT_1', 'STAT_2', 'TYPE_C', '2023-01-03 12:00:00', '2', '2');
+```
+
+```sql
+-- DATASET 2
+-- Tests when document_id = 2 has NULL foreign keys (shipping_agent_code, document_status_code) to kill mutants that inner-join with Ref_Shipping_Agents or Ref_Document_Status, or filter out NULLs on other columns. Also omits child records for document_id = 2 while providing them for document_id = 1 to kill mutants that inner-join child tables (Document_Drafts, Documents_Mailed).
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DOC_TYPE_2', 'Target Document Type');
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DOC_TYPE_1', 'Other Document Type');
+
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('ACTIVE', 'Active Status');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('UPS', 'United Parcel Service', 'Fast');
+INSERT INTO Addresses (address_id, address_details) VALUES (10, '123 Main St');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, 'UPS', 'ACTIVE', 'DOC_TYPE_1', '2023-05-01', 'R100', 'Has children and FKs');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, NULL, NULL, 'DOC_TYPE_2', NULL, NULL, NULL);
+
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (1, 1, 'Draft for Doc 1');
+INSERT INTO Documents_Mailed (document_id, mailed_to_address_id, mailing_date) VALUES (1, 10, '2023-05-02');
+```
+
+```sql
+-- DATASET 3
+-- Tests when document_id = 2 has NULL as its document_type_code, to catch mutants that add "WHERE document_type_code IS NOT NULL" or inner-join with Ref_Document_Types.
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('VALID_TYPE', 'Valid Description');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, NULL, NULL, 'VALID_TYPE', '2023-01-01', 'R1', 'Doc 1');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, NULL, NULL, NULL, '2023-01-02', 'R2', 'Doc 2 with NULL type');
+```
+
+```sql
+-- DATASET 4
+-- Tests when document_id = 2 does not exist in the table, ensuring empty result set and killing mutants that use OR conditions, >=, <=, !=, or fallback aggregations.
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('T1', 'Type 1');
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('T3', 'Type 3');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, NULL, NULL, 'T1', '2023-01-01', '2', '2');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (3, NULL, NULL, 'T3', '2023-01-03', '2', '2');
+```
+
+```sql
+-- DATASET 5
+-- Tests when document_id = 2 has multiple related rows in Documents_Mailed, to kill mutants that join with Documents_Mailed without DISTINCT (causing duplicate rows in the output).
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('MULTI_MAIL', 'Mailed Multiple Times');
+
+INSERT INTO Addresses (address_id, address_details) VALUES (101, 'Address 1');
+INSERT INTO Addresses (address_id, address_details) VALUES (102, 'Address 2');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, NULL, NULL, 'MULTI_MAIL', '2023-06-01', 'REC_200', 'Mailed twice');
+
+INSERT INTO Documents_Mailed (document_id, mailed_to_address_id, mailing_date) VALUES (2, 101, '2023-06-02');
+INSERT INTO Documents_Mailed (document_id, mailed_to_address_id, mailing_date) VALUES (2, 102, '2023-06-03');
+```
+
+```sql
+-- DATASET 6
+-- Tests string vs integer confusion and column swaps where another document has document_type_code = '2', shipping_agent_code = '2', document_status_code = '2', while document_id = 2 has distinct codes.
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('2', 'Numeric String Type');
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('REAL_TARGET', 'Actual Type for ID 2');
+
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('2', 'Status 2');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('2', 'Agent 2', 'Desc');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, '2', '2', 'REAL_TARGET', '2023-01-01', '999', 'Target Row');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (99, '2', '2', '2', '2023-01-01', '2', 'Decoy Row');
+```

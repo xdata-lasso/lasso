@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (ParentId IS NOT NULL vs IS NULL) and ORDER BY Score DESC
+INSERT INTO users (Id, DisplayName, Reputation, Views) VALUES (1, 'Alice', 50, 10);
+INSERT INTO users (Id, DisplayName, Reputation, Views) VALUES (2, 'Bob', 500, 100);
+INSERT INTO users (Id, DisplayName, Reputation, Views) VALUES (3, 'Charlie', 100, 20);
+
+-- Highest score overall, but ParentId IS NULL (should be ignored)
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId, LastEditorUserId, OwnerDisplayName) VALUES (10, 1, 999, 1, NULL, 3, 'FakeAlice');
+
+-- Valid post (ParentId IS NOT NULL) with highest valid score (should be selected -> Bob)
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId, LastEditorUserId, OwnerDisplayName) VALUES (20, 2, 100, 2, 10, 1, 'FakeBob');
+
+-- Valid post (ParentId IS NOT NULL) with lower score (should lose in ordering)
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId, LastEditorUserId, OwnerDisplayName) VALUES (30, 2, 50, 3, 10, 2, 'FakeCharlie');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on posts.id ASC when Score is tied, plus duplicate posts for the same user (kills JOIN without LIMIT 1)
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (1, 'TieWinner_LowId', 10);
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (2, 'TieLoser_HighId', 20);
+
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (1, 1, 10, 1, NULL);
+
+-- Tied highest score (200), Id 50 vs Id 100. ORDER BY Score DESC, posts.id ASC should pick Id 50 (User 1)
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (100, 2, 200, 2, 1);
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (50, 2, 200, 1, 1);
+
+-- Second valid post for User 1 to ensure a simple JOIN without LIMIT 1 produces duplicate rows
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (60, 2, 150, 1, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests correlation vs non-correlated subquery: Highest scoring valid post has OwnerUserId = NULL
+-- Reference query returns 0 rows. A correlated subquery or inner join before LIMIT 1 would falsely return User 1.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'FallbackUser');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'OtherUser');
+
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (1, 1, 10, 2, NULL);
+
+-- Highest score valid post, but OwnerUserId is NULL
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (2, 2, 500, NULL, 1);
+
+-- Lower score valid post with a valid OwnerUserId
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (3, 2, 100, 1, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests negative scores, zero scores, and NULL scores in ORDER BY Score DESC
+-- In SQLite, DESC places larger numbers first, and NULLs last: 0 > -10 > -100 > NULL
+INSERT INTO users (Id, DisplayName) VALUES (1, 'ZeroScoreUser');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'NegTenScoreUser');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'NullScoreUser');
+
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (1, 1, 50, 3, NULL);
+
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (10, 2, -10, 2, 1);
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (20, 2, NULL, 3, 1);
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (30, 2, 0, 1, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests decoy columns (ViewCount, AnswerCount, CommentCount, FavoriteCount, AcceptedAnswerId, PostTypeId)
+-- Ensures the query strictly checks ParentId IS NOT NULL and orders by Score
+INSERT INTO users (Id, DisplayName) VALUES (1, 'TrueWinner');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'ViewCountWinner');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'AcceptedAnswerWinner');
+INSERT INTO users (Id, DisplayName) VALUES (4, 'FavoriteCountWinner');
+
+-- Post with AcceptedAnswerId NOT NULL, but ParentId IS NULL
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, FavoriteCount, OwnerUserId, ParentId) VALUES (1, 1, 2, 1000, 5000, 500, 3, NULL);
+
+-- Post with highest Score (50) among ParentId IS NOT NULL, but low ViewCount/FavoriteCount, and unusual PostTypeId (3)
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, FavoriteCount, OwnerUserId, ParentId) VALUES (2, 3, NULL, 50, 5, 0, 1, 1);
+
+-- Post with highest ViewCount (9999) among ParentId IS NOT NULL, but lower Score (40)
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, FavoriteCount, OwnerUserId, ParentId) VALUES (3, 2, NULL, 40, 9999, 10, 2, 1);
+
+-- Post with highest FavoriteCount (888) among ParentId IS NOT NULL, but lower Score (30)
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, FavoriteCount, OwnerUserId, ParentId) VALUES (4, 2, NULL, 30, 100, 888, 4, 1);
+```
+
+```sql
+-- DATASET 6
+-- Tests negative Post IDs in tie-breaking (ORDER BY Score DESC, posts.id ASC)
+-- Also tests when ParentId = 0 (which is NOT NULL)
+INSERT INTO users (Id, DisplayName) VALUES (1, 'NegativeIdPostUser');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'PositiveIdPostUser');
+
+-- Both posts have Score = 75 and ParentId = 0 (NOT NULL).
+-- Post with Id = -5 should beat Post with Id = 5 in ascending order of posts.id.
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (5, 2, 75, 2, 0);
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (-5, 2, 75, 1, 0);
+```

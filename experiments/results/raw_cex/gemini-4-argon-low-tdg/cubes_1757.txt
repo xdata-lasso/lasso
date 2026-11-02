@@ -1,0 +1,48 @@
+```sql
+-- DATASET 1
+-- Tests SQLite type affinity (TEXT column compared with REAL literal 4560596484842.0), filtering out non-matching rows, and basic ORDER BY date_valid_from.
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (1, 101, 'VISA', '4560596484842.0', '2022-05-01', '2025-05-01', 'Exact string match');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 102, 'MC', '4560596484842', '2020-01-01', '2023-01-01', 'Integer string without .0');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (3, 103, 'AMEX', '9999999999999.0', '2021-01-01', '2024-01-01', 'Different card number');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (4, 104, 'VISA', '4560596484842.0', '2019-06-15', '2022-06-15', 'Earlier valid_from match');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on ORDER BY (same date_valid_from, different card_id) and duplicate output rows (to kill DISTINCT mutants).
+-- Because date_valid_to differs between card_id 10 and 20 while date_valid_from is identical, ordering by card_id is observable in the projected columns.
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (20, 201, 'VISA', '4560596484842.0', '2021-01-01', '2025-12-31', 'Tie breaker second');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (10, 202, 'VISA', '4560596484842.0', '2021-01-01', '2024-06-30', 'Tie breaker first');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (30, 203, 'VISA', '4560596484842.0', '2021-01-01', '2025-12-31', 'Exact duplicate of projected columns from card 20');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in date_valid_from, date_valid_to, card_number, and card_id (specifically testing NULLS LAST and NULLS FIRST ordering mutants).
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (5, 301, 'VISA', '4560596484842.0', '2020-03-01', '2023-03-01', 'Non-nullcard_id with same date_valid_from');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (NULL, 302, 'VISA', '4560596484842.0', '2020-03-01', '2029-12-31', 'NULL card_id should come after card_id 5 due to NULLS LAST');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (1, 303, 'VISA', '4560596484842.0', NULL, '2025-01-01', 'NULL date_valid_from');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 304, 'VISA', '4560596484842.0', '2022-01-01', NULL, 'NULL date_valid_to');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (3, 305, 'VISA', NULL, '2020-01-01', '2024-01-01', 'NULL card_number');
+```
+
+```sql
+-- DATASET 4
+-- Tests unnecessary JOIN mutants (e.g., INNER JOIN with Customers, Accounts, or Financial_Transactions) by having cards with NULL customer_id, non-existent customer_id, or no transactions.
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name, customer_address, customer_phone, customer_email, other_customer_details) VALUES (1, 'John', 'Doe', '123 Elm St', '555-0100', 'john@example.com', 'Active');
+INSERT INTO Accounts (account_id, customer_id, account_name, other_account_details) VALUES (10, 1, 'Checking', 'Main');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (100, 1, 'VISA', '4560596484842.0', '2021-01-01', '2024-01-01', 'Has customer and transactions');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (200, NULL, 'VISA', '4560596484842.0', '2022-01-01', '2025-01-01', 'NULL customer_id and no transactions');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, previous_transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (10, 100, 1001, NULL, 'PURCHASE', '2021-06-01', 50.0, 'Grocery', 'None');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, previous_transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (10, 100, 1002, 1001, 'PURCHASE', '2021-06-02', 75.0, 'Gas', 'None');
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary values around the card_number literal (e.g., >, <, LIKE mutants, or precision loss) and column swap mutants (date_valid_from vs date_valid_to).
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (1, 501, 'VISA', '4560596484841.0', '2018-01-01', '2021-01-01', 'One less');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 502, 'VISA', '4560596484843.0', '2018-02-01', '2021-02-01', 'One more');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (3, 503, 'VISA', '4560596484842.00', '2018-03-01', '2021-03-01', 'Two trailing zeros');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (4, 504, 'VISA', '4560596484842.0', '2023-10-10', '2020-01-01', 'Inverted dates to catch ORDER BY date_valid_to vs date_valid_from');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (5, 505, 'VISA', '4560596484842.0', '2021-05-05', '2026-05-05', 'Normal dates');
+```

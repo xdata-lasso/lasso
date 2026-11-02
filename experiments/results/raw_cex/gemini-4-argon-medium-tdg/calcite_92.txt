@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, correlated vs uncorrelated subquery (EMP.JOB = DEPT.NAME),
+-- EMPNO = DEPTNO vs EMP.DEPTNO = DEPT.DEPTNO, and duplicate SAL preservation (SELECT vs SELECT DISTINCT).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'SALES');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'CLERK');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'MANAGER');
+
+-- Row 1: Exact match (EMPNO=10 matches DEPTNO=10, and EMP.JOB='SALES' matches DEPT 10's NAME='SALES'). Note: EMP.DEPTNO is 20.
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 20, 'ALICE', 'SALES', NULL, '2020-01-01', 1000, 0, 0);
+
+-- Row 2: Duplicate SAL=1000 for another matching row to kill SELECT DISTINCT mutants.
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (20, 10, 'BOB', 'CLERK', 10, '2020-01-02', 1000, 100, 1);
+
+-- Row 3: EMPNO=30 matches DEPTNO=30, and JOB='SALES' exists in DEPT (row 10), but NOT for DEPTNO=30. Kills uncorrelated mutants.
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (30, 30, 'CHARLIE', 'SALES', 10, '2020-01-03', 2000, 0, 0);
+
+-- Row 4: EMP.DEPTNO=10 and JOB='SALES' (matches DEPT 10), but EMPNO=40 (does not match DEPTNO 10). Kills mutants using DEPTNO IN (...) instead of EMPNO IN (...).
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (40, 10, 'DAVID', 'SALES', 10, '2020-01-04', 3000, 0, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests mutants that confuse ENAME and JOB, or join on ENAME = DEPT.NAME, or mutate the second subquery (EMP.ENAME = ENAME).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (1, 'ANALYST');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (2, 'FORD');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (3, 'PRESIDENT');
+
+-- Row 1: Valid match where ENAME and JOB are distinct.
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 1, 'SMITH', 'ANALYST', NULL, '2021-05-01', 500, 0, 0);
+
+-- Row 2: ENAME='FORD' matches DEPT 2's NAME='FORD', but JOB='CLERK' does not. Kills mutants checking EMP.ENAME = DEPT.NAME.
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 2, 'FORD', 'CLERK', 1, '2021-05-02', 600, 0, 0);
+
+-- Row 3: Valid match where ENAME is duplicated across employees (kills mutants requiring unique ENAME or weird self-join conditions).
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 1, 'SMITH', 'PRESIDENT', 1, '2021-05-03', 700, 50, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests negation mutants (NOT IN, !=), OR vs AND between the two IN clauses, and wrong table selection (e.g., BONUS, EMPNULLABLES, EMP_B).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (100, 'DEV');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (200, 'QA');
+
+-- Row 1: Matches neither DEPTNO nor JOB. Kills NOT IN and OR mutants (since 2nd IN clause is always true for every EMP row).
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (999, 100, 'EVE', 'HR', NULL, '2019-03-10', 4500, 200, 0);
+
+-- Row 2: Matches DEPTNO=100 and JOB='DEV', but SAL is 0 and negative values exist in other columns.
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (100, 200, 'FRANK', 'DEV', 999, '2019-03-11', 0, -10, 1);
+
+-- Populate other tables with matching patterns to kill mutants querying the wrong table.
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('FRANK', 'DEV', 9999, 0);
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (100, 100, 'FRANK', 'DEV', NULL, '2019-03-11', 8888, 0, 0);
+INSERT INTO "EMPNULLABLES_20" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (100, 100, 'FRANK', 'DEV', NULL, '2019-03-11', 7777, 0, 0);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (100, 100, 'FRANK', 'DEV', NULL, '2019-03-11', 6666, 0, 0, '1990-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when EMP and DEPT are non-empty, and tests multiple DEPT rows with the same NAME.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'SALES');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'SALES');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'IT');
+
+-- EMPNO=50 is not in (10, 20) even though JOB='SALES'.
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (50, 10, 'GRACE', 'SALES', NULL, '2022-01-01', 1200, 0, 0);
+
+-- EMPNO=10 is in DEPT, but JOB='IT' corresponds to DEPTNO=30, not 10.
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 30, 'HEIDI', 'IT', 50, '2022-01-02', 1500, 0, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests case sensitivity, whitespace, and multiple DEPT rows having the same NAME where one matches EMPNO.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (5, 'MANAGER');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (6, 'MANAGER');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (7, 'manager');
+
+-- Matches DEPTNO 6 with NAME 'MANAGER'.
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (6, 5, 'IVAN', 'MANAGER', NULL, '2023-01-01', 3500, 500, 0);
+
+-- Case mismatch ('MANAGER' vs 'manager' for DEPTNO 7).
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (7, 7, 'JUDY', 'MANAGER', 6, '2023-01-02', 4000, 0, 0);
+```

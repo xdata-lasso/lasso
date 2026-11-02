@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT T1.ID) vs COUNT(T1.ID) or COUNT(*) by having multiple matching rows in both Examination and Laboratory for the same ID.
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Examination (ID, "Examination Date", "ANA Pattern") VALUES (1, '2020-01-01', 'P');
+INSERT INTO Examination (ID, "Examination Date", "ANA Pattern") VALUES (1, '2020-01-02', 'P');
+INSERT INTO Laboratory (ID, Date, C3) VALUES (1, '2020-01-01', 40);
+INSERT INTO Laboratory (ID, Date, C3) VALUES (1, '2020-01-02', 45);
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary conditions for T2.C3 > 35 (34, 35, 36, NULL) and T1."ANA Pattern" = 'P' ('P', 'S', 'P,S', NULL), plus AND vs OR logic.
+INSERT INTO Patient (ID) VALUES (1);
+INSERT INTO Patient (ID) VALUES (2);
+INSERT INTO Patient (ID) VALUES (3);
+INSERT INTO Patient (ID) VALUES (4);
+INSERT INTO Patient (ID) VALUES (5);
+INSERT INTO Patient (ID) VALUES (6);
+INSERT INTO Patient (ID) VALUES (7);
+
+-- ID 1: Exact boundary C3 = 35 (Should NOT match)
+INSERT INTO Examination (ID, "ANA Pattern") VALUES (1, 'P');
+INSERT INTO Laboratory (ID, Date, C3) VALUES (1, '2020-01-01', 35);
+
+-- ID 2: Just above boundary C3 = 36 (Should match)
+INSERT INTO Examination (ID, "ANA Pattern") VALUES (2, 'P');
+INSERT INTO Laboratory (ID, Date, C3) VALUES (2, '2020-01-01', 36);
+
+-- ID 3: Just below boundary C3 = 34 (Should NOT match)
+INSERT INTO Examination (ID, "ANA Pattern") VALUES (3, 'P');
+INSERT INTO Laboratory (ID, Date, C3) VALUES (3, '2020-01-01', 34);
+
+-- ID 4: C3 is NULL (Should NOT match)
+INSERT INTO Examination (ID, "ANA Pattern") VALUES (4, 'P');
+INSERT INTO Laboratory (ID, Date, C3) VALUES (4, '2020-01-01', NULL);
+
+-- ID 5: Wrong ANA Pattern 'S', valid C3 (Tests AND vs OR, = vs !=)
+INSERT INTO Examination (ID, "ANA Pattern") VALUES (5, 'S');
+INSERT INTO Laboratory (ID, Date, C3) VALUES (5, '2020-01-01', 50);
+
+-- ID 6: Substring ANA Pattern 'P,S', valid C3 (Tests = 'P' vs LIKE '%P%')
+INSERT INTO Examination (ID, "ANA Pattern") VALUES (6, 'P,S');
+INSERT INTO Laboratory (ID, Date, C3) VALUES (6, '2020-01-01', 50);
+
+-- ID 7: NULL ANA Pattern, valid C3
+INSERT INTO Examination (ID, "ANA Pattern") VALUES (7, NULL);
+INSERT INTO Laboratory (ID, Date, C3) VALUES (7, '2020-01-01', 50);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT/CROSS JOIN, and checks if join condition on Date was erroneously added (T1."Examination Date" = T2.Date).
+INSERT INTO Patient (ID) VALUES (1);
+INSERT INTO Patient (ID) VALUES (2);
+INSERT INTO Patient (ID) VALUES (3);
+
+-- ID 1: Matches both conditions, but Examination Date != Laboratory Date (Should still match in Gold Query)
+INSERT INTO Examination (ID, "Examination Date", "ANA Pattern") VALUES (1, '2020-01-01', 'P');
+INSERT INTO Laboratory (ID, Date, C3) VALUES (1, '2020-05-05', 40);
+
+-- ID 2: Exists in Examination with 'P', but missing from Laboratory (Tests INNER JOIN vs LEFT JOIN)
+INSERT INTO Examination (ID, "Examination Date", "ANA Pattern") VALUES (2, '2020-01-01', 'P');
+
+-- ID 3: Exists in Laboratory with C3 > 35, but missing from Examination (Tests INNER JOIN vs RIGHT JOIN / missing join condition)
+INSERT INTO Laboratory (ID, Date, C3) VALUES (3, '2020-01-01', 50);
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion with similar columns (e.g., C4 instead of C3, Diagnosis instead of "ANA Pattern", or Patient.ID without proper join).
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'P');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'SLE');
+
+-- ID 1: C4 > 35, but C3 <= 35; Diagnosis = 'P', but ANA Pattern = 'D' (Should NOT match)
+INSERT INTO Examination (ID, "ANA Pattern", Diagnosis) VALUES (1, 'D', 'P');
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (1, '2020-01-01', 20, 45);
+
+-- ID 2: C3 > 35, C4 <= 35; ANA Pattern = 'P', Diagnosis = 'SLE' (Should match)
+INSERT INTO Examination (ID, "ANA Pattern", Diagnosis) VALUES (2, 'P', 'SLE');
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (2, '2020-01-01', 45, 20);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set (0 matches) to kill mutants that use MAX/MIN/SUM without handling empty sets or return non-zero counts via outer joins.
+INSERT INTO Patient (ID) VALUES (1);
+INSERT INTO Examination (ID, "ANA Pattern") VALUES (1, 'S');
+INSERT INTO Laboratory (ID, Date, C3) VALUES (1, '2020-01-01', 20);
+```

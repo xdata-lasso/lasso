@@ -1,0 +1,154 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality: filtering by wins = 1, grouping, AVG vs SUM/MAX/MIN, and ordering by COUNT(wins) DESC.
+-- Also includes decoy drivers with higher total wins (where wins > 1) or more rows where wins != 1.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://monza');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://2020');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'R1', '2020-01-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2020, 2, 1, 'R2', '2020-01-08', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2020, 3, 1, 'R3', '2020-01-15', 'http://r3');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 2020, 4, 1, 'R4', '2020-01-22', 'http://r4');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'd1', 'Lewis', 'Hamilton', 'British', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'd2', 'Max', 'Verstappen', 'Dutch', 'http://d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (3, 'd3', 'Charles', 'Leclerc', 'Monegasque', 'http://d3');
+
+-- Driver 1: Three rows with wins = 1 (COUNT = 3, AVG(points) = 21.666...), plus one row with wins = 2 (should be filtered out)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (1, 1, 1, 10.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (2, 2, 1, 20.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (3, 3, 1, 35.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (4, 4, 1, 100.0, 2);
+
+-- Driver 2: Four rows total, but only two with wins = 1 (COUNT = 2). If WHERE wins = 1 is omitted or mutated to wins >= 1, Driver 2 wins the ORDER BY COUNT DESC.
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (5, 1, 2, 50.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (6, 2, 2, 60.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (7, 3, 2, 70.0, 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (8, 4, 2, 80.0, 3);
+
+-- Driver 3: One row with wins = 1, but highest single points (tests ORDER BY AVG(points) DESC vs ORDER BY COUNT(wins) DESC)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (9, 1, 3, 500.0, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY T1.forename, T1.surname, T1.nationality vs GROUP BY T1.driverId.
+-- Two distinct driverId records share the exact same forename, surname, and nationality.
+-- Combined, their COUNT(wins=1) is 2 + 2 = 4, beating Driver 3 who has COUNT(wins=1) = 3.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://2021');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2021, 1, 1, 'R1', '2021-01-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2021, 2, 1, 'R2', '2021-01-02', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2021, 3, 1, 'R3', '2021-01-03', 'http://r3');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'john1', 'John', 'Smith', 'American', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'john2', 'John', 'Smith', 'American', 'http://d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (3, 'carlos', 'Carlos', 'Sainz', 'Spanish', 'http://d3');
+
+-- Driver 1 (John Smith #1): 2 rows with wins = 1
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (1, 1, 1, 10.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (2, 2, 1, 20.0, 1);
+
+-- Driver 2 (John Smith #2): 2 rows with wins = 1
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (3, 1, 2, 30.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (4, 2, 2, 40.0, 1);
+
+-- Driver 3 (Carlos Sainz): 3 rows with wins = 1
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (5, 1, 3, 15.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (6, 2, 3, 25.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (7, 3, 3, 35.0, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on ORDER BY:
+-- 1) Tie on COUNT(T2.wins) DESC, broken by T1.forename ASC
+-- 2) Tie on COUNT and forename, broken by T1.surname ASC
+-- 3) Tie on COUNT, forename, and surname, broken by T1.nationality ASC (including NULLS LAST behavior)
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://2022');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2022, 1, 1, 'R1', '2022-01-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2022, 2, 1, 'R2', '2022-01-02', 'http://r2');
+
+-- All these drivers will have COUNT(wins) = 2.
+-- Expected winner of ORDER BY: 'Aaron', 'Abbott', 'Australian' (since 'Australian' < 'British', and NULL comes last).
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'd1', 'Aaron', 'Abbott', NULL, 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'd2', 'Aaron', 'Abbott', 'British', 'http://d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (3, 'd3', 'Aaron', 'Abbott', 'Australian', 'http://d3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (4, 'd4', 'Aaron', 'Zimmer', 'Australian', 'http://d4');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (5, 'd5', 'Zach', 'Abbott', 'Australian', 'http://d5');
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (1, 1, 1, 100.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (2, 2, 1, 200.0, 1);
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (3, 1, 2, 50.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (4, 2, 2, 60.0, 1);
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (5, 1, 3, 10.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (6, 2, 3, 25.0, 1);
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (7, 1, 4, 80.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (8, 2, 4, 90.0, 1);
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (9, 1, 5, 300.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (10, 2, 5, 400.0, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests partial GROUP BY mutations (e.g., missing surname or nationality in GROUP BY) and AVG(DISTINCT points) vs AVG(points).
+-- Two drivers share the same forename ('Alex'), one has 2 wins, one has 2 wins. If grouped only by forename, 'Alex' has 4 wins and beats 'Seb' (3 wins).
+-- For 'Seb', two of the three points values are identical (10.0, 10.0, 25.0) so AVG(points) = 15.0 whereas AVG(DISTINCT points) = 17.5.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2023, 'http://2023');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2023, 1, 1, 'R1', '2023-01-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2023, 2, 1, 'R2', '2023-01-02', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2023, 3, 1, 'R3', '2023-01-03', 'http://r3');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'alex1', 'Alex', 'Albon', 'Thai', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'alex2', 'Alex', 'Palou', 'Spanish', 'http://d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (3, 'seb1', 'Seb', 'Vettel', 'German', 'http://d3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (4, 'seb2', 'Seb', 'Vettel', 'Swiss', 'http://d4');
+
+-- Alex Albon: 2 rows
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (1, 1, 1, 12.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (2, 2, 1, 18.0, 1);
+
+-- Alex Palou: 2 rows
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (3, 1, 2, 22.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (4, 2, 2, 28.0, 1);
+
+-- Seb Vettel (German): 3 rows (duplicate points 10.0, 10.0, 25.0)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (5, 1, 3, 10.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (6, 2, 3, 10.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (7, 3, 3, 25.0, 1);
+
+-- Seb Vettel (Swiss): 2 rows (if nationality is omitted from GROUP BY, Seb Vettel gets 3 + 2 = 5 rows and a different AVG)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (8, 1, 4, 100.0, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (9, 2, 4, 200.0, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests confusion between tables (e.g., querying `results` or `constructorStandings` instead of `driverStandings`)
+-- and tests when the top driver has NULL nationality.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2024, 'http://2024');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2024, 1, 1, 'R1', '2024-01-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2024, 2, 1, 'R2', '2024-01-02', 'http://r2');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'con1', 'Ferrari', 'Italian', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'd1', 'Kimi', 'Raikkonen', NULL, 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'd2', 'Fernando', 'Alonso', 'Spanish', 'http://d2');
+
+-- Driver 1 has 2 wins=1 in driverStandings, with NULL nationality
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (1, 1, 1, 18.5, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (2, 2, 1, 21.5, 1);
+
+-- Driver 2 has only 1 win=1 in driverStandings, but 2 wins (position=1) in `results`
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (3, 1, 2, 25.0, 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, statusId) VALUES (1, 1, 2, 1, 1, 1, '1', 1, 25.0, 50, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, statusId) VALUES (2, 2, 2, 1, 1, 1, '1', 1, 25.0, 50, 1);
+```

@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. AVG(height_cm) vs AVG(DISTINCT height_cm) (duplicate heights: 180, 180, 181)
+-- 2. Integer division vs floating-point AVG (sum 541 / 3 = 180.333...)
+-- 3. Wrong column projection (height_cm vs weight_kg vs id)
+-- 4. WHERE clause filtering ('Neutral' vs 'Good', 'Bad', NULL)
+-- 5. NULL handling in AVG (NULL height_cm vs COUNT(*))
+-- 6. Unjoined superhero rows (NULL alignment_id)
+INSERT INTO alignment (id, alignment) VALUES (1, 'Good');
+INSERT INTO alignment (id, alignment) VALUES (2, 'Bad');
+INSERT INTO alignment (id, alignment) VALUES (3, 'Neutral');
+INSERT INTO alignment (id, alignment) VALUES (4, NULL);
+
+INSERT INTO superhero (id, superhero_name, alignment_id, height_cm, weight_kg) VALUES (10, 'Hero_N1', 3, 180, 80);
+INSERT INTO superhero (id, superhero_name, alignment_id, height_cm, weight_kg) VALUES (11, 'Hero_N2', 3, 180, 85);
+INSERT INTO superhero (id, superhero_name, alignment_id, height_cm, weight_kg) VALUES (12, 'Hero_N3', 3, 181, 90);
+INSERT INTO superhero (id, superhero_name, alignment_id, height_cm, weight_kg) VALUES (13, 'Hero_N_NullHeight', 3, NULL, 95);
+INSERT INTO superhero (id, superhero_name, alignment_id, height_cm, weight_kg) VALUES (14, 'Hero_Good', 1, 200, 100);
+INSERT INTO superhero (id, superhero_name, alignment_id, height_cm, weight_kg) VALUES (15, 'Hero_Bad', 2, 160, 70);
+INSERT INTO superhero (id, superhero_name, alignment_id, height_cm, weight_kg) VALUES (16, 'Hero_NullAlign', NULL, 190, 88);
+INSERT INTO superhero (id, superhero_name, alignment_id, height_cm, weight_kg) VALUES (17, 'Hero_AlignWithNullText', 4, 175, 75);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Incorrect join condition (e.g., T1.id = T2.id or cross join)
+-- 2. String matching mutations (case sensitivity 'neutral', prefix/suffix 'Neutrality', other columns having 'Neutral')
+-- 3. Multiple alignment records with 'Neutral' (tests GROUP BY T2.id vs single aggregate result)
+-- 4. Zero height_cm vs NULL height_cm
+INSERT INTO alignment (id, alignment) VALUES (1, 'Neutral');
+INSERT INTO alignment (id, alignment) VALUES (2, 'neutral');
+INSERT INTO alignment (id, alignment) VALUES (3, 'Neutrality');
+INSERT INTO alignment (id, alignment) VALUES (4, 'Good');
+INSERT INTO alignment (id, alignment) VALUES (5, 'Neutral');
+
+INSERT INTO superhero (id, superhero_name, full_name, alignment_id, height_cm, weight_kg) VALUES (1, 'NotNeutralHero', 'Neutral', 4, 500, 100);
+INSERT INTO superhero (id, superhero_name, full_name, alignment_id, height_cm, weight_kg) VALUES (2, 'LowercaseNeutral', 'John Doe', 2, 300, 80);
+INSERT INTO superhero (id, superhero_name, full_name, alignment_id, height_cm, weight_kg) VALUES (3, 'LikeNeutral', 'Jane Doe', 3, 400, 70);
+INSERT INTO superhero (id, superhero_name, full_name, alignment_id, height_cm, weight_kg) VALUES (4, 'TrueNeutral1', 'Hero A', 1, 0, 60);
+INSERT INTO superhero (id, superhero_name, full_name, alignment_id, height_cm, weight_kg) VALUES (5, 'TrueNeutral2', 'Hero B', 1, 150, 65);
+INSERT INTO superhero (id, superhero_name, full_name, alignment_id, height_cm, weight_kg) VALUES (6, 'TrueNeutral3', 'Hero C', 5, 210, 75);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty matching set for 'Neutral' (AVG should return NULL, not 0)
+-- 2. INNER JOIN vs RIGHT JOIN / LEFT JOIN when 'Neutral' exists in alignment table but has no matching superheroes
+INSERT INTO alignment (id, alignment) VALUES (1, 'Good');
+INSERT INTO alignment (id, alignment) VALUES (2, 'Neutral');
+
+INSERT INTO superhero (id, superhero_name, alignment_id, height_cm, weight_kg) VALUES (1, 'Superman', 1, 191, 101);
+INSERT INTO superhero (id, superhero_name, alignment_id, height_cm, weight_kg) VALUES (2, 'Batman', 1, 188, 95);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Single matching row where AVG(height_cm) equals SUM(height_cm) and MIN/MAX(height_cm) in some datasets,
+--    so we use 2 rows with widely different values (100 and 300 -> AVG=200, SUM=400, MIN=100, MAX=300, COUNT=2)
+-- 2. Unnecessary INNER JOINs with other foreign key tables (gender, colour, race, publisher, hero_power, hero_attribute)
+--    If a mutant joins with other tables, rows with NULL FKs will be dropped, changing the AVG.
+INSERT INTO alignment (id, alignment) VALUES (10, 'Neutral');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO race (id, race) VALUES (1, 'Human');
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel');
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO superpower (id, power_name) VALUES (1, 'Flight');
+
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (1, 'FullyLinkedHero', 1, 1, 1, 1, 1, 1, 10, 100, 50);
+
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (2, 'UnlinkedHero', NULL, NULL, NULL, NULL, NULL, NULL, 10, 300, 150);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 50);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 60);
+
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Confusion between foreign keys (e.g. joining alignment on gender_id, race_id, publisher_id, or eye_colour_id instead of alignment_id)
+INSERT INTO alignment (id, alignment) VALUES (1, 'Neutral');
+INSERT INTO alignment (id, alignment) VALUES (2, 'Good');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Neutral');
+INSERT INTO race (id, race) VALUES (1, 'Neutral');
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Neutral');
+INSERT INTO colour (id, colour) VALUES (1, 'Neutral');
+
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (10, 'DecoyFKHero', 1, 1, 1, 1, 1, 1, 2, 999, 999);
+
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (20, 'ActualNeutralHero', NULL, NULL, NULL, NULL, NULL, NULL, 1, 172, 70);
+```

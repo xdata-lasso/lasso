@@ -1,0 +1,63 @@
+```sql
+-- DATASET 1
+-- Tests basic semi-join (EXISTS vs INNER JOIN with duplicates), filtering out users without tweets, and distinct window function over multiple qualifying users.
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'Alice', 'alice@example.com', 1, 10);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'Bob', 'bob@example.com', 1, 20);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'Charlie', 'charlie@example.com', 2, 1000);
+
+INSERT INTO tweets (id, uid, text, createdate) VALUES (101, 1, 'Alice tweet 1', '2023-01-01 10:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (102, 1, 'Alice tweet 2', '2023-01-02 10:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (103, 1, 'Alice tweet 3', '2023-01-03 10:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (104, 2, 'Bob tweet 1', '2023-01-04 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set for the subquery (users exist, tweets with NULL uid exist, but no user has a tweet).
+-- Catches mutants that replace AVG() OVER () with plain aggregate AVG() (which returns 1 row of NULL instead of 0 rows).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'Alice', 'alice@example.com', 1, 50);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'Bob', 'bob@example.com', 2, 100);
+
+INSERT INTO tweets (id, uid, text, createdate) VALUES (101, NULL, 'Anonymous tweet', '2023-01-01 10:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests AVG(followers) vs AVG(DISTINCT followers) and floating-point division vs integer division.
+-- Qualifying followers: 10, 10, 25 -> AVG is 45/3 = 15.0, whereas AVG(DISTINCT) is 35/2 = 17.5.
+-- Also includes another user with 10, 10, 26 -> 46/3 = 15.3333...
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'User1', 'u1@example.com', 1, 10);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'User2', 'u2@example.com', 1, 10);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'User3', 'u3@example.com', 2, 26);
+
+INSERT INTO tweets (id, uid, text, createdate) VALUES (101, 1, 'Tweet 1', '2023-01-01 10:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (102, 2, 'Tweet 2', '2023-01-01 11:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (103, 3, 'Tweet 3', '2023-01-01 12:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in AVG(followers) and confuses mutants joining on follows table or wrong columns (e.g., LHS.uid = RHS.id or LHS.partitionid = RHS.uid).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'User1', 'u1@example.com', 10, NULL);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'User2', 'u2@example.com', 20, 0);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'User3', 'u3@example.com', 1, 30);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (10, 'User10', 'u10@example.com', 2, 500);
+
+INSERT INTO tweets (id, uid, text, createdate) VALUES (10, 1, 'Tweet by 1 with id 10', '2023-01-01 10:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (20, 2, 'Tweet by 2 with id 20', '2023-01-02 10:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (30, 3, 'Tweet by 3 with id 30', '2023-01-03 10:00:00');
+
+INSERT INTO follows (f1, f2) VALUES (10, 1);
+INSERT INTO follows (f1, f2) VALUES (1, 10);
+```
+
+```sql
+-- DATASET 5
+-- Tests when all qualifying users have NULL followers (query should return 1 row with NULL, whereas filtering out NULLs would return 0 rows).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'User1', 'u1@example.com', 1, NULL);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'User2', 'u2@example.com', 1, NULL);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'User3', 'u3@example.com', 1, 100);
+
+INSERT INTO tweets (id, uid, text, createdate) VALUES (101, 1, 'Tweet 1', '2023-01-01 10:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (102, 2, 'Tweet 2', '2023-01-02 10:00:00');
+```

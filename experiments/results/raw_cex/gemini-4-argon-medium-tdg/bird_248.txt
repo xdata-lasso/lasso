@@ -1,0 +1,99 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match and filtering out non-matching bond_type and molecule_id (kills OR vs AND, = vs !=, missing WHERE clauses).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR447', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR448', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'TR447', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'TR447', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', 'TR447', 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A4', 'TR448', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A5', 'TR448', 'n');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'TR447', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR447', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'TR448', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B4', 'TR448', '-');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'B1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'A3', 'B2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A4', 'A5', 'B3');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A5', 'A4', 'B4');
+```
+
+```sql
+-- DATASET 2
+-- Tests join conditions and table source of molecule_id (T3.molecule_id vs T1.molecule_id, and whether T1.molecule_id = T3.molecule_id is enforced by mutant).
+-- Also tests NULLs in atom.molecule_id and atom.element.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR447', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR999', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'TR999', NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', NULL, 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', 'TR447', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A4', 'TR447', 'c');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'TR447', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR999', '#');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'B1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A3', 'A4', 'B2');
+```
+
+```sql
+-- DATASET 3
+-- Tests multiplicity and DISTINCT vs ALL mutations: multiple connected pairs sharing the same atom_id, or multiple bonds for the same atom_id.
+-- Also tests NULL bond_id, NULL bond_type, and NULL bond.molecule_id.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR447', NULL);
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'TR447', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'TR447', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', 'TR447', 'c');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'TR447', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR447', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'TR447', NULL);
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B4', NULL, '#');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'B1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'A1', 'B1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A3', 'B2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'A3', 'B3');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A3', 'A1', 'B4');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A3', 'A2', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when valid rows exist in parent tables (kills LEFT JOIN mutants on connected/bond and overly permissive filters).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR447', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'TR447', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'TR447', 'c');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'TR447', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR447', '-');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'B2');
+```
+
+```sql
+-- DATASET 5
+-- Tests string edge cases (LIKE vs =, case sensitivity, prefix/suffix matching) and column projection order (atom_id vs atom_id2).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR447', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('tr447', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR4470', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('ATOM_X', 'TR447', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('ATOM_Y', 'TR447', 'n');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_EXACT', 'TR447', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_CASE', 'tr447', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_PREFIX', 'TR4470', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_TYPE', 'TR447', '##');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('ATOM_X', 'ATOM_Y', 'B_EXACT');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('ATOM_Y', 'ATOM_X', 'B_CASE');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('ATOM_X', 'ATOM_X', 'B_PREFIX');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('ATOM_Y', 'ATOM_Y', 'B_TYPE');
+```

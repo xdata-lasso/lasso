@@ -1,0 +1,45 @@
+-- Schema DDL
+CREATE TABLE "SCIENTISTS" (
+    "SSN" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("SSN")
+);
+CREATE TABLE "PROJECTS" (
+    "CODE" TEXT,
+    "NAME" TEXT,
+    "HOURS" INT,
+    PRIMARY KEY ("CODE")
+);
+CREATE TABLE "ASSIGNEDTO" (
+    "SCIENTIST" INT,
+    "PROJECT" TEXT,
+    PRIMARY KEY ("SCIENTIST", "PROJECT"),
+    FOREIGN KEY ("PROJECT") REFERENCES "PROJECTS"("CODE"),
+    FOREIGN KEY ("SCIENTIST") REFERENCES "SCIENTISTS"("SSN")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO SCIENTISTS VALUES (-1, 0);
+INSERT INTO SCIENTISTS VALUES (0, 0);
+INSERT INTO PROJECTS VALUES (10, 9, 0);
+INSERT INTO PROJECTS VALUES (4, 9, 0);
+INSERT INTO ASSIGNEDTO VALUES (0, 10);
+INSERT INTO ASSIGNEDTO VALUES (0, 4);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT * FROM (SELECT * FROM (SELECT hours, name, AVG(hours) AS meanhours FROM projects GROUP BY hours, name) ORDER BY hours DESC) LIMIT 2);
+
+/*
+Gold Result:
+('9',)
+*/
+
+-- Prediction Query
+SELECT name FROM projects WHERE hours > (SELECT AVG(hours) FROM projects);
+
+/*
+Prediction Result:
+*/

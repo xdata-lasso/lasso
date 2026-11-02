@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Empty Invoices table (tests behavior of window function COUNT(*) OVER () vs scalar COUNT(*) when 0 rows exist; window returns 0 rows, aggregate returns 1 row with 0).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Alice');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (10, 1, '2023-01-01 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Multiple Invoices with duplicate order_id, duplicate invoice_date, and NULL values.
+-- Tests:
+-- 1. Missing DISTINCT (would return 4 rows instead of 1).
+-- 2. COUNT(column) vs COUNT(*) due to NULLs.
+-- 3. COUNT(DISTINCT column) vs COUNT(*).
+-- 4. PARTITION BY order_id or invoice_date inside OVER().
+-- 5. Unnecessary INNER JOIN with Orders (invoice 3 has NULL order_id) or Invoice_Line_Items (not all invoices have line items).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Alice');
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (2, 'Bob');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (10, 1, '2023-01-01 10:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (20, 2, '2023-01-02 10:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (30, 2, '2023-01-03 10:00:00');
+
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (1, 10, '2023-01-05 12:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (2, 10, '2023-01-05 12:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (3, NULL, '2023-01-06 12:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (4, 20, NULL);
+
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('ELEC', 'Electronics', 0.20);
+INSERT INTO "Products" ("product_id", "production_type_code", "unit_price", "product_name") VALUES (100, 'ELEC', 50.0, 'Keyboard');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (1000, 10, 100, '1');
+
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price") VALUES (100, 1, 1000, 'Keyboard', '1', 50.0);
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price") VALUES (100, 1, 1000, 'Keyboard', '1', 50.0);
+```
+
+```sql
+-- DATASET 3
+-- Single Invoice row, but multiple rows in all other tables (Orders, Customers, Invoice_Line_Items, Financial_Transactions).
+-- Tests wrong table selection (e.g., counting Orders or Invoice_Line_Items instead of Invoices) and fan-out from joins.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Alice');
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (2, 'Bob');
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (3, 'Charlie');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (50, 1, 'AliceAcc');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (10, 1, '2023-01-01 00:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (20, 2, '2023-01-02 00:00:00');
+
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (1, 10, '2023-01-03 00:00:00');
+
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('BOOKS', 'Books', 0.05);
+INSERT INTO "Products" ("product_id", "production_type_code", "unit_price", "product_name") VALUES (200, 'BOOKS', 15.0, 'SQL Guide');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (2000, 10, 200, '2');
+
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price") VALUES (200, 1, 2000, 'SQL Guide', '1', 15.0);
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price") VALUES (200, 1, 2000, 'SQL Guide', '1', 15.0);
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price") VALUES (200, 1, 2000, 'SQL Guide', '1', 15.0);
+
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (50, 1, 9001, 15.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (50, 1, 9002, 30.0);
+```
+
+```sql
+-- DATASET 4
+-- Invoices with distinct order_ids and dates, where invoice_number is non-sequential (e.g., 10, 20) to catch MAX(invoice_number) or SUM(invoice_number) vs COUNT(*), and window ORDER BY clauses (e.g. COUNT(*) OVER (ORDER BY invoice_date) which produces running totals 1, 2 instead of total count 2).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Alice');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (100, 1, '2023-01-01 00:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (200, 1, '2023-01-02 00:00:00');
+
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (10, 100, '2023-01-10 00:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (20, 200, '2023-01-20 00:00:00');
+```

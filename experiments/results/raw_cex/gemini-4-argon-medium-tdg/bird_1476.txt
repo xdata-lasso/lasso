@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset: multiple customers, CZK, EUR, USD, NULL currency, 2012 vs other years, duplicate consumption values, unjoined customers.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'KAM', NULL);
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (6, 'LAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 100.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 100.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201301', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201205', 250.25);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 80.75);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201206', 40.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201112', 300.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201203', 999.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (5, '201204', 888.0);
+```
+
+```sql
+-- DATASET 2
+-- Edge case: Only CZK exists in 2012 (EUR is missing in 2012). Tests IIF fallback to 0 vs NULL in SUM when one currency group has 0 matching rows.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201208', 150.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201308', 75.0);
+```
+
+```sql
+-- DATASET 3
+-- Edge case: Only EUR exists in 2012 (CZK is missing in 2012). Result should be negative (-120.5), not NULL.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201105', 200.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201205', 120.5);
+```
+
+```sql
+-- DATASET 4
+-- Edge case: Rows match 2012, but neither CZK nor EUR is present (only other currencies). Result should be 0, not NULL.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'GBP');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', NULL);
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 300.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201202', 400.0);
+```
+
+```sql
+-- DATASET 5
+-- Edge case: NULL consumption values in 2012 alongside valid rows, plus string substring boundary checks ('2012' in middle/end of string).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '012012', 1000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201203', 20.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '992012', 2000.0);
+```
+
+```sql
+-- DATASET 6
+-- Edge case: No rows match the WHERE clause (empty result set after filtering). Tests whether query returns NULL vs 0 when no rows are aggregated.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201301', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201112', 50.0);
+```
+
+```sql
+-- DATASET 7
+-- Edge case: Decoy data in transactions_1k table. Kills mutants that join or aggregate from transactions_1k instead of yearmonth.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 200.0);
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-01-01', '10:00:00', 1, 100, 10, 1, 10, 50.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-01-02', '11:00:00', 2, 200, 20, 2, 5, 20.0);
+```

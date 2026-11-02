@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT/RIGHT JOIN (Cinema 3 has no schedules and must be excluded).
+-- 2. GROUP BY cinema_id vs GROUP BY name (Cinemas 1 and 2 have the same name 'AMC', should result in 2 rows, not 1 aggregated row).
+-- 3. Secondary ORDER BY sum_t1_show_times_per_day_ ASC vs DESC (Cinemas 1 and 2 have identical names 'AMC' but different sums 8 and 15).
+-- 4. SUM vs COUNT / AVG / MAX / MIN (Cinema 1 has 2 schedules with values 5 and 3; sum=8, count=2, avg=4, max=5, min=3).
+-- 5. SUM vs SUM(DISTINCT) (Cinema 4 has duplicate show_times_per_day values: 4 and 4; sum=8, sum(distinct)=4).
+-- 6. Primary ORDER BY name ASC vs DESC ('AMC' vs 'Regal').
+
+INSERT INTO "film" ("Film_ID", "Rank_in_series", "Number_in_season", "Title", "Directed_by", "Original_air_date", "Production_code") VALUES (1, 1, 1, 'Film A', 'Dir A', '2020-01-01', 'P01');
+INSERT INTO "film" ("Film_ID", "Rank_in_series", "Number_in_season", "Title", "Directed_by", "Original_air_date", "Production_code") VALUES (2, 2, 2, 'Film B', 'Dir B', '2020-01-02', 'P02');
+
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (1, 'AMC', 2000, 100, 'Loc A');
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (2, 'AMC', 2005, 150, 'Loc B');
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (3, 'EmptyCinema', 2010, 200, 'Loc C');
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (4, 'Regal', 2015, 250, 'Loc D');
+
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (1, 1, '2022-01-01', 5, 10.0);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (1, 2, '2022-01-02', 3, 12.0);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (2, 1, '2022-01-01', 15, 10.0);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (4, 1, '2022-01-01', 4, 15.0);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (4, 2, '2022-01-02', 4, 15.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL handling in SUM and ORDER BY ... NULLS LAST (Cinema 1 has only NULL show_times_per_day, resulting in a NULL sum, which must sort after Cinema 2's sum of 10).
+-- 2. Partial NULL in SUM (Cinema 3 has one NULL and one non-NULL show_times_per_day; SUM should ignore NULL and return 7).
+-- 3. NULL handling in Cinema Name (Cinema 4 has NULL name).
+-- 4. SELECT DISTINCT vs SELECT ALL (Cinemas 5 and 6 have identical name 'Twin' and identical sum 6; since there is no DISTINCT in the outer query, both rows must be preserved).
+
+INSERT INTO "film" ("Film_ID", "Rank_in_series", "Number_in_season", "Title", "Directed_by", "Original_air_date", "Production_code") VALUES (1, 1, 1, 'Film A', 'Dir A', '2020-01-01', 'P01');
+INSERT INTO "film" ("Film_ID", "Rank_in_series", "Number_in_season", "Title", "Directed_by", "Original_air_date", "Production_code") VALUES (2, 2, 2, 'Film B', 'Dir B', '2020-01-02', 'P02');
+
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (1, 'Odeon', 1995, 300, 'Loc X');
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (2, 'Odeon', 1998, 300, 'Loc Y');
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (3, 'Cineworld', 2001, 400, 'Loc Z');
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (4, NULL, 2005, 500, 'Loc W');
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (5, 'Twin', 2010, 200, 'Loc V1');
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (6, 'Twin', 2012, 250, 'Loc V2');
+
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (1, 1, '2022-05-01', NULL, 8.5);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (2, 1, '2022-05-01', 10, 9.5);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (3, 1, '2022-05-01', 7, 11.0);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (3, 2, '2022-05-02', NULL, 11.0);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (4, 1, '2022-05-01', 12, 10.0);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (5, 1, '2022-05-01', 6, 10.0);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (6, 2, '2022-05-02', 6, 12.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Wrong column summed or projected (e.g., Price, Film_ID, Cinema_ID, Capacity, Openning_year instead of Show_times_per_day).
+-- 2. Wrong join condition (e.g., joining on schedule.Film_ID = cinema.Cinema_ID instead of schedule.Cinema_ID = cinema.Cinema_ID).
+-- 3. Zero and negative edge values in aggregation and sorting.
+
+INSERT INTO "film" ("Film_ID", "Rank_in_series", "Number_in_season", "Title", "Directed_by", "Original_air_date", "Production_code") VALUES (10, 1, 1, 'Film X', 'Dir X', '2021-01-01', 'PX1');
+INSERT INTO "film" ("Film_ID", "Rank_in_series", "Number_in_season", "Title", "Directed_by", "Original_air_date", "Production_code") VALUES (20, 2, 2, 'Film Y', 'Dir Y', '2021-01-02', 'PY2');
+
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (10, 'TrapCinema_FilmID10', 1980, 500, 'Loc 10');
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (100, 'Alpha', 2000, 800, 'Loc 100');
+INSERT INTO "cinema" ("Cinema_ID", "Name", "Openning_year", "Capacity", "Location") VALUES (200, 'Alpha', 2010, 900, 'Loc 200');
+
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (100, 10, '2023-01-01', 0, 99.9);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (200, 10, '2023-01-01', -5, 50.0);
+INSERT INTO "schedule" ("Cinema_ID", "Film_ID", "Date", "Show_times_per_day", "Price") VALUES (200, 20, '2023-01-02', 2, 25.5);
+```

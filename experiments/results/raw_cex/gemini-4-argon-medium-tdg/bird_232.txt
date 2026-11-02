@@ -1,0 +1,102 @@
+```sql
+-- DATASET 1
+-- Tests DISTINCT, ORDER BY ASC/DESC, LIMIT 3, and interaction between DISTINCT and LIMIT.
+-- Inserting in reverse alphabetical order to ensure ORDER BY is actively sorting.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR004', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR003', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '-');
+
+-- Multiple matching bonds for TR001 and TR002 to kill queries missing DISTINCT
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B01', 'TR001', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B02', 'TR001', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B03', 'TR002', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B04', 'TR002', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B05', 'TR003', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B06', 'TR004', '-');
+```
+
+```sql
+-- DATASET 2
+-- Tests WHERE predicates (AND vs OR, '=' vs '!=', NULL handling) and INNER JOIN vs OUTER JOIN.
+-- Only TR001 should be returned by the Gold Query.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR003', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR004', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR005', NULL);
+INSERT INTO molecule (molecule_id, label) VALUES ('TR006', '-');
+-- TR007 has label '-' but NO bonds (tests LEFT/RIGHT JOIN vs INNER JOIN)
+INSERT INTO molecule (molecule_id, label) VALUES ('TR007', '-');
+
+-- Match both
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B01', 'TR001', '-');
+-- Match bond_type only, wrong label
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B02', 'TR002', '-');
+-- Match label only, wrong bond_type
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B03', 'TR003', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B04', 'TR003', '#');
+-- Match neither
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B05', 'TR004', '=');
+-- NULL label with valid bond_type
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B06', 'TR005', '-');
+-- Valid label with NULL bond_type
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B07', 'TR006', NULL);
+-- NULL molecule_id (orphan bond) with valid bond_type
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B08', NULL, '-');
+```
+
+```sql
+-- DATASET 3
+-- Tests missing JOIN condition (Cartesian product) and unneeded joins to 'atom' or 'connected' tables.
+-- Gold Query returns only 'TR002' because 'TR001' has no atoms/connected entries, and 'TR001' has wrong bond_type.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR003', '+');
+
+-- TR001 has only '=' bond (should NOT match unless cross-joined with TR003's '-' bond)
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B01', 'TR001', '=');
+-- TR002 has '-' bond, but NO atoms and NO connected records (kills mutants that unnecessarily INNER JOIN atom or connected)
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B02', 'TR002', '-');
+-- TR003 has '-' bond, but '+' label (if cross-joined with TR001, TR001 would falsely appear)
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B03', 'TR003', '-');
+
+-- Populate atom and connected for TR001 and TR003 only
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A01', 'TR001', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A02', 'TR001', 'h');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A01', 'A02', 'B01');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong column selection/projection (e.g., selecting bond_id or label instead of molecule_id),
+-- and ordering by bond_id instead of molecule_id.
+INSERT INTO molecule (molecule_id, label) VALUES ('M_Z', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_A', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_M', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_B', '-');
+
+-- Bond IDs are ordered inversely to Molecule IDs.
+-- If a mutant orders by bond_id ASC and limits to 3, it gets M_Z, M_M, M_B instead of M_A, M_B, M_M.
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_1', 'M_Z', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_2', 'M_M', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_3', 'M_B', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_4', 'M_A', '-');
+```
+
+```sql
+-- DATASET 5
+-- Boundary condition: fewer than 3 matching molecules (specifically 2), plus mixed bond types per molecule.
+-- Tests HAVING count(*) = 1 mutations or NOT EXISTS '=' bond mutations.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+
+-- M1 has both '-' and '=' bonds
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '=');
+
+-- M2 has multiple '-' bonds
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M2', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'M2', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'M2', '-');
+```

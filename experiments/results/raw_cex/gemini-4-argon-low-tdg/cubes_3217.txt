@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests FK join direction (reported_by_staff_id vs closure_authorised_by_staff_id),
+-- column selection (staff_last_name vs staff_first_name/other_staff_details),
+-- and ordering of problem_id (inserted out of ascending order).
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (1, 'ProdA', 'DetailsA');
+
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (1, 'John', 'Bosco', 'Senior');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (2, 'Bosco', 'Smith', 'Junior');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (3, 'Alice', 'Jones', 'Bosco');
+
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (20, 1, 1, 2, '2023-01-02 10:00:00', '2023-01-03 10:00:00', 'Bug 20', 'None');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (10, 1, 1, 3, '2023-01-01 10:00:00', '2023-01-02 10:00:00', 'Bug 10', 'None');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (15, 2, 1, 1, '2023-01-01 12:00:00', '2023-01-02 12:00:00', 'Bug 15', 'None');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (25, 3, 1, 1, '2023-01-03 12:00:00', '2023-01-04 12:00:00', 'Bug 25', 'None');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN (Bosco with no reported problems, and problems with NULL reported_by_staff_id),
+-- exact string match vs LIKE/case-insensitivity ('Bosco' vs 'bosco', 'Bosco Jr.'),
+-- and multiple staff sharing the last name 'Bosco'.
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (1, 'ProdA', 'DetailsA');
+
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (1, 'Anna', 'Bosco', 'Has no problems');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (2, 'Ben', 'Bosco', 'Has problems');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (3, 'Carl', 'Bosco', 'Has problems');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (4, 'Dan', 'bosco', 'Lowercase');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (5, 'Eve', 'Bosco Jr.', 'Substring');
+
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (100, 3, 1, NULL, '2023-05-01 00:00:00', NULL, 'Desc 100', NULL);
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (50, 2, 1, NULL, '2023-05-02 00:00:00', NULL, 'Desc 50', NULL);
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (75, NULL, 1, 1, '2023-05-03 00:00:00', NULL, 'Null reporter', NULL);
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (80, 4, 1, 1, '2023-05-04 00:00:00', NULL, 'Lowercase bosco', NULL);
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (90, 5, 1, 1, '2023-05-05 00:00:00', NULL, 'Substring bosco', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests unintended joins with Problem_Log (e.g., mutants joining Problem_Log instead of Problems,
+-- or joining Problem_Log without DISTINCT causing duplicate problem_ids, or filtering on assigned_to_staff_id).
+INSERT INTO "Problem_Category_Codes" ("problem_category_code", "problem_category_description") VALUES ('CAT1', 'Category 1');
+INSERT INTO "Problem_Status_Codes" ("problem_status_code", "problem_status_description") VALUES ('OPEN', 'Open Status');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (10, 'ProdX', 'DetailsX');
+
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (10, 'Tom', 'Bosco', 'Reporter');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (20, 'Jerry', 'Adams', 'Other');
+
+-- Problem 1: Reported by Bosco, has 2 log entries (tests duplicate multiplication if joined with Problem_Log)
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (1, 10, 10, 20, '2023-01-01 08:00:00', '2023-01-05 08:00:00', 'Prob 1', 'D1');
+
+-- Problem 2: Reported by Bosco, has 0 log entries (tests if mutant inner joins Problem_Log and loses this row)
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (2, 10, 10, 20, '2023-01-02 08:00:00', '2023-01-06 08:00:00', 'Prob 2', 'D2');
+
+-- Problem 3: Reported by Adams, but assigned to Bosco in Problem_Log (tests if mutant joins Staff via Problem_Log.assigned_to_staff_id)
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (3, 20, 10, 20, '2023-01-03 08:00:00', '2023-01-07 08:00:00', 'Prob 3', 'D3');
+
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (101, 'OPEN', 1, 20, 'CAT1', '2023-01-01 09:00:00', 'Log 1A', 'Fix 1A', 'None');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (102, 'OPEN', 1, 20, 'CAT1', '2023-01-01 10:00:00', 'Log 1B', 'Fix 1B', 'None');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (103, 'OPEN', 3, 10, 'CAT1', '2023-01-03 09:00:00', 'Log 3A', 'Fix 3A', 'None');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong projected column (e.g., projecting staff_id, product_id, or closure_authorised_by_staff_id instead of problem_id)
+-- and tests negative/zero/positive integer ordering vs lexicographical string ordering of problem_id.
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (999, 'Prod999', 'Details');
+
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (555, 'Sam', 'Bosco', 'Details');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (777, 'Pam', 'Bosco', NULL);
+
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (10, 555, 999, 777, '2023-10-10 10:00:00', '2023-10-11 10:00:00', 'Ten', 'Details');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (2, 777, 999, 555, '2023-10-12 10:00:00', '2023-10-13 10:00:00', 'Two', 'Details');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (-5, 555, NULL, NULL, '2023-10-14 10:00:00', NULL, 'Negative Five', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set handling when 'Bosco' does not exist or has not reported any problems,
+-- while other staff and problems exist (kills mutants without the WHERE filter or with negated WHERE filter).
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (1, 'Prod1', 'Details1');
+
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (1, 'Alice', 'Wonder', 'None');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (2, 'Bob', NULL, 'Null last name');
+
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (1, 1, 1, 1, '2023-01-01 00:00:00', '2023-01-02 00:00:00', 'P1', 'O1');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (2, 2, 1, 1, '2023-01-03 00:00:00', '2023-01-04 00:00:00', 'P2', 'O2');
+```

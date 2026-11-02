@@ -1,0 +1,68 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Out-of-order insertion to catch missing ORDER BY or ORDER BY DESC.
+-- 2. Inverse alphabetical order of Account_Details vs Account_ID to catch ORDER BY account_details.
+-- 3. Out-of-order Statement_ID to catch ORDER BY statement_id.
+-- 4. Duplicate Statement_ID across multiple accounts to catch GROUP BY statement_id.
+-- 5. Numeric values inside Account_Details (different from Account_ID) to catch wrong column projection.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'DocType1', 'Desc1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Project Alpha');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (10, 1, 'DT1', '2023-01-01 10:00:00', 'Doc10', 'Desc10', 'Other10');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (20, 1, 'DT1', '2023-01-02 10:00:00', 'Doc20', 'Desc20', 'Other20');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (10, 'Statement 10 Details');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (20, 'Statement 20 Details');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (30, 10, '100 - Alpha Account');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (10, 20, '900 - Zebra Account');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (20, 10, '500 - Middle Account');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL in Statement_ID to catch unnecessary INNER JOIN with Statements (which would drop the row).
+-- 2. NULL in Account_Details to catch erroneous WHERE account_details IS NOT NULL filters.
+-- 3. Duplicate Account_Details across different Account_IDs to catch GROUP BY account_details.
+-- 4. Unreferenced Statements row to catch RIGHT/FULL JOIN or querying from Statements instead of Accounts.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT2', 'DocType2', 'Desc2');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (2, 'Project Beta');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (100, 2, 'DT2', '2023-05-01 00:00:00', 'Doc100', 'Desc100', 'Other100');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (200, 2, 'DT2', '2023-05-02 00:00:00', 'Doc200', 'Desc200', 'Other200');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (100, 'Statement 100 Used');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (200, 'Statement 200 Unused');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (5, NULL, 'Shared Details');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (2, 100, 'Shared Details');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (8, 100, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Negative, zero, and multi-digit Account_IDs to catch lexicographical (CAST AS TEXT) sorting vs integer sorting, and > 0 filtering.
+-- 2. Documents with NULL Project_ID and NULL Document_Type_Code, and Documents that are Expenses (not Statements), to catch over-joining up the hierarchy (Accounts -> Statements -> Documents -> Projects / Expenses).
+-- 3. Larger row count (5 accounts) to catch arbitrary LIMIT 1, LIMIT 2, or LIMIT 3 clauses.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT3', 'DocType3', 'Desc3');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('BC1', 'Budget 1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (3, 'Project Gamma');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, NULL, NULL, '2023-06-01 00:00:00', 'Doc1', 'Desc1', 'Other1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 3, 'DT3', '2023-06-02 00:00:00', 'Doc2', 'Desc2', 'Other2');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (1, 'Stmt with NULL parent FKs');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (2, 'BC1', 'Expense Doc 2');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (10, 1, 'Account Ten');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (2, 1, 'Account Two');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (-5, 1, 'Account Minus Five');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (0, 1, 'Account Zero');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (100, 1, 'Account One Hundred');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty Accounts table while other tables are populated to catch queries targeting wrong tables (e.g., Statements, Projects, Documents) or using unconditional aggregations (like COUNT) that return a row on empty input.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT4', 'DocType4', 'Desc4');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('BC4', 'Budget 4');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (4, 'Project Delta');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (40, 4, 'DT4', '2023-07-01 00:00:00', 'Doc40', 'Desc40', 'Other40');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (40, 'Statement 40 without Accounts');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (40, 'BC4', 'Expense 40');
+```

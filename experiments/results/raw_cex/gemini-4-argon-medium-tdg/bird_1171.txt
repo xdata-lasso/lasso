@@ -1,0 +1,78 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(T1.ID) vs COUNT(DISTINCT T1.ID) and boundary conditions on Examination Year (1990, 1993) and Age (< 18 vs = 18).
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (1, 'F', '1980-06-15', '1990-01-01', '1990-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (2, 'M', '1975-06-15', '1993-01-01', '1993-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (3, 'F', '1970-01-01', '1985-01-01', '1985-01-01');
+
+-- Patient 1 has two examinations in 1990 and 1993 (Age 10 and 13, both < 18, both within 1990-1993)
+INSERT INTO Examination (ID, "Examination Date", "aCL IgG") VALUES (1, '1990-01-01', 1.2);
+INSERT INTO Examination (ID, "Examination Date", "aCL IgG") VALUES (1, '1993-12-31', 1.5);
+
+-- Patient 2 has an examination in 1993 (Age 1993 - 1975 = 18, should be excluded by < '18')
+INSERT INTO Examination (ID, "Examination Date", "aCL IgG") VALUES (2, '1993-05-05', 2.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests string vs integer comparison on age difference (e.g., age 2 vs '18', where '2' > '18' lexicographically, and negative ages),
+-- and exact date boundaries vs year boundaries ('1993-06-15' > '1993' in raw date string comparison).
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (10, 'M', '1989-12-01', '1991-01-01', '1991-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (20, 'F', '1975-12-31', '1992-01-01', '1992-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (30, 'M', '1980-01-01', '1989-01-01', '1989-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (40, 'F', '1980-01-01', '1994-01-01', '1994-01-01');
+
+-- Patient 10: Exam in 1991, Birthday 1989 -> Age diff = 2. (Catches CAST(diff AS TEXT) < '18' since '2' > '18')
+INSERT INTO Examination (ID, "Examination Date") VALUES (10, '1991-06-01');
+
+-- Patient 20: Exam in early 1993, Birthday late 1975 -> Year diff = 18, exact date diff = 17.1. (Catches exact date age calculation vs year-only calculation)
+INSERT INTO Examination (ID, "Examination Date") VALUES (20, '1993-01-05');
+
+-- Patient 30 & 40: Just outside the 1990-1993 year window (1989 and 1994), despite age < 18.
+INSERT INTO Examination (ID, "Examination Date") VALUES (30, '1989-12-31');
+INSERT INTO Examination (ID, "Examination Date") VALUES (40, '1994-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests wrong table / wrong date column usage (e.g. using Laboratory.Date, Patient."First Date", or Patient.Description instead of Examination."Examination Date"),
+-- and tests INNER JOIN vs LEFT JOIN / Cartesian product / NULL handling.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (101, 'F', '1980-05-05', '1991-05-05', '1991-05-05');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (102, 'M', '1980-05-05', '1999-05-05', '1999-05-05');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (103, 'F', '1980-05-05', '1992-05-05', '1992-05-05');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (104, 'M', NULL, '1992-05-05', '1992-05-05');
+
+-- Patient 101 has valid dates in Patient and Laboratory, but NO Examination record (or Examination in 1999).
+INSERT INTO Examination (ID, "Examination Date") VALUES (101, '1999-05-05');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (101, '1991-05-05', 25);
+
+-- Patient 102 has invalid dates in Patient/Lab (1999), but a VALID Examination Date (1992) and age 12 (1992 - 1980).
+INSERT INTO Examination (ID, "Examination Date") VALUES (102, '1992-03-15');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (102, '1999-03-15', 30);
+
+-- Patient 103 has no Examination row at all, only Laboratory in 1992.
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (103, '1992-05-05', 20);
+
+-- Patient 104 has NULL Birthday with Exam in 1992 (NULL age difference must not be counted).
+INSERT INTO Examination (ID, "Examination Date") VALUES (104, '1992-05-05');
+
+-- Orphaned/NULL ID Examination row (since Examination.ID is nullable).
+INSERT INTO Examination (ID, "Examination Date") VALUES (NULL, '1992-05-05');
+```
+
+```sql
+-- DATASET 4
+-- Tests age = 17 boundary, age = 0 boundary, and non-matching JOINs.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (1, 'M', '1973-01-01', '1990-01-01', '1990-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (2, 'F', '1993-12-01', '1993-12-01', '1993-12-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (3, 'M', '1972-12-31', '1990-01-01', '1990-01-01');
+
+-- Patient 1: 1990 - 1973 = 17 (< 18, included).
+INSERT INTO Examination (ID, "Examination Date") VALUES (1, '1990-12-31');
+
+-- Patient 2: 1993 - 1993 = 0 (< 18, included; tests > 0 vs >= 0 assumptions).
+INSERT INTO Examination (ID, "Examination Date") VALUES (2, '1993-01-01');
+
+-- Patient 3: 1990 - 1972 = 18 (excluded, even though exact date diff from 1972-12-31 to 1990-01-01 is 17.002 years).
+INSERT INTO Examination (ID, "Examination Date") VALUES (3, '1990-01-01');
+```

@@ -1,0 +1,119 @@
+```sql
+-- DATASET 1
+-- Positive case: Condition holds (10101 teaches in 2009, nobody teaches in 2010).
+-- Tests:
+-- 1. Uncorrelated nature of EXISTS (instructor 20202 doesn't teach, yet its dept is returned).
+-- 2. Duplicate preservation (SELECT vs SELECT DISTINCT: Comp. Sci. has 2 instructors).
+-- 3. INNER JOIN vs LEFT/RIGHT JOIN (Finance has 0 instructors, instructor 30303 has NULL dept).
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Physics', 'Watson', 70000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Finance', 'Painter', 120000);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Comp. Sci.', 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('12121', 'Wu', 'Comp. Sci.', 90000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20202', 'Einstein', 'Physics', 95000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('30303', 'Gold', NULL, 80000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 4);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '1', 'Fall', 2009, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-101', '1', 'Fall', 2009);
+```
+
+```sql
+-- DATASET 2
+-- Negative case: 10101 teaches in 2009, but another instructor (20202) teaches in 2010.
+-- Tests:
+-- 1. Uncorrelated nature of NOT EXISTS (t2.year = 2010 applies to ANY instructor in t2, not just t1.ID).
+-- 2. Proper negation of the inner subquery (EXISTS vs NOT EXISTS).
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Physics', 'Watson', 70000);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Comp. Sci.', 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20202', 'Einstein', 'Physics', 95000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('PHY-101', 'Physical Principles', 'Physics', 4);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '1', 'Fall', 2009, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('PHY-101', '1', 'Spring', 2010, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-101', '1', 'Fall', 2009);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('20202', 'PHY-101', '1', 'Spring', 2010);
+```
+
+```sql
+-- DATASET 3
+-- Negative case: Nobody teaches in 2010, and other instructors teach in 2009, but '10101' does NOT teach anything.
+-- Tests:
+-- 1. Strict check on t1.ID = '10101'.
+-- 2. Ensures NOT EXISTS(t2.year = 2010) alone is not sufficient (AND vs OR mutation).
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Physics', 'Watson', 70000);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Comp. Sci.', 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20202', 'Einstein', 'Physics', 95000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('PHY-101', 'Physical Principles', 'Physics', 4);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('PHY-101', '1', 'Fall', 2009, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('20202', 'PHY-101', '1', 'Fall', 2009);
+```
+
+```sql
+-- DATASET 4
+-- Positive boundary case: A section exists in year 2010, but NO ONE teaches it (not in `teaches`).
+-- Meanwhile, '10101' teaches a section in 2011.
+-- Tests:
+-- 1. Ensures the inner NOT EXISTS checks `teaches` (t2.year = 2010) rather than `section.year = 2010`.
+-- 2. Boundary check on year (2011 vs 2010, e.g., catching <= 2010 or >= 2010 mutations).
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Comp. Sci.', 65000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 4);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '1', 'Fall', 2010, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '1', 'Spring', 2011, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-101', '1', 'Spring', 2011);
+```
+
+```sql
+-- DATASET 5
+-- Negative case: '10101' only teaches in 2010.
+-- Tests:
+-- 1. Self-conflict where t1 and t2 refer to the exact same row in `teaches`.
+-- 2. Kills mutants that add `t1.ID <> t2.ID` or similar exclusion in the inner NOT EXISTS.
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Comp. Sci.', 65000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 4);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '1', 'Fall', 2010, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-101', '1', 'Fall', 2010);
+```
+
+```sql
+-- DATASET 6
+-- Edge case: Instructor '10101' has a NULL dept_name, while teaching a valid section in 2008.
+-- Another instructor '20202' has a valid dept_name ('History') and teaches nothing.
+-- Tests:
+-- 1. Kills mutants that correlate the outer `instructor` or `department` table with `t1` (e.g., `t1.ID = instructor.ID`).
+-- In the gold query, 'History' is returned because the EXISTS block is completely uncorrelated with the outer query.
+INSERT INTO department (dept_name, building, budget) VALUES ('History', 'Painter', 50000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', NULL, 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20202', 'Califieri', 'History', 62000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 4);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '1', 'Fall', 2008, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-101', '1', 'Fall', 2008);
+```

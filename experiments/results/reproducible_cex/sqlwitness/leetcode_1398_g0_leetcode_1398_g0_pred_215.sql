@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "customer_name" TEXT(255));
+
+CREATE TABLE "Orders" ("order_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "product_name" TEXT(255), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO customers (customer_id, customer_name) VALUES (0, NULL), (-1, 'default1'), (2, NULL), (1, 'default1'), (3, 'B'), (4, 'default1'), (5, 'A'), (6, NULL), (7, 'default2'), (8, 'default2'), (9, NULL), (10, 'A'), (11, NULL), (12, 'default2'), (13, 'B');
+INSERT INTO orders (order_id, customer_id, product_name) VALUES (2, 8, 'C'), (-1, 6, 'C'), (0, 13, 'default2'), (1, 1, NULL), (3, 5, 'C'), (4, 6, 'B'), (5, -1, 'A'), (6, 12, NULL), (7, 11, 'C'), (8, 5, NULL), (9, 5, 'default2'), (10, 0, 'C'), (11, 6, 'B'), (12, -1, 'B'), (13, 12, NULL), (14, 5, 'default1'), (15, NULL, 'C'), (16, 2, NULL), (17, 11, 'default1'), (18, 10, NULL), (19, 8, 'C'), (20, 10, 'A');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CUSTOMER_ID, CUSTOMER_NAME FROM CUSTOMERS WHERE CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'A') AND CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'B') AND NOT CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'C') ORDER BY CUSTOMER_ID;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH FINAL1 AS (WITH FINAL AS (WITH CONSOLIDATED AS (SELECT C.CUSTOMER_ID, C.CUSTOMER_NAME, O.PRODUCT_NAME FROM CUSTOMERS AS C INNER JOIN ORDERS AS O ON C.CUSTOMER_ID = O.CUSTOMER_ID) SELECT *, CASE WHEN PRODUCT_NAME = 'A' THEN 1 ELSE 0 END AS PRODUCT_A_CHECK, CASE WHEN PRODUCT_NAME = 'B' THEN 1 ELSE 0 END AS PRODUCT_B_CHECK, CASE WHEN PRODUCT_NAME = 'C' THEN 1 ELSE 0 END AS PRODUCT_C_CHECK FROM CONSOLIDATED) SELECT CUSTOMER_ID, CUSTOMER_NAME, SUM(PRODUCT_A_CHECK) AS SUM_A, SUM(PRODUCT_B_CHECK) AS SUM_B, SUM(PRODUCT_C_CHECK) AS SUM_C FROM FINAL GROUP BY CUSTOMER_ID) SELECT CUSTOMER_ID, CUSTOMER_NAME FROM FINAL1 WHERE SUM_A <> 0 AND SUM_B <> 0 AND SUM_C = 0;
+
+/*
+Prediction Result:
+(-1, 'default1')
+*/

@@ -1,0 +1,81 @@
+-- Schema DDL
+CREATE TABLE "PLAYERS" (
+    "PLAYER_ID" INT,
+    "FIRST_NAME" TEXT,
+    "LAST_NAME" TEXT,
+    "HAND" TEXT,
+    "BIRTH_DATE" DATE,
+    "COUNTRY_CODE" TEXT,
+    PRIMARY KEY ("PLAYER_ID")
+);
+CREATE TABLE "MATCHES" (
+    "WINNER_ID" INT,
+    "LOSER_ID" INT,
+    "BEST_OF" INT,
+    "DRAW_SIZE" INT,
+    "LOSER_AGE" FLOAT,
+    "LOSER_ENTRY" TEXT,
+    "LOSER_HAND" TEXT,
+    "LOSER_HT" INT,
+    "LOSER_IOC" TEXT,
+    "LOSER_NAME" TEXT,
+    "LOSER_RANK" INT,
+    "LOSER_RANK_POINTS" INT,
+    "LOSER_SEED" INT,
+    "MATCH_NUM" INT,
+    "MINUTES" INT,
+    "ROUND" TEXT,
+    "SCORE" TEXT,
+    "SURFACE" TEXT,
+    "TOURNEY_DATE" DATE,
+    "TOURNEY_ID" TEXT,
+    "TOURNEY_LEVEL" TEXT,
+    "TOURNEY_NAME" TEXT,
+    "WINNER_AGE" FLOAT,
+    "WINNER_ENTRY" TEXT,
+    "WINNER_HAND" TEXT,
+    "WINNER_HT" INT,
+    "WINNER_IOC" TEXT,
+    "WINNER_NAME" TEXT,
+    "WINNER_RANK" INT,
+    "WINNER_RANK_POINTS" INT,
+    "WINNER_SEED" INT,
+    "YEAR" INT,
+    FOREIGN KEY ("WINNER_ID") REFERENCES "PLAYERS"("PLAYER_ID"),
+    FOREIGN KEY ("LOSER_ID") REFERENCES "PLAYERS"("PLAYER_ID")
+);
+CREATE TABLE "RANKINGS" (
+    "PLAYER_ID" INT,
+    "RANKING_DATE" DATE,
+    "RANKING" INT,
+    "RANKING_POINTS" INT,
+    "TOURS" INT,
+    FOREIGN KEY ("PLAYER_ID") REFERENCES "PLAYERS"("PLAYER_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO PLAYERS VALUES (-1, NULL, 0, 0, '0001-01-01', NULL);
+INSERT INTO PLAYERS VALUES (0, 0, 0, 0, NULL, 0);
+INSERT INTO MATCHES VALUES (-1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '0001-01-01', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO MATCHES VALUES (-1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '0001-01-01', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO RANKINGS VALUES (-1, '0001-01-01', 0, 0, 0);
+INSERT INTO RANKINGS VALUES (-1, '0001-01-01', 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT first_name, country_code FROM (SELECT * FROM (SELECT * FROM players ORDER BY birth_date, players.player_id NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+('0', '0')
+*/
+
+-- Prediction Query
+SELECT first_name, country_code FROM players ORDER BY birth_date, players.player_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('0', '0')
+*/

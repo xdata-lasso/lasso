@@ -1,0 +1,67 @@
+-- Schema DDL
+CREATE TABLE classroom (building TEXT(15), room_number TEXT(7), capacity REAL(4, 0), PRIMARY KEY (building, room_number));
+
+CREATE TABLE department (dept_name TEXT(20) PRIMARY KEY, building TEXT(15), budget REAL(12, 2) CHECK (budget > 0));
+
+CREATE TABLE course (course_id TEXT(8) PRIMARY KEY, title TEXT(50), dept_name TEXT(20), credits REAL(2, 0) CHECK (credits > 0), FOREIGN KEY (dept_name) REFERENCES department (dept_name) ON delete SET NULL);
+
+CREATE TABLE instructor (ID TEXT(5) PRIMARY KEY, name TEXT(20) NOT NULL, dept_name TEXT(20), salary REAL(8, 2) CHECK (salary > 29000), FOREIGN KEY (dept_name) REFERENCES department (dept_name) ON delete SET NULL);
+
+CREATE TABLE section (course_id TEXT(8), sec_id TEXT(8), semester TEXT(6) CHECK (semester IN ('Fall', 'Winter', 'Spring', 'Summer')), year REAL(4, 0) CHECK (year > 1701 AND year < 2100), building TEXT(15), room_number TEXT(7), time_slot_id TEXT(4), PRIMARY KEY (course_id, sec_id, semester, year), FOREIGN KEY (course_id) REFERENCES course (course_id) ON delete CASCADE, FOREIGN KEY (building, room_number) REFERENCES classroom (building, room_number) ON delete SET NULL);
+
+CREATE TABLE teaches (ID TEXT(5), course_id TEXT(8), sec_id TEXT(8), semester TEXT(6), year REAL(4, 0), PRIMARY KEY (ID, course_id, sec_id, semester, year), FOREIGN KEY (course_id, sec_id, semester, year) REFERENCES section (course_id, sec_id, semester, year) ON delete CASCADE, FOREIGN KEY (ID) REFERENCES instructor (ID) ON delete CASCADE);
+
+CREATE TABLE student (ID TEXT(5) PRIMARY KEY, name TEXT(20) NOT NULL, dept_name TEXT(20), tot_cred REAL(3, 0) CHECK (tot_cred >= 0), FOREIGN KEY (dept_name) REFERENCES department (dept_name) ON delete SET NULL);
+
+CREATE TABLE takes (ID TEXT(5), course_id TEXT(8), sec_id TEXT(8), semester TEXT(6), year REAL(4, 0), grade TEXT(2), PRIMARY KEY (ID, course_id, sec_id, semester, year), FOREIGN KEY (course_id, sec_id, semester, year) REFERENCES section (course_id, sec_id, semester, year) ON delete CASCADE, FOREIGN KEY (ID) REFERENCES student (ID) ON delete CASCADE);
+
+CREATE TABLE advisor (s_ID TEXT(5) PRIMARY KEY, i_ID TEXT(5), FOREIGN KEY (i_ID) REFERENCES instructor (ID) ON delete SET NULL, FOREIGN KEY (s_ID) REFERENCES student (ID) ON delete CASCADE);
+
+CREATE TABLE time_slot (time_slot_id TEXT(4), day TEXT(1), start_hr REAL(2) CHECK (start_hr >= 0 AND start_hr < 24), start_min REAL(2) CHECK (start_min >= 0 AND start_min < 60), end_hr REAL(2) CHECK (end_hr >= 0 AND end_hr < 24), end_min REAL(2) CHECK (end_min >= 0 AND end_min < 60), PRIMARY KEY (time_slot_id, day, start_hr, start_min));
+
+CREATE TABLE prereq (course_id TEXT(8), prereq_id TEXT(8), PRIMARY KEY (course_id, prereq_id), FOREIGN KEY (course_id) REFERENCES course (course_id) ON delete CASCADE, FOREIGN KEY (prereq_id) REFERENCES course (course_id));
+
+CREATE TABLE grade_value (grade TEXT(2) PRIMARY KEY, value REAL(4, 2));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 2
+INSERT INTO department (dept_name, building, budget) VALUES ('Cs', 'Taylor', 95000.00);
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'Taylor', 90000.00);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-201', 'Algorithms', 'Cs', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-202', 'Operating Systems', 'CS', 3);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-201', '1', 'Fall', 2023, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-202', '1', 'Fall', 2023, NULL, NULL, NULL);
+-- '201': Exact boundary salary = 70000, teaches 1 section (tests strict < vs <=)
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('201', 'Eve', 'Cs', 70000.00);
+-- '202': Case sensitivity check dept_name = 'CS' vs 'Cs'
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('202', 'Frank', 'CS', 60000.00);
+-- '203': Boundary just below 70000 (should match)
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('203', 'Grace', 'Cs', 69999.00);
+-- '204': Minimum allowed salary boundary > 29000 (should match)
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('204', 'Heidi', 'Cs', 29001.00);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('201', 'CS-201', '1', 'Fall', 2023);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('202', 'CS-202', '1', 'Fall', 2023);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('203', 'CS-201', '1', 'Fall', 2023);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('204', 'CS-201', '1', 'Fall', 2023);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT instructor.id FROM instructor INNER JOIN teaches ON (instructor.ID = teaches.ID) WHERE salary < 70000 AND dept_name = 'Cs';
+
+/*
+Gold Result:
+('203',)
+('204',)
+*/
+
+-- Prediction Query
+SELECT instructor.id FROM instructor INNER JOIN teaches ON (instructor.ID = teaches.ID) WHERE salary < 70000 AND dept_name LIKE '%Cs%';
+
+/*
+Prediction Result:
+('202',)
+('203',)
+('204',)
+*/

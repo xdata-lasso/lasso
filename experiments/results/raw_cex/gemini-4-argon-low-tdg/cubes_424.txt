@@ -1,0 +1,55 @@
+```sql
+-- DATASET 1
+-- Empty airlines table (returns 0 rows, whereas COUNT(*) without OVER() would return 1 row with 0).
+-- Populated airports and flights to catch mutants querying the wrong table.
+INSERT INTO airports (AirportCode, City, AirportName, Country, CountryAbbrev) VALUES ('JFK', 'New York', 'John F Kennedy', 'USA', 'US');
+INSERT INTO airports (AirportCode, City, AirportName, Country, CountryAbbrev) VALUES ('LAX', 'Los Angeles', 'Los Angeles Intl', 'USA', 'US');
+INSERT INTO flights (Airline, FlightNo, DestAirport, SourceAirport) VALUES (1, 100, 'JFK', 'LAX');
+```
+
+```sql
+-- DATASET 2
+-- Multiple airlines with NULLs and duplicates in non-key columns, plus varying row counts across tables.
+-- Tests:
+-- 1. Missing DISTINCT (would return 3 rows of 3 instead of 1 row of 3).
+-- 2. COUNT(col) vs COUNT(*) (NULLs in Airline, Abbreviation, Country reduce count).
+-- 3. COUNT(DISTINCT col) (duplicates in Airline, Abbreviation, Country reduce count).
+-- 4. PARTITION BY col in OVER() (would split counts into multiple rows/values).
+-- 5. Wrong table referenced (airports has 2 rows, flights has 1 row, airlines has 3 rows).
+-- 6. Unintended INNER JOIN with flights (only uid 1 has flights).
+INSERT INTO airlines (uid, Airline, Abbreviation, Country) VALUES (1, 'Delta', 'DL', 'USA');
+INSERT INTO airlines (uid, Airline, Abbreviation, Country) VALUES (2, 'Delta', 'DL', NULL);
+INSERT INTO airlines (uid, Airline, Abbreviation, Country) VALUES (3, NULL, NULL, 'USA');
+
+INSERT INTO airports (AirportCode, City, AirportName, Country, CountryAbbrev) VALUES ('JFK', 'New York', 'John F Kennedy', 'USA', 'US');
+INSERT INTO airports (AirportCode, City, AirportName, Country, CountryAbbrev) VALUES ('LAX', 'Los Angeles', 'Los Angeles Intl', 'USA', 'US');
+
+INSERT INTO flights (Airline, FlightNo, DestAirport, SourceAirport) VALUES (1, 101, 'JFK', 'LAX');
+```
+
+```sql
+-- DATASET 3
+-- Single airline row with all non-PK columns NULL, and multiple flights for that airline.
+-- Tests:
+-- 1. Boundary case of count = 1.
+-- 2. COUNT(col) returning 0 instead of 1 due to NULLs.
+-- 3. Unintended JOIN with flights (would inflate row count to 2).
+INSERT INTO airlines (uid, Airline, Abbreviation, Country) VALUES (10, NULL, NULL, NULL);
+
+INSERT INTO airports (AirportCode, City, AirportName, Country, CountryAbbrev) VALUES ('ORD', 'Chicago', 'OHare', 'USA', 'US');
+INSERT INTO airports (AirportCode, City, AirportName, Country, CountryAbbrev) VALUES ('ATL', 'Atlanta', 'Hartsfield', 'USA', 'US');
+
+INSERT INTO flights (Airline, FlightNo, DestAirport, SourceAirport) VALUES (10, 201, 'ORD', 'ATL');
+INSERT INTO flights (Airline, FlightNo, DestAirport, SourceAirport) VALUES (10, 202, 'ATL', 'ORD');
+```
+
+```sql
+-- DATASET 4
+-- Multiple airlines with distinct values in all columns, testing `OVER (ORDER BY ...)` window frame mutations.
+-- In SQLite, `COUNT(*) OVER (ORDER BY uid)` produces running totals (1, 2, 3, 4) which `DISTINCT` keeps as 4 rows, whereas `OVER ()` produces a single row (4).
+-- Also includes diverse Country values ('USA', 'UK', 'Canada') to kill hardcoded WHERE filters.
+INSERT INTO airlines (uid, Airline, Abbreviation, Country) VALUES (1, 'United Airlines', 'UA', 'USA');
+INSERT INTO airlines (uid, Airline, Abbreviation, Country) VALUES (2, 'British Airways', 'BA', 'UK');
+INSERT INTO airlines (uid, Airline, Abbreviation, Country) VALUES (3, 'Air Canada', 'AC', 'Canada');
+INSERT INTO airlines (uid, Airline, Abbreviation, Country) VALUES (4, 'Lufthansa', 'LH', 'Germany');
+```

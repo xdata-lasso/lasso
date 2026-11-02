@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering on ship.tonnage = 't' (case sensitivity, partial match, NULLs) and INNER JOIN vs OUTER JOIN.
+INSERT INTO "battle" ("id", "name", "date", "bulgarian_commander", "latin_commander", "result") VALUES (1, 'Battle A', '1205', 'Kaloyan', 'Baldwin', 'Bulgarian victory');
+
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (1, 1, 'Ship Alpha', 't', 'Brig', 'Sea', 'Sunk');
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (2, 1, 'Ship Beta', 'T', 'Brig', 'Sea', 'Captured');
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (3, NULL, 'Ship Gamma', '250t', 'Galleon', 'Port', 'Active');
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (4, NULL, 'Ship Delta', NULL, 'Frigate', 'Ocean', 'Scuttled');
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (5, 1, 'Ship Epsilon', 't', 'Corvette', 'Bay', 'Sunk');
+
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (10, 1, 'Match 1', 15, 30);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (20, 2, 'Uppercase tonnage', 25, 40);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (30, 3, 'Partial tonnage', 35, 50);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (40, 4, 'Null tonnage', 45, 60);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (50, NULL, 'Unlinked death', 55, 70);
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY clauses: killed ASC (NULLS FIRST by default in SQLite), secondary sort on injured ASC NULLS LAST, and duplicate row preservation (SELECT ALL vs DISTINCT).
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (10, NULL, 'Ship Sort', 't', 'Destroyer', 'Pacific', 'Active');
+
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (1, 10, 'Row 1', 10, 5);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (2, 10, 'Row 2 (Tie killed, lower injured)', 10, 2);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (3, 10, 'Row 3 (Tie killed, null injured)', 10, NULL);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (4, 10, 'Row 4 (Duplicate of Row 1)', 10, 5);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (5, 10, 'Row 5 (Lower killed)', 2, 100);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (6, 10, 'Row 6 (Null killed, high injured)', NULL, 50);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (7, 10, 'Row 7 (Null killed, low injured)', NULL, 10);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (8, 10, 'Row 8 (Both null)', NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition correctness: LHS.caused_by_ship_id = RHS.id vs LHS.id = RHS.id or RHS.lost_in_battle = LHS.id, and multiple ships with 't'.
+INSERT INTO "battle" ("id", "name", "date", "bulgarian_commander", "latin_commander", "result") VALUES (1, 'Battle 1', '1205', 'Cmdr A', 'Cmdr B', 'Win');
+INSERT INTO "battle" ("id", "name", "date", "bulgarian_commander", "latin_commander", "result") VALUES (2, 'Battle 2', '1206', 'Cmdr C', 'Cmdr D', 'Loss');
+
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (1, 2, 'Ship 1', 'x', 'Type A', 'Loc A', 'Disp A');
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (2, 1, 'Ship 2', 't', 'Type B', 'Loc B', 'Disp B');
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (3, 1, 'Ship 3', 't', 'Type C', 'Loc C', 'Disp C');
+
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (1, 2, 'ID is 1 (non-t ship), but caused by 2 (t ship)', 100, 200);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (2, 1, 'ID is 2 (t ship), but caused by 1 (non-t ship)', 300, 400);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (3, 3, 'ID matches caused_by_ship_id (both 3)', 50, 60);
+```
+
+```sql
+-- DATASET 4
+-- Tests negative numbers, zero values, and column confusion (e.g., if 't' appears in other ship columns or death.note).
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (100, NULL, 't', '100', 't', 't', 't');
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (200, NULL, 'Normal', 't', 'Normal', 'Normal', 'Normal');
+
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (1, 100, 't', 10, 20);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (2, 200, 'Zeroes', 0, 0);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (3, 200, 'Negatives', -5, 10);
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (4, 200, 'Zero killed, neg injured', 0, -10);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when tables are populated but no ship satisfies tonnage = 't'.
+INSERT INTO "battle" ("id", "name", "date", "bulgarian_commander", "latin_commander", "result") VALUES (1, 'B1', '1200', 'C1', 'C2', 'R1');
+INSERT INTO "ship" ("id", "lost_in_battle", "name", "tonnage", "ship_type", "location", "disposition_of_ship") VALUES (1, 1, 'S1', '1000', 'T1', 'L1', 'D1');
+INSERT INTO "death" ("id", "caused_by_ship_id", "note", "killed", "injured") VALUES (1, 1, 'N1', 5, 5);
+```

@@ -1,0 +1,33 @@
+-- Schema DDL
+CREATE TABLE "museum" ("Museum_ID" INTEGER PRIMARY KEY, "Name" TEXT, "Num_of_Staff" INTEGER, "Open_Year" TEXT);
+
+CREATE TABLE "visitor" ("ID" INTEGER PRIMARY KEY, "Name" TEXT, "Level_of_membership" INTEGER, "Age" INTEGER);
+
+CREATE TABLE "visit" ("Museum_ID" INTEGER, "visitor_ID" TEXT, "Num_of_Ticket" INTEGER, "Total_spent" REAL, PRIMARY KEY ("Museum_ID", "visitor_ID"), FOREIGN KEY ("visitor_ID") REFERENCES "visitor" ("ID"), FOREIGN KEY ("Museum_ID") REFERENCES "museum" ("Museum_ID"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO museum (Museum_ID, Name, Num_of_Staff, Open_Year) VALUES (1, 'City History Museum', 2009, '2015');
+INSERT INTO museum (Museum_ID, Name, Num_of_Staff, Open_Year) VALUES (2, 'National Art Gallery', 100, '2005');
+INSERT INTO museum (Museum_ID, Name, Num_of_Staff, Open_Year) VALUES (3, 'Modern Science Center', 2009, '2008');
+INSERT INTO museum (Museum_ID, Name, Num_of_Staff, Open_Year) VALUES (4, 'Future Tech Museum', 300, '2010');
+INSERT INTO museum (Museum_ID, Name, Num_of_Staff, Open_Year) VALUES (5, 'Boundary Year Museum', 50, '2009');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT AVG(num_of_staff) OVER () AS avg_num_of_staff_ FROM museum WHERE (num_of_staff = 2009 OR open_year < 2009) ORDER BY avg_num_of_staff_;
+
+/*
+Gold Result:
+(1372.6666666666667,)
+*/
+
+-- Prediction Query
+SELECT AVG(num_of_staff) FROM museum WHERE open_year < 2009;
+
+/*
+Prediction Result:
+(1054.5,)
+*/

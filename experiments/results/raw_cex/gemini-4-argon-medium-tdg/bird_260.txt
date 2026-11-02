@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Multiple matching bonds for the same atom (kills COUNT(DISTINCT T1.atom_id) vs COUNT(T1.atom_id))
+-- 2. Multiple matching atoms for the same bond (kills COUNT(DISTINCT T3.bond_id) and COUNT(DISTINCT T2.molecule_id))
+-- 3. Atoms matching T1.element and bonds matching T3.bond_type in the same molecule, but NOT connected in the `connected` table (kills mutants that join via `connected` table)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'p');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'br');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm1', 'o');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm1', '-');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a3', 'a4', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b3');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Omission of 'p' from IN ('p', 'br')
+-- 2. Inclusion of other elements like 'c'
+-- 3. Omission of bond_type = '#' filter
+-- 4. Replacing AND with OR in the WHERE clause
+-- 5. Connected table properly linked for valid matches (in case Dataset 1 returns 0 for connected-join mutants, here it returns >0 while testing element 'p' specifically)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'p');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', 'p');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm3', 'c');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm2', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm3', '#');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Omission of 'br' from IN ('p', 'br')
+-- 2. Outer join mutants (LEFT JOIN instead of INNER JOIN) with NULL molecule_ids, molecules without bonds, molecules without atoms
+-- 3. Filtering on molecule.label (e.g. mutants adding WHERE label = '+')
+-- 4. Missing JOIN conditions (Cartesian product mutants)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'br');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', 'br');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', NULL, 'br');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm3', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', NULL, '#');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a1', 'b1');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty result set behavior (Gold query returns 0; kills mutants that return NULL, or fail on empty joins, or use wrong predicates like != '#')
+-- 2. Case sensitivity or near-miss literals ('P', 'BR', '-', '=')
+-- 3. Cross-molecule connections in `connected` table (kills mutants joining T1 and T3 via `connected` without checking T1.molecule_id = T3.molecule_id)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'p');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm2', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', 'P');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm2', 'BR');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm2', '#');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b2');
+```

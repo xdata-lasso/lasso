@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, join condition, and DESC vs ASC on FavoriteCount, plus OwnerUserId vs T1.UserId confusion.
+INSERT INTO users (Id) VALUES (1465);
+INSERT INTO users (Id) VALUES (999);
+
+-- High FavoriteCount, but belongs to a different user in votes (tests WHERE T1.UserId = 1465)
+INSERT INTO posts (Id, FavoriteCount, OwnerUserId) VALUES (10, 1000, 1465);
+INSERT INTO votes (Id, PostId, UserId) VALUES (1, 10, 999);
+
+-- Valid vote for user 1465, lower FavoriteCount
+INSERT INTO posts (Id, FavoriteCount, OwnerUserId) VALUES (20, 50, 999);
+INSERT INTO votes (Id, PostId, UserId) VALUES (2, 20, 1465);
+
+-- Valid vote for user 1465, higher FavoriteCount (Expected Winner: 30)
+INSERT INTO posts (Id, FavoriteCount, OwnerUserId) VALUES (30, 500, 999);
+INSERT INTO votes (Id, PostId, UserId) VALUES (3, 30, 1465);
+
+-- Post with highest FavoriteCount, owned by 1465, but NO votes (tests INNER JOIN vs RIGHT/LEFT JOIN on posts)
+INSERT INTO posts (Id, FavoriteCount, OwnerUserId) VALUES (40, 5000, 1465);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T2.FavoriteCount using T1.Id ASC vs T2.Id ASC, and tests wrong join condition (e.g. T1.Id = T2.Id).
+INSERT INTO users (Id) VALUES (1465);
+
+-- Post 100 has a smaller T2.Id, but its vote has a larger T1.Id (50)
+INSERT INTO posts (Id, FavoriteCount, Score, ViewCount) VALUES (100, 25, 100, 1000);
+INSERT INTO votes (Id, PostId, UserId) VALUES (50, 100, 1465);
+
+-- Post 200 has a larger T2.Id, but its vote has a smaller T1.Id (10) (Expected Winner: 200)
+INSERT INTO posts (Id, FavoriteCount, Score, ViewCount) VALUES (200, 25, 5, 10);
+INSERT INTO votes (Id, PostId, UserId) VALUES (10, 200, 1465);
+
+-- Decoy post where Post.Id matches Vote.Id (10) to catch T1.Id = T2.Id join mutants
+INSERT INTO posts (Id, FavoriteCount, Score, ViewCount) VALUES (10, 9999, 9999, 9999);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in FavoriteCount (in SQLite, NULLs are considered smaller than any non-NULL value, so in DESC order they appear LAST), and tests PostId IS NULL (LEFT JOIN mutants).
+INSERT INTO users (Id) VALUES (1465);
+
+-- Vote with NULL PostId (tests INNER JOIN vs LEFT JOIN)
+INSERT INTO votes (Id, PostId, UserId) VALUES (1, NULL, 1465);
+
+-- Post with NULL FavoriteCount
+INSERT INTO posts (Id, FavoriteCount) VALUES (101, NULL);
+INSERT INTO votes (Id, PostId, UserId) VALUES (2, 101, 1465);
+
+-- Post with negative FavoriteCount (Expected Winner: 102, since -5 > NULL in SQLite DESC)
+INSERT INTO posts (Id, FavoriteCount) VALUES (102, -5);
+INSERT INTO votes (Id, PostId, UserId) VALUES (3, 102, 1465);
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary values around UserId = 1465 (e.g., 1464, 1466, NULL) to kill <, <=, >, >=, != mutants, and tests tie-breaking when all FavoriteCounts are NULL.
+INSERT INTO users (Id) VALUES (1464);
+INSERT INTO users (Id) VALUES (1465);
+INSERT INTO users (Id) VALUES (1466);
+
+-- Boundary user 1464 with high FavoriteCount
+INSERT INTO posts (Id, FavoriteCount) VALUES (1, 999);
+INSERT INTO votes (Id, PostId, UserId) VALUES (1, 1, 1464);
+
+-- Boundary user 1466 with high FavoriteCount
+INSERT INTO posts (Id, FavoriteCount) VALUES (2, 999);
+INSERT INTO votes (Id, PostId, UserId) VALUES (2, 2, 1466);
+
+-- NULL user with high FavoriteCount
+INSERT INTO posts (Id, FavoriteCount) VALUES (3, 999);
+INSERT INTO votes (Id, PostId, UserId) VALUES (3, 3, NULL);
+
+-- User 1465, NULL FavoriteCount, higher T1.Id
+INSERT INTO posts (Id, FavoriteCount) VALUES (4, NULL);
+INSERT INTO votes (Id, PostId, UserId) VALUES (20, 4, 1465);
+
+-- User 1465, NULL FavoriteCount, lower T1.Id (Expected Winner: 5)
+INSERT INTO posts (Id, FavoriteCount) VALUES (5, NULL);
+INSERT INTO votes (Id, PostId, UserId) VALUES (10, 5, 1465);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple votes by User 1465 on the same Post, and ensures LIMIT 1 is enforced and column projection is T2.Id (not T1.Id or FavoriteCount).
+INSERT INTO users (Id) VALUES (1465);
+
+-- Post 555 has two votes from 1465, and FavoriteCount 10 (Expected Winner: 555)
+INSERT INTO posts (Id, FavoriteCount, LastEditorUserId) VALUES (555, 10, 1465);
+INSERT INTO votes (Id, PostId, UserId) VALUES (77, 555, 1465);
+INSERT INTO votes (Id, PostId, UserId) VALUES (88, 555, 1465);
+
+-- Post 666 has one vote from 1465, FavoriteCount 5
+INSERT INTO posts (Id, FavoriteCount, LastEditorUserId) VALUES (666, 5, 1465);
+INSERT INTO votes (Id, PostId, UserId) VALUES (1, 666, 1465);
+```

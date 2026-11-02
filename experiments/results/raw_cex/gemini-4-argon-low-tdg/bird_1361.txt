@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests basic summation, duplicate cost values (kills SUM(DISTINCT cost)), and filtering (kills missing/altered WHERE clause, AVG, COUNT, MIN, MAX, no aggregation).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('e1', 'Club Meeting', '2023-09-01', 'Meeting', 'Weekly', 'Room 101', 'Closed');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('maj1', 'Computer Science', 'CS', 'Engineering');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+INSERT INTO "member" (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('m1', 'Alice', 'Smith', 'alice@example.com', 'President', 'M', '555-0101', 10001, 'maj1');
+INSERT INTO "budget" (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('b1', 'Food', 45.5, 54.5, 100, 'Closed', 'e1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x1', 'Pizza', '2023-09-01', 15.5, 'true', 'm1', 'b1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x2', 'Pizza', '2023-09-01', 15.5, 'true', 'm1', 'b1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x3', 'Pizza', '2023-09-01', 25.0, 'true', 'm1', 'b1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x4', 'Soda', '2023-09-01', 10.0, 'true', 'm1', 'b1');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL foreign keys (link_to_member, link_to_budget), unapproved expenses, and NULL cost handling (kills unnecessary INNER JOINs to member/budget/event and extra predicates on 'approved').
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('e1', 'Social', '2023-10-01', 'Social', 'None', 'Hall', 'Open');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('maj1', 'History', 'Humanities', 'Arts');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (20001, 'Standard', 'Washington', 'DC', 'DC', 'DC');
+INSERT INTO "member" (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('m1', 'Bob', 'Jones', 'bob@example.com', 'Treasurer', 'L', '555-0202', 20001, 'maj1');
+INSERT INTO "budget" (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('b1', 'Refreshments', 20.0, 80.0, 100, 'Open', 'e1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x1', 'Pizza', '2023-10-01', 12.75, 'false', NULL, NULL);
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x2', 'Pizza', '2023-10-02', 8.25, 'true', 'm1', NULL);
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x3', 'Pizza', '2023-10-03', NULL, 'true', NULL, 'b1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x4', 'Water', '2023-10-03', 50.0, 'true', 'm1', 'b1');
+```
+
+```sql
+-- DATASET 3
+-- Tests exact string matching vs. LIKE '%Pizza%', case sensitivity ('pizza' vs 'Pizza'), and column confusion (category='Pizza', notes='Pizza', etc.).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('e1', 'Pizza', '2023-11-01', 'Pizza', 'Pizza', 'Pizza', 'Open');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('maj1', 'Math', 'Math', 'Science');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (30001, 'Standard', 'Atlanta', 'Fulton', 'Georgia', 'GA');
+INSERT INTO "member" (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('m1', 'Pizza', 'Guy', 'pizza@example.com', 'Member', 'S', '555-0303', 30001, 'maj1');
+INSERT INTO "budget" (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('b1', 'Pizza', 999.0, 1.0, 1000, 'Open', 'e1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x1', 'Pizza', '2023-11-01', 18.0, 'true', 'm1', 'b1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x2', 'pizza', '2023-11-01', 100.0, 'true', 'm1', 'b1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x3', 'Pizza Party', '2023-11-01', 200.0, 'true', 'm1', 'b1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x4', 'Cheese Pizza', '2023-11-01', 300.0, 'true', 'm1', 'b1');
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x5', NULL, '2023-11-01', 400.0, 'true', 'm1', 'b1');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set for the filter (no 'Pizza' rows exist). SUM(cost) should return a single row with NULL, killing mutants that use GROUP BY (returns 0 rows) or COALESCE/TOTAL (returns 0.0).
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x1', 'Burgers', '2023-12-01', 40.0, 'true', NULL, NULL);
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x2', 'Salad', '2023-12-02', 25.0, 'true', NULL, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests single matching row where cost != 1 (kills COUNT(*) vs SUM(cost) when only 1 row matches, and differentiates from MIN/MAX if other non-matching rows have smaller/larger values).
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x1', 'Snacks', '2023-12-05', 5.0, 'true', NULL, NULL);
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x2', 'Pizza', '2023-12-05', 42.5, 'true', NULL, NULL);
+INSERT INTO "expense" (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('x3', 'Catering', '2023-12-05', 500.0, 'true', NULL, NULL);
+```

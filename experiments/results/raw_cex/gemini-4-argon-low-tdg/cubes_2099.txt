@@ -1,0 +1,78 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(DISTINCT Position) vs COUNT(Position) or COUNT(*) by having duplicate positions within the same club.
+-- 2. Handling of NULL positions (COUNT(DISTINCT) should ignore NULLs).
+-- 3. Filtering on ClubName = 'Bootup Baltimore' vs other clubs or NULL club names.
+-- 4. Multiple clubs named 'Bootup Baltimore' with different distinct position counts to test GROUP BY ClubID, ORDER BY, and SELECT DISTINCT vs SELECT.
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Smith', 'John', 20, 'M', 101, 201, 'BAL');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Doe', 'Jane', 21, 'F', 102, 202, 'BOS');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (3, 'Brown', 'Bob', 22, 'M', 101, 201, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (4, 'White', 'Alice', 19, 'F', 103, 203, 'BAL');
+
+INSERT INTO "Club" ("ClubID", "ClubName", "ClubDesc", "ClubLocation") VALUES (10, 'Bootup Baltimore', 'Tech club 1', 'Room 101');
+INSERT INTO "Club" ("ClubID", "ClubName", "ClubDesc", "ClubLocation") VALUES (20, 'Chess Club', 'Board games', 'Room 102');
+INSERT INTO "Club" ("ClubID", "ClubName", "ClubDesc", "ClubLocation") VALUES (30, 'Bootup Baltimore', 'Tech club 2', 'Room 103');
+
+-- Club 10 ('Bootup Baltimore'): 4 members, 2 distinct non-null positions ('President', 'Member'), 1 duplicate, 1 NULL. Expected count: 2.
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (10, 1, 'President');
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (10, 2, 'Member');
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (10, 3, 'Member');
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (10, 4, NULL);
+
+-- Club 30 ('Bootup Baltimore'): 1 member, 1 distinct position ('Treasurer'). Expected count: 1.
+-- Inserted after Club 10 to ensure ORDER BY sorts [1, 2] instead of [2, 1].
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (30, 1, 'Treasurer');
+
+-- Club 20 ('Chess Club'): Should be filtered out. Shares 'President' with Club 10 to catch mutants that omit GROUP BY ClubID.
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (20, 1, 'President');
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (20, 2, 'Vice President');
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (20, 3, 'Secretary');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Inner join / EXISTS semantics when 'Bootup Baltimore' exists in "Club" but has NO rows in "Member_of_club" (should return empty result set, not 0).
+-- 2. A club named 'Bootup Baltimore' where all members have NULL positions (should return 0 for that club).
+-- 3. Two different 'Bootup Baltimore' clubs yielding the exact same distinct count (tests that the outer query does NOT do SELECT DISTINCT on the count).
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Green', 'Tom', 20, 'M', 101, 201, 'LAX');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Black', 'Sara', 22, 'F', 102, 202, 'CHI');
+
+INSERT INTO "Club" ("ClubID", "ClubName", "ClubDesc", "ClubLocation") VALUES (1, 'Bootup Baltimore', 'Empty branch', 'Hall A');
+INSERT INTO "Club" ("ClubID", "ClubName", "ClubDesc", "ClubLocation") VALUES (2, 'Bootup Baltimore', 'Null positions branch', 'Hall B');
+INSERT INTO "Club" ("ClubID", "ClubName", "ClubDesc", "ClubLocation") VALUES (3, 'Bootup Baltimore', 'Single position branch A', 'Hall C');
+INSERT INTO "Club" ("ClubID", "ClubName", "ClubDesc", "ClubLocation") VALUES (4, 'Bootup Baltimore', 'Single position branch B', 'Hall D');
+
+-- Club 1 has no members at all (excluded from LHS GROUP BY, so not in final output).
+-- Club 2 has members, but Position is NULL (included in LHS GROUP BY with count 0).
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (2, 1, NULL);
+
+-- Club 3 and Club 4 both have a count of 1 (final output should be [0, 1, 1]).
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (3, 1, 'Lead');
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (4, 2, 'Lead');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Case sensitivity and exact string matching on 'Bootup Baltimore' (e.g., vs 'bootup baltimore' or 'Bootup Baltimore ').
+-- 2. Orphaned/NULL ClubID in Member_of_club.
+-- 3. Counting distinct positions vs counting distinct students (StuID).
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Adams', 'Amy', 20, 'F', 101, 201, 'NYC');
+
+INSERT INTO "Club" ("ClubID", "ClubName", "ClubDesc", "ClubLocation") VALUES (100, 'Bootup Baltimore', 'Exact match', 'Loc 1');
+INSERT INTO "Club" ("ClubID", "ClubName", "ClubDesc", "ClubLocation") VALUES (200, 'bootup baltimore', 'Lowercase match', 'Loc 2');
+INSERT INTO "Club" ("ClubID", "ClubName", "ClubDesc", "ClubLocation") VALUES (300, 'Bootup Baltimore Club', 'Prefix match', 'Loc 3');
+
+-- Same student (StuID = 1) holds 3 different positions in Club 100.
+-- COUNT(DISTINCT Position) = 3, whereas COUNT(DISTINCT StuID) = 1.
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (100, 1, 'President');
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (100, 1, 'Treasurer');
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (100, 1, 'Secretary');
+
+-- Other clubs and NULL ClubIDs that must be ignored
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (200, 1, 'Member');
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (300, 1, 'Member');
+INSERT INTO "Member_of_club" ("ClubID", "StuID", "Position") VALUES (NULL, 1, 'Ghost');
+```

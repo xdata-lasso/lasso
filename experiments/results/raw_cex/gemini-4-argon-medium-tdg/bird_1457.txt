@@ -1,0 +1,112 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary condition on WHERE clause (> vs >=, <, <=, =).
+-- 2. SELECT DISTINCT requirement (member M3 has two qualifying expenses above average).
+-- 3. Comparing against budget columns (spent, remaining, amount) instead of AVG(cost).
+-- 4. Aggregate function mutations (AVG vs MIN, MAX, SUM, COUNT).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Annual Gala', '2023-05-01', 'Social', 'None', 'Hall A', 'Closed');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Science', 'CS', 'Engineering');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'NY', 'New York', 'NY');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 5.0, 5.0, 5, 'Closed', 'E1');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Alice', 'Smith', 'alice@example.com', 'Member', 'S', '111-222-3333', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', 'Bob', 'Jones', 'bob@example.com', 'Treasurer', 'M', '222-333-4444', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M3', 'Charlie', 'Brown', 'charlie@example.com', 'President', 'L', '333-444-5555', 10001, 'MAJ1');
+
+-- Joined costs: 10.0, 20.0, 25.0, 25.0 -> SUM = 80.0, COUNT = 4, AVG = 20.0
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX1', 'Drinks', '2023-04-10', 10.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX2', 'Snacks', '2023-04-11', 20.0, 'true', 'M2', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX3', 'Dinner', '2023-04-12', 25.0, 'false', 'M3', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX4', 'Dessert', '2023-04-13', 25.0, 'true', 'M3', 'B1');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Omission of INNER JOIN with budget or member in EITHER the outer query OR the subquery.
+-- 2. Expenses with NULL link_to_budget or NULL link_to_member that have extreme costs skewing the average if joins are omitted or changed to LEFT JOIN.
+-- 3. Unreferenced members and budgets to kill mutants using RIGHT/FULL OUTER JOINs.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Tech Talk', '2023-06-01', 'Academic', 'Notes', 'Room 101', 'Open');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Mathematics', 'Math', 'Science');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (20002, 'Standard', 'Washington', 'DC', 'District of Columbia', 'DC');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Supplies', 50.0, 50.0, 100, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Unused Budget', 0.0, 100.0, 100, 'Open', 'E1');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'David', 'adams', 'david@example.com', 'Member', 'M', '444-555-6666', 20002, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', 'Eve', 'White', 'eve@example.com', 'Secretary', 'S', '555-666-7777', 20002, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M3', 'Frank', 'Green', 'frank@example.com', 'Member', 'XL', '666-777-8888', 20002, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M4', 'Grace', 'NoExpense', 'grace@example.com', 'Member', 'L', '777-888-9999', 20002, 'MAJ1');
+
+-- Valid joined expenses: EX1 (10.0) and EX2 (30.0) -> Inner joined AVG = 20.0. EX2 > 20.0 (Eve qualifies).
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX1', 'Pens', '2023-05-01', 10.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX2', 'Paper', '2023-05-02', 30.0, 'true', 'M2', 'B1');
+
+-- Expense missing budget link (cost 1000.0).
+-- If outer query omits budget join, M3 is erroneously returned.
+-- If subquery omits budget join, AVG becomes (10+30+1000)/3 = 346.67, causing M2 (cost 30) to be excluded!
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX3', 'Unbudgeted Laptop', '2023-05-03', 1000.0, 'true', 'M3', NULL);
+
+-- Expense missing member link (cost 2000.0).
+-- If subquery omits member join, AVG becomes (10+30+2000)/3 = 680.0, causing M2 (cost 30) to be excluded!
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX4', 'Anonymous Donation', '2023-05-04', 2000.0, 'true', NULL, 'B1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. AVG(DISTINCT cost) vs AVG(cost) in the subquery.
+-- 2. Correlated subquery mutants (e.g., grouping/filtering subquery by member_id or budget_id).
+-- 3. Floating point precision in AVG calculation.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Workshop', '2023-07-01', 'Academic', 'None', 'Lab 1', 'Closed');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Physics', 'Physics', 'Science');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (30003, 'Standard', 'Atlanta', 'Fulton', 'Georgia', 'GA');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Equipment', 100.0, 0.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Travel', 200.0, 0.0, 200, 'Closed', 'E1');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Hannah', 'Abbott', 'hannah@example.com', 'Member', 'S', '888-999-0000', 30003, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', 'Ian', 'Malcolm', 'ian@example.com', 'Member', 'M', '999-000-1111', 30003, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M3', 'Julia', 'Roberts', 'julia@example.com', 'VP', 'M', '000-111-2222', 30003, 'MAJ1');
+
+-- Costs: 10, 10, 10, 10, 18, 22
+-- True AVG(cost) = (10*4 + 18 + 22) / 6 = 80 / 6 = 13.333... (Both M2 with 18 and M3 with 22 are > 13.333)
+-- Mutant AVG(DISTINCT cost) = (10 + 18 + 22) / 3 = 50 / 3 = 16.666...
+-- Wait: to distinguish 13.333 from 16.666, we need a cost between 13.333 and 16.666!
+-- Let's use costs: 10, 10, 10, 10, 15, 23 -> True AVG = 78 / 6 = 13.0.
+-- Distinct costs: 10, 15, 23 -> AVG(DISTINCT cost) = 48 / 3 = 16.0.
+-- Cost 15.0 (M2) is > 13.0 (included in Gold), but < 16.0 (excluded in AVG(DISTINCT)).
+-- Also tests correlated subquery per budget: in B2, costs are 15 and 23 (AVG for B2 = 19.0, so 15 would be excluded if correlated by budget!).
+-- Also tests correlated subquery per member: M2 has costs 15 and 16 -> if correlated by member, M3 (only 1 expense of 23) has AVG 23, not > 23!
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX1', 'Item 1', '2023-07-01', 10.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX2', 'Item 2', '2023-07-01', 10.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX3', 'Item 3', '2023-07-01', 10.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX4', 'Item 4', '2023-07-01', 10.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX5', 'Item 5', '2023-07-02', 15.0, 'true', 'M2', 'B2');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX6', 'Item 6', '2023-07-03', 23.0, 'true', 'M3', 'B2');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Distinct members sharing identical first_name or last_name, or same member vs different member.
+-- 2. Handling of NULL cost in expense (ignored by AVG and fails > comparison).
+-- 3. Unnecessary joins to other tables (e.g. income, attendance, major, zip_code, event) that might filter out valid members who have NULL zip, NULL link_to_major, or no attendance/income.
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Alex', 'Taylor', 'alex1@example.com', 'Member', 'M', '123-000-0001', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', 'Alex', 'Taylor', 'alex2@example.com', 'Member', 'L', '123-000-0002', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M3', 'Jordan', 'Lee', 'jordan@example.com', 'Member', 'S', '123-000-0003', NULL, NULL);
+
+-- Budget with NULL link_to_event (kills mutants that unnecessarily INNER JOIN event)
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Misc', 100.0, 50.0, 150, 'Planning', NULL);
+
+-- Expenses: M1 (cost 50), M2 (cost 60), M3 (cost 10), and M3 (cost NULL)
+-- AVG of non-null joined costs: (50 + 60 + 10) / 3 = 40.0 (If NULL is treated as 0, AVG = 120/4 = 30.0).
+-- Let's make a cost of 35.0 so that if NULL is treated as 0 (e.g., SUM(cost)/COUNT(*)), 35.0 > 30.0 (included), whereas true AVG is (50+60+35+5)/4 = 37.5 (so 35.0 is excluded!).
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX1', 'Poster', '2023-08-01', 50.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX2', 'Banner', '2023-08-02', 60.0, 'true', 'M2', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX3', 'Markers', '2023-08-03', 35.0, 'true', 'M3', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX4', 'Tape', '2023-08-04', 5.0, 'true', 'M3', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX5', 'Pending Item', '2023-08-05', NULL, 'false', 'M3', 'B1');
+```

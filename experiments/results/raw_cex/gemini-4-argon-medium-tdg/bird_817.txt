@@ -1,0 +1,129 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, DISTINCT vs ALL (duplicate races returned), and projection mistakes (e.g., returning superhero_name or id instead of race).
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO gender (id, gender) VALUES (10, 'Male');
+INSERT INTO race (id, race) VALUES (100, 'Mutant');
+
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id) VALUES (1000, 'Nightcrawler', 'Kurt Wagner', 10, 1, 1, 1, 100);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id) VALUES (1001, 'Beast', 'Hank McCoy', 10, 1, 1, 1, 100);
+```
+
+```sql
+-- DATASET 2
+-- Tests colour join condition mistakes: ensures hair_colour_id is specifically checked rather than eye_colour_id or skin_colour_id.
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO colour (id, colour) VALUES (2, 'Black');
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO race (id, race) VALUES (1, 'Human');
+INSERT INTO race (id, race) VALUES (2, 'Kryptonian');
+INSERT INTO race (id, race) VALUES (3, 'Atlantean');
+
+-- Hero 1: Eye colour is Blue, Hair is Black (Should NOT match)
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id) VALUES (1, 'HeroEyeBlue', 1, 1, 2, 2, 1);
+-- Hero 2: Skin colour is Blue, Hair is Black (Should NOT match)
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id) VALUES (2, 'HeroSkinBlue', 1, 2, 2, 1, 2);
+-- Hero 3: Hair colour is Blue, Eye and Skin are Black (SHOULD match)
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id) VALUES (3, 'HeroHairBlue', 1, 2, 1, 2, 3);
+```
+
+```sql
+-- DATASET 3
+-- Tests WHERE clause predicate mutations: AND vs OR, equality vs inequality, and wrong literal values for colour and gender.
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO colour (id, colour) VALUES (2, 'Red');
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO gender (id, gender) VALUES (2, 'Female');
+INSERT INTO race (id, race) VALUES (1, 'Cyborg');
+INSERT INTO race (id, race) VALUES (2, 'Amazon');
+INSERT INTO race (id, race) VALUES (3, 'Asgardian');
+INSERT INTO race (id, race) VALUES (4, 'Inhuman');
+
+-- Matches both: Blue hair AND Male (SHOULD match)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (1, 'BlueMale', 1, 1, 1);
+-- Matches colour only: Blue hair AND Female (Should NOT match - kills OR mutant and missing gender filter)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (2, 'BlueFemale', 2, 1, 2);
+-- Matches gender only: Red hair AND Male (Should NOT match - kills OR mutant and missing colour filter)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (3, 'RedMale', 1, 2, 3);
+-- Matches neither: Red hair AND Female (Should NOT match - kills NOT/inequality mutants)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (4, 'RedFemale', 2, 2, 4);
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN mutations and NULL handling across foreign keys and attributes.
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO colour (id, colour) VALUES (2, NULL);
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO gender (id, gender) VALUES (2, NULL);
+INSERT INTO race (id, race) VALUES (1, 'Alien');
+INSERT INTO race (id, race) VALUES (2, 'Android');
+INSERT INTO race (id, race) VALUES (3, NULL);
+
+-- Hero with NULL race_id (Kills LEFT JOIN race mutant)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (1, 'NoRaceHero', 1, 1, NULL);
+-- Hero with NULL hair_colour_id (Kills improper NULL filter mutants)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (2, 'NoHairHero', 1, NULL, 1);
+-- Hero with NULL gender_id (Kills improper NULL filter mutants)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (3, 'NoGenderHero', NULL, 1, 1);
+-- Hero pointing to a valid race row whose race text is NULL (SHOULD match and output NULL)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (4, 'NullRaceNameHero', 1, 1, 3);
+```
+
+```sql
+-- DATASET 5
+-- Tests accidental cross-table ID collisions (e.g. joining T1.race_id = T2.id or T1.gender_id = T3.id) by using disjoint ID ranges and decoy matching IDs.
+INSERT INTO colour (id, colour) VALUES (1, 'Yellow');
+INSERT INTO colour (id, colour) VALUES (2, 'Blue');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (3, 'Male');
+
+INSERT INTO race (id, race) VALUES (1, 'WrongRace_MatchedColourID');
+INSERT INTO race (id, race) VALUES (2, 'WrongRace_MatchedBlueID');
+INSERT INTO race (id, race) VALUES (3, 'WrongRace_MatchedMaleID');
+INSERT INTO race (id, race) VALUES (4, 'CorrectRace');
+
+-- Valid hero: hair_colour_id=2 (Blue), gender_id=3 (Male), race_id=4 (CorrectRace)
+-- If a mutant joins race on hair_colour_id, it gets 'WrongRace_MatchedBlueID'.
+-- If a mutant joins race on gender_id, it gets 'WrongRace_MatchedMaleID'.
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (10, 'TargetHero', 3, 2, 4);
+
+-- Decoy hero: hair_colour_id=1 (Yellow), gender_id=1 (Female), race_id=2 (WrongRace_MatchedBlueID)
+-- If a mutant filters T1.race_id = T2.id (where T2 is Blue, id=2), this decoy hero might be selected.
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (20, 'DecoyHero', 1, 1, 2);
+```
+
+```sql
+-- DATASET 6
+-- Tests string matching mutations (e.g., LIKE '%Blue%', case sensitivity, or substring checks) and empty result set behavior.
+INSERT INTO colour (id, colour) VALUES (1, 'Light Blue');
+INSERT INTO colour (id, colour) VALUES (2, 'blue');
+INSERT INTO colour (id, colour) VALUES (3, 'Blue ');
+INSERT INTO gender (id, gender) VALUES (1, 'male');
+INSERT INTO gender (id, gender) VALUES (2, 'MaleHero');
+INSERT INTO gender (id, gender) VALUES (3, 'Male');
+INSERT INTO colour (id, colour) VALUES (4, 'Blue');
+INSERT INTO race (id, race) VALUES (1, 'Vampire');
+INSERT INTO race (id, race) VALUES (2, 'Demon');
+
+-- Uses 'Light Blue' and 'Male' (Kills LIKE '%Blue%' mutant)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (1, 'Hero1', 3, 1, 1);
+-- Uses 'blue' (lowercase) and 'Male' (Kills case-insensitive mutants)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (2, 'Hero2', 3, 2, 1);
+-- Uses 'Blue' and 'male' (lowercase) (Kills case-insensitive mutants)
+INSERT INTO superhero (id, superhero_name, gender_id, hair_colour_id, race_id) VALUES (3, 'Hero3', 1, 4, 2);
+```
+
+```sql
+-- DATASET 7
+-- Tests mutations that unnecessarily join extra tables (e.g., publisher, alignment, hero_power, hero_attribute) by leaving those foreign keys NULL and child tables empty.
+INSERT INTO colour (id, colour) VALUES (5, 'Blue');
+INSERT INTO gender (id, gender) VALUES (6, 'Male');
+INSERT INTO race (id, race) VALUES (7, 'Eternal');
+INSERT INTO race (id, race) VALUES (8, 'Deviant');
+
+-- Hero with NULL alignment_id, NULL publisher_id, NULL eye/skin colour, NULL height/weight, and no rows in hero_power or hero_attribute
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (1, 'MinimalHero1', NULL, 6, NULL, 5, NULL, 7, NULL, NULL, NULL, NULL);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (2, 'MinimalHero2', NULL, 6, NULL, 5, NULL, 8, NULL, NULL, 0, 0);
+```

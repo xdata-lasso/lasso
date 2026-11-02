@@ -1,0 +1,91 @@
+```sql
+-- DATASET 1
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Accounts with wrong frequency, or right frequency
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'POPLATEK MESICNE', '1997-05-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 1, 'POPLATEK TYDNE', '1997-05-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (30, 1, 'POPLATEK TYDNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (40, 1, 'POPLATEK TYDNE', '1996-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (50, 1, 'POPLATEK TYDNE', '1997-08-01');
+
+-- Loan 1: Smallest amount overall (50), valid date (1997), but wrong frequency on account 10
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 10, '1997-06-15', 50, 12, 10.0, 'A');
+
+-- Loan 2: Small amount (60), right frequency (acc 20), but wrong year on loan.date (1996), while account.date is 1997
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 20, '1996-12-31', 60, 12, 10.0, 'A');
+
+-- Loan 3: Small amount (70), right frequency (acc 20), boundary year 1998 on loan.date
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (3, 20, '1998-01-01', 70, 12, 10.0, 'A');
+
+-- Loan 4: Valid match, amount 100 (smallest valid), account.date is NOT 1997 (tests T1.date vs T2.date)
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (4, 30, '1997-01-01', 100, 24, 20.0, 'B');
+
+-- Loan 5: Valid match, larger amount (200), smaller payments (5.0) and duration (6) to kill wrong ORDER BY column or DESC
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (5, 40, '1997-12-31', 200, 6, 5.0, 'A');
+```
+
+```sql
+-- DATASET 2
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Testing tie-breaking on T1.amount using T1.loan_id ASC
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (100, 1, 'POPLATEK TYDNE', '1993-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (200, 1, 'POPLATEK TYDNE', '1993-01-01');
+
+-- Both loans have valid year 1997 and identical minimal amount 500.
+-- Account 200 has smaller loan_id (10 vs 20), so account 200 must be returned.
+-- Also tests ordering by account_id vs loan_id since account 100 < account 200 while loan 20 > loan 10.
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (20, 100, '1997-03-10', 500, 12, 50.0, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (10, 200, '1997-07-20', 500, 36, 50.0, 'C');
+```
+
+```sql
+-- DATASET 3
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Testing joins on wrong columns (e.g., T1.loan_id = T2.account_id or T1.account_id = T2.district_id)
+-- and testing other tables (trans, order) having 1997 dates / smaller amounts
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK PO OBRATU', '1997-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK TYDNE', '1997-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 1, 'POPLATEK TYDNE', '1997-01-01');
+
+-- Loan with loan_id = 2 (matches account_id 2 if joined on loan_id = account_id), but belongs to account 1 (wrong frequency)
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 1, '1997-05-05', 10, 12, 1.0, 'A');
+
+-- True match on account 3
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (99, 3, '1997-05-05', 1000, 12, 100.0, 'A');
+
+-- Distractor rows in trans and order for account 2
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 2, '1997-05-05', 'PRIJEM', 'VKLAD', 5, 100, ' ', 'AB', 123);
+INSERT INTO "order" (order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (1, 2, 'AB', 123, 5.0, 'SIPO');
+```
+
+```sql
+-- DATASET 4
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Testing empty result set when conditions are only partially met (OR vs AND mutations)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'POPLATEK TYDNE', '1997-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 1, 'POPLATEK MESICNE', '1997-01-01');
+
+-- Right frequency, wrong year
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 10, '1995-05-05', 100, 12, 10.0, 'A');
+-- Right year, wrong frequency
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 20, '1997-05-05', 100, 12, 10.0, 'A');
+```
+
+```sql
+-- DATASET 5
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Testing string vs integer sorting on amount (e.g. CAST(amount AS TEXT)) and multiple loans per account
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (7, 1, 'POPLATEK TYDNE', '1994-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (8, 1, 'POPLATEK TYDNE', '1994-01-01');
+
+-- 80 < 100 numerically, but '100' < '80' lexicographically
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 7, '1997-02-02', 100, 12, 10.0, 'A');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 8, '1997-08-08', 80, 12, 10.0, 'A');
+-- Second loan on account 7 with larger amount (tests SUM(amount) vs amount per loan)
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (3, 8, '1997-09-09', 500, 12, 10.0, 'A');
+```

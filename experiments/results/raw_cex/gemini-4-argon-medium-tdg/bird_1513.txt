@@ -1,0 +1,60 @@
+```sql
+-- DATASET 1
+-- Tests basic WHERE Date filtering, Time DESC ordering, and LIMIT 1.
+-- Also includes decoy rows with later times on different dates to kill mutants missing the WHERE clause.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 1, 'CZE', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 2, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (30, 3, 'DEU', 'Discount');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-24', '23:59:00', 100, 1000, 30, 1, 50, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '09:15:00', 101, 1001, 10, 1, 40, 80.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '18:45:00', 102, 1002, 20, 2, 60, 120.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-26', '23:59:59', 103, 1003, 30, 1, 30, 60.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on ORDER BY: when T1.Time is identical, it must order by T1.TransactionID ASC.
+-- Kills mutants that omit the secondary sort key or use TransactionID DESC.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (101, 10, 'AUT', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (102, 20, 'HUN', 'Value for money');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (50, '2012-08-25', '14:30:00', 201, 2001, 102, 1, 10, 25.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-25', '14:30:00', 202, 2002, 101, 2, 20, 50.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN and foreign key column confusion.
+-- Includes a transaction with the latest Time on '2012-08-25', but referencing a non-existent GasStationID (kills LEFT JOIN).
+-- Also sets ChainID, CustomerID, and CardID to match other GasStationIDs to kill mutants joining on the wrong column.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (500, 600, 'POL', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (600, 500, 'FRA', 'Premium');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (10, '2012-08-25', '22:00:00', 500, 500, 999, 1, 15, 30.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (11, '2012-08-25', '20:00:00', 600, 600, 500, 1, 25, 50.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests handling of NULL values in T1.Time on the target date.
+-- In SQLite, NULLs are considered smaller than any non-NULL value, so ORDER BY Time DESC places non-NULLs first.
+-- Kills mutants that mishandle NULL sorting (e.g., NULLS FIRST) or filter out rows improperly.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'ITA', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 2, 'ESP', 'Discount');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', NULL, 10, 100, 1, 1, 100, 200.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '00:01:00', 20, 200, 2, 1, 10, 20.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests column projection accuracy (Country vs Segment) and empty result set when target date has no matching transactions.
+-- Here we have a valid transaction on '2012-08-25' where Country and Segment have distinct, non-confusable string values, 
+-- and another transaction on a very similar date ('2012-08-25 ' or '2012-08-24') to test strict equality.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (77, 7, 'NLD', 'CZE');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (88, 8, 'BEL', 'SVK');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (100, '2012-08-25', '12:00:00', 1, 1, 77, 1, 5, 10.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (101, '2012-08-25', '11:59:59', 2, 2, 88, 1, 500, 1000.0);
+```

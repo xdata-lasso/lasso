@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Tests CROSS JOIN vs INNER JOIN (unreferenced addresses, NULL foreign keys), DISTINCT (multiple addresses/customers), and ORDER BY ... NULLS LAST
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '10A', 'Paris', '75001', 'IDF', 'France');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (2, '20B', 'Berlin', '10115', 'Berlin', 'Germany');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (3, '30C', 'Lyon', '69001', 'ARA', 'France');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (4, '40D', 'Unknown', '00000', 'Unknown', NULL);
+
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (1, 1, 'Carole', 'Smith');
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (2, NULL, 'John', 'Doe');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty RHS in CROSS JOIN: Customer fails both conditions (first_name <> 'Carole' AND last_name = 'Bernhard')
+-- Refutes mutants that omit the CROSS JOIN, use LEFT JOIN, or flip predicates (= vs <>)
+INSERT INTO "Addresses" ("address_id", "country") VALUES (1, 'USA');
+INSERT INTO "Addresses" ("address_id", "country") VALUES (2, 'Canada');
+
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (1, 1, 'John', 'Bernhard');
+```
+
+```sql
+-- DATASET 3
+-- Tests OR vs AND in customer filter: only first_name = 'Carole' is true (last_name = 'Bernhard' makes last_name <> 'Bernhard' false)
+-- Also tests when customer_address_id points to one address while another address is unreferenced
+INSERT INTO "Addresses" ("address_id", "country") VALUES (1, 'Japan');
+INSERT INTO "Addresses" ("address_id", "country") VALUES (2, 'Brazil');
+
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (1, 1, 'Carole', 'Bernhard');
+```
+
+```sql
+-- DATASET 4
+-- Tests OR vs AND in customer filter: only last_name <> 'Bernhard' is true (first_name <> 'Carole')
+INSERT INTO "Addresses" ("address_id", "country") VALUES (1, 'Australia');
+INSERT INTO "Addresses" ("address_id", "country") VALUES (2, 'India');
+
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (1, 2, 'Alice', 'Wonderland');
+```
+
+```sql
+-- DATASET 5
+-- Tests three-valued logic (NULLs in first_name and last_name):
+-- Customer 1 has NULL first_name and 'Bernhard' last_name -> (UNKNOWN OR FALSE) -> FALSE
+-- Customer 2 has NULL first_name and NULL last_name -> (UNKNOWN OR UNKNOWN) -> FALSE
+-- Result should be empty. Refutes mutants using IS NOT adjustments or COALESCE.
+INSERT INTO "Addresses" ("address_id", "country") VALUES (1, 'Mexico');
+
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (1, 1, NULL, 'Bernhard');
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (2, 1, NULL, NULL);
+```
+
+```sql
+-- DATASET 6
+-- Tests three-valued logic where one branch is TRUE and the other is UNKNOWN:
+-- Customer 1 has 'Carole' and NULL last_name -> (TRUE OR UNKNOWN) -> TRUE
+INSERT INTO "Addresses" ("address_id", "country") VALUES (1, 'Spain');
+INSERT INTO "Addresses" ("address_id", "country") VALUES (2, 'Italy');
+
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (1, 1, 'Carole', NULL);
+```
+
+```sql
+-- DATASET 7
+-- Tests case sensitivity and partial matching mutants (e.g., LIKE '%Carole%') and empty Customers table edge case
+INSERT INTO "Addresses" ("address_id", "country") VALUES (1, 'Norway');
+INSERT INTO "Addresses" ("address_id", "country") VALUES (2, 'Sweden');
+
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (1, 1, 'carole', 'Bernhard');
+```
+
+```sql
+-- DATASET 8
+-- Tests INNER JOIN vs CROSS JOIN specifically when non-matching customer is linked to Address 1,
+-- and matching customer is linked to Address 2.
+-- An INNER JOIN + WHERE would only return 'UK', whereas the Gold Query (CROSS JOIN) returns both 'UK' and 'Egypt'.
+INSERT INTO "Addresses" ("address_id", "country") VALUES (1, 'Egypt');
+INSERT INTO "Addresses" ("address_id", "country") VALUES (2, 'UK');
+
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (1, 1, 'Bob', 'Bernhard');
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "first_name", "last_name") VALUES (2, 2, 'Carole', 'Bernhard');
+```

@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests the exact boundary condition where COUNT(*) OVER () is 1 (n = 1).
+-- Also includes unvisited museums and visitors without visits to catch OUTER JOIN mutants.
+-- The Gold Query should return an empty result set.
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (1, 'Louvre', 500, '1793');
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (2, 'Met', 400, '1870');
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (10, 'Alice', 1, 30);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (20, 'Bob', 2, 40);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (1, '10', 2, 50.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests the case where a single visitor has multiple visits (total joined rows n = 2, but only 1 distinct visitor).
+-- This catches mutants that mistakenly use GROUP BY visitor.id HAVING COUNT(*) > 1, 
+-- or mutants that omit DISTINCT, or mutants that count distinct visitors instead of total visits.
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (1, 'British Museum', 300, '1753');
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (2, 'Tate Modern', 200, '2000');
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (10, 'Charlie', 3, 25);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (20, 'David', 1, 50);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (1, '10', 1, 20.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (2, '10', 3, 60.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests the case where multiple visitors each have exactly 1 visit (total joined rows n = 2, per-visitor visits = 1).
+-- This specifically kills mutants that replace the global window function COUNT(*) OVER () with a partitioned window 
+-- COUNT(*) OVER (PARTITION BY id) or a GROUP BY id HAVING COUNT(*) <> 1.
+-- Also tests ORDER BY id and ensures visitor.Name is selected rather than museum.Name.
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (1, 'M_One', 100, '1900');
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (2, 'M_Two', 150, '1950');
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (5, 'Zack', 2, 22);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (15, 'Aaron', 1, 35);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (2, '15', 1, 15.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (1, '5', 2, 30.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in projected columns (Name, Age), NULLS LAST in ORDER BY, 
+-- and ensures Age is projected instead of Level_of_membership or Num_of_Ticket.
+-- Also includes a visitor with 1 visit and a visitor with 2 visits to test mixed multiplicities when n > 1.
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (10, 'MoMA', 250, '1929');
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (20, 'Guggenheim', 180, '1959');
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (1, NULL, 5, 28);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (2, 'Eve', 4, NULL);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (3, NULL, 2, NULL);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (4, 'Frank', 1, 45);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (10, '3', 1, 10.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (10, '1', 2, 25.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (20, '1', 1, 12.5);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (20, '2', 4, 80.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests the case where two different visitors have the exact same Name and Age, and both have visits.
+-- This kills mutants that drop 'id' from SELECT DISTINCT or GROUP BY only (name, age).
+-- Also tests when visitor_ID in visit matches museum_ID to catch wrong join condition mutants (e.g., LHS.id = RHS.museum_id).
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (1, 'Smithsonian', 600, '1846');
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (2, 'Prado', 350, '1819');
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (1, 'John Smith', 1, 40);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (2, 'John Smith', 1, 40);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (100, 'John Smith', 2, 40);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (1, '100', 1, 10.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (2, '2', 2, 20.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests empty visit table (n = 0). 
+-- Although 0 <> 1 is true, there are 0 rows in the join, so the result must be empty.
+-- Catches LEFT JOIN mutants where 2 visitors with 0 visits produce 2 rows in LEFT JOIN (making n = 2 <> 1) and outputting unvisited visitors.
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (1, 'Uffizi', 220, '1581');
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (1, 'Grace', 3, 29);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (2, 'Heidi', 2, 31);
+```

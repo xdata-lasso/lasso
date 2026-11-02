@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. LIMIT 5 boundary (7 matching rows)
+-- 2. ORDER BY T2.spent DESC vs ASC, and T2.spent vs T1.cost, T2.remaining, T2.amount
+-- 3. Duplicate member output (SELECT vs SELECT DISTINCT)
+-- 4. Unmatched parent rows in member and budget (INNER JOIN vs LEFT/RIGHT JOIN)
+-- 5. Expense rows with NULL foreign keys (INNER JOIN filtering)
+-- 6. Alternative join path traps (member -> attendance -> event -> budget)
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Gala');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Workshop');
+
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M1', 'Alice', 'Smith');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M2', 'Bob', 'Jones');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M3', 'Charlie', 'Brown');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M4', 'Diana', 'Prince');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M5', 'Evan', 'Wright');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M6', 'Fiona', 'Gallagher');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M_UNMATCHED', 'Ghost', 'Member');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'M6');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E2', 'M1');
+
+INSERT INTO income (income_id, amount, link_to_member) VALUES ('I1', 9999, 'M6');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 500.50, 10.0, 510, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Tech', 400.00, 200.0, 600, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Decor', 300.25, 300.0, 600, 'Planning', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Venue', 200.00, 800.0, 1000, 'Approved', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Misc', 100.00, 900.0, 1000, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_UNMATCHED', 'Extra', 9999.99, 0.0, 10000, 'Open', 'E1');
+
+INSERT INTO expense (expense_id, expense_description, cost, approved, link_to_member, link_to_budget) VALUES ('X1', 'Catering', 50.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, cost, approved, link_to_member, link_to_budget) VALUES ('X2', 'Drinks', 60.0, 'false', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, cost, approved, link_to_member, link_to_budget) VALUES ('X3', 'Projector', 800.0, 'true', 'M2', 'B2');
+INSERT INTO expense (expense_id, expense_description, cost, approved, link_to_member, link_to_budget) VALUES ('X4', 'Balloons', 150.0, 'true', 'M3', 'B3');
+INSERT INTO expense (expense_id, expense_description, cost, approved, link_to_member, link_to_budget) VALUES ('X5', 'Deposit', 900.0, 'false', 'M4', 'B4');
+INSERT INTO expense (expense_id, expense_description, cost, approved, link_to_member, link_to_budget) VALUES ('X6', 'Tape', 1000.0, 'true', 'M5', 'B5');
+INSERT INTO expense (expense_id, expense_description, cost, approved, link_to_member, link_to_budget) VALUES ('X7', 'Pens', 1200.0, 'true', 'M6', 'B5');
+INSERT INTO expense (expense_id, expense_description, cost, approved, link_to_member, link_to_budget) VALUES ('X_NULL_B', 'Orphan Budget', 5000.0, 'true', 'M6', NULL);
+INSERT INTO expense (expense_id, expense_description, cost, approved, link_to_member, link_to_budget) VALUES ('X_NULL_M', 'Orphan Member', 5000.0, 'true', NULL, 'B1');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Single row result (LIMIT 1 vs LIMIT 5, and basic column projection check)
+-- 2. Confirms first_name, last_name order and table source
+-- 3. Negative and zero values in spent/cost
+-- 4. Non-matching rows when IDs overlap across different tables (e.g., member_id = budget_id)
+INSERT INTO member (member_id, first_name, last_name, position) VALUES ('ID_1', 'Zack', 'Taylor', 'President');
+INSERT INTO member (member_id, first_name, last_name, position) VALUES ('ID_2', 'Kelly', 'Kapowski', 'Treasurer');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount) VALUES ('ID_1', 'Supplies', -10.5, 110.5, 100);
+INSERT INTO budget (budget_id, category, spent, remaining, amount) VALUES ('ID_2', 'Travel', 0.0, 500.0, 500);
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('ID_1', 250.0, 'ID_1', 'ID_2');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('ID_2', 50.0, 'ID_2', 'ID_1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Tie-breaking and secondary sorting (T1.expense_id, T2.budget_id, T3.member_id)
+-- 2. Handling of NULL values in T2.spent
+-- 3. Multiple expenses per budget and multiple budgets with identical spent amounts
+-- 4. Differentiating MAX(spent) or SUM(spent) grouped by member from ungrouped row-level spent
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M_A', 'Aaron', 'Aardvark');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M_B', 'Betty', 'Brant');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M_C', 'Carl', 'Grimes');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M_D', 'Derek', 'Hale');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M_E', 'Elena', 'Gilbert');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M_F', 'Frank', 'Castle');
+
+INSERT INTO budget (budget_id, spent, remaining, amount) VALUES ('B_NULL', NULL, 1000.0, 1000);
+INSERT INTO budget (budget_id, spent, remaining, amount) VALUES ('B_TIE_1', 250.0, 250.0, 500);
+INSERT INTO budget (budget_id, spent, remaining, amount) VALUES ('B_TIE_2', 250.0, 50.0, 300);
+INSERT INTO budget (budget_id, spent, remaining, amount) VALUES ('B_HIGH', 600.0, 0.0, 600);
+INSERT INTO budget (budget_id, spent, remaining, amount) VALUES ('B_LOW', 50.0, 450.0, 500);
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EXP_1', 100.0, 'M_A', 'B_HIGH');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EXP_2', 125.0, 'M_B', 'B_TIE_2');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EXP_3', 125.0, 'M_C', 'B_TIE_1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EXP_4', 50.0, 'M_D', 'B_LOW');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EXP_5', 50.0, 'M_D', 'B_LOW');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EXP_6', 50.0, 'M_D', 'B_LOW');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EXP_7', 900.0, 'M_E', 'B_NULL');
+```

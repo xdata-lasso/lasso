@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- Tests exact midnight match, non-midnight same-day matches (kills exact string comparison to '2025-01-01 00:00:00' or '2025-01-01'), and adjacent day boundary conditions (kills <, <=, >, >=, BETWEEN mutants).
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (1, 'Alice', 'Smith', '1980-05-15', 'F');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (2, 'Bob', 'Jones', '1990-08-20', 'M');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (3, 'Charlie', 'Brown', '1975-12-01', 'M');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (4, 'Diana', 'Prince', '1985-03-10', 'F');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (5, 'Evan', 'Wright', '2000-01-01', 'M');
+
+INSERT INTO Doctors (doctor_id, first_name, last_name, specialty, years_experience) VALUES (10, 'Gregory', 'House', 'Diagnostician', 20);
+
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (101, 1, 10, '2025-01-01 00:00:00', 'Scheduled');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (102, 2, 10, '2025-01-01 14:30:00', 'Completed');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (103, 3, 10, '2025-01-01 23:59:59', 'Cancelled');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (104, 4, 10, '2024-12-31 23:59:59', 'Scheduled');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (105, 5, 10, '2025-01-02 00:00:00', 'Scheduled');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate patient_ids on the target date (kills SELECT DISTINCT mutants) and ensures IDs differ across columns (kills SELECT appointment_id or doctor_id mutants).
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (10, 'Frank', 'Miller', '1965-04-12', 'M');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (20, 'Grace', 'Hopper', '1950-12-09', 'F');
+
+INSERT INTO Doctors (doctor_id, first_name, last_name, specialty, years_experience) VALUES (99, 'Stephen', 'Strange', 'Surgery', 15);
+
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (501, 10, 99, '2025-01-01 09:00:00', 'Scheduled');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (502, 10, 99, '2025-01-01 16:00:00', 'Completed');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (503, 20, 99, '2025-01-01', 'No-Show');
+```
+
+```sql
+-- DATASET 3
+-- Tests partial date component matches (same year/month, same month/day in different year) and NULL handling (kills YEAR/MONTH/DAY extraction mistakes, LIKE '%01-01%' mutants, and IS NULL / COALESCE mutants).
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (1, 'Hannah', 'Abbott', '2025-01-01', 'F');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (2, 'Ian', 'Malcolm', '1970-06-15', 'M');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (3, 'Julia', 'Roberts', '1988-11-22', 'F');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (4, 'Kevin', 'Bacon', '1960-07-08', 'M');
+
+INSERT INTO Doctors (doctor_id, first_name, last_name, specialty, years_experience) VALUES (1, 'John', 'Watson', 'General', 10);
+
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (10, 1, 1, '2024-01-01 00:00:00', 'Completed');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (11, 2, 1, '2025-01-15 00:00:00', 'Scheduled');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (12, 3, 1, '2025-02-01 00:00:00', 'Scheduled');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (13, 4, 1, NULL, 'Pending');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (14, NULL, 1, '2025-01-01 10:00:00', 'Scheduled');
+```
+
+```sql
+-- DATASET 4
+-- Tests unnecessary JOINs with Patients, Doctors, or Prescriptions (kills mutants that INNER JOIN Prescriptions, Patients, or Doctors when FKs are NULL or child records don't exist).
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (7, 'Laura', 'Palmer', '1972-07-22', 'F');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (8, 'Dale', 'Cooper', '1959-04-19', 'M');
+
+INSERT INTO Doctors (doctor_id, first_name, last_name, specialty, years_experience) VALUES (5, 'Leonard', 'McCoy', 'Space Medicine', 25);
+
+-- Appointment with NULL doctor_id and NO prescriptions
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (100, 7, NULL, '2025-01-01 08:15:00', 'Scheduled');
+
+-- Appointment with valid doctor_id and multiple prescriptions (kills un-grouped INNER JOIN Prescriptions which would duplicate patient_id 8)
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (101, 8, 5, '2025-01-01 11:45:00', 'Completed');
+
+INSERT INTO Prescriptions (prescription_id, appointment_id, medication_name, dosage, duration_days) VALUES (1, 101, 'Amoxicillin', '500mg', 7);
+INSERT INTO Prescriptions (prescription_id, appointment_id, medication_name, dosage, duration_days) VALUES (2, 101, 'Ibuprofen', '200mg', 5);
+```

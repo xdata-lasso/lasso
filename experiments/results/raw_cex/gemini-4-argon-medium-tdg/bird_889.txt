@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (T1.name, T2.name), JOIN condition, LIMIT 1, and ORDER BY T2.year DESC vs ASC or ORDER BY T2.date DESC.
+-- Notice how the row with max year (1986) has an alphabetically smaller date ('1985-12-31' for testing purposes) than an older year row (1984 with '1986-07-13'), catching mutants that order by date instead of year, or order by year ASC.
+-- Also includes decoy rows that fail T1.name, T2.name, or JOIN conditions, but have a higher year (1990).
+INSERT INTO seasons (year, url) VALUES (1982, 'http://example.com/s1982');
+INSERT INTO seasons (year, url) VALUES (1984, 'http://example.com/s1984');
+INSERT INTO seasons (year, url) VALUES (1986, 'http://example.com/s1986');
+INSERT INTO seasons (year, url) VALUES (1990, 'http://example.com/s1990');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'brands_hatch', 'Brands Hatch', 'Kent', 'UK', 'http://example.com/c1');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'silverstone', 'Silverstone Circuit', 'Northamptonshire', 'UK', 'http://example.com/c2');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (3, 'monza', 'Brands Hatch Extra', 'Kent', 'UK', 'http://example.com/c3');
+
+-- Valid matching rows with distinct years and inverted dates/raceIds to test ORDER BY year DESC vs date DESC / raceId DESC / year ASC
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 1986, 9, 1, 'British Grand Prix', '1980-01-01', 'http://example.com/r10');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (20, 1984, 10, 1, 'British Grand Prix', '1999-12-31', 'http://example.com/r20');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (30, 1982, 8, 1, 'British Grand Prix', '1985-05-05', 'http://example.com/r30');
+
+-- Decoys: Wrong circuit name (Silverstone) but higher year (1990) and right race name
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (40, 1990, 8, 2, 'British Grand Prix', '1990-07-15', 'http://example.com/r40');
+
+-- Decoys: Right circuit (Brands Hatch), higher year (1990), wrong race name ('European Grand Prix')
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (50, 1990, 11, 1, 'European Grand Prix', '1990-10-07', 'http://example.com/r50');
+
+-- Decoys: Substring match trap on circuit name and race name
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (60, 1990, 12, 3, 'British Grand Prix 2', '1990-11-11', 'http://example.com/r60');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T1.circuitId ASC when T2.year is tied.
+-- Both circuits are named 'Brands Hatch', both have 'British Grand Prix' in 1986, but circuitId 5 vs circuitId 15.
+-- Also tests inverted raceId (circuitId 5 has raceId 200, circuitId 15 has raceId 100) to ensure circuitId takes precedence over raceId in ORDER BY.
+INSERT INTO seasons (year, url) VALUES (1986, 'http://example.com/s1986');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (5, 'bh_1', 'Brands Hatch', 'Kent', 'UK', 'http://example.com/c5');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (15, 'bh_2', 'Brands Hatch', 'Kent', 'UK', 'http://example.com/c15');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (200, 1986, 1, 5, 'British Grand Prix', '1986-07-13', 'http://example.com/r200');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (100, 1986, 2, 15, 'British Grand Prix', '1986-08-20', 'http://example.com/r100');
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T2.raceId ASC when both T2.year and T1.circuitId are tied.
+-- Same circuit ('Brands Hatch', circuitId=1) and same year (1986), two races named 'British Grand Prix' with raceId 50 and 55 and different dates.
+INSERT INTO seasons (year, url) VALUES (1986, 'http://example.com/s1986');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'brands_hatch', 'Brands Hatch', 'Kent', 'UK', 'http://example.com/c1');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (50, 1986, 5, 1, 'British Grand Prix', '1986-04-10', 'http://example.com/r50');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (55, 1986, 9, 1, 'British Grand Prix', '1986-07-13', 'http://example.com/r55');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set handling when 'Brands Hatch' and 'British Grand Prix' both exist in the database,
+-- and even in the same year, but are never linked together in the same race row (kills OR vs AND mutants, and cross-join / broken join mutants).
+INSERT INTO seasons (year, url) VALUES (1986, 'http://example.com/s1986');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'brands_hatch', 'Brands Hatch', 'Kent', 'UK', 'http://example.com/c1');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'silverstone', 'Silverstone', 'Northants', 'UK', 'http://example.com/c2');
+
+-- Brands Hatch only hosts European Grand Prix
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1986, 1, 1, 'European Grand Prix', '1986-05-01', 'http://example.com/r1');
+-- British Grand Prix is only hosted at Silverstone
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 1986, 2, 2, 'British Grand Prix', '1986-07-01', 'http://example.com/r2');
+```
+
+```sql
+-- DATASET 5
+-- Tests accidental column confusion in JOIN (e.g., T1.circuitId = T2.raceId or T1.circuitId = T2.round) and case sensitivity.
+INSERT INTO seasons (year, url) VALUES (1986, 'http://example.com/s1986');
+INSERT INTO seasons (year, url) VALUES (1995, 'http://example.com/s1995');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (10, 'brands_hatch', 'Brands Hatch', 'Kent', 'UK', 'http://example.com/c10');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (99, 'other_circuit', 'Other Circuit', 'London', 'UK', 'http://example.com/c99');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (11, 'bh_lower', 'brands hatch', 'Kent', 'UK', 'http://example.com/c11');
+
+-- Decoy race where raceId=10 and round=10 (matching circuitId=10 of Brands Hatch), but actual circuitId=99
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 1995, 10, 99, 'British Grand Prix', '1995-07-16', 'http://example.com/r10');
+
+-- Decoy race with lowercase 'british grand prix' or lowercase 'brands hatch'
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (11, 1995, 1, 10, 'british grand prix', '1995-01-01', 'http://example.com/r11');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (12, 1995, 2, 11, 'British Grand Prix', '1995-02-02', 'http://example.com/r12');
+
+-- True matching row
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (25, 1986, 9, 10, 'British Grand Prix', '1986-07-13', 'http://example.com/r25');
+```

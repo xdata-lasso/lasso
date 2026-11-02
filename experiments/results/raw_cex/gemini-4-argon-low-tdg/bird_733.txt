@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'DC Comics');
+INSERT INTO colour (id, colour) VALUES (1, 'Gold');
+INSERT INTO colour (id, colour) VALUES (2, 'Blue');
+
+-- Matches both Marvel Comics and Gold eye colour (Valid #1)
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (1, 'Hero1', 'Full1', 1, 2, 2, 1);
+
+-- Matches both Marvel Comics and Gold eye colour, with NULLs in non-key columns (Valid #2)
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (2, 'Hero1', NULL, 1, NULL, NULL, 1);
+
+-- Matches Marvel Comics, but has Gold hair/skin instead of eye colour (Tests wrong colour FK join)
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (3, 'Hero3', 'Full3', 2, 1, 1, 1);
+
+-- Matches Gold eye colour, but wrong publisher (Tests missing publisher filter or OR instead of AND)
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (4, 'Hero4', 'Full4', 1, 2, 2, 2);
+
+-- Matches Marvel Comics, but eye colour is NULL (Tests LEFT JOIN mutants)
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (5, 'Hero5', 'Full5', NULL, 1, 1, 1);
+
+-- Matches Gold eye colour, but publisher is NULL (Tests LEFT JOIN mutants)
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (6, 'Hero6', 'Full6', 1, 2, 2, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set (COUNT should return 0) and exact string matching vs LIKE / case-insensitivity
+INSERT INTO publisher (id, publisher_name) VALUES (10, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (20, 'marvel comics');
+INSERT INTO publisher (id, publisher_name) VALUES (30, 'Marvel Comics Inc.');
+INSERT INTO colour (id, colour) VALUES (10, 'Gold');
+INSERT INTO colour (id, colour) VALUES (20, 'gold');
+INSERT INTO colour (id, colour) VALUES (30, 'Golden');
+
+-- Exact publisher, case-mismatch colour
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (1, 'H1', 20, 10, 10, 10);
+
+-- Exact publisher, substring-mismatch colour
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (2, 'H2', 30, 10, 10, 10);
+
+-- Case-mismatch publisher, exact colour
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (3, 'H3', 10, 20, 20, 20);
+
+-- Substring-mismatch publisher, exact colour
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (4, 'H4', 10, 20, 20, 30);
+```
+
+```sql
+-- DATASET 3
+-- Tests accidental joins on PKs (e.g., T1.id = T2.id or T2.id = T3.id) and COUNT(DISTINCT ...) on FKs
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'DC Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (50, 'Marvel Comics');
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO colour (id, colour) VALUES (50, 'Red');
+INSERT INTO colour (id, colour) VALUES (99, 'Gold');
+
+-- Hero IDs (1, 2, 3) do not overlap with target Publisher ID (50) or target Colour ID (99)
+INSERT INTO superhero (id, superhero_name, eye_colour_id, publisher_id) VALUES (1, 'SameName', 99, 50);
+INSERT INTO superhero (id, superhero_name, eye_colour_id, publisher_id) VALUES (2, 'SameName', 99, 50);
+INSERT INTO superhero (id, superhero_name, eye_colour_id, publisher_id) VALUES (3, 'SameName', 99, 50);
+
+-- Decoy hero where T1.id = T2.id = T3.id = 50, but doesn't match 'Gold'
+INSERT INTO superhero (id, superhero_name, eye_colour_id, publisher_id) VALUES (50, 'Decoy1', 50, 50);
+
+-- Decoy hero where T1.id = 99, matches Gold, but wrong publisher
+INSERT INTO superhero (id, superhero_name, eye_colour_id, publisher_id) VALUES (99, 'Decoy2', 99, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple matching dimension rows (e.g., two 'Marvel Comics' or two 'Gold' entries) and unnecessary joins to child tables
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Marvel Comics');
+INSERT INTO colour (id, colour) VALUES (10, 'Gold');
+INSERT INTO colour (id, colour) VALUES (20, 'Gold');
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO superpower (id, power_name) VALUES (1, 'Flight');
+INSERT INTO superpower (id, power_name) VALUES (2, 'Laser');
+
+-- Hero 1 has multiple powers and attributes (if a mutant joins hero_power, count will be inflated; if it uses COUNT(DISTINCT publisher_id), count will be deflated)
+INSERT INTO superhero (id, superhero_name, eye_colour_id, publisher_id) VALUES (1, 'HeroA', 10, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 2);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+
+-- Hero 2 has NO powers, NO attributes, and NULL for other dimension FKs (if a mutant inner-joins race, gender, alignment, or hero_power, Hero 2 will be dropped)
+INSERT INTO superhero (id, superhero_name, eye_colour_id, publisher_id, gender_id, race_id, alignment_id) VALUES (2, 'HeroB', 20, 2, NULL, NULL, NULL);
+```

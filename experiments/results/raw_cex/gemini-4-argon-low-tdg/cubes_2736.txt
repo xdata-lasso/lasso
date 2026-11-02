@@ -1,0 +1,103 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, set difference vs row-level filtering (student in both 'Canoeing' and 'Kayaking'), and DISTINCT.
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (1, 'Canoeing');
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (2, 'Kayaking');
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (3, 'Soccer');
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (101, 'Smith', 'John', 20, 'M', 600, 1, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (102, 'Doe', 'Jane', 21, 'F', 600, 1, 'LAX');
+INSERT INTO "Student" ("StuID", "StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (103, 'Brown', 'Bob', 22, 'M', 600, 1, 'CHI');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (104, 'White', 'Alice', 19, 'F', 600, 1, 'BOS');
+
+-- Student 101 only in Canoeing (Should be excluded)
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (1, 101);
+-- Student 102 in BOTH Canoeing and Kayaking (Should be included; kills EXCEPT/NOT IN mutants)
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (1, 102);
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (2, 102);
+-- Student 103 in two non-Canoeing activities (Tests DISTINCT; kills missing DISTINCT mutants)
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (2, 103);
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (3, 103);
+-- Student 104 not in Participates_in at all (Kills mutants querying Student table directly)
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in activity_name, NULL in Participates_in.actid, NULL in Participates_in.stuid, and NULLS LAST ordering.
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (1, 'Canoeing');
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (2, 'Kayaking');
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (3, NULL);
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (10, 'Adams', 'Amy', 20, 'F', 100, 1, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (20, 'Baker', 'Ben', 21, 'M', 100, 1, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (30, 'Clark', 'Dan', 22, 'M', 100, 1, 'NYC');
+
+-- Student 30 in Kayaking (Inserted first to test ORDER BY ASC)
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (2, 30);
+-- Student 10 in Kayaking
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (2, 10);
+-- NULL stuid in Kayaking (Tests NULLS LAST in ORDER BY; kills standard ASC ordering where NULLs come first in SQLite)
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (2, NULL);
+-- Student 20 in Activity with NULL activity_name (Should be excluded because NULL <> 'Canoeing' is UNKNOWN; kills IS NOT 'Canoeing' or unjoined table mutants)
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (3, 20);
+-- Student 20 with NULL actid (Left join yields NULL activity_name, should be excluded)
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (NULL, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests Predicate Mutants (e.g., dropping <> 'Canoeing' and keeping only = 'Kayaking', case sensitivity, and Faculty table confusion).
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (1, 'Canoeing');
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (2, 'canoeing');
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (3, 'Archery');
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (4, 'Kayaking');
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (501, 'Lee', 'Bruce', 20, 'M', 200, 1, 'SFO');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (502, 'Chan', 'Jackie', 21, 'M', 200, 1, 'HKG');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (503, 'Yen', 'Donnie', 22, 'M', 200, 1, 'BOS');
+
+INSERT INTO "Faculty" ("FacID", "Lname", "Fname", "Rank", "Sex", "Phone", "Room", "Building") VALUES (901, 'Prof', 'X', 'Professor', 'M', 1234, '101', 'Main');
+
+-- Student 501 in Archery (Kills mutants that simplify the WHERE clause to ONLY activity_name = 'Kayaking')
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (3, 501);
+-- Student 502 in lowercase 'canoeing' (Tests case-sensitivity of <> 'Canoeing')
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (2, 502);
+-- Student 503 only in exact 'Canoeing' (Excluded)
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (1, 503);
+-- Faculty participating in Kayaking (Kills mutants that mistakenly query Faculty_Participates_in)
+INSERT INTO "Faculty_Participates_in" ("actid", "FacID") VALUES (4, 901);
+```
+
+```sql
+-- DATASET 4
+-- Tests Join Condition Mutants (e.g., ON LHS.stuid = RHS.actid or CROSS JOIN) and Descending Order Mutants.
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (1, 'Canoeing');
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (2, 'Tennis');
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'One', 'Stu', 18, 'F', 300, 1, 'DAL');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Two', 'Stu', 19, 'M', 300, 1, 'DAL');
+
+-- Student 1 participates in Activity 2 ('Tennis').
+-- Correct join (actid=actid): Activity is 'Tennis' -> Included.
+-- Mutant join (stuid=actid): Student 1 joins with Activity 1 ('Canoeing') -> Excluded!
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (2, 1);
+
+-- Student 2 participates in Activity 1 ('Canoeing').
+-- Correct join (actid=actid): Activity is 'Canoeing' -> Excluded.
+-- Mutant join (stuid=actid): Student 2 joins with Activity 2 ('Tennis') -> Included!
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (1, 2);
+```
+
+```sql
+-- DATASET 5
+-- Edge case: All participations are 'Canoeing' (Result set should be completely empty).
+-- Kills mutants with inverted WHERE conditions (e.g. activity_name = 'Canoeing') or missing WHERE clause.
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (10, 'Canoeing');
+INSERT INTO "Activity" ("actid", "activity_name") VALUES (20, 'Kayaking');
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Alpha', 'A', 20, 'F', 100, 1, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Beta', 'B', 20, 'M', 100, 1, 'NYC');
+
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (10, 1);
+INSERT INTO "Participates_in" ("actid", "stuid") VALUES (10, 2);
+```

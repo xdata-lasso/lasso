@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests basic max count logic, ties for maximum, DISTINCT, ORDER BY, and verifies that the CROSS JOIN with Research_Staff is NOT an inner join on employer_organisation_id.
+-- Type 'B' and 'A' tie for max (2 organisations each), 'C' has 1.
+-- Research_Staff only employs staff in Type 'C', which would cause a mutant using INNER JOIN on organisation_id = employer_organisation_id to fail.
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('A', 'Type A');
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('B', 'Type B');
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('C', 'Type C');
+
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'B', 'Org 1');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (2, 'B', 'Org 2');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (3, 'A', 'Org 3');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (4, 'A', 'Org 4');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (5, 'C', 'Org 5');
+
+INSERT INTO Research_Staff (staff_id, employer_organisation_id, staff_details) VALUES (101, 5, 'Staff 1');
+INSERT INTO Research_Staff (staff_id, employer_organisation_id, staff_details) VALUES (102, 5, 'Staff 2');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty Research_Staff table.
+-- Because the Reference Query uses a CROSS JOIN with Research_Staff, an empty Research_Staff table must result in 0 rows returned.
+-- Kills mutants that omit the Research_Staff join or use a LEFT JOIN.
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('A', 'Type A');
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('B', 'Type B');
+
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'A', 'Org 1');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (2, 'A', 'Org 2');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (3, 'B', 'Org 3');
+```
+
+```sql
+-- DATASET 3
+-- Tests when a single organisation_type has the maximum count, and another organisation_type has more Research_Staff.
+-- Kills mutants that count Research_Staff per organisation_type instead of counting Organisations per organisation_type.
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('ORG_MAX', 'Most Organisations');
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('STAFF_MAX', 'Most Staff');
+
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'ORG_MAX', 'Org 1');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (2, 'ORG_MAX', 'Org 2');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (3, 'ORG_MAX', 'Org 3');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (4, 'STAFF_MAX', 'Org 4');
+
+INSERT INTO Research_Staff (staff_id, employer_organisation_id, staff_details) VALUES (1, 4, 'Staff 1');
+INSERT INTO Research_Staff (staff_id, employer_organisation_id, staff_details) VALUES (2, 4, 'Staff 2');
+INSERT INTO Research_Staff (staff_id, employer_organisation_id, staff_details) VALUES (3, 4, 'Staff 3');
+INSERT INTO Research_Staff (staff_id, employer_organisation_id, staff_details) VALUES (4, 4, 'Staff 4');
+INSERT INTO Research_Staff (staff_id, employer_organisation_id, staff_details) VALUES (5, 1, 'Staff 5');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in organisation_type and organisation_details.
+-- Group with NULL organisation_type has the highest count (3), while 'A' has 2.
+-- In the Reference Query, the join condition `LHS.organisation_type = RHS.organisation_type` will fail for NULLs, filtering out the NULL group, and since max(n) is 3, 'A' (count 2) will also fail `LHS.n = RHS.n`, returning an empty result.
+-- Kills mutants that use `IS NOT DISTINCT FROM`, or filter `WHERE organisation_type IS NOT NULL` prior to aggregation, or use `COUNT(organisation_type)` or `COUNT(organisation_details)`.
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('A', 'Type A');
+
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, NULL, 'Org 1');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (2, NULL, 'Org 2');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (3, NULL, 'Org 3');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (4, 'A', NULL);
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (5, 'A', 'Org 5');
+
+INSERT INTO Research_Staff (staff_id, employer_organisation_id, staff_details) VALUES (1, 5, 'Staff 1');
+```
+
+```sql
+-- DATASET 5
+-- Tests `COUNT(*)` vs `COUNT(organisation_details)` or `COUNT(DISTINCT ...)`, and unused Organisation_Types.
+-- Type 'A' has 3 organisations (two with NULL details), Type 'B' has 2 organisations (all non-null details), Type 'C' has 0 organisations.
+-- Kills mutants that count non-null details instead of `COUNT(*)`, or mutants that use MIN instead of MAX (which might pick 'B' or 'C').
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('A', 'Type A');
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('B', 'Type B');
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('C', 'Type C');
+
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'A', NULL);
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (2, 'A', NULL);
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (3, 'A', 'Same Detail');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (4, 'B', 'Detail 1');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (5, 'B', 'Detail 2');
+
+INSERT INTO Research_Staff (staff_id, employer_organisation_id, staff_details) VALUES (1, NULL, 'Unemployed Staff');
+```

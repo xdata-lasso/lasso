@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Core behavior: Fractional division (1 / 2 = 0.5), duplicate dates/users/posts, out-of-range years, and NULL CreationDate.
+-- Kills mutants missing CAST AS REAL (integer division), using COUNT(DISTINCT ...), filtering Wrong Years, or mishandling NULLs.
+INSERT INTO users (Id, DisplayName, CreationDate) VALUES (1, 'UserA', '2009-01-01 00:00:00');
+INSERT INTO users (Id, DisplayName, CreationDate) VALUES (2, 'UserB', '2010-05-05 00:00:00');
+
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, Score) VALUES (10, 1, '2009-06-01 00:00:00', 5);
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, Score) VALUES (20, 2, '2010-06-01 00:00:00', 10);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (1, 10, 2, '2010-03-15', 1, 50);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2, 10, 2, '2011-07-20', 1, 0);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (3, 10, 3, '2011-07-20', 1, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (4, 20, 1, '2009-12-31', 2, 100);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (5, 20, 2, '2012-01-01', 2, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (6, NULL, 2, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Boundary dates and string matching traps, plus unreferenced rows in other tables.
+-- Ratio is 3 / 2 = 1.5.
+-- Kills mutants using wrong date boundaries (<, <=, >, >=), LIKE '%2010%' (trapped by '2020-10-10'), or INNER JOINs with posts/users/comments.
+INSERT INTO users (Id, DisplayName, CreationDate) VALUES (1, 'User1', '2010-01-01 00:00:00');
+
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, Title) VALUES (100, 1, '2010-01-01 00:00:00', 'Post 100');
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, Title) VALUES (200, 1, '2011-01-01 00:00:00', 'Unvoted Post');
+
+INSERT INTO comments (Id, PostId, UserId, CreationDate, Score) VALUES (1, 100, 1, '2010-06-01 12:00:00', 1);
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 1, 'Teacher', '2010-06-01 12:00:00');
+INSERT INTO postHistory (Id, PostId, UserId, CreationDate) VALUES (1, 100, 1, '2010-06-01 12:00:00');
+
+-- 2010 votes (3 rows: exact start of year, exact end of year, and one with NULL Foreign Keys)
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (1, 100, 1, '2010-01-01', 1);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (2, 100, 2, '2010-12-31', 1);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (3, NULL, 2, '2010-06-15 23:59:59', NULL);
+
+-- 2011 votes (2 rows: exact start and end of year)
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (4, 100, 2, '2011-01-01', 1);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (5, NULL, 3, '2011-12-31 23:59:59', NULL);
+
+-- Trap dates for substring/LIKE mutants (e.g. month/day '10-10' or '11-11')
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (6, 100, 2, '2020-10-10', 1);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (7, 100, 2, '2021-11-11', 1);
+```
+
+```sql
+-- DATASET 3
+-- Zero numerator test: 0 votes in 2010, 2 votes in 2011 (Result: 0.0).
+-- Kills mutants that replace IIF(..., 1, 0) with CASE WHEN ... THEN 1 END (which yields NULL/2 = NULL instead of 0.0).
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (1, NULL, 2, '2011-04-01', NULL, 10);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2, NULL, 3, '2011-08-15', NULL, 20);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (3, NULL, 1, '2009-05-05', NULL, 30);
+```
+
+```sql
+-- DATASET 4
+-- Zero denominator test: 2 votes in 2010, 0 votes in 2011 (Result: NULL in SQLite due to division by zero).
+-- Kills mutants that swap numerator and denominator (2011 / 2010 -> 0.0 vs NULL) or hardcode non-zero denominators.
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (1, NULL, 1, '2010-02-14', NULL, 0);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2, NULL, 2, '2010-11-30', NULL, 50);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (3, NULL, 2, '2012-03-10', NULL, 100);
+```
+
+```sql
+-- DATASET 5
+-- Non-terminating decimal ratio (2 / 3 = 0.6666666666666666) and table confusion traps.
+-- Kills mutants queryingCreationDate from `posts`, `users`, `comments`, or `postHistory` instead of `votes`, or rounding results.
+INSERT INTO users (Id, CreationDate) VALUES (1, '2010-01-01');
+INSERT INTO users (Id, CreationDate) VALUES (2, '2010-01-02');
+INSERT INTO users (Id, CreationDate) VALUES (3, '2010-01-03');
+INSERT INTO users (Id, CreationDate) VALUES (4, '2011-01-01');
+
+INSERT INTO posts (Id, OwnerUserId, CreaionDate) VALUES (1, 1, '2010-02-01');
+INSERT INTO posts (Id, OwnerUserId, CreaionDate) VALUES (2, 2, '2010-02-02');
+INSERT INTO posts (Id, OwnerUserId, CreaionDate) VALUES (3, 3, '2010-02-03');
+INSERT INTO posts (Id, OwnerUserId, CreaionDate) VALUES (4, 4, '2011-02-01');
+
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (10, 1, 2, '2010-05-01', 1);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (20, 2, 2, '2010-05-02', 2);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (30, 3, 2, '2011-05-01', 3);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (40, 4, 2, '2011-05-02', 4);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (50, 1, 2, '2011-05-03', 1);
+```

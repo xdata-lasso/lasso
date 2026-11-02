@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests core aggregation counts (0, 1, 2, 3, 4 paragraphs per document), non-sequential IDs for ORDER BY, and LEFT JOIN vs INNER JOIN mutations (Document 40 has 0 paragraphs).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Details');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (40, 1, 'Doc 0 paras', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (30, 1, 'Doc 1 para', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (10, 1, 'Doc 2 paras', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (20, 1, 'Doc 3 paras', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 1, 'Doc 4 paras', 'Desc', 'Other');
+
+-- Document 30: 1 paragraph
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (1, 30, 'P1', 'O1');
+
+-- Document 10: 2 paragraphs
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (2, 10, 'P1', 'O1');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (3, 10, 'P2', 'O2');
+
+-- Document 20: 3 paragraphs
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (4, 20, 'P1', 'O1');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (5, 20, 'P2', 'O2');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (6, 20, 'P3', 'O3');
+
+-- Document 5: 4 paragraphs
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (7, 5, 'P1', 'O1');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (8, 5, 'P2', 'O2');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (9, 5, 'P3', 'O3');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (10, 5, 'P4', 'O4');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling: NULL Document_ID in Paragraphs (COUNT(*) vs COUNT(document_id)), NULL Paragraph_Text/Other_Details (COUNT(*) vs COUNT(column)), and duplicate Paragraph_Text (COUNT(*) vs COUNT(DISTINCT column)).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Details');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (100, 1, 'Doc with NULL text', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (200, 1, 'Doc with duplicate text', 'Desc', 'Other');
+
+-- Document NULL: 1 paragraph with NULL Document_ID (GROUP BY groups NULLs; COUNT(*) is 1, COUNT(document_id) is 0)
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (1, NULL, 'Orphan Paragraph', 'Orphan Details');
+
+-- Document 100: 3 paragraphs, two have NULL text/details (COUNT(*) is 3 -> excluded; COUNT(Paragraph_Text) is 1 -> erroneously included)
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (2, 100, 'Valid Text', 'Valid Details');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (3, 100, NULL, NULL);
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (4, 100, NULL, NULL);
+
+-- Document 200: 3 paragraphs, all with identical text/details (COUNT(*) is 3 -> excluded; COUNT(DISTINCT Paragraph_Text) is 1 -> erroneously included)
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (5, 200, 'Same Text', 'Same Details');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (6, 200, 'Same Text', 'Same Details');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (7, 200, 'Same Text', 'Same Details');
+```
+
+```sql
+-- DATASET 3
+-- Tests mutations that confuse Document_ID with Paragraph_ID, Template_ID, or omits GROUP BY / DISTINCT. Also tests ordering by count vs ordering by document_id.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (50, 'T1', 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Details');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 50, 'Doc 2', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (9, 50, 'Doc 9', 'Desc', 'Other');
+
+-- Document 2 has 2 paragraphs (n = 2)
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (101, 2, 'Text A', 'Other A');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (102, 2, 'Text B', 'Other B');
+
+-- Document 9 has 1 paragraph (n = 1)
+-- Note: Document 2 has a smaller Document_ID (2 < 9) but a larger count (2 > 1). 
+-- Mutants ordering by n ASC instead of document_id ASC will output (9, 2) instead of (2, 9).
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (103, 9, 'Text C', 'Other C');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set edge case where Paragraphs has rows, but all documents have > 2 paragraphs (kills mutants without WHERE or with n >= 2).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Details');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 1, 'Doc 1', 'Desc', 'Other');
+
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (1, 1, 'P1', 'O1');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (2, 1, 'P2', 'O2');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (3, 1, 'P3', 'O3');
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary where all documents in Paragraphs have exactly 2 paragraphs (kills mutants that change n <= 2 to n < 2 or only keep n = 1).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Details');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (7, 1, 'Doc 7', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 1, 'Doc 3', 'Desc', 'Other');
+
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (10, 7, 'P1', 'O1');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (20, 7, 'P2', 'O2');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (30, 3, 'P3', 'O3');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (40, 3, 'P4', 'O4');
+```

@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Cust 1');
+INSERT INTO Staff (Staff_ID, Staff_Details) VALUES (1, 'Staff 1');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (1, 1, 'AUTO', '2023-01-01', '2024-01-01');
+INSERT INTO Claim_Headers (Claim_Header_ID, Policy_ID, Claim_Status_Code, Claim_Type_Code, Date_of_Claim, Date_of_Settlement, Amount_Claimed, Amount_Piad) VALUES (1, 1, 'OPEN', 'ACCIDENT', '2023-02-01', NULL, 1000.0, 0.0);
+
+-- RHS rows testing exact match, partial matches, and swapped join columns
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (2, 10, 'Status_Z_Valid', 'Matches n=2 and stage=10');
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (10, 2, 'Status_Swapped', 'Swapped: stage=10 and next=2');
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (3, 10, 'Status_Wrong_N', 'Matches stage=10, but n=3');
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (2, 99, 'Status_Wrong_Next', 'Matches n=2, but next=99');
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (1, 20, 'Status_A_Valid', 'Matches n=1 and stage=20');
+
+-- Group ('APPROVED', 10) -> count n = 2. Matches RHS (2, 10) -> 'Status_Z_Valid'
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (1, 1, 1, 'APPROVED', 10);
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (2, 1, 1, 'APPROVED', 10);
+
+-- Group ('REJECTED', 10) -> count n = 1. If grouped only by stage_id, count for 10 becomes 3, matching 'Status_Wrong_N' instead!
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (3, 1, 1, 'REJECTED', 10);
+
+-- Group ('APPROVED', 20) -> count n = 1. Matches RHS (1, 20) -> 'Status_A_Valid'. If grouped only by outcome_code, count for 'APPROVED' becomes 3!
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (4, 1, 1, 'APPROVED', 20);
+```
+
+```sql
+-- DATASET 2
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Cust 1');
+INSERT INTO Staff (Staff_ID, Staff_Details) VALUES (1, 'Staff 1');
+INSERT INTO Staff (Staff_ID, Staff_Details) VALUES (2, 'Staff 2');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (1, 1, 'HOME', '2023-01-01', '2024-01-01');
+INSERT INTO Claim_Headers (Claim_Header_ID, Policy_ID, Claim_Status_Code, Claim_Type_Code, Date_of_Claim, Date_of_Settlement, Amount_Claimed, Amount_Piad) VALUES (1, 1, 'OPEN', 'FIRE', '2023-03-01', NULL, 5000.0, 0.0);
+
+-- Tests: 
+-- 1) Duplicate output rows (DISTINCT vs ALL) when two different outcomes for the same stage have the same count n.
+-- 2) NULLs in Claim_Outcome_Code, Staff_ID, Claim_ID (COUNT(*) vs COUNT(col)).
+-- 3) COUNT(DISTINCT ...) vs COUNT(*).
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (1, 50, 'Duplicate_Status', 'Should appear twice in output');
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (2, 60, 'Null_Outcome_Status', 'Matches NULL outcome group of size 2');
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (1, 60, 'Trap_Null_Count', 'Trap if NULLs are not counted appropriately');
+
+-- Two different outcomes for Stage 50, each with n = 1. Both join with (1, 50) to produce 'Duplicate_Status' twice.
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (1, 1, 1, 'OUT1', 50);
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (2, 1, 1, 'OUT2', 50);
+
+-- Group (NULL, 60) with n = 2, and NULLs in Staff_ID / Claim_ID.
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (3, NULL, 1, NULL, 60);
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, NULL, Claim_Outcome_Code, Claim_Stage_ID) VALUES (4, 2, NULL, NULL, 60);
+```
+
+```sql
+-- DATASET 3
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Cust 1');
+INSERT INTO Staff (Staff_ID, Staff_Details) VALUES (1, 'Staff 1');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (1, 1, 'LIFE', '2023-01-01', '2024-01-01');
+INSERT INTO Claim_Headers (Claim_Header_ID, Policy_ID, Claim_Status_Code, Claim_Type_Code, Date_of_Claim, Date_of_Settlement, Amount_Claimed, Amount_Piad) VALUES (1, 1, 'CLOSED', 'TERM', '2023-05-01', '2023-06-01', 10000.0, 10000.0);
+
+-- Tests self-referential stage IDs (Claim_Stage_ID = Next_Claim_Stage_ID) and ordering with multiple items
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (2, 2, 'Stage_Self_Loop', 'n=2, stage=2, next=2');
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (1, 2, 'Stage_Normal_A', 'n=1, stage=2, next=2');
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (3, 1, 'Stage_Normal_B', 'n=3, stage=1, next=1');
+
+-- Group ('OK', 2) -> n = 2 -> matches (2, 2) 'Stage_Self_Loop'
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (1, 1, 1, 'OK', 2);
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (2, 1, 1, 'OK', 2);
+
+-- Group ('PENDING', 2) -> n = 1 -> matches (1, 2) 'Stage_Normal_A'
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (3, 1, 1, 'PENDING', 2);
+
+-- Group ('OK', 1) -> n = 3 -> matches (3, 1) 'Stage_Normal_B'
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (4, 1, 1, 'OK', 1);
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (5, 1, 1, 'OK', 1);
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (6, 1, 1, 'OK', 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result from INNER JOIN vs LEFT/RIGHT JOIN mutants, and unmatched records on both sides
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (1, 100, 'Unmatched_Stage_1', 'No processing rows');
+INSERT INTO Claims_Processing_Stages (Claim_Stage_ID, Next_Claim_Stage_ID, Claim_Status_Name, Claim_Status_Description) VALUES (5, 200, 'Unmatched_Stage_2', 'Count mismatch');
+
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (1, NULL, NULL, 'DENIED', 200);
+INSERT INTO Claims_Processing (Claim_Processing_ID, Staff_ID, Claim_ID, Claim_Outcome_Code, Claim_Stage_ID) VALUES (2, NULL, NULL, 'DENIED', 300);
+```

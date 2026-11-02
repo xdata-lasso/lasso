@@ -1,0 +1,69 @@
+-- Schema DDL
+CREATE TABLE "atom" ("atom_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "element" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "bond" ("bond_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "bond_type" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "connected" ("atom_id" TEXT NOT NULL, "atom_id2" TEXT NOT NULL, "bond_id" TEXT DEFAULT NULL, PRIMARY KEY ("atom_id", "atom_id2"), FOREIGN KEY ("atom_id") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("atom_id2") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("bond_id") REFERENCES "bond" ("bond_id") ON DELETE CASCADE ON UPDATE CASCADE);
+
+CREATE TABLE "molecule" ("molecule_id" TEXT NOT NULL PRIMARY KEY, "label" TEXT DEFAULT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: molecule --
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('A', 't2__5d6a4f');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('C', '5k5swwqcgs');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('G', 't2__5d6a4f');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('I', 't2__5d6a4f');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('O', 't2__5d6a4f');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('_', 't2__5d6a4f');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('Q', 't2__5d6a4f');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('t2__16f19b', '9n8');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('molecule_i_9', 'mol_f39f10');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('molecule__10', 'mol_f39f10');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('molecule__11', 'mol_f39f10');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('molecule__12', 'mol_f39f10');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('molecule__13', 'mol_f39f10');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('molecule__14', 'mol_f39f10');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('molecule__15', 'mol_f39f10');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('molecule__16', 'mol_f39f10');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('molecule__17', 'mol_f39f10');
+
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('molecule__18', 'mol_f39f10');
+
+-- Inserting into table: bond --
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('t1__f508fb', 'A', '#');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('bon_798013', 'molecule__10', '5k5swwqcgsk9');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT T1.bond_id, T2.label FROM bond AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.bond_type = '#';
+
+/*
+Gold Result:
+('t1__f508fb', 't2__5d6a4f')
+*/
+
+-- Prediction Query
+SELECT bond.bond_id, molecule.label FROM bond INNER JOIN molecule ON bond.molecule_id = molecule.molecule_id WHERE bond.bond_type = '#' AND (molecule.label = '+' OR molecule.label = '-');
+
+/*
+Prediction Result:
+*/

@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests composite GROUP BY (outcome + status) vs single column GROUP BY (status only), 
+-- boundary conditions for n >= 3 (n=2, n=3, n=4), and ORDER BY complaint_status_code.
+INSERT INTO Staff (staff_id, gender, first_name, last_name, email_address, phone_number) VALUES (1, 'M', 'John', 'Doe', 'john@example.com', '123-456');
+INSERT INTO Customers (customer_id, customer_type_code, address_line_1, address_line_2, town_city, state, email_address, phone_number) VALUES (1, 'REG', '123 Main', 'Apt 1', 'Metropolis', 'NY', 'cust@example.com', '555-0199');
+INSERT INTO Products (product_id, parent_product_id, product_category_code, date_product_first_available, date_product_discontinued, product_name, product_description, product_price) VALUES (1, 1, 'ELEC', '2020-01-01', NULL, 'Widget', 'A standard widget', 19.99);
+
+-- Group ('O1', 'S_BOUNDARY_3'): count = 3 (Included, tests n >= 3 vs n > 3)
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 1, 'O1', 'Z_STATUS', 'T1', '2021-01-01', '2021-01-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 2, 'O1', 'Z_STATUS', 'T1', '2021-01-01', '2021-01-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 3, 'O1', 'Z_STATUS', 'T1', '2021-01-01', '2021-01-02');
+
+-- Group ('O2', 'A_STATUS'): count = 4 (Included, tests n > 3 and ORDER BY vs insertion order)
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 4, 'O2', 'A_STATUS', 'T1', '2021-01-01', '2021-01-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 5, 'O2', 'A_STATUS', 'T1', '2021-01-01', '2021-01-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 6, 'O2', 'A_STATUS', 'T1', '2021-01-01', '2021-01-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 7, 'O2', 'A_STATUS', 'T1', '2021-01-01', '2021-01-02');
+
+-- Split Status ('O1', 'M_SPLIT') count = 2, ('O2', 'M_SPLIT') count = 2. 
+-- Excluded in Gold Query, but included (total = 4) if mutant forgets to GROUP BY complaint_outcome_code.
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 8, 'O1', 'M_SPLIT', 'T1', '2021-01-01', '2021-01-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 9, 'O1', 'M_SPLIT', 'T1', '2021-01-01', '2021-01-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 10, 'O2', 'M_SPLIT', 'T1', '2021-01-01', '2021-01-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 11, 'O2', 'M_SPLIT', 'T1', '2021-01-01', '2021-01-02');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate preservation in output (SELECT vs SELECT DISTINCT) 
+-- and splitting by status when outcome is the same (catches GROUP BY complaint_outcome_code only).
+INSERT INTO Staff (staff_id, gender, first_name, last_name, email_address, phone_number) VALUES (1, 'F', 'Jane', 'Smith', 'jane@example.com', '987-654');
+INSERT INTO Customers (customer_id, customer_type_code, address_line_1, address_line_2, town_city, state, email_address, phone_number) VALUES (1, 'VIP', '456 Elm', 'Suite 2', 'Gotham', 'NJ', 'vip@example.com', '555-0200');
+INSERT INTO Products (product_id, parent_product_id, product_category_code, date_product_first_available, date_product_discontinued, product_name, product_description, product_price) VALUES (1, 1, 'HOME', '2019-05-01', NULL, 'Gadget', 'A useful gadget', 49.99);
+
+-- Same status 'DUP_STATUS' with two different outcomes, both having count >= 3.
+-- Gold query returns 'DUP_STATUS' twice. A mutant with SELECT DISTINCT returns it once.
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 1, 'OUT_A', 'DUP_STATUS', 'T1', '2021-02-01', '2021-02-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 2, 'OUT_A', 'DUP_STATUS', 'T1', '2021-02-01', '2021-02-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 3, 'OUT_A', 'DUP_STATUS', 'T1', '2021-02-01', '2021-02-02');
+
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 4, 'OUT_B', 'DUP_STATUS', 'T1', '2021-02-01', '2021-02-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 5, 'OUT_B', 'DUP_STATUS', 'T1', '2021-02-01', '2021-02-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 6, 'OUT_B', 'DUP_STATUS', 'T1', '2021-02-01', '2021-02-02');
+
+-- Same outcome 'OUT_C' across two different statuses (2 rows each).
+-- Gold query returns neither. A mutant grouping only by outcome gets count = 4 and outputs one of the statuses.
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 7, 'OUT_C', 'STAT_1', 'T1', '2021-02-01', '2021-02-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 8, 'OUT_C', 'STAT_1', 'T1', '2021-02-01', '2021-02-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 9, 'OUT_C', 'STAT_2', 'T1', '2021-02-01', '2021-02-02');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (1, 1, 1, 10, 'OUT_C', 'STAT_2', 'T1', '2021-02-01', '2021-02-02');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling (COUNT(*) vs COUNT(col)), INNER JOIN traps (nullable FKs), 
+-- and COUNT(DISTINCT col) traps (duplicate values in other columns).
+-- Notice no parent rows are needed because FKs in Complaints are NULL here.
+
+-- Group (NULL, 'NULL_OUTCOME_STATUS') with 3 rows and NULL foreign keys.
+-- Gold query includes 'NULL_OUTCOME_STATUS' because COUNT(*) counts rows regardless of NULLs, and GROUP BY groups NULLs together.
+-- Mutants using COUNT(complaint_outcome_code), INNER JOINs on Customers/Products/Staff, or COUNT(DISTINCT customer_id) will fail to return this.
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (NULL, NULL, NULL, 1, NULL, 'NULL_OUTCOME_STATUS', NULL, NULL, NULL);
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (NULL, NULL, NULL, 2, NULL, 'NULL_OUTCOME_STATUS', NULL, NULL, NULL);
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (NULL, NULL, NULL, 3, NULL, 'NULL_OUTCOME_STATUS', NULL, NULL, NULL);
+
+-- Group ('OK', 'SAME_ID_STATUS') where all rows share the exact same complaint_id, type, and dates.
+-- Kills mutants using COUNT(DISTINCT complaint_id) or COUNT(DISTINCT complaint_type_code).
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (NULL, NULL, NULL, 99, 'OK', 'SAME_ID_STATUS', 'T_SAME', '2022-01-01', '2022-01-01');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (NULL, NULL, NULL, 99, 'OK', 'SAME_ID_STATUS', 'T_SAME', '2022-01-01', '2022-01-01');
+INSERT INTO Complaints (customer_id, product_id, staff_id, complaint_id, complaint_outcome_code, complaint_status_code, complaint_type_code, date_complaint_raised, date_complaint_closed) VALUES (NULL, NULL, NULL, 99, 'OK', 'SAME_ID_STATUS', 'T_SAME', '2022-01-01', '2022-01-01');
+```

@@ -1,0 +1,56 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by Age (ASC vs DESC), LIMIT 1, and ensures joins with course_arrange are not mistakenly included.
+-- Teacher 10 (Youngest) is intentionally omitted from course_arrange.
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (1, '2023-09-01', 'Math');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (30, 'Alice', '45', 'Boston');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (10, 'Bob', '22', 'Seattle');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (20, 'Charlie', '35', 'Austin');
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (1, 30, 1);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (1, 20, 2);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on the minimum Age using Teacher_ID ASC, where insertion order and Name order conflict with Teacher_ID order.
+-- Also tests DISTINCT / GROUP BY mutations if two teachers share the minimum Age.
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (50, 'Zack', '25', 'Chicago');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (5, 'Aaron', '25', 'Miami');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (1, 'Bob', '30', 'Denver');
+```
+
+```sql
+-- DATASET 3
+-- Tests TEXT vs INTEGER sorting on the Age column ('100' < '25' lexicographically in TEXT, whereas 25 < 100 numerically).
+-- Catches mutants that apply CAST(Age AS INTEGER) or MIN(CAST(Age AS INT)).
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (1, 'Elder', '100', 'Oldtown');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (2, 'Youth', '25', 'Newtown');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (3, 'Child', '9', 'Smallville');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in Age and Teacher_ID.
+-- In SQLite, ORDER BY age ASC puts NULL first (unless NULLS LAST is specified on age, which it isn't in the Gold Query; NULLS LAST is only on teacher_id).
+-- Also includes a NULL Teacher_ID (allowed by SQLite for INTEGER PRIMARY KEY unless STRICT/NOT NULL) to test NULLS LAST on teacher_id.
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (NULL, 'NullID_NullAge', NULL, 'GhostTown');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (10, 'TenID_NullAge', NULL, 'NullAgeCity');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (1, 'ValidYoung', '18', 'RealCity');
+```
+
+```sql
+-- DATASET 5
+-- Tests the scenario where the minimum Age is tied, and the winning teacher has a NULL Hometown.
+-- Catches mutants that add WHERE Hometown IS NOT NULL or use MIN(Hometown).
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (1, 'NoHome', '20', NULL);
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (2, 'HasHome', '20', 'Portland');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (3, 'Older', '40', 'Atlanta');
+```
+
+```sql
+-- DATASET 6
+-- Tests queries that replace LIMIT 1 with WHERE age = (SELECT MIN(age) FROM teacher) without tie-breaking or LIMIT.
+-- Both rows have the exact minimum age '28', but different hometowns. A query without LIMIT 1 will return 2 rows instead of 1.
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (10, 'TwinA', '28', 'Dallas');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (20, 'TwinB', '28', 'Houston');
+```

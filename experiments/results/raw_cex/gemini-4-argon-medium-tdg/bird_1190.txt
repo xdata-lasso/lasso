@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Floating-point division (CAST AS REAL) vs integer division (1 * 100 / 3 = 33.333333333333336 vs 33)
+-- 2. Boundary of UA <= 6.5 (exact match 6.5 vs < 6.5)
+-- 3. COUNT(ID) vs COUNT(DISTINCT ID) (Patient 1 has two qualifying records)
+-- 4. COUNT(ID) vs COUNT(UA) (when UA is NULL)
+-- 5. Boundary of "U-PRO" > 0 AND "U-PRO" < 30 (exact boundaries '0', '30', NULL, and values outside range)
+-- Note: "U-PRO" is TEXT, so '10' and '20' satisfy both string comparison (> '0' AND < '30') and numeric comparison (> 0 AND < 30).
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (1, '2020-01-01', 6.5, '10');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (1, '2020-01-02', 7.0, '20');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (2, '2020-01-01', NULL, '15');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (2, '2020-01-02', 5.0, '0');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (3, '2020-01-01', 5.0, '30');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (3, '2020-01-02', 5.0, NULL);
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (3, '2020-01-03', 5.0, '40');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. SQLite Type Affinity / Lexicographical vs Numeric comparison on TEXT column "U-PRO".
+-- In SQLite, "U-PRO" (TEXT affinity) compared to integer literals 0 and 30 converts 0 and 30 to '0' and '30'.
+-- '2' > '0' AND '2' < '30' is TRUE lexicographically, whereas '5' < '30' is FALSE lexicographically (since '5' > '3'),
+-- and '100' < '30' is TRUE lexicographically (since '1' < '3').
+-- This catches mutants that cast "U-PRO" to REAL/INTEGER or use BETWEEN / numeric ranges differently.
+-- 2. Strict inequality UA < 6.5 vs UA <= 6.5 with multiple rows.
+INSERT INTO Patient (ID, SEX) VALUES (10, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (20, 'F');
+
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (10, '2021-01-01', 6.0, '5');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (10, '2021-01-02', 6.5, '100');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (20, '2021-01-01', 8.0, '2');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (20, '2021-01-02', 4.0, '25');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Unnecessary JOINs with Examination or Patient (e.g., INNER JOIN Examination would drop Patient 2 or duplicate Patient 1).
+-- 2. Case where all qualifying rows have UA > 6.5 (SUM is 0, testing 0.0 result vs NULL if mutant uses WHERE UA <= 6.5 instead of CASE).
+INSERT INTO Patient (ID, SEX) VALUES (1, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'F');
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '2022-01-01', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '2022-01-02', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (1, '2022-01-01', 7.2, '12');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (2, '2022-01-01', 8.1, '18');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (2, '2022-01-02', 5.5, '0');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Mutant using WHERE UA <= 6.5 instead of conditional aggregation (which would always return 100.0 or filter out rows from denominator).
+-- 2. Mutant using AVG(CASE WHEN UA <= 6.5 THEN 1 ELSE 0 END) * 100 without CAST AS REAL or with wrong multiplier.
+-- 3. Negative or zero values for UA, and decimal values for "U-PRO" (e.g., '0.5', '29.9').
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (1, '2023-01-01', 0.0, '0.5');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (1, '2023-01-02', 6.49, '29.9');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (1, '2023-01-03', 6.51, '10');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (1, '2023-01-04', 9.0, '20');
+INSERT INTO Laboratory (ID, Date, UA, "U-PRO") VALUES (1, '2023-01-05', 5.0, '-5');
+```

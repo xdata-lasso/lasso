@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests basic directionality of PostId vs RelatedPostId and distinguishes T2.Title from T3.Title
+INSERT INTO posts (Id, Title) VALUES (1, 'How to tell if something happened in a data set which monitors a value over time');
+INSERT INTO posts (Id, Title) VALUES (2, 'Related Post Target Title');
+INSERT INTO posts (Id, Title) VALUES (3, 'Source Post Non-Target Title');
+
+-- Valid forward link: PostId=1 (matches WHERE), RelatedPostId=2 (expected output: 'Related Post Target Title')
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (10, 1, 2, 1);
+
+-- Reverse link: PostId=3, RelatedPostId=1 (catches mutants swapping PostId and RelatedPostId or filtering on T3.Title)
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (11, 3, 1, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate elimination (SELECT vs SELECT DISTINCT) and multiple links from the target post
+INSERT INTO posts (Id, Title) VALUES (1, 'How to tell if something happened in a data set which monitors a value over time');
+INSERT INTO posts (Id, Title) VALUES (2, 'Duplicate Related Title');
+INSERT INTO posts (Id, Title) VALUES (3, 'Duplicate Related Title');
+INSERT INTO posts (Id, Title) VALUES (4, 'Second Distinct Related Title');
+
+-- Two links pointing to different posts that happen to share the same Title, plus a repeated link to the same post
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (10, 1, 2, 1);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (11, 1, 3, 1);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (12, 1, 2, 3);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (13, 1, 4, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN semantics (NULL foreign keys in postLinks) and NULL Title handling in T3
+INSERT INTO posts (Id, Title) VALUES (1, 'How to tell if something happened in a data set which monitors a value over time');
+INSERT INTO posts (Id, Title) VALUES (2, NULL);
+INSERT INTO posts (Id, Title) VALUES (3, 'Valid Related Title');
+
+-- Link where RelatedPostId is NULL (should be excluded by INNER JOIN posts AS T3)
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (10, 1, NULL, 1);
+
+-- Link where PostId is NULL (should be excluded by INNER JOIN posts AS T2)
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (11, NULL, 3, 1);
+
+-- Link where RelatedPostId points to a post with a NULL Title (should be included by INNER JOIN, outputting NULL)
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (12, 1, 2, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests string comparison precision (LIKE/prefix/suffix/case-sensitivity mutations) and LinkId vs PostId join confusion
+INSERT INTO posts (Id, Title) VALUES (1, 'How to tell if something happened in a data set which monitors a value over time');
+INSERT INTO posts (Id, Title) VALUES (2, 'how to tell if something happened in a data set which monitors a value over time');
+INSERT INTO posts (Id, Title) VALUES (3, 'How to tell if something happened in a data set which monitors a value over time - Part 2');
+INSERT INTO posts (Id, Title) VALUES (4, 'Correct Related Title');
+INSERT INTO posts (Id, Title) VALUES (5, 'Wrong Related Title Case Insensitive');
+INSERT INTO posts (Id, Title) VALUES (6, 'Wrong Related Title Prefix Match');
+
+-- Notice postLinks.Id collides with posts.Id (Id=1, 2, 3) to catch mutants joining on T1.Id = T2.Id or T1.Id = T3.Id
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (1, 2, 5, 1);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (2, 3, 6, 1);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (3, 1, 4, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple source posts having the exact same target Title, and unlinked posts
+INSERT INTO posts (Id, Title) VALUES (10, 'How to tell if something happened in a data set which monitors a value over time');
+INSERT INTO posts (Id, Title) VALUES (20, 'How to tell if something happened in a data set which monitors a value over time');
+INSERT INTO posts (Id, Title) VALUES (30, 'Unlinked Post');
+INSERT INTO posts (Id, Title) VALUES (40, 'Related to First Target Post');
+INSERT INTO posts (Id, Title) VALUES (50, 'Related to Second Target Post');
+
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (100, 10, 40, 1);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (101, 20, 50, 3);
+```

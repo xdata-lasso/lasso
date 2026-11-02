@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests column disambiguation, join key accuracy (LastEditorUserId vs OwnerUserId vs T1.UserId), and duplicate row preservation (SELECT vs SELECT DISTINCT).
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (1, 100, 10, 5, 1, 1001, 25, 'OwnerUser');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (2, 200, 20, 15, 2, 1002, 30, 'LastEditorUser');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (3, 300, 30, 25, 3, 1003, 35, 'HistoryUser');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (10, 400, 40, 35, 4, 1004, 40, 'UserIdEqualsPostId');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age, DisplayName) VALUES (100, 500, 50, 45, 5, 1005, 45, 'UserIdEqualsHistoryId');
+
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, Body, OwnerUserId, Title, Tags, AnswerCount, CommentCount, FavoriteCount, LastEditorUserId, ParentId, OwnerDisplayName, LastEditorDisplayName) VALUES (10, 1, 99, 50, 999, 'PostBody', 1, 'PostTitle', 'PostTags', 5, 6, 7, 2, 88, 'PostOwnerDisplay', 'PostEditorDisplay');
+INSERT INTO posts (Id, PostTypeId, Score, ViewCount, OwnerUserId, LastEditorUserId) VALUES (100, 1, 10, 888, 1, 1);
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId, Text, Comment, UserDisplayName) VALUES (100, 2, 10, 3, 'Computer Game Datasets', 'HistoryComment', 'HistoryUserDisplay');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId, Text, Comment, UserDisplayName) VALUES (101, 5, 10, 3, 'Computer Game Datasets', 'SecondDuplicateMatch', 'HistoryUserDisplay2');
+```
+
+```sql
+-- DATASET 2
+-- Tests WHERE clause exactness (case sensitivity, substring/LIKE mutations, wrong column checked) and inequality predicates.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'ValidEditor');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'CaseMismatchEditor');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'SubstringMismatchEditor');
+INSERT INTO users (Id, DisplayName) VALUES (4, 'WrongColumnEditor');
+
+INSERT INTO posts (Id, ViewCount, OwnerUserId, LastEditorUserId, Title, Body) VALUES (1, 150, 1, 1, 'Normal Title', 'Normal Body');
+INSERT INTO posts (Id, ViewCount, OwnerUserId, LastEditorUserId, Title, Body) VALUES (2, 250, 2, 2, 'Normal Title', 'Normal Body');
+INSERT INTO posts (Id, ViewCount, OwnerUserId, LastEditorUserId, Title, Body) VALUES (3, 350, 3, 3, 'Normal Title', 'Normal Body');
+INSERT INTO posts (Id, ViewCount, OwnerUserId, LastEditorUserId, Title, Body) VALUES (4, 450, 4, 4, 'Computer Game Datasets', 'Computer Game Datasets');
+
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (1, 1, 1, 'Computer Game Datasets', 'Valid');
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (2, 2, 2, 'computer game datasets', 'Lowercase');
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (3, 3, 3, 'Prefix Computer Game Datasets Suffix', 'Superstring');
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (4, 3, 3, 'Computer Game Dataset', 'Substring');
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (5, 4, 4, 'Other Text', 'Computer Game Datasets');
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment) VALUES (6, 1, 1, NULL, 'Null Text');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN semantics by introducing NULL foreign keys at each join boundary.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'CompleteJoinUser');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'UnreferencedUser');
+
+INSERT INTO posts (Id, ViewCount, OwnerUserId, LastEditorUserId) VALUES (10, 500, 1, 1);
+INSERT INTO posts (Id, ViewCount, OwnerUserId, LastEditorUserId) VALUES (20, 600, 1, NULL);
+INSERT INTO posts (Id, ViewCount, OwnerUserId, LastEditorUserId) VALUES (30, 700, 1, 1);
+
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (100, 10, 1, 'Computer Game Datasets');
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (200, 20, 1, 'Computer Game Datasets');
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (300, NULL, 1, 'Computer Game Datasets');
+```
+
+```sql
+-- DATASET 4
+-- Tests handling of NULL values and zero/empty values in projected columns (ViewCount, DisplayName) and non-trivial multiple row outputs (kills LIMIT 1, aggregations like SUM/MAX/COUNT).
+INSERT INTO users (Id, DisplayName) VALUES (1, NULL);
+INSERT INTO users (Id, DisplayName) VALUES (2, '');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'ValidName');
+
+INSERT INTO posts (Id, ViewCount, LastEditorUserId) VALUES (1, 0, 1);
+INSERT INTO posts (Id, ViewCount, LastEditorUserId) VALUES (2, NULL, 2);
+INSERT INTO posts (Id, ViewCount, LastEditorUserId) VALUES (3, -10, 3);
+INSERT INTO posts (Id, ViewCount, LastEditorUserId) VALUES (4, 42, 3);
+
+INSERT INTO postHistory (Id, PostId, Text) VALUES (1, 1, 'Computer Game Datasets');
+INSERT INTO postHistory (Id, PostId, Text) VALUES (2, 2, 'Computer Game Datasets');
+INSERT INTO postHistory (Id, PostId, Text) VALUES (3, 3, 'Computer Game Datasets');
+INSERT INTO postHistory (Id, PostId, Text) VALUES (4, 4, 'Computer Game Datasets');
+```
+
+```sql
+-- DATASET 5
+-- Tests accidental joins or existence checks on unrelated tables (comments, votes, badges, tags, postLinks) by leaving them empty or mismatched for valid rows, and populated for invalid rows.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'TargetEditor');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'DecoyEditor');
+
+INSERT INTO posts (Id, ViewCount, OwnerUserId, LastEditorUserId) VALUES (1, 1234, 1, 1);
+INSERT INTO posts (Id, ViewCount, OwnerUserId, LastEditorUserId) VALUES (2, 5678, 2, 2);
+
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (1, 1, 1, 'Computer Game Datasets');
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (2, 2, 2, 'Wrong Text');
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 2, 'Computer Game Datasets');
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (1, 2, 2, 'Computer Game Datasets');
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (1, 'Computer Game Datasets', 2);
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (1, 2, 2, 1);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (1, 2, 2, 1);
+```

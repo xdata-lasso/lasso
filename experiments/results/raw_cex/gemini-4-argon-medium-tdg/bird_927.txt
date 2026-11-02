@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE NOT T2.fastestLapTime IS NULL (Row with highest fastestLapSpeed has NULL fastestLapTime and must be excluded).
+-- 2.Lexicographical vs Numeric sorting on fastestLapSpeed TEXT ('99.9' > '250.5' in TEXT DESC, whereas 250.5 > 99.9 numerically).
+-- 3. Conflicting orderings between fastestLapSpeed, fastestLapTime, rank,fastestLap, points, and positionOrder.
+-- 4. LIMIT 1 enforcement (multiple valid rows exist).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://monza.com');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://2020.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Italian GP', '2020-09-06', 'http://italiangp.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'ferrari', 'Ferrari', 'http://ferrari.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'd1', 'NullTime', 'FastestSpeed', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'd2', 'LexiMax', 'Winner', 'http://d2.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'd3', 'NumMax', 'Loser', 'http://d3.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'd4', 'NoResults', 'Driver', 'http://d4.com');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, rank, fastestLap, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (1, 1, 1, 1, 1, '1', 1, 25.0, 50, 1, 45, NULL, '999.9', 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, rank, fastestLap, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (2, 1, 2, 1, 2, '2', 2, 18.0, 50, 2, 40, '1:25.000', '95.5', 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, rank, fastestLap, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (3, 1, 3, 1, 3, '3', 3, 15.0, 50, 1, 50, '1:20.000', '250.5', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Tie-breaker on T1.driverId ASC when T2.fastestLapSpeed is identical.
+-- 2. Insertion order / resultId order is opposite to driverId order (catches missing secondary sort or DESC instead of ASC on driverId).
+-- 3. Exclusion of row with NULL fastestLapSpeed when valid speeds exist.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://spa.com');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://2021.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2021, 1, 1, 'Belgian GP', '2021-08-29', 'http://belgiangp.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mercedes', 'Mercedes', 'http://mercedes.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'd10', 'LowerDriverId', 'TieWinner', 'http://d10.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'd20', 'HigherDriverId', 'TieLoser', 'http://d20.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (5, 'd5', 'NullSpeed', 'Driver', 'http://d5.com');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (1, 1, 20, 1, 1, '1', 1, 25.0, 44, '1:45.000', '220.0', 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (2, 1, 10, 1, 2, '2', 2, 18.0, 44, '1:46.000', '220.0', 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (3, 1, 5, 1, 3, '3', 3, 15.0, 44, '1:40.000', NULL, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Numeric/standard sorting on fastestLapSpeed DESC where both string and numeric order agree ('235.5' > '210.0').
+-- 2. Catches ASC vs DESC mutations on fastestLapSpeed.
+-- 3. Ensures join is on driverId and not constructorId or resultId.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://silverstone.com');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://2022.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2022, 1, 1, 'British GP', '2022-07-03', 'http://britishgp.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'red_bull', 'Red Bull', 'http://redbull.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (2, 'mclaren', 'McLaren', 'http://mclaren.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'd1', 'Slow', 'Driver', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'd2', 'Fast', 'Driver', 'http://d2.com');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (1, 1, 1, 2, 1, '1', 1, 25.0, 52, '1:30.000', '210.0', 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (2, 1, 2, 1, 2, '2', 2, 18.0, 52, '1:28.000', '235.5', 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Edge case where all rows with non-null fastestLapTime have NULL fastestLapSpeed, testing secondary sort (T1.driverId ASC) under NULL fastestLapSpeed.
+-- 2. Also includes a row with non-null fastestLapSpeed but NULL fastestLapTime (must be filtered out).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Monaco', 'http://monaco.com');
+INSERT INTO seasons (year, url) VALUES (2023, 'http://2023.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2023, 1, 1, 'Monaco GP', '2023-05-28', 'http://monacogp.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'aston_martin', 'Aston Martin', 'http://astonmartin.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'd1', 'FirstValid', 'NullSpeed', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'd2', 'SecondValid', 'NullSpeed', 'http://d2.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'd3', 'Invalid', 'HasSpeed', 'http://d3.com');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (10, 1, 2, 1, 1, '1', 1, 25.0, 78, '1:15.000', NULL, 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (20, 1, 1, 1, 2, '2', 2, 18.0, 78, '1:16.000', NULL, 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (5, 1, 3, 1, 3, '3', 3, 15.0, 78, NULL, '160.0', 1);
+```

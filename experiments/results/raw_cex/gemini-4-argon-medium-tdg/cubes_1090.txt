@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Core test: Multiple orders with varying invoice counts (including >1 to test COUNT vs DISTINCT, and inverse relationship with order_id to test ORDER BY), plus an order with 0 invoices (to catch LEFT JOIN on Orders) and an Order_Item (to catch querying Order_Items instead of Invoices).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Alice');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (10, 1, '2023-01-01 10:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (20, 1, '2023-01-02 10:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (30, 1, '2023-01-03 10:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (40, 1, '2023-01-04 10:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (101, 10, '2023-01-05 10:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (102, 10, '2023-01-06 10:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (103, 10, '2023-01-07 10:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (104, 20, '2023-01-08 10:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (105, 30, '2023-01-09 10:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (106, 30, '2023-01-10 10:00:00');
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('ELEC', 'Electronics', 0.20);
+INSERT INTO "Products" ("product_id", "production_type_code", "unit_price", "product_name") VALUES (1, 'ELEC', 100.00, 'Laptop');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (1, 20, 1, '2');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (2, 20, 1, '1');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (3, 40, 1, '5');
+```
+
+```sql
+-- DATASET 2
+-- Edge cases: NULL order_id in Invoices (tests COUNT(*) vs COUNT(order_id), INNER JOIN Orders vs direct table query, and NULL ordering) and NULL invoice_date (tests COUNT(*) vs COUNT(invoice_date)).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Bob');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (5, 1, '2023-02-01 09:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (15, 1, '2023-02-02 09:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (201, NULL, '2023-02-03 09:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (202, NULL, NULL);
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (203, 5, NULL);
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (204, 5, '2023-02-04 09:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (205, 15, '2023-02-05 09:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Join multiplication trap: Invoices joined with Invoice_Line_Items or Financial_Transactions without proper aggregation or distinctness.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Charlie');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (1, 1, 'Main Account');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (100, 1, '2023-03-01 12:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (301, 100, '2023-03-02 12:00:00');
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('BOOK', 'Books', 0.05);
+INSERT INTO "Products" ("product_id", "production_type_code", "unit_price", "product_name") VALUES (10, 'BOOK', 20.00, 'SQL Guide');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (50, 100, 10, '1');
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price") VALUES (10, 301, 50, 'SQL Guide Pt 1', '1', 10.00);
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price") VALUES (10, 301, 50, 'SQL Guide Pt 2', '1', 10.00);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (1, 301, 9001, 10.00);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (1, 301, 9002, 10.00);
+```
+
+```sql
+-- DATASET 4
+-- Empty Invoices table (with populated Orders table): Tests behavior when target table is empty (should return 0 rows, catching mutants that aggregate over Orders or use COUNT without GROUP BY).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Diana');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (1, 1, '2023-04-01 08:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (2, 1, '2023-04-02 08:00:00');
+```
+
+```sql
+-- DATASET 5
+-- Duplicate counts and negative/zero IDs: Tests tie-breaking in ORDER BY (when counts are equal, must sort by order_id) and handling of non-positive integer keys.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Eve');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (-10, 1);
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (0, 1);
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (10, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (501, 10, '2023-05-01 00:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (502, 10, '2023-05-01 00:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (503, -10, '2023-05-01 00:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (504, -10, '2023-05-01 00:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (505, 0, '2023-05-01 00:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (506, 0, '2023-05-01 00:00:00');
+```

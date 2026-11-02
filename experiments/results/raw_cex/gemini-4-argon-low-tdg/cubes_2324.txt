@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(DISTINCT Claim_Outcome_Code) vs COUNT(Claim_Outcome_Code) vs COUNT(*) via duplicates and NULLs.
+-- 2. Wrong column referenced (e.g., Staff_ID, Claim_ID, Claim_Stage_ID) by giving each column a different distinct count.
+-- 3. Wrong table referenced (e.g., Claim_Headers, Policies, Claims_Documents, Claims_Processing_Stages) by giving their code columns different distinct counts.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust A');
+
+INSERT INTO "Staff" ("Staff_ID", "Staff_Details") VALUES (1, 'Staff A');
+INSERT INTO "Staff" ("Staff_ID", "Staff_Details") VALUES (2, 'Staff B');
+INSERT INTO "Staff" ("Staff_ID", "Staff_Details") VALUES (3, 'Staff C');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'POL_A', '2020-01-01', '2021-01-01');
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (1, 1, 'STAT_1', 'TYPE_1', '2020-02-01', '2020-03-01', 100.0, 100.0);
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (2, 1, 'STAT_2', 'TYPE_2', '2020-02-02', '2020-03-02', 200.0, 150.0);
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (3, 1, 'STAT_3', 'TYPE_3', '2020-02-03', '2020-03-03', 300.0, 250.0);
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (4, 1, 'STAT_4', 'TYPE_4', '2020-02-04', '2020-03-04', 400.0, 350.0);
+
+INSERT INTO "Claims_Documents" ("Claim_ID", "Document_Type_Code", "Created_by_Staff_ID", "Created_Date") VALUES (1, 'DOC_1', 1, 20200201);
+INSERT INTO "Claims_Documents" ("Claim_ID", "Document_Type_Code", "Created_by_Staff_ID", "Created_Date") VALUES (1, 'DOC_2', 1, 20200202);
+INSERT INTO "Claims_Documents" ("Claim_ID", "Document_Type_Code", "Created_by_Staff_ID", "Created_Date") VALUES (2, 'DOC_3', 2, 20200203);
+INSERT INTO "Claims_Documents" ("Claim_ID", "Document_Type_Code", "Created_by_Staff_ID", "Created_Date") VALUES (2, 'DOC_4', 2, 20200204);
+INSERT INTO "Claims_Documents" ("Claim_ID", "Document_Type_Code", "Created_by_Staff_ID", "Created_Date") VALUES (3, 'DOC_5', 3, 20200205);
+
+INSERT INTO "Claims_Processing_Stages" ("Claim_Stage_ID", "Next_Claim_Stage_ID", "Claim_Status_Name", "Claim_Status_Description") VALUES (1, 2, 'Stage 1', 'Desc 1');
+INSERT INTO "Claims_Processing_Stages" ("Claim_Stage_ID", "Next_Claim_Stage_ID", "Claim_Status_Name", "Claim_Status_Description") VALUES (2, NULL, 'Stage 2', 'Desc 2');
+
+-- Claims_Processing:
+-- Total rows (COUNT(*)) = 5
+-- Non-null Claim_Outcome_Code (COUNT(Claim_Outcome_Code)) = 4
+-- Distinct Claim_Outcome_Code (COUNT(DISTINCT Claim_Outcome_Code)) = 2 ('APPROVED', 'REJECTED')
+-- Distinct Staff_ID = 3 (1, 2, 3)
+-- Distinct Claim_ID = 4 (1, 2, 3, 4)
+-- Distinct Claim_Stage_ID = 1 (1)
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (1, 1, 1, 'APPROVED', 1);
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (2, 2, 2, 'APPROVED', 1);
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (3, 3, 3, 'REJECTED', 1);
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (4, 1, 4, 'REJECTED', 1);
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (5, 2, 1, NULL, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Unnecessary INNER JOINs with Staff, Claim_Headers, Claims_Processing_Stages, or Claims_Documents.
+--    Rows in Claims_Processing have NULL foreign keys or reference Claim_Stage_IDs not in Claims_Processing_Stages, or Claim_IDs without Claims_Documents.
+-- 2. Case sensitivity in DISTINCT ('Settled' vs 'SETTLED').
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust A');
+
+INSERT INTO "Staff" ("Staff_ID", "Staff_Details") VALUES (1, 'Staff A');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'POL_A', '2020-01-01', '2021-01-01');
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (1, 1, 'OPEN', 'AUTO', '2020-02-01', NULL, 500.0, 0.0);
+
+INSERT INTO "Claims_Processing_Stages" ("Claim_Stage_ID", "Next_Claim_Stage_ID", "Claim_Status_Name", "Claim_Status_Description") VALUES (10, NULL, 'Initial', 'Initial Stage');
+
+-- Row 1 has valid FKs to Staff and Claim_Headers, and matching Stage 10.
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (1, 1, 1, 'Settled', 10);
+-- Row 2 has NULL Staff_ID and NULL Claim_ID (valid in SQLite FKs), and Stage 99 (not in Claims_Processing_Stages).
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (2, NULL, NULL, 'SETTLED', 99);
+-- Row 3 has NULL FKs and another distinct outcome code.
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (3, NULL, NULL, 'Pending', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty table / All NULLs boundary condition: COUNT(DISTINCT Claim_Outcome_Code) must return a single row with 0 (unlike GROUP BY Claim_Outcome_Code which returns empty or 1 row for NULL, or SUM/MAX which return NULL).
+-- 2. Other tables are populated so mutants querying other tables will return > 0.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust A');
+INSERT INTO "Staff" ("Staff_ID", "Staff_Details") VALUES (1, 'Staff A');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'POL_1', '2020-01-01', '2021-01-01');
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (1, 1, 'STAT_1', 'TYPE_1', '2020-02-01', '2020-03-01', 100.0, 100.0);
+INSERT INTO "Claims_Documents" ("Claim_ID", "Document_Type_Code", "Created_by_Staff_ID", "Created_Date") VALUES (1, 'DOC_1', 1, 20200201);
+INSERT INTO "Claims_Processing_Stages" ("Claim_Stage_ID", "Next_Claim_Stage_ID", "Claim_Status_Name", "Claim_Status_Description") VALUES (1, NULL, 'Stage 1', 'Desc 1');
+
+-- Only NULL outcome codes in Claims_Processing: COUNT(DISTINCT claim_outcome_code) = 0, COUNT(*) = 2
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (1, 1, 1, NULL, 1);
+INSERT INTO "Claims_Processing" ("Claim_Processing_ID", "Staff_ID", "Claim_ID", "Claim_Outcome_Code", "Claim_Stage_ID") VALUES (2, 1, 1, NULL, 1);
+```

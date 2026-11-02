@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (HR vs non-HR), duplicate employee names (to catch DISTINCT vs ALL), NULL employee names (to catch NULLS FIRST vs NULLS LAST), and ordering where Employee_ID ordering diverges from Employee_Name ordering.
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('HR', 'Human Resources', 'HR Department');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('IT', 'Information Technology', 'IT Department');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('FIN', 'HR', 'Finance Department with misleading Role_Name');
+
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (1, 'HR', 'Zack', 'M', '1980-01-01', 'HR Manager');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (2, 'HR', 'Alice', 'F', '1990-05-12', 'HR Specialist');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (3, 'HR', 'Alice', 'M', '1985-07-23', 'HR Coordinator');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (4, 'HR', NULL, 'U', '1992-11-04', 'Unnamed HR');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (5, 'IT', 'Bob', 'M', '1988-03-15', 'HR');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (6, 'FIN', 'Charlie', 'F', '1979-09-09', 'Finance');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (7, NULL, 'David', 'M', '1995-12-12', 'Unassigned Role');
+```
+
+```sql
+-- DATASET 2
+-- Tests joins vs direct table querying: includes an 'HR' role with no employees, and 'HR' employees who are NOT referenced in Documents_to_be_Destroyed (catches unnecessary INNER JOINs to child tables). Also tests case-sensitivity and substring matches ('hr', 'HR_ADMIN').
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('HR', 'Human Resources', 'Standard HR');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('hr', 'human resources lowercase', 'Lowercase HR');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('HR_ADMIN', 'HR Admin', 'Prefix HR');
+
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-01-01', 1);
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DOC1', 'Policy', 'Policy Doc');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (100, '2023-01-01', 'DOC1', 'Doc A', 'Desc A', 'None');
+
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (10, 'HR', 'Eve', 'F', '1982-04-10', 'Referenced in Destruction');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (20, 'HR', 'Adams', 'M', '1991-08-19', 'Not Referenced in Destruction');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (30, 'hr', 'Frank', 'M', '1987-02-28', 'Lowercase role code');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (40, 'HR_ADMIN', 'Grace', 'F', '1993-06-15', 'Extended role code');
+
+INSERT INTO "Documents_to_be_Destroyed" ("Document_ID", "Actual_Destruction_Date", "Planned_Destruction_Date", "Destruction_Authorised_by_Employee_ID", "Destroyed_by_Employee_ID", "Other_Details") VALUES (100, '2023-01-01', '2023-01-01', 10, 10, 'Destroyed by Eve');
+```
+
+```sql
+-- DATASET 3
+-- Tests empty result set for 'HR' when other roles exist, and when 'HR' exists in Roles table but has no matching rows in Employees.
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('HR', 'Human Resources', 'Empty HR Role');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('ENG', 'Engineering', 'Engineering Dept');
+
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (101, 'ENG', 'HR', 'F', '1990-01-01', 'Employee named HR but in ENG');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (102, 'ENG', 'Henry', 'M', '1985-05-05', 'Engineer');
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple HR employees where one employee is referenced multiple times in Documents_to_be_Destroyed (catches improper joins without DISTINCT), and tests strict ASC vs DESC sorting.
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('HR', 'Human Resources', 'HR Dept');
+
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-06-01', 152);
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('REP', 'Report', 'Annual Report');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (1, '2023-06-01', 'REP', 'Report 1', 'Desc', 'Details');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (2, '2023-06-01', 'REP', 'Report 2', 'Desc', 'Details');
+
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (50, 'HR', 'Charlie', 'M', '1975-03-20', 'Details');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (60, 'HR', 'Baker', 'F', '1988-07-11', 'Details');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (70, 'HR', 'Able', 'M', '1999-12-31', 'Details');
+
+INSERT INTO "Documents_to_be_Destroyed" ("Document_ID", "Actual_Destruction_Date", "Planned_Destruction_Date", "Destruction_Authorised_by_Employee_ID", "Destroyed_by_Employee_ID", "Other_Details") VALUES (1, '2023-06-01', '2023-06-01', 50, 60, 'Doc 1');
+INSERT INTO "Documents_to_be_Destroyed" ("Document_ID", "Actual_Destruction_Date", "Planned_Destruction_Date", "Destruction_Authorised_by_Employee_ID", "Destroyed_by_Employee_ID", "Other_Details") VALUES (2, '2023-06-01', '2023-06-01', 50, 70, 'Doc 2');
+```

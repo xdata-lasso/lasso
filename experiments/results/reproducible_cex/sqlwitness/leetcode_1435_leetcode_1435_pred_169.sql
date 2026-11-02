@@ -1,0 +1,30 @@
+-- Schema DDL
+CREATE TABLE "Sessions" ("session_id" INTEGER PRIMARY KEY, "duration" INTEGER, CHECK ("duration" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO sessions (session_id, duration) VALUES (10, 15), (300, 900), (15, 901), (899, 59), (6, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT '[0-5>' AS bin, COUNT(session_id) AS total FROM sessions WHERE ((CAST(duration AS REAL) / 60) >= 0 AND (CAST(duration AS REAL) / 60) < 5) UNION SELECT '[5-10>' AS bin, COUNT(session_id) AS total FROM sessions WHERE ((CAST(duration AS REAL) / 60) >= 5 AND (CAST(duration AS REAL) / 60) < 10) UNION SELECT '[10-15>' AS bin, COUNT(session_id) AS total FROM sessions WHERE ((CAST(duration AS REAL) / 60) >= 10 AND (CAST(duration AS REAL) / 60) < 15) UNION SELECT '15 or more' AS bin, COUNT(session_id) AS total FROM sessions WHERE (CAST(duration AS REAL) / 60) >= 15;
+
+/*
+Gold Result:
+('15 or more', 2)
+('[0-5>', 2)
+('[10-15>', 0)
+('[5-10>', 0)
+*/
+
+-- Prediction Query
+SELECT '[0-5>' AS BIN, (SELECT COUNT(*) FROM SESSIONS WHERE DURATION < 300) AS TOTAL UNION SELECT '[5-10>' AS BIN, (SELECT COUNT(*) FROM SESSIONS WHERE DURATION > 300 AND DURATION < 600) AS TOTAL UNION SELECT '[10-15>' AS BIN, (SELECT COUNT(*) FROM SESSIONS WHERE DURATION > 600 AND DURATION < 900) AS TOTAL UNION SELECT '15 or more' AS BIN, (SELECT COUNT(*) FROM SESSIONS WHERE DURATION > 900) AS TOTAL;
+
+/*
+Prediction Result:
+('15 or more', 1)
+('[0-5>', 2)
+('[10-15>', 0)
+('[5-10>', 0)
+*/

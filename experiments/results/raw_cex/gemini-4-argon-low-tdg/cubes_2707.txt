@@ -1,0 +1,103 @@
+```sql
+-- DATASET 1
+-- Boundary condition: Total rows in Order_Items is exactly 1 (n = 1).
+-- Gold query should return 0 rows because n > 1 is not met.
+-- Catches mutants that ignore the `n > 1` condition or use `n >= 1` or fail to check total table count.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Alice', 'Details 1');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (10, 'food', 'Fresh food');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (100, 1, 'Cancel', '2023-01-01 10:00:00', 'Order 100');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1000, 10, 100, 'Cancel', 'Item 1000');
+```
+
+```sql
+-- DATASET 2
+-- Window function scope test: Total rows in Order_Items is 2 (n = 2), so n > 1 holds globally.
+-- However, only 1 row has order_item_status = 'Cancel' and product_name = 'food'.
+-- Gold query should return 'Bob'.
+-- Catches mutants that filter WHERE before calculating COUNT(*) OVER (), or group by customer/order/product/status and check HAVING COUNT(*) > 1.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Bob', 'Details 1');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Charlie', 'Details 2');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (10, 'food', 'Food item');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (20, 'electronics', 'Gadget');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (100, 1, 'Shipped', '2023-01-02 10:00:00', 'Order 100');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (200, 2, 'Cancel', '2023-01-03 10:00:00', 'Order 200');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1000, 10, 100, 'Cancel', 'Canceled food');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2000, 20, 200, 'Delivered', 'Delivered electronics');
+```
+
+```sql
+-- DATASET 3
+-- Column confusion & predicate test:
+-- Customer 1 has order_status = 'Cancel', but order_item_status = 'Shipped' for 'food'.
+-- Customer 2 has order_status = 'Shipped', and order_item_status = 'Cancel' for 'toy'.
+-- Customer 3 has order_status = 'Shipped', and order_item_status = 'Cancel' for 'food'.
+-- Gold query should return ONLY Customer 3 ('Diana').
+-- Catches mutants confusing order_status with order_item_status, or missing the product_name = 'food' filter, or using OR instead of AND.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Alice', 'Cust 1');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Bob', 'Cust 2');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (3, 'Diana', 'Cust 3');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (10, 'food', 'Edible');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (20, 'toy', 'Plaything');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (101, 1, 'Cancel', '2023-02-01 00:00:00', 'Details');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (102, 2, 'Shipped', '2023-02-02 00:00:00', 'Details');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (103, 3, 'Shipped', '2023-02-03 00:00:00', 'Details');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1001, 10, 101, 'Shipped', 'Not canceled item');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1002, 20, 102, 'Cancel', 'Not food');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1003, 10, 103, 'Cancel', 'Target match');
+```
+
+```sql
+-- DATASET 4
+-- Duplicates, Ordering, and NULLS LAST test:
+-- Customer 1 ('Zack') has 2 matching order items (should appear twice in output).
+-- Customer 2 ('Aaron') has 1 matching order item (should appear before Zack).
+-- Customer 3 (NULL name) has 1 matching order item (should appear last due to NULLS LAST).
+-- Catches mutants using SELECT DISTINCT, missing ORDER BY, or using default SQLite NULLS FIRST.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Zack', 'Cust 1');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Aaron', 'Cust 2');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (3, NULL, 'Cust 3');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (10, 'food', 'Apple');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (11, 'food', 'Banana');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (101, 1, 'Open', '2023-03-01 00:00:00', 'O1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (102, 2, 'Open', '2023-03-02 00:00:00', 'O2');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (103, 3, 'Open', '2023-03-03 00:00:00', 'O3');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1001, 10, 101, 'Cancel', 'Zack 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1002, 11, 101, 'Cancel', 'Zack 2');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1003, 10, 102, 'Cancel', 'Aaron 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1004, 10, 103, 'Cancel', 'Null 1');
+```
+
+```sql
+-- DATASET 5
+-- Join condition integrity test:
+-- Customer 1 ordered 'drink' (status 'Cancel'), and Customer 2 ordered 'food' (status 'Delivered').
+-- Both 'food' and 'Cancel' exist in the database and for these orders/products separately,
+-- but NOT together on the same order_item.
+-- Gold query should return 0 rows.
+-- Catches mutants that omit join conditions (e.g., missing LHS.product_id = RHS.product_id or LHS.order_id = RHS.order_id) or use EXISTS decoupled from the specific row.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Evan', 'Cust 1');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Fay', 'Cust 2');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (10, 'food', 'Bread');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (20, 'drink', 'Water');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (101, 1, 'Open', '2023-04-01 00:00:00', 'O1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (102, 2, 'Open', '2023-04-02 00:00:00', 'O2');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1001, 20, 101, 'Cancel', 'Canceled drink');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1002, 10, 101, 'Delivered', 'Delivered food in same order as canceled drink');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1003, 10, 102, 'Delivered', 'Delivered food');
+```
+
+```sql
+-- DATASET 6
+-- Unnecessary table join & Inner Join vs Left Join test:
+-- Order_Items with NULL foreign keys (orphan order_item) and Orders with NULL customer_id.
+-- Also tests that Customers without Shipments/Invoices are still returned (catches mutants joining Shipments/Invoices).
+-- Gold query should return 'Grace'.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Grace', 'No shipments');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Hank', 'No orders');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (10, 'food', 'Cheese');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (101, 1, 'Open', '2023-05-01 00:00:00', 'Valid order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (102, NULL, 'Open', '2023-05-02 00:00:00', 'Orphan order');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1001, 10, 101, 'Cancel', 'Valid match');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1002, 10, 102, 'Cancel', 'Item for orphan order');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1003, NULL, 101, 'Cancel', 'Item with null product');
+```

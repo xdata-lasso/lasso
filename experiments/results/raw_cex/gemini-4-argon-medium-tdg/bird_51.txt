@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE NOT T1.AvgScrRead IS NULL (CDS0 exists with NULL AvgScrRead, in SQLite NULLs sort first in ASC, so omitting the WHERE clause picks CDS0).
+-- 2. INNER JOIN vs LEFT JOIN on schools (CDS_UNMATCHED has no satscores row).
+-- 3. ORDER BY AvgScrRead ASC vs DESC (CDS1 has 300, CDS3 has 500).
+-- 4. ORDER BY AvgScrRead vs AvgScrMath / AvgScrWrite / enroll12 / NumTstTakr / NumGE1500 (CDS3 has smaller values in all other numeric columns).
+-- 5. Tie-breaking on T1.cds ASC (CDS1 and CDS2 both have AvgScrRead = 300).
+-- 6. Column projection: T2.MailStreet vs T2.Street / T2.MailStrAbr, and T2.School vs T1.sname / T2.District.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, MailStrAbr, DOC, DOCType, LastUpdate) VALUES ('CDS_UNMATCHED', 'Active', 'CountyU', 'DistU', 'School_Unmatched', 'Phys_U', 'Mail_U', 'Abr_U', '00', 'TypeU', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, MailStrAbr, DOC, DOCType, LastUpdate) VALUES ('CDS0', 'Active', 'County0', 'Dist0', 'School_NullRead', 'Phys_0', 'Mail_0', 'Abr_0', '00', 'Type0', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, MailStrAbr, DOC, DOCType, LastUpdate) VALUES ('CDS1', 'Active', 'County1', 'Dist1', 'School_One_Target', 'Phys_1', 'Mail_1_Target', 'Abr_1', '00', 'Type1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, MailStrAbr, DOC, DOCType, LastUpdate) VALUES ('CDS2', 'Active', 'County2', 'Dist2', 'School_Two_Tie', 'Phys_2', 'Mail_2_Tie', 'Abr_2', '00', 'Type2', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, MailStrAbr, DOC, DOCType, LastUpdate) VALUES ('CDS3', 'Active', 'County3', 'Dist3', 'School_Three_High', 'Phys_3', 'Mail_3_High', 'Abr_3', '00', 'Type3', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS0', 'S', 'SatName_0', 'D0', 'C0', 50, 10, NULL, 100, 100, 1);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS1', 'S', 'SatName_1', 'D1', 'C1', 500, 400, 300, 700, 700, 200);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS2', 'S', 'SatName_2', 'D2', 'C2', 400, 300, 300, 600, 600, 150);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS3', 'S', 'SatName_3', 'D3', 'C3', 100, 50, 500, 200, 200, 5);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Extra unnecessary INNER JOIN with `frpm` (the lowest AvgScrRead row CDS_A has no matching row in `frpm`, while CDS_B does).
+-- 2. Handling of 0 in AvgScrRead (0 is NOT NULL, versus mutants that filter AvgScrRead > 0).
+-- 3. Handling of NULLs in the projected columns T2.MailStreet and T2.School (mutants adding WHERE T2.MailStreet IS NOT NULL or T2.School IS NOT NULL will fail by picking CDS_B instead of CDS_A).
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, DOC, DOCType, LastUpdate) VALUES ('CDS_A', 'Active', 'CountyA', 'DistA', NULL, 'Phys_A', NULL, '00', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, DOC, DOCType, LastUpdate) VALUES ('CDS_B', 'Active', 'CountyB', 'DistB', 'School_B', 'Phys_B', 'Mail_B', '00', 'TypeB', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_A', 'S', 'Sat_A', 100, 20, 0, NULL, NULL, NULL);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_B', 'S', 'Sat_B', 200, 50, 350, 400, 400, 10);
+
+INSERT INTO frpm (CDSCode, "Academic Year", "School Name") VALUES ('CDS_B', '2014-2015', 'School_B');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Integer sorting vs Lexicographical (CAST AS TEXT) sorting on AvgScrRead:
+--    95 < 100 numerically, but '100' < '95' lexicographically.
+-- 2. Non-'S' rtype ('D' for District) having the lowest score: Reference query does not filter on rtype, whereas mutants might add WHERE rtype = 'S' or StatusType = 'Active'.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, DOC, DOCType, LastUpdate) VALUES ('CDS_95', 'Closed', 'County1', 'Dist1', 'School_95', 'Phys_95', 'Mail_95', '00', 'Type1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, DOC, DOCType, LastUpdate) VALUES ('CDS_100', 'Active', 'County2', 'Dist2', 'School_100', 'Phys_100', 'Mail_100', '00', 'Type2', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_95', 'D', 'Sat_95', 300, 100, 95, 500, 500, 50);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_100', 'S', 'Sat_100', 300, 100, 100, 400, 400, 40);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty result set behavior when all rows have AvgScrRead IS NULL.
+--    Kills mutants that omit `WHERE NOT T1.AvgScrRead IS NULL` or use `NULLS LAST` instead of filtering out NULLs.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, DOC, DOCType, LastUpdate) VALUES ('CDS_ONLY_NULL', 'Active', 'CountyN', 'DistN', 'School_NullOnly', 'Phys_N', 'Mail_N', '00', 'TypeN', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_ONLY_NULL', 'S', 'Sat_NullOnly', 120, 0, NULL, 300, 300, 0);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Duplicate MailStreet and School values across the top 2 rows to test LIMIT 1 vs DISTINCT without LIMIT 1, or LIMIT 2.
+-- 2. Join condition mutations (e.g., joining on School = sname instead of cds = CDSCode). Here, T1.sname matches a DIFFERENT row's T2.School.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, DOC, DOCType, LastUpdate) VALUES ('CDS_X', 'Active', 'CountyX', 'DistX', 'Shared_School_Name', 'Phys_X', 'Shared_Mail_Street', '00', 'TypeX', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, DOC, DOCType, LastUpdate) VALUES ('CDS_Y', 'Active', 'CountyY', 'DistY', 'Shared_School_Name', 'Phys_Y', 'Shared_Mail_Street', '00', 'TypeY', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, MailStreet, DOC, DOCType, LastUpdate) VALUES ('CDS_Z', 'Active', 'CountyZ', 'DistZ', 'Decoy_School_Name', 'Phys_Z', 'Decoy_Mail_Street', '00', 'TypeZ', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_X', 'S', 'Decoy_School_Name', 100, 50, 250, 250, 250, 10);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_Y', 'S', 'Shared_School_Name', 100, 50, 260, 260, 260, 10);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_Z', 'S', 'Other_Name', 100, 50, 400, 400, 400, 20);
+```

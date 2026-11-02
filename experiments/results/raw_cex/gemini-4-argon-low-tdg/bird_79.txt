@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Scenario: Santa Barbara has strictly more 'F' Virtual schools than San Diego.
+-- However, San Diego has more total rows (including 'V' and NULL), and another county (Los Angeles) has even more 'F' rows.
+-- Also tests missing rows in frpm and satscores to kill unnecessary INNER JOIN mutants.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('101', 'Active', 'Santa Barbara', 'D1', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('102', 'Active', 'Santa Barbara', 'D1', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('103', 'Active', 'San Diego', 'D2', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('104', 'Active', 'San Diego', 'D2', '00', 'TypeA', 'V', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('105', 'Active', 'San Diego', 'D2', '00', 'TypeA', 'C', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('106', 'Active', 'San Diego', 'D2', '00', 'TypeA', NULL, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('107', 'Active', 'Los Angeles', 'D3', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('108', 'Active', 'Los Angeles', 'D3', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('109', 'Active', 'Los Angeles', 'D3', '00', 'TypeA', 'F', '2020-01-01');
+```
+
+```sql
+-- DATASET 2
+-- Scenario: San Diego has strictly more 'F' Virtual schools than Santa Barbara.
+-- Tests operator precedence: (County = 'San Diego' OR County = 'Santa Barbara') AND Virtual = 'F'
+-- vs County = 'San Diego' OR (County = 'Santa Barbara' AND Virtual = 'F').
+-- Here San Diego has many non-'F' rows and only 2 'F' rows, while Santa Barbara has 1 'F' row.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('201', 'Active', 'San Diego', 'D1', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('202', 'Active', 'San Diego', 'D1', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('203', 'Active', 'San Diego', 'D1', '00', 'TypeA', 'P', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('204', 'Active', 'San Diego', 'D2', '00', 'TypeA', NULL, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('205', 'Active', 'Santa Barbara', 'D3', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('206', 'Active', 'Santa Barbara', 'D3', '00', 'TypeA', 'V', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('207', 'Active', 'Santa Barbara', 'D3', '00', 'TypeA', 'V', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('208', 'Active', 'Santa Barbara', 'D3', '00', 'TypeA', 'V', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name") VALUES ('201', 'San Diego');
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr) VALUES ('201', 'S', 100, 50);
+```
+
+```sql
+-- DATASET 3
+-- Scenario: Tie-breaker on COUNT(Virtual) between San Diego and Santa Barbara (both have 2 'F' schools).
+-- Tests secondary sort: ORDER BY COUNT(Virtual) DESC, County ASC (since ASC is default).
+-- 'San Diego' comes alphabetically before 'Santa Barbara'.
+-- Also includes COUNT(DISTINCT Virtual) trap (if mutant uses DISTINCT, count is 1 instead of 2).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('301', 'Active', 'Santa Barbara', 'D1', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('302', 'Active', 'Santa Barbara', 'D1', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('303', 'Active', 'San Diego', 'D2', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('304', 'Active', 'San Diego', 'D2', '00', 'TypeA', 'F', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name") VALUES ('301', 'Santa Barbara');
+INSERT INTO frpm (CDSCode, "County Name") VALUES ('302', 'Santa Barbara');
+INSERT INTO frpm (CDSCode, "County Name") VALUES ('303', 'San Diego');
+INSERT INTO frpm (CDSCode, "County Name") VALUES ('304', 'San Diego');
+```
+
+```sql
+-- DATASET 4
+-- Scenario: Only one of the target counties ('Santa Barbara') has Virtual = 'F'.
+-- 'San Diego' only has Virtual = 'V' or NULL.
+-- Kills mutants that omit Virtual = 'F', or use LEFT JOIN / GROUP BY without filtering, or only check County = 'San Diego'.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('401', 'Active', 'San Diego', 'D1', '00', 'TypeA', 'V', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('402', 'Active', 'San Diego', 'D1', '00', 'TypeA', 'V', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('403', 'Active', 'San Diego', 'D1', '00', 'TypeA', NULL, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('404', 'Active', 'Santa Barbara', 'D2', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('405', 'Active', 'Orange', 'D3', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Virtual, LastUpdate) VALUES ('406', 'Active', 'Orange', 'D3', '00', 'TypeA', 'F', '2020-01-01');
+```
+
+```sql
+-- DATASET 5
+-- Scenario: Substring / LIKE / Case-sensitivity / Exact match boundary tests.
+-- Tests against mutants using LIKE '%San Diego%', LIKE 'San%', or lower/upper case mismatches, or wrong column (District / City = 'San Diego').
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, Virtual, LastUpdate) VALUES ('501', 'Active', 'San Diego County', 'San Diego', 'San Diego', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, Virtual, LastUpdate) VALUES ('502', 'Active', 'San Diego County', 'San Diego', 'San Diego', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, Virtual, LastUpdate) VALUES ('503', 'Active', 'Santa Barbara', 'D2', 'Santa Barbara', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, Virtual, LastUpdate) VALUES ('504', 'Active', 'San Diego', 'D3', 'CityA', '00', 'TypeA', 'F', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, Virtual, LastUpdate) VALUES ('505', 'Active', 'Santa Barbara', 'D2', 'Santa Barbara', '00', 'TypeA', 'F', '2020-01-01');
+```

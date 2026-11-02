@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Gender filter (T1.gender = 'F' vs 'M' with an earlier birth_date).
+-- 2. Primary sort order (T1.birth_date ASC vs DESC).
+-- 3. Join path via district_id vs joining through the disposition table (disp).
+-- 4. Confusing client.birth_date with account.date.
+-- 5. Confusing account_id with client_id or district_id in the SELECT clause.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'D10', 'R1', '100', '1', '1', '1', 1, 1, 50.0, 9000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'D20', 'R2', '200', '2', '2', '2', 2, 2, 60.0, 8000, 2.0, 2.0, 20, 20, 20);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (30, 'D30', 'R3', '300', '3', '3', '3', 3, 3, 70.0, 7000, 3.0, 3.0, 30, 30, 30);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1950-01-01', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1960-05-15', 20);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'F', '1975-10-20', 30);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 10, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (202, 20, 'POPLATEK MESICNE', '1999-12-31');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (303, 30, 'POPLATEK MESICNE', '1990-01-01');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 101, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 2, 303, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (3, 3, 202, 'OWNER');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Secondary sort order: T1.birth_date is tied across two districts, testing T2.A11 ASC vs DESC.
+-- 2. Wrong column from district used for sorting (e.g., A8, A9, A10, A12, A14, A16 or district_id instead of A11).
+-- 3. LIMIT 1 enforcement when multiple rows match.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '10', '10', '10', 1, 1, 10.0, 9500, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '2000', '20', '20', '20', 99, 99, 99.0, 8100, 9.0, 9.0, 99, 99, 99);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (50, 'F', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (40, 'F', '1970-01-01', 2);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (500, 1, 'POPLATEK MESICNE', '1993-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (600, 2, 'POPLATEK MESICNE', '1996-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Inner join requirement on account (a female client with the oldest birth_date and smallest A11 has NO accounts in her district).
+-- 2. Prevents LEFT JOIN mutants that might return NULL or fail to filter out districts without accounts.
+-- 3. Tie-breaking on T3.account_id when the same client and district match multiple accounts.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'NoAcctDist', 'R1', '100', '1', '1', '1', 1, 1, 50.0, 5000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'HasAcctDist', 'R1', '100', '1', '1', '1', 1, 1, 50.0, 9000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'F', '1940-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (20, 'F', '1980-01-01', 2);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (999, 2, 'POPLATEK MESICNE', '1995-05-05');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (888, 2, 'POPLATEK TYDNE', '1996-06-06');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Priority of sort keys: T1.birth_date ASC must take precedence over T2.A11 ASC.
+--    (Client A has older birth_date but larger A11; Client B has younger birth_date but smaller A11).
+-- 2. Ensures mutants that swap the order of ORDER BY clauses (ORDER BY T2.A11 ASC, T1.birth_date ASC) are killed.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'HighSalary', 'R1', '100', '1', '1', '1', 1, 1, 50.0, 15000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'LowSalary', 'R2', '100', '1', '1', '1', 1, 1, 50.0, 8000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1955-03-10', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1965-03-10', 2);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (45, 1, 'POPLATEK MESICNE', '1993-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (12, 2, 'POPLATEK MESICNE', '1993-01-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Tie-breaking on T1.client_id and T2.district_id when both T1.birth_date and T2.A11 are identical.
+-- 2. Distinguishes joins that accidentally equate T1.client_id = T3.account_id or T1.district_id = T3.account_id.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (5, 'Dist5', 'R1', '100', '1', '1', '1', 1, 1, 50.0, 10000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (6, 'Dist6', 'R1', '100', '1', '1', '1', 1, 1, 50.0, 10000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (100, 'F', '1985-08-08', 6);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (200, 'F', '1985-08-08', 5);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (700, 6, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (100, 5, 'POPLATEK MESICNE', '1995-01-01');
+```

@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- Core logic, DISTINCT check, and basic boundary conditions for year and month
+INSERT INTO seasons (year, url) VALUES (2004, 'http://example.com/2004');
+INSERT INTO seasons (year, url) VALUES (2005, 'http://example.com/2005');
+INSERT INTO seasons (year, url) VALUES (2006, 'http://example.com/2006');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'monza', 'Autodromo Nazionale di Monza', 'Monza', 'Italy', 'http://example.com/monza');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'spa', 'Circuit de Spa-Francorchamps', 'Spa', 'Belgium', 'http://example.com/spa');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (3, 'interlagos', 'Autodromo Jose Carlos Pace', 'Sao Paulo', 'Brazil', 'http://example.com/interlagos');
+
+-- Exact match: Year 2005, Month 09
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (101, 2005, 15, 1, 'Italian Grand Prix', '2005-09-04', 'http://example.com/r101');
+-- Duplicate output row to test DISTINCT (same circuit, same race name, same year and month, different day)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (102, 2005, 16, 1, 'Italian Grand Prix', '2005-09-11', 'http://example.com/r102');
+
+-- Boundary fail: Year 2004, Month 09
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (103, 2004, 15, 2, 'Belgian Grand Prix', '2004-09-05', 'http://example.com/r103');
+-- Boundary fail: Year 2006, Month 09
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (104, 2006, 15, 2, 'Belgian Grand Prix', '2006-09-10', 'http://example.com/r104');
+-- Boundary fail: Year 2005, Month 08 (End of August)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (105, 2005, 14, 3, 'Brazilian Grand Prix', '2005-08-31', 'http://example.com/r105');
+-- Boundary fail: Year 2005, Month 10 (Start of October)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (106, 2005, 17, 3, 'Brazilian Grand Prix', '2005-10-01', 'http://example.com/r106');
+```
+
+```sql
+-- DATASET 2
+-- Date component confusions (Day = 09 vs Month = 09, Year in date string != T2.year) and Join Traps
+INSERT INTO seasons (year, url) VALUES (2005, 'http://example.com/2005');
+INSERT INTO seasons (year, url) VALUES (2009, 'http://example.com/2009');
+
+-- Circuit ID 2005 to catch incorrect join condition (e.g., T1.circuitId = T2.year)
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2005, 'silverstone', 'Silverstone Circuit', 'Silverstone', 'UK', 'http://example.com/silverstone');
+-- Circuit with no races to catch LEFT JOIN / RIGHT JOIN mutations
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (10, 'unused', 'Unused Circuit', 'Nowhere', 'Noland', 'http://example.com/unused');
+-- Circuit with NULL location to test NULL handling in projection
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (20, 'null_loc', 'Mystery Circuit', NULL, 'Unknown', 'http://example.com/mystery');
+
+-- Match: Day is 09 AND Month is 09, on the circuit with NULL location
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2005, 1, 20, 'Mystery Grand Prix', '2005-09-09', 'http://example.com/r1');
+
+-- Trap: Year 2005, Day is 09, but Month is 05 (catches STRFTIME('%d') vs STRFTIME('%m'))
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2005, 5, 2005, 'British Grand Prix', '2005-05-09', 'http://example.com/r2');
+
+-- Trap: T2.year is 2009, Month is 09 (catches mutants omitting T2.year = 2005 or checking year 2009 due to '09')
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2009, 9, 2005, 'Future Grand Prix', '2009-09-15', 'http://example.com/r3');
+
+-- Trap: T2.year is 2009, but T2.date has year 2005 and month 09 (catches STRFTIME('%Y', T2.date) = '2005' vs T2.year = 2005)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 2009, 10, 2005, 'Mismatched Year GP', '2005-09-20', 'http://example.com/r4');
+
+-- Trap: Race ID is 9 and Round is 9, but month is 07 (catches confusion between round/raceId and month)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (9, 2005, 9, 2005, 'Summer Grand Prix', '2005-07-10', 'http://example.com/r9');
+```
+
+```sql
+-- DATASET 3
+-- Multiple distinct races in Sep 2005 at the same circuit and different circuits (Tests overly aggressive GROUP BY or गलत DISTINCT)
+INSERT INTO seasons (year, url) VALUES (2005, 'http://example.com/2005');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'bahrain', 'Bahrain International Circuit', 'Sakhir', 'Bahrain', 'http://example.com/bahrain');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'sepang', 'Sepang International Circuit', 'Kuala Lumpur', 'Malaysia', 'http://example.com/sepang');
+
+-- Same circuit (1), different race names in Sep 2005 (Both should appear; catches GROUP BY T1.circuitId or GROUP BY T1.name)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2005, 1, 1, 'Bahrain Grand Prix', '2005-09-01', 'http://example.com/r10');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (11, 2005, 2, 1, 'Sakhir Grand Prix', '2005-09-30', 'http://example.com/r11');
+
+-- Different circuit (2), same race name as race 10 in Sep 2005 (Both should appear; catches GROUP BY T2.name)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (12, 2005, 3, 2, 'Bahrain Grand Prix', '2005-09-15', 'http://example.com/r12');
+
+-- Invalid default date '0000-00-00' in year 2005 (Should not match)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (13, 2005, 4, 2, 'Cancelled Grand Prix', '0000-00-00', 'http://example.com/r13');
+```
+
+```sql
+-- DATASET 4
+-- Empty result set test (All rows violate at least one condition; catches OR vs AND mutations)
+INSERT INTO seasons (year, url) VALUES (2005, 'http://example.com/2005');
+INSERT INTO seasons (year, url) VALUES (2008, 'http://example.com/2008');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (5, 'suzuka', 'Suzuka Circuit', 'Suzuka', 'Japan', 'http://example.com/suzuka');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (6, 'fuji', 'Fuji Speedway', 'Oyama', 'Japan', 'http://example.com/fuji');
+
+-- Matches year 2005, fails month 09
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (50, 2005, 18, 5, 'Japanese Grand Prix', '2005-10-09', 'http://example.com/r50');
+
+-- Fails year 2005, matches month 09
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (51, 2008, 15, 6, 'Pacific Grand Prix', '2008-09-28', 'http://example.com/r51');
+```
+
+```sql
+-- DATASET 5
+-- Column swap and substring/like traps
+INSERT INTO seasons (year, url) VALUES (2005, 'http://example.com/2005');
+
+-- Circuit where name, location, and country have distinct formats to catch column swap in SELECT
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (7, 'monaco_ref', 'Circuit_Monaco_Name', 'Monte_Carlo_Location', 'Monaco_Country', 'http://example.com/monaco');
+
+-- Valid match to verify exact column order: T2.name, T1.name, T1.location
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (70, 2005, 6, 7, 'Race_Monaco_Name', '2005-09-25', 'http://example.com/r70');
+
+-- Trap for LIKE '%09%' on date: Year 2005, Month 11, Day 09
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (71, 2005, 7, 7, 'Trap_Day_09_Race', '2005-11-09', 'http://example.com/r71');
+```

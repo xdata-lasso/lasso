@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, incorrect column selection (e.g., selecting molecule_id or bond_type instead of label), 
+-- and incorrect join paths (e.g., joining through the 'atom' or 'connected' tables which might have 0 or >1 records).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR001', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR002', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR001_10_11', 'TR001', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR002_1_2', 'TR002', '2');
+-- Notice no atoms or connected records exist for TR001, killing mutants that unnecessarily INNER JOIN atom or connected.
+```
+
+```sql
+-- DATASET 2
+-- Tests multiplicities: if a mutant joins 'atom' or 'connected', it will produce duplicate rows unless DISTINCT is used,
+-- whereas the reference query returns exactly 1 row because bond_id is a PRIMARY KEY.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', 'active');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', 'C');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M1', 'H');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR001_10_11', 'M1', 'single');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'TR001_10_11');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'A1', 'TR001_10_11');
+```
+
+```sql
+-- DATASET 3
+-- Tests string comparison edge cases (LIKE vs =, substring matching, case sensitivity, and wrong column in WHERE clause).
+-- Also decouples the molecule_id name from the bond_id prefix to catch mutants filtering on molecule_id LIKE 'TR001%'.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('MOL_TARGET', 'target_label');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR001', 'wrong_label_prefix');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR001_10_11', 'wrong_label_mol_id');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR001_10_11', 'MOL_TARGET', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('tr001_10_11', 'TR001', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR001_10_11_2', 'TR001', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('BOND_OTHER', 'TR001_10_11', 'TR001_10_11');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN when bond.molecule_id is NULL, and when molecules exist without the target bond.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M_UNMATCHED', 'should_not_appear');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR001_10_11', NULL, '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('OTHER_BOND', 'M_UNMATCHED', '2');
+```
+
+```sql
+-- DATASET 5
+-- Tests handling of NULL in the output column (molecule.label is NULL for the matching bond, while non-NULL for others).
+-- Catches mutants that erroneously add WHERE T2.label IS NOT NULL.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M_NULL_LABEL', NULL);
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M_NON_NULL', 'valid_label');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR001_10_11', 'M_NULL_LABEL', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR001_10_12', 'M_NON_NULL', '1');
+```
+
+```sql
+-- DATASET 6
+-- Tests cross-molecule connections / inconsistent foreign keys across tables.
+-- If a mutant joins bond -> connected -> atom -> molecule instead of bond -> molecule directly.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M_BOND', 'correct_from_bond');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M_ATOM', 'wrong_from_atom');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M_ATOM', 'O');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M_ATOM', 'O');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR001_10_11', 'M_BOND', 'double');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'TR001_10_11');
+```

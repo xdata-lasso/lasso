@@ -1,0 +1,119 @@
+```sql
+-- DATASET 1
+-- Core dataset testing:
+-- 1. T2.name = 'Austrian Grand Prix' vs T3.name / T3.country / LIKE '%Austrian Grand Prix%'
+-- 2. MIN(fastestLapTime) vs MAX, LIMIT 1 (without ORDER BY), or missing aggregation
+-- 3. Filtering by rank = 1, position = 1, or statusId = 1 (Winner does NOT have the fastest lap)
+-- 4. Confusing results.fastestLapTime with results.time, results.fastestLapSpeed, lapTimes.time, or qualifying.q1/q2/q3
+-- 5. Confusing join keys (e.g., joining on resultId = raceId or circuitId = raceId)
+
+INSERT INTO seasons (year, url) VALUES (2021, 'http://en.wikipedia.org/wiki/2021_F1');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://en.wikipedia.org/wiki/2022_F1');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (10, 'red_bull_ring', 'Red Bull Ring', 'Spielberg', 'Austria', 47.2197, 14.7647, 678, 'http://en.wikipedia.org/wiki/Red_Bull_Ring');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (20, 'austrian_circuit', 'Austrian Grand Prix', 'Vienna', 'Austria', 48.2082, 16.3738, 151, 'http://en.wikipedia.org/wiki/Vienna_Circuit');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'red_bull', 'Red Bull', 'Austrian', 'http://en.wikipedia.org/wiki/Red_Bull_Racing');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'mercedes', 'Mercedes', 'German', 'http://en.wikipedia.org/wiki/Mercedes_F1');
+
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (1, 'verstappen', 33, 'VER', 'Max', 'Verstappen', '1997-09-30', 'Dutch', 'http://en.wikipedia.org/wiki/Max_Verstappen');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (2, 'hamilton', 44, 'HAM', 'Lewis', 'Hamilton', '1985-01-07', 'British', 'http://en.wikipedia.org/wiki/Lewis_Hamilton');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (3, 'norris', 4, 'NOR', 'Lando', 'Norris', '1999-11-13', 'British', 'http://en.wikipedia.org/wiki/Lando_Norris');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO status (statusId, status) VALUES (2, '+1 Lap');
+INSERT INTO status (statusId, status) VALUES (3, 'Engine');
+
+-- Race 100: Target race ('Austrian Grand Prix' at circuit 10 'Red Bull Ring')
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (100, 2021, 9, 10, 'Austrian Grand Prix', '2021-07-04', '13:00:00', 'http://en.wikipedia.org/wiki/2021_Austrian_GP');
+-- Race 101: Another target race ('Austrian Grand Prix' in a different year)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (101, 2022, 11, 10, 'Austrian Grand Prix', '2022-07-10', '13:00:00', 'http://en.wikipedia.org/wiki/2022_Austrian_GP');
+-- Race 102: Decoy race on the same circuit (Tests filtering by circuitId or country = 'Austria' instead of race name)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (102, 2021, 8, 10, 'Styrian Grand Prix', '2021-06-27', '13:00:00', 'http://en.wikipedia.org/wiki/2021_Styrian_GP');
+-- Race 103: Decoy race where circuit.name is 'Austrian Grand Prix' and race.name starts with 'Austrian Grand Prix' (Tests T3.name vs T2.name and LIKE vs =)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (103, 2021, 10, 20, 'Austrian Grand Prix Qualifying', '2021-07-18', '13:00:00', 'http://en.wikipedia.org/wiki/2021_Other_GP');
+
+-- Results for Race 100 (Austrian Grand Prix 2021)
+-- Result 1: Inserted first, slower fastestLapTime ('1:07.500'), winner (position=1, rank=2)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (1, 100, 1, 1, 33, 1, 1, '1', 1, 25.0, 71, '1:23:54.543', 5034543, 60, 2, '1:07.500', '220.500', 1);
+-- Result 2: NULL fastestLapTime
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (2, 100, 2, 2, 44, 2, NULL, 'R', 20, 0.0, 10, NULL, NULL, NULL, 0, NULL, NULL, 3);
+-- Result 3: The true minimum fastestLapTime ('1:06.123'), NOT the race winner (position=4), rank=2 (in case mutant filters rank=1), statusId=2
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (3, 100, 3, 1, 4, 3, 4, '4', 4, 12.0, 70, '1:01.000', 61000, 62, 2, '1:06.123', '230.100', 2);
+
+-- Results for Race 101 (Austrian Grand Prix 2022)
+-- Result 4: rank=1, position=1, but slower fastestLapTime ('1:06.800') than Result 3 ('1:06.123')
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (4, 101, 1, 1, 33, 1, 1, '1', 1, 26.0, 71, '1:24:00.000', 5040000, 55, 1, '1:06.800', '228.000', 1);
+
+-- Results for Decoy Race 102 (Styrian Grand Prix at Red Bull Ring) - Has a faster lap ('1:04.000') to kill circuit/country mutants
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (5, 102, 1, 1, 33, 1, 1, '1', 1, 25.0, 71, '1:22:00.000', 4920000, 68, 1, '1:04.000', '235.000', 1);
+
+-- Results for Decoy Race 103 ('Austrian Grand Prix Qualifying' at circuit 'Austrian Grand Prix') - Has faster lap ('1:03.000') to kill T3.name and LIKE mutants
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (6, 103, 2, 2, 44, 1, 1, '1', 1, 25.0, 71, '1:21:00.000', 4860000, 70, 1, '1:03.000', '240.000', 1);
+
+-- Decoy lapTimes and qualifying for Race 100 (To kill mutants querying lapTimes.time or qualifying.q1/q2/q3 instead of results.fastestLapTime)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (100, 1, 1, 1, '1:05.000', 65000);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 100, 1, 1, 33, 1, '1:04.500', '1:04.200', '1:03.999');
+```
+
+```sql
+-- DATASET 2
+-- Edge case dataset testing:
+-- 1. Only NULL fastestLapTime values exist for 'Austrian Grand Prix' (Gold returns 1 row with NULL; kills INNER JOIN on non-null assumptions or COUNT/coalesce mutants)
+-- 2. Non-null fastestLapTime exists only in other races
+
+INSERT INTO seasons (year, url) VALUES (2020, 'http://en.wikipedia.org/wiki/2020_F1');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (1, 'red_bull_ring', 'Red Bull Ring', 'Spielberg', 'Austria', 47.2197, 14.7647, 678, 'http://en.wikipedia.org/wiki/Red_Bull_Ring');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'ferrari', 'Ferrari', 'Italian', 'http://en.wikipedia.org/wiki/Scuderia_Ferrari');
+
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (1, 'leclerc', 16, 'LEC', 'Charles', 'Leclerc', '1997-10-16', 'Monegasque', 'http://en.wikipedia.org/wiki/Charles_Leclerc');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2020, 1, 1, 'Austrian Grand Prix', '2020-07-05', '13:10:00', 'http://en.wikipedia.org/wiki/2020_Austrian_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2020, 2, 1, 'British Grand Prix', '2020-08-02', '13:10:00', 'http://en.wikipedia.org/wiki/2020_British_GP');
+
+-- Austrian Grand Prix has a result, but fastestLapTime is NULL
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (1, 1, 1, 1, 16, 1, 1, '1', 1, 25.0, 71, '1:30:00.000', 5400000, NULL, 0, NULL, NULL, 1);
+
+-- British Grand Prix has a valid fastestLapTime (kills mutants missing the WHERE T2.name = 'Austrian Grand Prix' filter)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (2, 2, 1, 1, 16, 1, 1, '1', 1, 25.0, 52, '1:25:00.000', 5100000, 50, 1, '1:27.097', '240.000', 1);
+
+-- lapTimes has a lap time for race 1 (kills mutants that fallback or use lapTimes when results.fastestLapTime is NULL)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '1:07.000', 67000);
+```
+
+```sql
+-- DATASET 3
+-- Dataset testing:
+-- 1. GROUP BY raceId / circuitId / driverId mutants (Multiple 'Austrian Grand Prix' races across different years and different circuits, where GROUP BY would return multiple rows instead of a single scalar MIN)
+-- 2. String comparison / tie-breaking and ensuring MIN across multiple races works properly
+
+INSERT INTO seasons (year, url) VALUES (1970, 'http://en.wikipedia.org/wiki/1970_F1');
+INSERT INTO seasons (year, url) VALUES (2003, 'http://en.wikipedia.org/wiki/2003_F1');
+INSERT INTO seasons (year, url) VALUES (2014, 'http://en.wikipedia.org/wiki/2014_F1');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (1, 'zeltweg', 'Zeltweg', 'Styria', 'Austria', 47.2039, 14.7478, 676, 'http://en.wikipedia.org/wiki/Zeltweg_Airfield');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (2, 'a1_ring', 'A1-Ring', 'Spielberg', 'Austria', 47.2197, 14.7647, 678, 'http://en.wikipedia.org/wiki/A1-Ring');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'lotus', 'Team Lotus', 'British', 'http://en.wikipedia.org/wiki/Team_Lotus');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'williams', 'Williams', 'British', 'http://en.wikipedia.org/wiki/Williams_F1');
+
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (1, 'rindt', 1, 'RIN', 'Jochen', 'Rindt', '1942-04-18', 'Austrian', 'http://en.wikipedia.org/wiki/Jochen_Rindt');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (2, 'montoya', 3, 'MON', 'Juan', 'Montoya', '1975-09-20', 'Colombian', 'http://en.wikipedia.org/wiki/Juan_Pablo_Montoya');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- Three distinct Austrian Grand Prix races across 2 distinct circuits and 3 seasons
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (10, 1970, 9, 1, 'Austrian Grand Prix', '1970-08-16', '14:00:00', 'http://en.wikipedia.org/wiki/1970_Austrian_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (20, 2003, 6, 2, 'Austrian Grand Prix', '2003-05-18', '14:00:00', 'http://en.wikipedia.org/wiki/2003_Austrian_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (30, 2014, 8, 2, 'Austrian Grand Prix', '2014-06-22', '12:00:00', 'http://en.wikipedia.org/wiki/2014_Austrian_GP');
+
+-- Results across the 3 races and 2 drivers/constructors
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (100, 10, 1, 1, 1, 1, 1, '1', 1, 9.0, 60, '1:40:00.000', 6000000, 45, 1, '1:39.200', '210.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (200, 20, 2, 2, 3, 2, 2, '2', 2, 8.0, 69, '1:28:00.000', 5280000, 50, 1, '1:08.337', '227.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (300, 30, 2, 2, 3, 4, 3, '3', 3, 15.0, 71, '1:27:00.000', 5220000, 65, 2, '1:12.142', '215.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (301, 30, 1, 1, 1, 1, 1, '1', 1, 25.0, 71, '1:26:50.000', 5210000, 60, 1, '1:11.500', '218.000', 1);
+```

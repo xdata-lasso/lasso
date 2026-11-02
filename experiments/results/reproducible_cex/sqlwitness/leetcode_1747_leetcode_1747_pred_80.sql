@@ -1,0 +1,23 @@
+-- Schema DDL
+CREATE TABLE "LogInfo" ("account_id" INTEGER, "ip_address" INTEGER, "login" DATE, "logout" DATE, CHECK ("login" < 'LogInfo.logout'));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO loginfo (account_id, ip_address, login, logout) VALUES (0, NULL, NULL, '2023-01-01'), (0, 1, NULL, '2023-01-01'), (1, NULL, NULL, NULL), (1, 1, '2023-01-02', NULL), (0, 0, '2023-01-01', NULL), (1, NULL, '2023-01-02', NULL), (NULL, NULL, '2023-01-02', NULL), (NULL, 0, '2023-01-02', NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT I1.ACCOUNT_ID FROM LOGINFO AS I1 JOIN LOGINFO AS I2 ON (I1.ACCOUNT_ID = I2.ACCOUNT_ID AND I1.IP_ADDRESS <> I2.IP_ADDRESS AND I2.LOGIN BETWEEN I1.LOGIN AND I1.LOGOUT);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT DISTINCT L.ACCOUNT_ID FROM LOGINFO AS L INNER JOIN LOGINFO AS L1 ON L.ACCOUNT_ID = L1.ACCOUNT_ID AND L.IP_ADDRESS <> L1.IP_ADDRESS WHERE (L1.LOGIN >= L.LOGIN AND L1.LOGIN <= L.LOGOUT) OR (L1.LOGOUT <= L.LOGIN AND L1.LOGOUT >= L.LOGIN) OR (L1.LOGIN <= L.LOGIN AND L1.LOGOUT >= L.LOGOUT);
+
+/*
+Prediction Result:
+(0,)
+*/

@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "insurance" ("PID" INTEGER PRIMARY KEY, "TIV_2015" REAL, "TIV_2016" REAL, "LAT" REAL, "LON" REAL, CHECK ("tiv_2015" >= 0), CHECK ("tiv_2016" >= 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1022, 1024.5, 1025.5, 1027.5, 1029.5);
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1023, 1024.5, 1032.5, 1036.5, 1040.5);
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1031, 1024.5, 1025.5, 1032.5, 1033.5);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ROUND(SUM(TIV_2016), 2) AS TIV_2016 FROM INSURANCE WHERE TIV_2015 IN (SELECT TIV_2015 FROM INSURANCE GROUP BY TIV_2015 HAVING COUNT(*) > 1) AND (LAT, LON) IN (SELECT LAT, LON FROM INSURANCE GROUP BY LAT, LON HAVING COUNT(*) = 1);
+
+/*
+Gold Result:
+(3083.5,)
+*/
+
+-- Prediction Query
+SELECT SUM(DISTINCT A.TIV_2016) AS TIV_2016 FROM (SELECT * FROM INSURANCE GROUP BY LAT, LON HAVING COUNT(*) = 1) AS A CROSS JOIN INSURANCE AS B WHERE A.PID <> B.PID AND A.TIV_2015 = B.TIV_2015;
+
+/*
+Prediction Result:
+(2058.0,)
+*/

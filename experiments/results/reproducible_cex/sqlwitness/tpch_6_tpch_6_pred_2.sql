@@ -1,0 +1,44 @@
+-- Schema DDL
+CREATE TABLE region (r_regionkey INTEGER NOT NULL PRIMARY KEY, r_name TEXT(25) NOT NULL, r_comment TEXT(152));
+
+CREATE TABLE nation (n_nationkey INTEGER NOT NULL PRIMARY KEY, n_name TEXT(25) NOT NULL, n_regionkey INTEGER NOT NULL, n_comment TEXT(152), FOREIGN KEY (n_regionkey) REFERENCES region (r_regionkey));
+
+CREATE TABLE supplier (s_suppkey INTEGER NOT NULL PRIMARY KEY, s_name TEXT(25) NOT NULL, s_address TEXT(40) NOT NULL, s_nationkey INTEGER NOT NULL, s_phone TEXT(15) NOT NULL, s_acctbal REAL(15, 2) NOT NULL, s_comment TEXT(101) NOT NULL, FOREIGN KEY (s_nationkey) REFERENCES nation (n_nationkey));
+
+CREATE TABLE customer (c_custkey INTEGER NOT NULL PRIMARY KEY, c_name TEXT(25) NOT NULL, c_address TEXT(40) NOT NULL, c_nationkey INTEGER NOT NULL, c_phone TEXT(15) NOT NULL, c_acctbal REAL(15, 2) NOT NULL, c_mktsegment TEXT(10) NOT NULL, c_comment TEXT(117) NOT NULL, FOREIGN KEY (c_nationkey) REFERENCES nation (n_nationkey));
+
+CREATE TABLE part (p_partkey INTEGER NOT NULL PRIMARY KEY, p_name TEXT(55) NOT NULL, p_mfgr TEXT(25) NOT NULL, p_brand TEXT(10) NOT NULL, p_type TEXT(25) NOT NULL, p_size INTEGER NOT NULL, p_container TEXT(10) NOT NULL, p_retailprice REAL(15, 2) NOT NULL, p_comment TEXT(23) NOT NULL);
+
+CREATE TABLE partsupp (ps_partkey INTEGER NOT NULL, ps_suppkey INTEGER NOT NULL, ps_availqty INTEGER NOT NULL, ps_supplycost REAL(15, 2) NOT NULL, ps_comment TEXT(199) NOT NULL, PRIMARY KEY (ps_partkey, ps_suppkey), FOREIGN KEY (ps_partkey) REFERENCES part (p_partkey), FOREIGN KEY (ps_suppkey) REFERENCES supplier (s_suppkey));
+
+CREATE TABLE orders (o_orderkey INTEGER NOT NULL PRIMARY KEY, o_custkey INTEGER NOT NULL, o_orderstatus TEXT(1) NOT NULL, o_totalprice REAL(15, 2) NOT NULL, o_orderdate DATE NOT NULL, o_orderpriority TEXT(15) NOT NULL, o_clerk TEXT(15) NOT NULL, o_shippriority INTEGER NOT NULL, o_comment TEXT(79) NOT NULL, FOREIGN KEY (o_custkey) REFERENCES customer (c_custkey));
+
+CREATE TABLE lineitem (l_orderkey INTEGER NOT NULL, l_partkey INTEGER NOT NULL, l_suppkey INTEGER NOT NULL, l_linenumber INTEGER NOT NULL, l_quantity REAL(15, 2) NOT NULL, l_extendedprice REAL(15, 2) NOT NULL, l_discount REAL(15, 2) NOT NULL, l_tax REAL(15, 2) NOT NULL, l_returnflag TEXT(1) NOT NULL, l_linestatus TEXT(1) NOT NULL, l_shipdate DATE NOT NULL, l_commitdate DATE NOT NULL, l_receiptdate DATE NOT NULL, l_shipinstruct TEXT(25) NOT NULL, l_shipmode TEXT(10) NOT NULL, l_comment TEXT(44) NOT NULL, PRIMARY KEY (l_orderkey, l_linenumber), FOREIGN KEY (l_orderkey) REFERENCES orders (o_orderkey), FOREIGN KEY (l_partkey) REFERENCES part (p_partkey), FOREIGN KEY (l_suppkey) REFERENCES supplier (s_suppkey));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (0, 'default2', 'default2', '+1 year', 'default1', 25, 'default2', 0.02, '1995-01-01'), (24, 'default1', 'default1', '1995-01-01', '1995-01-01', 0, '+1 year', -0.97, 'default2'), (1, 'default1', '1994-01-01', '+1 year', '1994-01-01', 0, '1995-01-01', -0.97, '+1 year'), (23, 'default2', 'default2', '1995-01-01', '1994-01-01', 25, '+1 year', 1.0, '1994-01-01'), (25, '1994-01-01', 'default2', '+1 year', '1994-01-01', 23, '+1 year', 0.03, '+1 year');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (24, '1995-01-01', '+1 year'), (1, 'default1', '1994-01-01'), (25, 'default1', '+1 year'), (23, 'default2', 'default2'), (0, '+1 year', NULL), (2, '+1 year', '1995-01-01'), (3, '1994-01-01', NULL), (4, 'default1', '+1 year'), (5, 'default1', '1994-01-01');
+INSERT INTO nation (n_nationkey, n_regionkey, n_name, n_comment) VALUES (23, 2, '1994-01-01', '1995-01-01'), (1, 3, 'default1', NULL), (24, 2, 'default1', 'default2');
+INSERT INTO customer (c_custkey, c_nationkey, c_name, c_address, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (25, 24, 'default2', 'default2', 'default2', 1.0, 'default2', 'default1'), (24, 23, '+1 year', 'default1', '+1 year', 1.02, '+1 year', '1995-01-01'), (1, 1, 'default2', 'default1', 'default2', 1.04, '1994-01-01', 'default1'), (23, 23, '1994-01-01', '1995-01-01', '1995-01-01', 23.0, '+1 year', '1994-01-01'), (0, 23, 'default1', 'default2', '1995-01-01', -0.98, '+1 year', 'default1'), (2, 24, '1994-01-01', 'default1', '1995-01-01', 1.0, 'default2', '1995-01-01'), (3, 1, 'default1', 'default2', 'default2', 0.01, 'default2', '1995-01-01'), (4, 1, 'default2', '1995-01-01', '+1 year', 0.01, 'default1', 'default2'), (5, 23, 'default2', 'default2', '1994-01-01', 0.03, 'default2', '1995-01-01'), (6, 1, 'default2', 'default2', '1995-01-01', -0.99, '1994-01-01', '1995-01-01'), (7, 1, 'default1', '1994-01-01', '1995-01-01', 0.03, 'default1', 'default1');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (25, 25, '+1 year', -0.96, '2023-01-02', '1995-01-01', 'default2', 1, '+1 year'), (0, 24, '1995-01-01', 1.04, '1994-01-01', '+1 year', '1995-01-01', 1, '+1 year'), (1, 1, '1995-01-01', 24.0, '1994-12-31', 'default2', '+1 year', 23, '1995-01-01'), (23, 4, '1994-01-01', 1.0, '1994-12-31', '1994-01-01', '1995-01-01', 23, '+1 year'), (24, 1, 'default2', 0.04, '1994-01-01', 'default2', '1994-01-01', 23, 'default2'), (2, 23, 'default1', 1.04, '2023-01-01', '1995-01-01', '1995-01-01', 23, '1995-01-01');
+INSERT INTO supplier (s_suppkey, s_nationkey, s_name, s_address, s_phone, s_acctbal, s_comment) VALUES (25, 1, '1995-01-01', '+1 year', '1995-01-01', 0.01, '1994-01-01'), (0, 23, 'default1', 'default2', 'default2', 1.0, 'default2'), (24, 23, '1994-01-01', '+1 year', '1995-01-01', -0.99, '1995-01-01');
+INSERT INTO lineitem (l_orderkey, l_linenumber, l_partkey, l_suppkey, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (23, 24, 1, 25, 24.0, -0.99, 1.0, 1.01, '+1 year', '+1 year', '1995-01-01', '1994-01-01', '1994-01-01', '+1 year', '1994-01-01', '1995-01-01'), (2, 1, 0, 0, -0.97, 0.03, 0.03, 1.01, '1995-01-01', '+1 year', '2023-01-01', '2023-01-01', '1993-12-31', '1995-01-01', '1995-01-01', 'default1'), (25, 23, 0, 24, -0.99, 1.0, 1.01, 1.01, '1995-01-01', 'default2', '1994-12-31', '1993-12-31', '1994-01-02', '1995-01-01', '+1 year', 'default1'), (2, 23, 25, 24, 1.02, 25.0, 0.0, -0.97, '+1 year', 'default2', '1993-12-31', '1995-01-02', '1995-01-02', '1994-01-01', 'default2', 'default1'), (24, 1, 25, 24, 0.04, 23.0, 0.02, -0.99, '1994-01-01', '1994-01-01', '1994-01-02', '1993-12-31', '1994-12-31', 'default2', '1994-01-01', 'default2'), (0, 0, 23, 0, 1.03, 0.02, 25.0, -0.99, 'default2', 'default1', '1994-01-02', '1995-01-01', '2023-01-01', '1994-01-01', '1995-01-01', 'default1');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT SUM(l_extendedprice) AS revenue FROM lineitem WHERE l_shipdate >= '1994-01-01' AND l_shipdate < '1995-01-01' AND l_discount BETWEEN 0.02 AND 0.04 AND l_quantity < 24;
+
+/*
+Gold Result:
+(23.0,)
+*/
+
+-- Prediction Query
+SELECT SUM(l_extendedprice * l_discount) AS revenue FROM lineitem WHERE l_shipdate >= DATE('1994-01-01') AND l_shipdate < DATE('1994-01-01', '+1 year') AND l_discount BETWEEN 0.03 - 0.01 AND 0.03 + 0.01 AND l_quantity > 24;
+
+/*
+Prediction Result:
+(None,)
+*/

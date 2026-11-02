@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests DISTINCT behavior, q2 vs q1/q3 column confusion, exact vs prefix LIKE matching, and constructor vs driver nationality.
+INSERT INTO seasons (year, url) VALUES (2010, 'http://example.com/season/2010');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'circuit1', 'Circuit 1', 'http://example.com/circuit/1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'con1', 'Constructor 1', 'ConstructorNat_Wrong', 'http://example.com/con/1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (355, 2010, 1, 1, 'Race 355', '2010-03-14', 'http://example.com/race/355');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'd1', 'John', 'Doe', 'British', 'http://example.com/d/1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'd2', 'Jane', 'Smith', 'British', 'http://example.com/d/2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (3, 'd3', 'Hans', 'Muller', 'German', 'http://example.com/d/3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (4, 'd4', 'Pierre', 'Dupont', 'French', 'http://example.com/d/4');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (5, 'd5', 'Luigi', 'Verdi', 'Italian', 'http://example.com/d/5');
+
+-- Matches: Two British drivers with different '1:40%' times (tests DISTINCT and prefix wildcard)
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (1, 355, 1, 1, 10, '1:41.000', '1:40.123', '1:39.500');
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (2, 355, 2, 1, 11, '1:41.200', '1:40.999', '1:39.800');
+
+-- Non-matches: '1:40%' in q1 or q3 instead of q2
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (3, 355, 3, 1, 12, '1:40.500', '1:41.000', '1:42.000');
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (4, 355, 4, 1, 13, '1:42.000', '1:41.000', '1:40.200');
+
+-- Non-match: '1:40' not at the beginning of q2 (tests '%1:40%' vs '1:40%')
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (5, 355, 5, 1, 14, '1:42.000', '01:40.123', '1:42.000');
+```
+
+```sql
+-- DATASET 2
+-- Tests raceId filtering (= 355 vs !=, <, >), AND vs OR logic, and wrong join keys (e.g., qualifyId = driverId or constructorId = driverId).
+INSERT INTO seasons (year, url) VALUES (2010, 'http://example.com/season/2010');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'circuit1', 'Circuit 1', 'http://example.com/circuit/1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (10, 'con10', 'Constructor 10', 'American', 'http://example.com/con/10');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (354, 2010, 1, 1, 'Race 354', '2010-03-07', 'http://example.com/race/354');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (355, 2010, 2, 1, 'Race 355', '2010-03-14', 'http://example.com/race/355');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (356, 2010, 3, 1, 'Race 356', '2010-03-21', 'http://example.com/race/356');
+
+-- Driver 10 matches constructorId 10 and qualifyId 10 to trap wrong join conditions
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (10, 'd10', 'Trap', 'Driver', 'TrapNat_JoinError', 'http://example.com/d/10');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (20, 'd20', 'Target', 'Driver', 'Spanish', 'http://example.com/d/20');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (30, 'd30', 'Wrong', 'Race1', 'Brazilian', 'http://example.com/d/30');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (40, 'd40', 'Wrong', 'Race2', 'Australian', 'http://example.com/d/40');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (50, 'd50', 'Wrong', 'Time', 'Japanese', 'http://example.com/d/50');
+
+-- True match: qualifyId=10, constructorId=10, but driverId=20 (Spanish)
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (10, 355, 20, 10, 5, '1:41.000', '1:40.001', '1:39.000');
+
+-- Boundary raceIds (354 and 356) with valid q2 time '1:40%'
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (2, 354, 30, 10, 6, '1:41.000', '1:40.500', '1:39.000');
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (3, 356, 40, 10, 7, '1:41.000', '1:40.500', '1:39.000');
+
+-- Correct raceId (355) but non-matching q2 time
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (4, 355, 50, 10, 8, '1:41.000', '1:39.999', '1:39.000');
+```
+
+```sql
+-- DATASET 3
+-- Tests exact '1:40' match (boundary of LIKE '1:40%' vs = '1:40'), NULL handling in q2, and INNER JOIN vs LEFT/RIGHT JOIN with unreferenced drivers.
+INSERT INTO seasons (year, url) VALUES (2010, 'http://example.com/season/2010');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'circuit1', 'Circuit 1', 'http://example.com/circuit/1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'con1', 'Constructor 1', 'Dutch', 'http://example.com/con/1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (355, 2010, 1, 1, 'Race 355', '2010-03-14', 'http://example.com/race/355');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'd1', 'Exact', 'Match', 'Finnish', 'http://example.com/d/1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'd2', 'Null', 'Q2', 'Mexican', 'http://example.com/d/2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (3, 'd3', 'No', 'Qualifying', 'Canadian', 'http://example.com/d/3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (4, 'd4', 'Close', 'Time', 'Russian', 'http://example.com/d/4');
+
+-- Exact '1:40' string in q2 (Matches both LIKE '1:40%' and = '1:40', useful when combined with Dataset 1 & 2 where q2 has suffixes)
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (1, 355, 1, 1, 1, '1:40.100', '1:40', '1:40.200');
+
+-- NULL in q2
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (2, 355, 2, 1, 2, '1:40.100', NULL, NULL);
+
+-- Close string that shouldn't match '1:40%'
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, q1, q2, q3) VALUES (3, 355, 4, 1, 4, '1:40.100', '1:4', '1:40.200');
+```

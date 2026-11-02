@@ -1,0 +1,39 @@
+-- Schema DDL
+CREATE TABLE "item" ("i_id" INTEGER PRIMARY KEY, "title" TEXT(20));
+
+CREATE TABLE "review" ("a_id" INTEGER PRIMARY KEY, "i_id" INTEGER, "u_id" INTEGER, "rating" INTEGER, "rank" INTEGER, FOREIGN KEY ("i_id") REFERENCES "item" ("i_id"), FOREIGN KEY ("u_id") REFERENCES "useracct" ("u_id"));
+
+CREATE TABLE "useracct" ("u_id" INTEGER PRIMARY KEY, "name" TEXT(128));
+
+CREATE TABLE "trust" ("target_u_id" INTEGER, "source_u_id" INTEGER, "trust" INTEGER, FOREIGN KEY ("target_u_id") REFERENCES "useracct" ("u_id"), FOREIGN KEY ("source_u_id") REFERENCES "useracct" ("u_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "useracct" ("u_id", "name") VALUES (1001, 'Allison Hill');
+INSERT INTO "useracct" ("u_id", "name") VALUES (1002, 'Noah Rhodes');
+INSERT INTO "useracct" ("u_id", "name") VALUES (1003, 'Angie Henderson');
+INSERT INTO "useracct" ("u_id", "name") VALUES (1004, 'Daniel Wagner');
+INSERT INTO "useracct" ("u_id", "name") VALUES (1005, NULL);
+INSERT INTO "useracct" ("u_id", "name") VALUES (1009, NULL);
+INSERT INTO "trust" ("target_u_id", "source_u_id", "trust") VALUES (1005, 1009, 1001);
+INSERT INTO "trust" ("target_u_id", "source_u_id", "trust") VALUES (1005, 1009, 1002);
+INSERT INTO "trust" ("target_u_id", "source_u_id", "trust") VALUES (1005, 1009, 1003);
+INSERT INTO "trust" ("target_u_id", "source_u_id", "trust") VALUES (1005, 1009, 1004);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT * FROM (SELECT * FROM (SELECT u_id, name, source_u_id, target_u_id, u_id AS trust FROM (SELECT LHS.u_id AS u_id, LHS.name AS name, RHS.source_u_id AS source_u_id, RHS.target_u_id AS target_u_id FROM useracct AS LHS INNER JOIN trust AS RHS ON (LHS.u_id = RHS.trust))) ORDER BY source_u_id DESC) LIMIT 1);
+
+/*
+Gold Result:
+('Allison Hill',)
+*/
+
+-- Prediction Query
+SELECT T1.name FROM useracct AS T1 JOIN trust AS T2 ON T1.u_id = T2.target_u_id ORDER BY trust, T1.u_id NULLS LAST, T2.target_u_id NULLS LAST, T2.source_u_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+(None,)
+*/

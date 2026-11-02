@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests basic join paths, incorrect join conditions (e.g., LastEditorUserId vs OwnerUserId, Comment.UserId vs OwnerUserId), column projections (DisplayName vs OwnerDisplayName/UserDisplayName, Text vs Body/Title), and ordering by T1.CreationDate DESC vs T2/T3 CreationDate or ASC.
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (1, '2020-01-01 10:00:00', 'OldUser_PostOwner');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (2, '2023-05-15 12:00:00', 'NewUser_TargetPostOwner');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (3, '2024-01-01 00:00:00', 'NewestUser_CommenterAndEditor');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title, Body, CreaionDate, OwnerDisplayName) VALUES (10, 1, 3, 'Analysing wind data with R', 'Body of post 10', '2023-12-01 00:00:00', 'FakeOwnerDisplay1');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title, Body, CreaionDate, OwnerDisplayName) VALUES (20, 2, 1, 'Analysing wind data with R', 'Body of post 20', '2021-01-01 00:00:00', 'FakeOwnerDisplay2');
+
+INSERT INTO comments (Id, PostId, UserId, Text, CreationDate, UserDisplayName) VALUES (100, 10, 3, 'Comment on older user post', '2024-01-02 00:00:00', 'FakeCommentUser1');
+INSERT INTO comments (Id, PostId, UserId, Text, CreationDate, UserDisplayName) VALUES (200, 20, 1, 'Target comment text', '2021-01-02 00:00:00', 'FakeCommentUser2');
+```
+
+```sql
+-- DATASET 2
+-- Tests Title filtering (exact match vs LIKE/wildcard, case sensitivity, different title with newer user) and INNER JOIN vs LEFT JOIN (post without comments, user with post but no comments).
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (1, '2023-10-01 00:00:00', 'User_WrongTitle');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (2, '2023-09-01 00:00:00', 'User_PrefixSuffixTitle');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (3, '2023-08-01 00:00:00', 'User_NoCommentsOnPost');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (4, '2022-01-01 00:00:00', 'User_CorrectMatch');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (10, 1, 'Other Title');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (20, 2, 'Analysing wind data with R - Part 2');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (30, 3, 'Analysing wind data with R');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (40, 4, 'Analysing wind data with R');
+
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (100, 10, 1, 'Comment on wrong title');
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (200, 20, 2, 'Comment on superstring title');
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (400, 40, 4, 'Valid comment on matching post');
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T1.CreationDate using T1.Id ASC, T2.Id ASC, and T3.Id ASC, as well as LIMIT 1 enforcement.
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (10, '2022-06-01 00:00:00', 'TiedUser_Id10');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (20, '2022-06-01 00:00:00', 'TiedUser_Id20');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (30, 10, 'Analysing wind data with R');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (40, 10, 'Analysing wind data with R');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (15, 20, 'Analysing wind data with R');
+
+INSERT INTO comments (Id, PostId, Text) VALUES (301, 30, 'Winner: User 10, Post 30, Comment 301');
+INSERT INTO comments (Id, PostId, Text) VALUES (302, 30, 'Loser: User 10, Post 30, Comment 302');
+INSERT INTO comments (Id, PostId, Text) VALUES (250, 40, 'Loser: User 10, Post 40, Comment 250');
+INSERT INTO comments (Id, PostId, Text) VALUES (100, 15, 'Loser: User 20, Post 15, Comment 100');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in T1.CreationDate (in SQLite, NULL is considered smaller than any non-NULL value, so DESC places non-NULLs before NULLs) and posts with NULL OwnerUserId or comments with NULL PostId.
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (1, NULL, 'User_NullCreationDate');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (2, '2019-03-15 08:30:00', 'User_ValidCreationDate');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (10, NULL, 'Analysing wind data with R');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (20, 1, 'Analysing wind data with R');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (30, 2, 'Analysing wind data with R');
+
+INSERT INTO comments (Id, PostId, Text) VALUES (100, NULL, 'Orphaned comment');
+INSERT INTO comments (Id, PostId, Text) VALUES (200, 10, 'Comment on ownerless post');
+INSERT INTO comments (Id, PostId, Text) VALUES (300, 20, 'Comment on null-date user post');
+INSERT INTO comments (Id, PostId, Text) VALUES (400, 30, 'Comment on valid-date user post');
+```
+
+```sql
+-- DATASET 5
+-- Tests confusion between comments table and postHistory table (which also has PostId, UserId, Text, CreationDate).
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (1, '2021-01-01 00:00:00', 'User_WithComment');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (2, '2023-01-01 00:00:00', 'User_WithPostHistoryOnly');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (10, 1, 'Analysing wind data with R');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (20, 2, 'Analysing wind data with R');
+
+INSERT INTO comments (Id, PostId, UserId, Text, CreationDate) VALUES (100, 10, 1, 'Actual Comment Text', '2021-01-02 00:00:00');
+
+INSERT INTO postHistory (Id, PostId, UserId, Text, Comment, CreationDate) VALUES (200, 20, 2, 'PostHistory Text', 'PostHistory Comment', '2023-01-02 00:00:00');
+```

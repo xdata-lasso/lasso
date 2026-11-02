@@ -1,0 +1,68 @@
+-- Schema DDL
+CREATE TABLE "GENRE" (
+    "G_NAME" TEXT,
+    "RATING" TEXT,
+    "MOST_POPULAR_IN" TEXT,
+    PRIMARY KEY ("G_NAME")
+);
+CREATE TABLE "ARTIST" (
+    "ARTIST_NAME" TEXT,
+    "PREFERRED_GENRE" TEXT,
+    "COUNTRY" TEXT,
+    "GENDER" TEXT,
+    PRIMARY KEY ("ARTIST_NAME"),
+    FOREIGN KEY ("PREFERRED_GENRE") REFERENCES "GENRE"("G_NAME")
+);
+CREATE TABLE "FILES" (
+    "F_ID" FLOAT,
+    "ARTIST_NAME" TEXT,
+    "FILE_SIZE" TEXT,
+    "DURATION" TEXT,
+    "FORMATS" TEXT,
+    PRIMARY KEY ("F_ID"),
+    FOREIGN KEY ("ARTIST_NAME") REFERENCES "ARTIST"("ARTIST_NAME")
+);
+CREATE TABLE "SONG" (
+    "SONG_NAME" TEXT,
+    "GENRE_IS" TEXT,
+    "F_ID" FLOAT,
+    "ARTIST_NAME" TEXT,
+    "COUNTRY" TEXT,
+    "RATING" FLOAT,
+    "LANGUAGES" TEXT,
+    "RELEASEDATE" DATE,
+    "RESOLUTION" FLOAT,
+    PRIMARY KEY ("SONG_NAME"),
+    FOREIGN KEY ("GENRE_IS") REFERENCES "GENRE"("G_NAME"),
+    FOREIGN KEY ("F_ID") REFERENCES "FILES"("F_ID"),
+    FOREIGN KEY ("ARTIST_NAME") REFERENCES "ARTIST"("ARTIST_NAME")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO GENRE VALUES (5, 0, 0);
+INSERT INTO GENRE VALUES (4, 0, 0);
+INSERT INTO ARTIST VALUES (8, 4, 16, 17);
+INSERT INTO ARTIST VALUES (9, 5, 21, 22);
+INSERT INTO FILES VALUES (7, 9, 0, 0, 0);
+INSERT INTO FILES VALUES (6, 8, 0, 0, 0);
+INSERT INTO SONG VALUES (2, 5, 6, 8, 18, 10, 19, '0001-01-01', 20);
+INSERT INTO SONG VALUES (3, 4, 7, 9, 23, 10, 24, '0001-01-01', 25);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT artist_name, country FROM (SELECT * FROM artist AS LHS WHERE EXISTS(SELECT 1 FROM (SELECT * FROM song WHERE (rating >= 9.0)) AS RHS WHERE (LHS.artist_name = RHS.artist_name AND LHS.country = RHS.country))) ORDER BY artist_name, country NULLS LAST;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT DISTINCT T1.artist_name, T1.country FROM artist AS T1 JOIN song AS T2 ON T1.artist_name = T2.artist_name WHERE T2.rating > 9;
+
+/*
+Prediction Result:
+('8', '16')
+('9', '21')
+*/

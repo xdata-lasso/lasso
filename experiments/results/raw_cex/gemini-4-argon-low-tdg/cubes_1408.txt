@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering on date_from (anti-correlation with staff_id, date_to, and project_id to catch wrong column ordering or DESC instead of ASC)
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('UNI', 'University');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'UNI', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (10, 1, 'Project A');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (20, 1, 'Project B');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R1', 'Researcher');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R2', 'Lead');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, 'R2', 20, '2022-05-01 00:00:00', '2020-01-01 00:00:00', 'Z');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, 'R1', 10, '2021-01-15 00:00:00', '2023-01-01 00:00:00', 'A');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (3.0, 'R1', 10, '2023-11-20 00:00:00', '2019-01-01 00:00:00', 'M');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in date_from (in SQLite ASC order, NULLs appear first; kills MIN(date_from) or WHERE date_from IS NOT NULL or NULLS LAST on date_from)
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('UNI', 'University');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'UNI', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Proj 1');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('RES', 'Researcher');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (10.0, 'RES', 1, '2020-01-01', '2021-01-01', 'Valid Date');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (20.0, 'RES', 1, NULL, '2021-01-01', 'Null Date');
+```
+
+```sql
+-- DATASET 3
+-- Tests duplicate minimum date_from values (kills queries missing LIMIT 1 or using WHERE date_from = (SELECT MIN(date_from)...))
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('UNI', 'University');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'UNI', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Proj 1');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('RES', 'Researcher');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (5.0, 'RES', 1, '2018-03-10', '2019-03-10', 'First');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, 'RES', 1, '2018-03-10', '2020-03-10', 'Second');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (9.0, 'RES', 1, '2019-06-01', '2020-06-01', 'Third');
+```
+
+```sql
+-- DATASET 4
+-- Tests orphaned foreign keys in Project_Staff and empty unrelated tables (kills inner joins with Projects, Staff_Roles, Research_Staff, Grants, etc.)
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (100.5, NULL, NULL, '2015-07-22', NULL, NULL);
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (200.5, NULL, NULL, '2017-08-30', NULL, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests inner join traps where earliest date_from has NULL foreign keys while a later date_from has valid foreign keys (kills INNER JOIN Projects / Staff_Roles / Research_Staff)
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('GOV', 'Government');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'GOV', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (100, 1, 'Valid Project');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('MGR', 'Manager');
+INSERT INTO "Research_Staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (2, 1, 'Staff 2');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, NULL, NULL, '1999-12-31', '2005-01-01', 'Earliest but unlinked');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, 'MGR', 100, '2010-01-01', '2015-01-01', 'Later but linked');
+```
+
+```sql
+-- DATASET 6
+-- Tests timestamp precision and tie-breaking on same calendar date (kills DATE(date_from) truncation or wrong tie-breaking)
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (50.0, NULL, NULL, '2020-02-29 14:30:00', '2020-03-01 00:00:00', 'Afternoon');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (60.0, NULL, NULL, '2020-02-29 08:15:00', '2020-03-01 00:00:00', 'Morning');
+```
+
+```sql
+-- DATASET 7
+-- Tests NULL staff_id with NULLS LAST tie-breaker when date_from values are distinct vs tied
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (NULL, NULL, NULL, '2001-09-09', '2002-09-09', 'Null Staff ID Earliest');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, NULL, NULL, '2005-09-09', '2006-09-09', 'Non-null Staff ID Later');
+```

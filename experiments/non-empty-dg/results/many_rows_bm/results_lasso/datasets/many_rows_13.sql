@@ -1,0 +1,14 @@
+INSERT INTO "categories" ("category_id", "category_name", "department") VALUES (1001, 'Allison Hill', 'ELECTRONICS');
+INSERT INTO "categories" ("category_id", "category_name", "department") VALUES (1002, 'Noah Rhodes', 'ELECTRONICS');
+INSERT INTO "categories" ("category_id", "category_name", "department") VALUES (1003, 'Angie Henderson', 'ELECTRONICS');
+INSERT INTO "categories" ("category_id", "category_name", "department") VALUES (1004, 'Daniel Wagner', 'ELECTRONICS');
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1005, 'Michelle Miles', 'Italy', 'BRONZE', 1006.5);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1007, 1005, 'list', 'PENDING', 1008.5);
+INSERT INTO "products" ("product_id", "category_id", "product_name", "price", "stock_quantity") VALUES (1009, 1001, 'Sean Blake', 1013.5, 1017);
+INSERT INTO "products" ("product_id", "category_id", "product_name", "price", "stock_quantity") VALUES (1010, 1001, 'Jay Ramirez', 1022.5, 1028.0);
+INSERT INTO "products" ("product_id", "category_id", "product_name", "price", "stock_quantity") VALUES (1011, 1001, 'Phillip Garcia', 1031.5, 1039.0);
+INSERT INTO "products" ("product_id", "category_id", "product_name", "price", "stock_quantity") VALUES (1012, 1001, 'Ian Cooper', 1040.5, 1050.0);
+INSERT INTO "order_items" ("item_id", "order_id", "product_id", "quantity", "unit_price", "discount") VALUES (1021, 1007, 1009, 4, 374.75, 0);
+INSERT INTO "order_items" ("item_id", "order_id", "product_id", "quantity", "unit_price", "discount") VALUES (1022, 1007, 1010, 4, 374.75, 0);
+INSERT INTO "order_items" ("item_id", "order_id", "product_id", "quantity", "unit_price", "discount") VALUES (1023, 1007, 1011, 4, 374.75, 0);
+INSERT INTO "order_items" ("item_id", "order_id", "product_id", "quantity", "unit_price", "discount") VALUES (1024, 1007, 1012, 4, 374.75, 0);

@@ -1,0 +1,17 @@
+{
+    "id": "complex_mixed_2",
+    "schema": "CREATE TABLE Departments (dept_id INTEGER PRIMARY KEY, name TEXT, building TEXT);\nCREATE TABLE Doctors (doc_id INTEGER PRIMARY KEY, name TEXT, dept_id INTEGER, specialty TEXT, FOREIGN KEY (dept_id) REFERENCES Departments(dept_id));\nCREATE TABLE Patients (patient_id INTEGER PRIMARY KEY, name TEXT, gender TEXT, dob DATE);\nCREATE TABLE Admissions (admit_id INTEGER PRIMARY KEY, patient_id INTEGER, admit_date DATE, discharge_date DATE, diagnosis TEXT, FOREIGN KEY (patient_id) REFERENCES Patients(patient_id));\nCREATE TABLE Treatments (treat_id INTEGER PRIMARY KEY, admit_id INTEGER, doc_id INTEGER, treatment_date DATE, cost DECIMAL, FOREIGN KEY (doc_id) REFERENCES Doctors(doc_id), FOREIGN KEY (admit_id) REFERENCES Admissions(admit_id));\nCREATE TABLE Medications (med_id INTEGER PRIMARY KEY, name TEXT, base_price DECIMAL);\nCREATE TABLE Prescriptions (presc_id INTEGER PRIMARY KEY, treat_id INTEGER, med_id INTEGER, dosage TEXT, FOREIGN KEY (med_id) REFERENCES Medications(med_id), FOREIGN KEY (treat_id) REFERENCES Treatments(treat_id));\n    ",
+    "correct_query": "SELECT d.name AS dept_name, doc.name AS doctor_name, COUNT(DISTINCT a.patient_id) AS total_patients, SUM(t.cost + m.base_price) AS total_revenue FROM Departments d JOIN Doctors doc ON d.dept_id = doc.dept_id JOIN Treatments t ON doc.doc_id = t.doc_id JOIN Admissions a ON t.admit_id = a.admit_id JOIN Prescriptions p ON t.treat_id = p.treat_id JOIN Medications m ON p.med_id = m.med_id WHERE a.discharge_date IS NOT NULL AND strftime('%Y', a.admit_date) = '2023' GROUP BY d.name, doc.name ORDER BY total_revenue DESC;",
+    "expected_semantic_errors_to_be_caught": [
+        {
+            "id": "mixed_2_m1",
+            "description": "Misses DISTINCT in COUNT and drops Medications join relying on default treatment cost only.",
+            "query": "SELECT d.name AS dept_name, doc.name AS doctor_name, COUNT(a.patient_id) AS total_patients, SUM(t.cost) AS total_revenue FROM Departments d JOIN Doctors doc ON d.dept_id = doc.dept_id JOIN Treatments t ON doc.doc_id = t.doc_id JOIN Admissions a ON t.admit_id = a.admit_id WHERE a.discharge_date IS NOT NULL AND strftime('%Y', a.admit_date) = '2023' GROUP BY d.name, doc.name ORDER BY total_revenue DESC;"
+        },
+        {
+            "id": "mixed_2_m2",
+            "description": "Wrong operator and implicit date missing",
+            "query": "SELECT d.name AS dept_name, doc.name AS doctor_name, COUNT(DISTINCT a.patient_id) AS total_patients, SUM(t.cost + m.base_price) AS total_revenue FROM Departments d JOIN Doctors doc ON d.dept_id = doc.dept_id JOIN Treatments t ON doc.doc_id = t.doc_id JOIN Admissions a ON t.admit_id = a.admit_id JOIN Prescriptions p ON t.treat_id = p.treat_id JOIN Medications m ON p.med_id = m.med_id WHERE strftime('%Y', a.admit_date) > '2023' GROUP BY d.name, doc.name ORDER BY total_revenue DESC;"
+        }
+    ]
+}

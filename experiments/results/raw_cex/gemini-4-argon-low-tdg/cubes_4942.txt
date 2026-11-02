@@ -1,0 +1,105 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. String vs Numeric comparison on order_quantity ('10' < '2' lexicographically, whereas 2 < 10 numerically).
+-- 2. Duplicate rows in output (DISTINCT vs ALL) when the minimum quantity occurs multiple times for the same payment_method.
+-- 3. Ordering of payment_method (ASC vs DESC).
+-- 4. Customers with no orders (LEFT JOIN vs INNER JOIN).
+INSERT INTO Products (product_id, product_details) VALUES (1, 'Laptop');
+INSERT INTO Products (product_id, product_details) VALUES (2, 'Mouse');
+INSERT INTO Products (product_id, product_details) VALUES (3, 'Keyboard');
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Credit Card', 'Alice', '2020-01-01', 'Regular');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Cash', 'Bob', '2020-02-01', 'VIP');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (3, 'PayPal', 'Charlie', '2020-03-01', 'New');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (4, 'Bitcoin', 'David', '2020-04-01', 'No Orders');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (101, 1, 'Completed', '2021-01-10', 'First Order');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (102, 2, 'Completed', '2021-01-11', 'Second Order');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (103, 3, 'Pending', '2021-01-12', 'Third Order');
+
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (101, 1, '10');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (101, 2, '10');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (102, 1, '2');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (103, 3, '10');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Global MIN(order_quantity) in Order_Items belongs to an orphan/unmatched order (order_id IS NULL or customer_id IS NULL).
+--    Queries that compute MIN after joining Customers and Customer_Orders will find '5' instead of '1', whereas the Gold Query computes MIN over all Order_Items first ('1') and thus returns 0 rows.
+INSERT INTO Products (product_id, product_details) VALUES (1, 'Monitor');
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Debit Card', 'Eve', '2019-05-05', 'Details');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (201, 1, 'Shipped', '2021-06-01', 'Valid Order');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (202, NULL, 'Cancelled', '2021-06-02', 'Order without Customer');
+
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (201, 1, '5');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (202, 1, '1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Self-join multiplication / exact join conditions on (order_id, product_id, order_quantity).
+-- 2. Same order having multiple items with different quantities ('1' and '9'), and another item with the same product_id in a different order.
+-- 3. NULL values in order_quantity and payment_method.
+INSERT INTO Products (product_id, product_details) VALUES (10, 'Desk');
+INSERT INTO Products (product_id, product_details) VALUES (20, 'Chair');
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (10, 'Wire Transfer', 'Frank', '2018-01-01', 'Corp');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (20, NULL, 'Grace', '2018-02-02', 'Null Payment');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (30, 'Check', 'Heidi', '2018-03-03', 'Other');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (301, 10, 'Paid', '2022-01-01', 'Order A');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (302, 20, 'Paid', '2022-01-02', 'Order B');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (303, 30, 'Paid', '2022-01-03', 'Order C');
+
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (301, 10, '3');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (301, 20, '9');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (302, 10, '3');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (302, 20, NULL);
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (303, 10, '7');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Exact duplicate rows in Order_Items (since Order_Items has no PRIMARY KEY).
+--    In the Gold Query, the self-join on (order_id, product_id, order_quantity) multiplies 2 identical rows into 4 output rows.
+--    A query using WHERE order_quantity = (SELECT MIN(order_quantity) FROM Order_Items) without the self-join will only return 2 rows.
+-- 2. Single-row vs multi-row subquery mutations (LIMIT 1).
+INSERT INTO Products (product_id, product_details) VALUES (1, 'Pen');
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Apple Pay', 'Ivan', '2021-10-10', 'Dup Test');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Google Pay', 'Judy', '2021-10-11', 'Min Test');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (401, 1, 'Open', '2022-05-01', 'Dups');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (402, 2, 'Open', '2022-05-02', 'Single');
+
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (401, 1, '1');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (401, 1, '1');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (402, 1, '1');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. MIN vs MAX mutations when all quantities are standard single digits, and multiple customers have multiple orders (some with min quantity, some without).
+-- 2. Partitioning mistakes in window function: MIN(order_quantity) OVER (PARTITION BY order_id) or PARTITION BY product_id vs OVER ().
+INSERT INTO Products (product_id, product_details) VALUES (1, 'Book');
+INSERT INTO Products (product_id, product_details) VALUES (2, 'Lamp');
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Voucher', 'Karl', '2020-01-01', 'C1');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Gift Card', 'Liam', '2020-01-02', 'C2');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (501, 1, 'New', '2023-01-01', 'O1');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (502, 2, 'New', '2023-01-02', 'O2');
+
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (501, 1, '2');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (501, 2, '5');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (502, 1, '4');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (502, 2, '8');
+```

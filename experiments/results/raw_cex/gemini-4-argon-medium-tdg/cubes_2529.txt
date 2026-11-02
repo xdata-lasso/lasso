@@ -1,0 +1,48 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary condition (meanproduct_price == product_price), DISTINCT on product_name, and ORDER BY product_name (where alphabetical order of product_name differs from product_price and product_id order).
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P1', 'Zebra Costume', 10.0, 'Desc 1', 'Details 1');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P2', 'Mercury Prop', 20.0, 'Desc 2', 'Details 2');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P3', 'Alpha Mask', 30.0, 'Desc 3', 'Details 3');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P4', 'Alpha Mask', 40.0, 'Desc 4', 'Details 4');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P5', 'Beta Wig', 0.0, 'Desc 5', 'Details 5');
+
+-- Decoy rows in Services (which also has Product_Name and Product_Price columns) to kill mutants querying the wrong table.
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('S1', 'S1', 'Service Type 1');
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('1', '123 Main', 'Suite 1', 'Town', 'State', 'None');
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (1, 1, 'USD', 'US', 'Store A', '123-456', 'a@b.com', 'None');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (1, 'S1', 1, 'Srv Desc', 'Service Only Name', 500.0, 'None');
+```
+
+```sql
+-- DATASET 2
+-- Tests AVG(DISTINCT product_price) vs AVG(product_price), floating-point average precision, and same product_name appearing both above and below the mean.
+-- Prices: 10, 10, 10, 25 -> AVG is 13.75 (with DISTINCT it would be 17.5).
+-- Adding a product at 15.0: 10, 10, 10, 15, 25 -> AVG is 14.0 (with DISTINCT: 10, 15, 25 -> AVG is 16.67).
+-- Product with price 15.0 is >= 14.0 (included), but < 16.67 (excluded if DISTINCT is mutated into AVG).
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('1', 'Low Item', 10.0, 'D1', 'O1');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('2', 'Low Item', 10.0, 'D2', 'O2');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('3', 'Dual Price Item', 10.0, 'D3', 'O3');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('4', 'Mid Item', 15.0, 'D4', 'O4');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('5', 'Dual Price Item', 25.0, 'D5', 'O5');
+
+-- Only some products are in Order_Items to kill mutants that inner-join Products with Order_Items.
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('1', '10 St', '', 'City', 'State', '');
+INSERT INTO "Marketing_Regions" ("Marketing_Region_Code", "Marketing_Region_Name", "Marketing_Region_Descriptrion", "Other_Details") VALUES ('R1', 'Reg1', 'Desc', '');
+INSERT INTO "Stores" ("Store_ID", "Marketing_Region_Code", "Address_ID", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES ('1', 'R1', 1, 'Store1', '111', 's@s.com', '');
+INSERT INTO "Customers" ("Customer_ID", "Address_ID", "Customer_Name", "Customer_Phone", "Customer_Email_Address", "Other_Details") VALUES ('1', 1, 'Cust1', '222', 'c@c.com', '');
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID", "Order_Date", "Planned_Delivery_Date", "Actual_Delivery_Date", "Other_Order_Details") VALUES (1, 1, 1, '2023-01-01', '2023-01-02', '2023-01-02', '');
+INSERT INTO "Order_Items" ("Order_Item_ID", "Product_ID", "Order_ID", "Order_Quantity", "Other_Item_Details") VALUES (1, 1, 1, '1', '');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Product_Price and Product_Name, and SUM() vs COUNT(*) vs COUNT(product_price) in average calculation.
+-- Prices: 10.0, 20.0, NULL -> AVG is 15.0 (if NULL treated as 0, AVG would be 10.0).
+-- A product at price 12.0 is < 15.0 (excluded), but >= 10.0 (included if NULL is treated as 0).
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P1', 'Cheap Light', 10.0, 'D1', 'O1');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P2', 'Trap Light', 12.0, 'D2', 'O2');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P3', 'Stage Light', 24.0, 'D3', 'O3');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P4', 'Unpriced Item', NULL, 'D4', 'O4');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P5', NULL, 30.0, 'D5', 'O5');
+```

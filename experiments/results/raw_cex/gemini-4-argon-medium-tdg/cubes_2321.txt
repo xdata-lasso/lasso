@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests cardinality boundaries (n = 1, 2, 3), ordering vs insertion order, and orders by Policy_Type_Code vs COUNT(*)
+-- Catches mutants: n > 2, n = 2, n >= 1, n <= 2, missing ORDER BY, ORDER BY Policy_Type_Code DESC, ORDER BY COUNT(*) ASC/DESC, missing GROUP BY / missing DISTINCT
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Alice');
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (2, 'Bob');
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (3, 'Charlie');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (101, 1, 'Z_TYPE', '2020-01-01', '2021-01-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (102, 2, 'Z_TYPE', '2020-02-01', '2021-02-01');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (103, 1, 'M_TYPE', '2020-03-01', '2021-03-01');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (104, 1, 'A_TYPE', '2020-04-01', '2021-04-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (105, 2, 'A_TYPE', '2020-05-01', '2021-05-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (106, 3, 'A_TYPE', '2020-06-01', '2021-06-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests reverse correlation between alphabetical order of Policy_Type_Code and COUNT(*)
+-- Ensures 'A_TYPE' has count 2 and 'Z_TYPE' has count 3, killing ORDER BY COUNT(*) ASC mutants
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust 1');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'Z_TYPE', '2021-01-01', '2022-01-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (2, 1, 'Z_TYPE', '2021-01-01', '2022-01-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (3, 1, 'Z_TYPE', '2021-01-01', '2022-01-01');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (4, 1, 'A_TYPE', '2021-01-01', '2022-01-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (5, 1, 'A_TYPE', '2021-01-01', '2022-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests unintended joins (e.g., INNER JOIN Customers, INNER JOIN Claim_Headers) and COUNT(DISTINCT Customer_ID) vs COUNT(*)
+-- Also tests NULL values in Customer_ID, Start_Date, End_Date
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Single Customer');
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (2, 'Customer With Claims');
+
+-- TYPE_NULL_CUST has 2 policies with NULL Customer_ID (kills INNER JOIN Customers and COUNT(Customer_ID))
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, NULL, 'TYPE_NULL_CUST', NULL, NULL);
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (11, NULL, 'TYPE_NULL_CUST', NULL, NULL);
+
+-- TYPE_SAME_CUST has 2 policies under the exact same Customer_ID and no claims (kills COUNT(DISTINCT Customer_ID) and INNER JOIN Claim_Headers)
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (20, 1, 'TYPE_SAME_CUST', '2020-01-01', '2020-12-31');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (21, 1, 'TYPE_SAME_CUST', '2021-01-01', '2021-12-31');
+
+-- TYPE_ONE_POLICY_MANY_CLAIMS has only 1 policy, but 3 claims (kills mutants that join Claim_Headers before grouping)
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (30, 2, 'TYPE_ONE_POLICY', '2020-01-01', '2020-12-31');
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (100, 30, 'OPEN', 'TYPE_ONE_POLICY', '2020-05-01', NULL, 500.0, 0.0);
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (101, 30, 'OPEN', 'TYPE_ONE_POLICY', '2020-06-01', NULL, 600.0, 0.0);
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (102, 30, 'CLOSED', 'TYPE_ONE_POLICY', '2020-07-01', '2020-08-01', 700.0, 700.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL Policy_Type_Code handling: 2 rows with NULL Policy_Type_Code
+-- Kills mutants using COUNT(Policy_Type_Code) instead of COUNT(*), or adding WHERE Policy_Type_Code IS NOT NULL
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust A');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, NULL, '2020-01-01', '2021-01-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (2, 1, NULL, '2020-02-01', '2021-02-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (3, 1, 'VALID_TYPE', '2020-03-01', '2021-03-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (4, 1, 'VALID_TYPE', '2020-04-01', '2021-04-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when all groups have n < 2, and checks confusion with other tables/columns (like Claim_Type_Code or Document_Type_Code)
+-- Kills mutants that omit the WHERE/HAVING filter, use n >= 1, or query Claim_Headers/Claims_Documents instead of Policies
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust 1');
+INSERT INTO "Staff" ("Staff_ID", "Staff_Details") VALUES (1, 'Staff 1');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'ONLY_ONE_A', '2020-01-01', '2021-01-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (2, 1, 'ONLY_ONE_B', '2020-01-01', '2021-01-01');
+
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (1, 1, 'PENDING', 'DUP_CLAIM_TYPE', '2020-02-01', NULL, 100.0, 0.0);
+INSERT INTO "Claim_Headers" ("Claim_Header_ID", "Policy_ID", "Claim_Status_Code", "Claim_Type_Code", "Date_of_Claim", "Date_of_Settlement", "Amount_Claimed", "Amount_Piad") VALUES (2, 2, 'PENDING', 'DUP_CLAIM_TYPE', '2020-03-01', NULL, 200.0, 0.0);
+
+INSERT INTO "Claims_Documents" ("Claim_ID", "Document_Type_Code", "Created_by_Staff_ID", "Created_Date") VALUES (1, 'DUP_DOC_TYPE', 1, 20200202);
+INSERT INTO "Claims_Documents" ("Claim_ID", "Document_Type_Code", "Created_by_Staff_ID", "Created_Date") VALUES (2, 'DUP_DOC_TYPE', 1, 20200302);
+```
+
+```sql
+-- DATASET 6
+-- Tests LIMIT 1 mutants and multiple qualifying groups with identical counts
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Cust 1');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'TYPE_C', '2020-01-01', '2021-01-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (2, 1, 'TYPE_C', '2020-01-01', '2021-01-01');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (3, 1, 'TYPE_B', '2020-01-01', '2021-01-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (4, 1, 'TYPE_B', '2020-01-01', '2021-01-01');
+
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (5, 1, 'TYPE_A', '2020-01-01', '2021-01-01');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (6, 1, 'TYPE_A', '2020-01-01', '2021-01-01');
+```

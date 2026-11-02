@@ -1,0 +1,32 @@
+-- Schema DDL
+CREATE TABLE employees (emp_id INTEGER PRIMARY KEY, department_id INTEGER, bonus INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO employees (emp_id, department_id, bonus) VALUES (1, 10, 100);
+INSERT INTO employees (emp_id, department_id, bonus) VALUES (2, 20, NULL);
+INSERT INTO employees (emp_id, department_id, bonus) VALUES (3, NULL, 200);
+INSERT INTO employees (emp_id, department_id, bonus) VALUES (4, NULL, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT E1.emp_id FROM employees AS E1 CROSS JOIN employees AS E2 WHERE E1.emp_id = E2.emp_id AND E1.bonus = E2.bonus;
+
+/*
+Gold Result:
+(1,)
+(3,)
+*/
+
+-- Prediction Query
+SELECT E1.emp_id FROM employees AS E1 CROSS JOIN employees AS E2 WHERE E1.emp_id = E2.emp_id;
+
+/*
+Prediction Result:
+(1,)
+(2,)
+(3,)
+(4,)
+*/

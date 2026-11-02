@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Multiple valid male clients in 'Hl.m. Praha' within the same district (kills COUNT(DISTINCT district_id) or missing GROUP BY).
+-- 2. Valid male clients across two different districts both named 'Hl.m. Praha'.
+-- 3. Female client in 'Hl.m. Praha' (kills missing gender = 'M' condition or gender = 'F' mutation).
+-- 4. Male client in a different district (kills missing A2 = 'Hl.m. Praha' condition or OR instead of AND).
+-- 5. District 'Hl.m. Praha' with no clients (kills RIGHT/LEFT JOIN with COUNT(*) or COUNT(T2.district_id)).
+-- 6. Traps in other columns: A3 = 'Hl.m. Praha' when A2 != 'Hl.m. Praha' (kills wrong column selection T2.A3).
+-- 7. Traps in client/account/disp relationships: a valid client having multiple accounts/disps, and a valid client having 0 accounts/disps (kills unnecessary joins to disp/account).
+
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Hl.m. Praha', 'Prague', '1000', '10', '10', '10', 1, 1, 100.0, 10000, 1.5, 2.0, 100, 100, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'Brno', 'Hl.m. Praha', '2000', '20', '20', '20', 2, 2, 90.0, 9000, 2.5, 3.0, 90, 90, 90);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'Hl.m. Praha', 'Central', '3000', '30', '30', '30', 3, 3, 80.0, 8000, NULL, 4.0, 80, NULL, 80);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (4, 'Hl.m. Praha', 'EmptyDist', '4000', '40', '40', '40', 4, 4, 70.0, 7000, 1.0, 1.0, 70, 70, 70);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'M', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (20, 'M', '1985-05-05', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (30, 'F', '1990-10-10', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (40, 'M', '1975-03-15', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (50, 'F', '1992-07-20', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (60, 'M', '1988-12-12', 3);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (100, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 2, 'POPLATEK MESICNE', '1995-01-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 1, 'POPLATEK MESICNE', '1995-01-03');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1000, 10, 100, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1001, 10, 101, 'DISPONENT');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1002, 40, 102, 'OWNER');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Zero matching rows (Gold Query returns 0). Kills mutants without aggregation that return empty set instead of 0, or mutants using OR instead of AND.
+-- 2. Join condition mutations (e.g., T1.client_id = T2.district_id): client 1 is 'M' in district 2 ('Brno'), while district 1 is 'Hl.m. Praha'. If joined on client_id = district_id, client 1 falsely matches district 1.
+-- 3. Case sensitivity / LIKE mutations: A2 = 'hl.m. praha' or 'Hl.m. Praha ' or 'M ' (kills LIKE '%Hl.m. Praha%' or case-insensitive comparisons).
+
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Hl.m. Praha', 'Region1', '100', '1', '1', '1', 1, 1, 50.0, 5000, 1.0, 1.0, 50, 50, 50);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'Brno', 'Region2', '200', '2', '2', '2', 2, 2, 60.0, 6000, 2.0, 2.0, 60, 60, 60);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'Hl.m. Praha Nord', 'Region3', '300', '3', '3', '3', 3, 3, 70.0, 7000, 3.0, 3.0, 70, 70, 70);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'M', '1990-01-01', 3);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Single match where client_id != 1 (client_id = 55), killing SELECT T1.client_id vs SELECT COUNT(T1.client_id) when there is only 1 matching row.
+-- 2. Account in 'Hl.m. Praha' owned by a male client from another district (kills mutants that join client -> disp -> account -> district instead of client -> district directly).
+
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'Hl.m. Praha', 'Praha', '1000', '5', '5', '5', 5, 5, 100.0, 12000, 0.5, 0.5, 110, 200, 300);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'Ostrava', 'Morava', '2000', '6', '6', '6', 6, 6, 80.0, 8000, 5.5, 5.5, 90, 100, 150);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (55, 'M', '1965-04-04', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (65, 'M', '1972-08-08', 20);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (75, 'M', '1978-09-09', 20);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (500, 10, 'POPLATEK TYDNE', '1993-05-05');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (600, 10, 'POPLATEK TYDNE', '1993-06-06');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (5000, 65, 500, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (6000, 75, 600, 'OWNER');
+```

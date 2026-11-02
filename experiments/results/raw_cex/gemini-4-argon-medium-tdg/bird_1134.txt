@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Both id = 6 and id = 23 exist, along with boundary rows (5, 7, 22, 24).
+-- Also tests confusion with player_api_id, player_fifa_api_id, and other skill columns.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 100, 'Player One', 1000);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 6, 'Player Six', 23);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (3, 23, 'Player TwentyThree', 6);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping, stamina, strength, shot_power, overall_rating) VALUES (5, 1000, 100, 50, 60, 70, 80, 90);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping, stamina, strength, shot_power, overall_rating) VALUES (6, 1000, 100, 85, 40, 45, 50, 55);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping, stamina, strength, shot_power, overall_rating) VALUES (7, 23, 6, 95, 60, 70, 80, 90);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping, stamina, strength, shot_power, overall_rating) VALUES (22, 6, 23, 40, 60, 70, 80, 90);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping, stamina, strength, shot_power, overall_rating) VALUES (23, 1000, 100, 30, 75, 80, 85, 88);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping, stamina, strength, shot_power, overall_rating) VALUES (24, 1000, 100, 65, 60, 70, 80, 90);
+```
+
+```sql
+-- DATASET 2
+-- Only id = 6 exists, id = 23 is missing.
+-- Tests ELSE 0 vs ELSE NULL (where SUM over missing id = 23 would become NULL, making the whole subtraction NULL).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 101, 'Player A', 1001);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (6, 1001, 101, 72);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (10, 1001, 101, 55);
+```
+
+```sql
+-- DATASET 3
+-- Only id = 23 exists, id = 6 is missing.
+-- Tests ELSE 0 for the first term and ensures negative result (0 - 68 = -68).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 102, 'Player B', 1002);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (15, 1002, 102, 40);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (23, 1002, 102, 68);
+```
+
+```sql
+-- DATASET 4
+-- Neither id = 6 nor id = 23 exists, but other rows exist.
+-- Reference query returns 0 (0 - 0), whereas queries filtering via WHERE id IN (6, 23) or missing ELSE 0 might return NULL or empty set.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 103, 'Player C', 1003);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (1, 1003, 103, 80);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (2, 1003, 103, 90);
+```
+
+```sql
+-- DATASET 5
+-- id = 6 has jumping = NULL, id = 23 has a valid jumping value.
+-- In SQLite, SUM of one NULL and several 0s is 0. A scalar subquery or JOIN for id = 6 without COALESCE would yield NULL - 50 = NULL.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 104, 'Player D', 1004);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (6, 1004, 104, NULL);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (23, 1004, 104, 50);
+```
+
+```sql
+-- DATASET 6
+-- Both id = 6 and id = 23 exist and are the ONLY rows in the table, with id = 6 having NULL jumping.
+-- If no other rows exist to provide a 0, SUM(CASE WHEN id = 6 THEN jumping ELSE 0 END) still has a 0 from row 23!
+-- Wait: if id = 6 is the ONLY row in the table and jumping is NULL, SUM is NULL. Here row 23 provides a 0 for the first SUM, and row 6 provides a 0 for the second SUM.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 105, 'Player E', 1005);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (6, 1005, 105, 45);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (23, 1005, 105, NULL);
+```
+
+```sql
+-- DATASET 7
+-- Single row in Player_Attributes with id = 6 and jumping = NULL.
+-- First SUM has only 1 row which evaluates to NULL, so first SUM is NULL. Second SUM evaluates to 0. NULL - 0 = NULL.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 106, 'Player F', 1006);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, jumping) VALUES (6, 1006, 106, NULL);
+```
+
+```sql
+-- DATASET 8
+-- Empty Player_Attributes table.
+-- Both SUMs over 0 rows evaluate to NULL; NULL - NULL = NULL. Kills mutants using COALESCE(..., 0) or COUNT.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 107, 'Player G', 1007);
+```

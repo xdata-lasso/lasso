@@ -1,0 +1,12 @@
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Comp. Sci.', 'dep_f0958c', 0.01);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('ins_a2674f', 'dep_f0958c', 0.02);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('ins_478d01', 'dep_f0958c', 0.03);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('id_1', 'ins_48f70c', 'Comp. Sci.', 29000.01);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('id_2', 'ins_48f70c', 'ins_a2674f', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('id_3', 'ins_48f70c', 'ins_478d01', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('id_4', 'ins_48f70c', 'Comp. Sci.', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('id_5', 'ins_48f70c', 'Comp. Sci.', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('id_6', 'ins_48f70c', 'Comp. Sci.', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('id_7', 'ins_48f70c', 'Comp. Sci.', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('C', 'ins_48f70c', 'Comp. Sci.', 29000.01);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('A', 'ins_48f70c', 'Comp. Sci.', 29000.01);

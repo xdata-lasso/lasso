@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Person in "Person" table with 0 friends (kills LEFT JOIN + COUNT <= 1 mutants).
+-- 2. Boundary condition COUNT(*) = 1 (Charlie, Zoe) vs COUNT(*) = 2 (Alice) vs COUNT(*) = 3 (David).
+-- 3. ORDER BY name ASC vs insertion order vs ORDER BY friend (Zoe inserted before Charlie).
+-- 4. Grouping by "name" vs "friend" (Bob is only a friend, never a "name" with friends).
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Alice', 25, 'NYC', 'F', 'Engineer');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Bob', 30, 'LA', 'M', 'Doctor');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Charlie', 35, 'Chicago', 'M', 'Artist');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('David', 40, 'Boston', 'M', 'Lawyer');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Eve', 22, 'Seattle', 'F', 'Student');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Zoe', 28, 'Austin', 'F', 'Chef');
+
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Bob', 'Zoe', 2020);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Alice', 'Charlie', 2019);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Bob', 'Alice', 2018);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Charlie', 'Alice', 2021);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Alice', 'David', 2015);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Bob', 'David', 2016);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Charlie', 'David', 2017);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL values in "friend" and "year" columns (kills COUNT(friend) or COUNT(year) mutants where COUNT(*) > 1 but COUNT(col) <= 1).
+-- 2. Single row with NULL friend (kills mutants that filter WHERE friend IS NOT NULL).
+-- 3. Duplicate (friend, name) pairs across different years (kills COUNT(DISTINCT friend) mutants where COUNT(*) = 2 but COUNT(DISTINCT friend) = 1).
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Grace', 29, 'Denver', 'F', 'Pilot');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Heidi', 31, 'Miami', 'F', 'Nurse');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Ivan', 45, 'Dallas', 'M', 'Manager');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Judy', 27, 'Phoenix', 'F', 'Writer');
+
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Heidi', 'Grace', 2020);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES (NULL, 'Grace', 2021);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES (NULL, 'Heidi', NULL);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Grace', 'Ivan', 2018);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Grace', 'Ivan', 2022);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Heidi', 'Judy', NULL);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Ivan', 'Judy', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. NULL values in the grouped column "name" (tests how GROUP BY handles NULL groups).
+-- 2. Single NULL "name" row vs multiple NULL "name" rows (here 1 row with NULL name, so COUNT(*) = 1).
+-- 3. Self-friendship where friend = name (kills mutants with WHERE friend <> name).
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Kevin', 33, 'Portland', 'M', 'Teacher');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Laura', 26, 'Atlanta', 'F', 'Designer');
+
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Kevin', NULL, 2020);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Kevin', 'Kevin', 2021);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Kevin', 'Laura', 2019);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Laura', 'Laura', 2022);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Multiple rows with NULL "name" (COUNT(*) = 2 for NULL group, ensuring NULL group is excluded when count > 1, and killing COUNT(name) mutants since COUNT(name) = 0 <= 1).
+-- 2. Asymmetric friendships where everyone has > 1 friend as "name", resulting in an empty result set for the Gold Query.
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Mallory', 38, 'Detroit', 'F', 'Auditor');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Niaj', 29, 'Houston', 'M', 'Analyst');
+
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Mallory', NULL, 2019);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Niaj', NULL, 2020);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Niaj', 'Mallory', 2021);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Mallory', 'Mallory', 2022);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Year = 1 and Year = 0 values (kills mutants confusing WHERE year <= 1 or SUM(year) <= 1 with COUNT(*) <= 1).
+-- 2. Exact duplicate rows in "PersonFriend" (since PersonFriend has no PRIMARY KEY).
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Oscar', 50, 'Vegas', 'M', 'Clerk');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Peggy', 42, 'Reno', 'F', 'Biker');
+INSERT INTO "Person" ("name", "age", "city", "gender", "job") VALUES ('Quentin', 36, 'Boise', 'M', 'Chef');
+
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Peggy', 'Oscar', 0);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Quentin', 'Oscar', 1);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Oscar', 'Peggy', 2020);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Oscar', 'Quentin', 2020);
+INSERT INTO "PersonFriend" ("friend", "name", "year") VALUES ('Oscar', 'Quentin', 2020);
+```

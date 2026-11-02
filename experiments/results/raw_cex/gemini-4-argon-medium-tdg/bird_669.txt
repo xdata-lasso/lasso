@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, join condition, ASC ordering vs DESC, LIMIT 1, and T1.CreationDate vs T2.CreationDate confusion.
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 100, '2020-01-01 00:00:00', 'other_user');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (2, 200, '2015-05-05 00:00:00', 'chl');
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId, Title) VALUES (10, 1, '2019-01-01 00:00:00', 1, 'Test Post');
+
+-- Vote by other_user with an earlier date (tests WHERE T1.DisplayName = 'chl' and INNER JOIN)
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (101, 10, 2, '2018-01-01', 1);
+-- Vote by 'chl' with a later date (inserted first to defeat queries missing ORDER BY)
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (102, 10, 2, '2022-06-15', 2);
+-- Vote by 'chl' with the earliest date for 'chl' (expected output: '2021-03-10')
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (103, 10, 2, '2021-03-10', 2);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULLS FIRST vs NULLS LAST on T2.CreationDate, and LEFT JOIN vs INNER JOIN when 'chl' has no votes or votes have NULL UserId.
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 100, '2019-01-01 00:00:00', 'chl');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (2, 150, '2019-02-01 00:00:00', 'chl');
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId, Title) VALUES (10, 1, '2019-01-01 00:00:00', 1, 'Post');
+
+-- User 1 ('chl') has no votes at all (tests LEFT JOIN users -> votes)
+-- Vote with NULL UserId (tests RIGHT JOIN / orphan votes)
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (101, 10, 2, '2017-01-01', NULL);
+-- Vote by User 2 ('chl') with NULL CreationDate (in SQLite, NULLs sort first by default in ASC unless NULLS LAST is specified on CreationDate)
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (102, 10, 2, NULL, 2);
+-- Vote by User 2 ('chl') with non-NULL CreationDate
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (103, 10, 2, '2020-12-31', 2);
+```
+
+```sql
+-- DATASET 3
+-- Tests string matching mutations (LIKE '%chl%', case sensitivity 'CHL') and wrong join keys (e.g., T1.Id = T2.Id or joining via posts).
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 100, '2020-01-01 00:00:00', 'CHL');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (2, 100, '2020-01-02 00:00:00', 'chl_admin');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (3, 100, '2020-01-03 00:00:00', 'chl');
+
+-- Post owned by user 3 ('chl'), voted on by user 1 ('CHL')
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId, Title) VALUES (10, 1, '2020-01-05 00:00:00', 3, 'Chl Post');
+-- Post owned by user 1 ('CHL'), voted on by user 3 ('chl')
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId, Title) VALUES (20, 1, '2020-01-06 00:00:00', 1, 'Other Post');
+
+-- Vote with Id=3 (matches T1.Id=3 if mutant joins on T1.Id = T2.Id), belonging to User 1 ('CHL') on Post 10 (owned by 'chl')
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (3, 10, 2, '2020-01-10', 1);
+-- Vote belonging to User 2 ('chl_admin')
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (4, 10, 2, '2020-01-11', 2);
+-- Actual valid vote by User 3 ('chl') on Post 20 (expected output: '2020-05-20')
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (5, 20, 2, '2020-05-20', 3);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set / no matching votes for 'chl' (catches mutants that drop the WHERE clause or use OUTER JOINs).
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 100, '2020-01-01 00:00:00', 'chl');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (2, 100, '2020-01-02 00:00:00', 'alice');
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId, Title) VALUES (10, 1, '2020-01-05 00:00:00', 1, 'Post');
+
+-- Only 'alice' has a vote; 'chl' has 0 votes (expected output: empty set)
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (100, 10, 2, '2021-01-01', 2);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple users with DisplayName = 'chl' and multiple votes with tie-breaking dates, verifying secondary ordering and aggregate/GROUP BY mutations.
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (5, 50, '2021-01-01 00:00:00', 'chl');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (2, 500, '2021-06-01 00:00:00', 'chl');
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId, Title) VALUES (10, 1, '2021-01-01 00:00:00', 5, 'Post');
+
+-- User 5 ('chl') has a vote on 2023-08-01
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (10, 10, 1, '2023-08-01', 5);
+-- User 2 ('chl') has an earlier vote on 2022-04-15 (expected output: '2022-04-15')
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (20, 10, 2, '2022-04-15', 2);
+-- User 2 ('chl') also has a later vote on 2024-01-01
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (30, 10, 2, '2024-01-01', 2);
+```

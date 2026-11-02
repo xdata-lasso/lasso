@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, DISTINCT vs ALL (duplicate customer_name), ORDER BY ASC vs DESC, and filtering out non-matching product_name and order_item_status.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Charlie', 'Details C');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Alice', 'Details A');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (3, 'Bob', 'Details B');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'food', 'Edible');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (2, 'electronics', 'Gadgets');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, 1, 'Pending', '2023-01-01 10:00:00', 'Order 1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, 2, 'Cancel', '2023-01-02 10:00:00', 'Order 2');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (3, 3, 'Shipped', '2023-01-03 10:00:00', 'Order 3');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 1, 1, 'Cancel', 'Charlie food cancel 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 1, 1, 'Cancel', 'Charlie food cancel 2');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (3, 1, 2, 'Cancel', 'Alice food cancel');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (4, 1, 3, 'Active', 'Bob food active');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (5, 2, 3, 'Cancel', 'Bob electronics cancel');
+```
+
+```sql
+-- DATASET 2
+-- Tests the window function boundary condition (n > 1 vs n >= 1). Only 1 row exists in Order_Items, so COUNT(*) OVER () is 1, and the query should return an empty result.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Alice', 'Details A');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'food', 'Edible');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, 1, 'Cancel', '2023-01-01 10:00:00', 'Order 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 1, 1, 'Cancel', 'Single matching item');
+```
+
+```sql
+-- DATASET 3
+-- Tests how COUNT(*) OVER () is computed: total rows in Order_Items is 2, but only 1 row matches (food + Cancel). If a mutant filters before the window function, n becomes 1 and fails n > 1.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Alice', 'Details A');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Bob', 'Details B');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'food', 'Edible');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (2, 'clothing', 'Apparel');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, 1, 'Active', '2023-01-01 10:00:00', 'Order 1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, 2, 'Active', '2023-01-02 10:00:00', 'Order 2');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 1, 1, 'Cancel', 'Alice food cancel');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 2, 2, 'Shipped', 'Bob clothing shipped');
+```
+
+```sql
+-- DATASET 4
+-- Tests join conditions (missing join on order_id or product_id) and confusion between order_status and order_item_status.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'WrongCustomerOrderStatusCancel', 'Details 1');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'WrongCustomerCrossProduct', 'Details 2');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (3, 'RightCustomer', 'Details 3');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'food', 'Edible');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (2, 'tools', 'Hardware');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, 1, 'Cancel', '2023-01-01 10:00:00', 'Order status is Cancel, but item is not');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, 2, 'Active', '2023-01-02 10:00:00', 'Has Cancel item, but for tools');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (3, 3, 'Active', '2023-01-03 10:00:00', 'Has Cancel item for food');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 1, 1, 'Active', 'Item 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 2, 2, 'Cancel', 'Item 2');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (3, 1, 3, 'Cancel', 'Item 3');
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL handling in customer_name (ORDER BY customer_name NULLS LAST) and outer join mutants (unmatched customers, orders, and products).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, NULL, 'Null Name Customer');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Zara', 'Zara Details');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (3, 'Aaron', 'Aaron Details');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (4, 'UnmatchedCustomer', 'No orders');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'food', 'Food item 1');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (2, 'food', 'Food item 2 (unmatched)');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, 1, 'Active', '2023-01-01 10:00:00', 'Order for Null');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, 2, 'Active', '2023-01-02 10:00:00', 'Order for Zara');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (3, 3, 'Active', '2023-01-03 10:00:00', 'Order for Aaron');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (4, 3, 'Cancel', '2023-01-04 10:00:00', 'Unmatched Order');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 1, 1, 'Cancel', 'Null customer item');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 1, 2, 'Cancel', 'Zara item');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (3, 1, 3, 'Cancel', 'Aaron item');
+```

@@ -1,0 +1,63 @@
+-- Schema DDL
+CREATE TABLE "MEMBER" (
+    "MEMBER_ID" INT,
+    "CARD_NUMBER" TEXT,
+    "NAME" TEXT,
+    "HOMETOWN" TEXT,
+    "LEVEL" INT,
+    PRIMARY KEY ("MEMBER_ID")
+);
+CREATE TABLE "BRANCH" (
+    "BRANCH_ID" INT,
+    "NAME" TEXT,
+    "OPEN_YEAR" TEXT,
+    "ADDRESS_ROAD" TEXT,
+    "CITY" TEXT,
+    "MEMBERSHIP_AMOUNT" TEXT,
+    PRIMARY KEY ("BRANCH_ID")
+);
+CREATE TABLE "MEMBERSHIP_REGISTER_BRANCH" (
+    "MEMBER_ID" INT,
+    "BRANCH_ID" TEXT,
+    "REGISTER_YEAR" TEXT,
+    PRIMARY KEY ("MEMBER_ID"),
+    FOREIGN KEY ("BRANCH_ID") REFERENCES "BRANCH"("BRANCH_ID"),
+    FOREIGN KEY ("MEMBER_ID") REFERENCES "MEMBER"("MEMBER_ID")
+);
+CREATE TABLE "PURCHASE" (
+    "MEMBER_ID" INT,
+    "BRANCH_ID" TEXT,
+    "YEAR" TEXT,
+    "TOTAL_POUNDS" FLOAT,
+    PRIMARY KEY ("MEMBER_ID", "BRANCH_ID", "YEAR"),
+    FOREIGN KEY ("BRANCH_ID") REFERENCES "BRANCH"("BRANCH_ID"),
+    FOREIGN KEY ("MEMBER_ID") REFERENCES "MEMBER"("MEMBER_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO MEMBER VALUES (0, 39, 40, 41, 6);
+INSERT INTO MEMBER VALUES (1, 42, 43, 44, 6);
+INSERT INTO BRANCH VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO BRANCH VALUES (-1, 0, 0, 0, 0, 0);
+INSERT INTO MEMBERSHIP_REGISTER_BRANCH VALUES (1, 0, 0);
+INSERT INTO MEMBERSHIP_REGISTER_BRANCH VALUES (0, -1, 0);
+INSERT INTO PURCHASE VALUES (0, 0, 9, 17);
+INSERT INTO PURCHASE VALUES (1, 0, 9, 16);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT n AS count___ FROM (SELECT LHS.member_id AS member_id, LHS.branch_id AS branch_id, LHS.year AS YEAR, LHS.total_pounds AS total_pounds, LHS.n AS n, RHS.card_number AS card_number, RHS.name AS name, RHS.hometown AS hometown, RHS.level AS LEVEL FROM (SELECT LHS.member_id AS member_id, LHS.branch_id AS branch_id, LHS.year AS YEAR, LHS.total_pounds AS total_pounds, RHS.n AS n FROM purchase AS LHS INNER JOIN (SELECT YEAR, COUNT(*) AS n FROM purchase GROUP BY YEAR) AS RHS ON (LHS.year = RHS.year)) AS LHS INNER JOIN (SELECT * FROM member WHERE (LEVEL < 6)) AS RHS ON (LHS.member_id = RHS.member_id)) ORDER BY count___;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT COUNT(*) FROM purchase AS T1 JOIN member AS T2 ON T1.member_id = T2.member_id WHERE T2.level = 6;
+
+/*
+Prediction Result:
+(2,)
+*/

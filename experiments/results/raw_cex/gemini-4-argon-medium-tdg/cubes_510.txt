@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests standard execution where ordering by ID, name, and grade (ASC vs DESC) all produce distinct top-1 results.
+-- Also includes disconnected rows in Friend and Likes to catch mutants that erroneously join on those tables.
+-- Gold Query result: 11 (from 'Zack', who has the highest name alphabetically, though neither the highest/lowest ID nor highest/lowest grade).
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (10, 'Zack', 11);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (20, 'Alice', 12);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (5, 'Bob', 9);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (30, 'Charlie', 10);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (20, 5);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (5, 20);
+
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (30, 20);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in the ORDER BY column (name) and target column (grade), plus missing LIMIT 1 mutants.
+-- In SQLite, NULLs are considered smaller than any non-NULL value, so ORDER BY name DESC places 'Zoe' first and NULL last.
+-- Gold Query result: 10.
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (1, NULL, 12);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (2, 'Zoe', 10);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (3, 'Aaron', 9);
+```
+
+```sql
+-- DATASET 3
+-- Tests when the target row selected by ORDER BY name DESC has a NULL grade.
+-- Catches mutants that filter out NULL grades (e.g., WHERE grade IS NOT NULL) or use aggregates like MAX(grade) / MIN(grade).
+-- Gold Query result: NULL.
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (101, 'Yvonne', NULL);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (102, 'Xavier', 12);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (103, 'Ben', 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests the scenario where the student with the lexicographically largest name has NO entries in Friend or Likes,
+-- while all other students do. This specifically kills mutants that INNER JOIN Highschooler with Friend or Likes.
+-- Also tests total row count (4) vs distinct grades/names to kill mutants that project the window function `n` instead of `grade`.
+-- Gold Query result: 9.
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (1, 'Wendy', 9);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (2, 'Victor', 10);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (3, 'Uma', 11);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (4, 'Tom', 12);
+
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (2, 3);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (3, 4);
+INSERT INTO "Friend" ("student_id", "friend_id") VALUES (4, 2);
+
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (2, 3);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (3, 4);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (4, 2);
+```
+
+```sql
+-- DATASET 5
+-- Single row dataset with values where ID, grade, and count (1) are all distinct, and Friend/Likes are completely empty.
+-- Kills mutants using OFFSET 1, HAVING COUNT(*) > 1, or requiring non-empty Friend/Likes tables.
+-- Gold Query result: 12.
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (99, 'Solo', 12);
+```
+
+```sql
+-- DATASET 6
+-- Tests duplicate names and case sensitivity / prefix ordering in `name` ('Alex' vs 'Alexander').
+-- Also ensures `COUNT(*) OVER ()` (which is 3) is distinct from any `grade` or `ID` value.
+-- Gold Query result: 10 (from 'Alexander').
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (10, 'Alex', 11);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (20, 'Alexander', 10);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (30, 'Alex', 12);
+```

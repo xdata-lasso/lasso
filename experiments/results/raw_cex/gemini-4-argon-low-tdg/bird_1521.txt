@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Core logic, boundary conditions on Time (inclusive vs exclusive), single condition failures (Date, Time, Country), and join keys.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 10, 'CZE', 'Value');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 20, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 10, NULL, 'Discount');
+
+-- Exact lower boundary match (Valid)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-26', '08:00:00', 100, 1000, 1, 1, 10, 25.5);
+-- Strictly inside time range match (Valid)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-26', '08:30:00', 101, 1001, 1, 2, 20, 50.0);
+-- Exact upper boundary match (Valid)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-26', '09:00:00', 100, 1000, 1, 1, 15, 30.0);
+
+-- Time just below lower boundary (Invalid)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-26', '07:59:59', 102, 1002, 1, 1, 10, 25.5);
+-- Time just above upper boundary (Invalid)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-26', '09:00:01', 103, 1003, 1, 1, 10, 25.5);
+-- Wrong Date, valid Time and Country (Invalid)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (6, '2012-08-25', '08:30:00', 104, 1004, 1, 1, 10, 25.5);
+-- Valid Date and Time, wrong Country (Invalid)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (7, '2012-08-26', '08:30:00', 105, 1005, 2, 1, 10, 25.5);
+-- Valid Date and Time, NULL Country (Invalid)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (8, '2012-08-26', '08:30:00', 106, 1006, 3, 1, 10, 25.5);
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT mutations (e.g., COUNT(DISTINCT T1.GasStationID), COUNT(DISTINCT T1.CustomerID), COUNT(DISTINCT T1.Time))
+-- Also tests unmatched foreign keys / outer join mutations.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 1, 'CZE', 'Value');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (11, 1, 'CZE', 'Premium');
+
+-- Multiple transactions with identical attributes (same GasStationID, CustomerID, Time, etc.) except TransactionID
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (100, '2012-08-26', '08:15:00', 500, 5000, 10, 1, 50, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (101, '2012-08-26', '08:15:00', 500, 5000, 10, 1, 50, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (102, '2012-08-26', '08:15:00', 500, 5000, 10, 1, 50, 100.0);
+
+-- Transaction with NULL GasStationID and non-existent GasStationID
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (103, '2012-08-26', '08:15:00', 500, 5000, NULL, 1, 50, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (104, '2012-08-26', '08:15:00', 500, 5000, 999, 1, 50, 100.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests COUNT(T1.TransactionID) vs COUNT(other_nullable_column), and Join Condition mutations (e.g., joining on ChainID or CustomerID)
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 99, 'CZE', NULL);
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 1, 'DEU', 'Other');
+
+-- Valid match where all non-constrained columns in T1 are NULL (kills mutants counting nullable columns like CustomerID, Amount, etc.)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-26', '08:45:00', NULL, NULL, 1, NULL, NULL, NULL);
+
+-- Trap for incorrect join condition: T1.GasStationID = T2.ChainID or T1.CustomerID = T2.GasStationID
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-26', '08:45:00', 1, 1, 99, 1, 10, 10.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-26', '08:45:00', 1, 1, 2, 1, 10, 10.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set / zero count, and potential logical operator precedence issues (AND vs OR).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Value');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 2, 'POL', 'Value');
+
+-- Fails only Date
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-27', '08:30:00', 1, 1, 1, 1, 10, 20.0);
+-- Fails only Time
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-26', '10:30:00', 1, 1, 1, 1, 10, 20.0);
+-- Fails only Country
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-26', '08:30:00', 1, 1, 2, 1, 10, 20.0);
+-- NULLs in Date and Time
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, NULL, '08:30:00', 1, 1, 1, 1, 10, 20.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-26', NULL, 1, 1, 1, 1, 10, 20.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests string formatting, case sensitivity, and LIKE/substring mutations on Country, Date, and Time.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'CZE');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 1, 'cze', 'CZE');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 1, 'CZECH', 'CZE');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 1, 'SVK', 'CZE');
+
+-- Valid exact match
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-26', '08:05:00', 1, 1, 1, 1, 1, 1.0);
+
+-- Case sensitivity check ('cze' instead of 'CZE')
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-26', '08:05:00', 1, 1, 2, 1, 1, 1.0);
+
+-- Prefix check ('CZECH' instead of 'CZE')
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-26', '08:05:00', 1, 1, 3, 1, 1, 1.0);
+
+-- Wrong column check (T2.Segment = 'CZE' but T2.Country = 'SVK')
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-26', '08:05:00', 1, 1, 4, 1, 1, 1.0);
+
+-- Time prefix trap (e.g., if mutant uses LIKE '09%' instead of BETWEEN '08:00:00' AND '09:00:00')
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-26', '09:15:00', 1, 1, 1, 1, 1, 1.0);
+```

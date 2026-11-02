@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests predicate variations: WHERE T1.type = 'classic', T2.type = 'Owner', AND vs OR, = vs !=, case sensitivity, and missing JOIN condition (cross join).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '2000-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 1);
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (10, 1, 1, 'Owner');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (20, 1, 1, 'Disponent');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (30, 1, 1, 'Owner');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (40, 1, 1, 'Disponent');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (50, 1, 1, 'owner');
+
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (100, 10, 'classic', '2001-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (200, 20, 'classic', '2001-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (300, 30, 'gold', '2001-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (400, 40, 'junior', '2001-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (500, 10, 'Classic', '2001-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (600, 50, 'classic', '2001-01-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests incorrect JOIN keys (e.g., joining on card_id = disp_id, card.disp_id = disp.client_id, or card.disp_id = disp.account_id).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'POPLATEK MESICNE', '2000-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (99, 1, 'POPLATEK MESICNE', '2000-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'M', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (99, 'F', '1975-01-01', 1);
+
+-- Valid match on disp_id = 50, but client_id and account_id are 99 (do not match 50), and card_id is 500 (does not match 50).
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (50, 99, 99, 'Owner');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (500, 50, 'classic', '2001-01-01');
+
+-- Trap for incorrect joins: disp has client_id = 10, account_id = 10, disp_id = 10, with type = 'Owner'.
+-- Meanwhile, a classic card has card_id = 10, but belongs to disp_id = 20 (which is 'Disponent').
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (10, 10, 10, 'Owner');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (20, 99, 99, 'Disponent');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (10, 20, 'classic', '2001-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests 1-to-many relationship between disp and card (kills COUNT(DISTINCT T1.disp_id), COUNT(DISTINCT T2.disp_id), COUNT(DISTINCT T2.client_id), COUNT(DISTINCT T2.account_id), and COUNT(DISTINCT T1.type)).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '2000-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 1);
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (10, 1, 1, 'Owner');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (20, 1, 1, 'Owner');
+
+-- Multiple classic cards for the exact same disp_id (10), and another for disp_id (20) sharing the same client and account.
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (1, 10, 'classic', '2001-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (2, 10, 'classic', '2002-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (3, 20, 'classic', '2003-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests RIGHT JOIN / FULL OUTER JOIN with COUNT(*) or COUNT(T2.disp_id) when an Owner disp has no cards at all.
+-- Also tests swapped column values (T1.type = 'Owner' AND T2.type = 'classic').
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '2000-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 1);
+
+-- Owner dispositions without any cards
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 1, 'Owner');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 1, 1, 'Owner');
+
+-- Swapped type values (disp.type = 'classic' and card.type = 'Owner') to kill swapped table alias mutants
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (3, 1, 1, 'classic');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (100, 3, 'Owner', '2001-01-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests aggregate function mutations (e.g., SUM(T1.card_id), MAX(T1.card_id), MIN(T1.card_id), AVG(T1.card_id)) and GROUP BY mutations.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (100, 1, 'POPLATEK MESICNE', '2000-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (200, 1, 'POPLATEK TYDNE', '2000-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (100, 'M', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (200, 'F', '1980-01-01', 1);
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (100, 100, 100, 'Owner');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (200, 200, 200, 'Owner');
+
+-- Using card_id values 50 and 75 so that COUNT is 2, while MIN is 50, MAX is 75, SUM is 125, AVG is 62.5.
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (50, 100, 'classic', '2001-01-01');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (75, 200, 'classic', '2002-01-01');
+```

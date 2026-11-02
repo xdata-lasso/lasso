@@ -1,0 +1,96 @@
+```sql
+-- DATASET 1
+-- Note: Due to UNIQUE constraints on Draft_Copies(document_id, draft_number, copy_number) in the schema,
+-- if UNIQUE constraints are strictly enforced, each document_id can appear at most once in Draft_Copies.
+-- This dataset satisfies strict column-level UNIQUE constraints while testing multiple documents and orphan parent records.
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (10, 'A1', 'S1', 'T1', '2023-01-01', 'R10', 'Doc without drafts');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (20, 'A1', 'S1', 'T1', '2023-01-02', 'R20', 'Doc with draft but no copies');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (30, 'A1', 'S1', 'T1', '2023-01-03', 'R30', 'Doc with draft and copy');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (20, 1, 'Draft 1 for Doc 20');
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (30, 2, 'Draft 2 for Doc 30');
+
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (30, 2, 100);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty Draft_Copies table while parent tables (Documents, Document_Drafts) are populated.
+-- Kills mutants that use LEFT JOIN from Documents/Document_Drafts or query the wrong table.
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (1, 'A1', 'S1', 'T1', '2023-01-01', 'R1', 'Details 1');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (2, 'A1', 'S1', 'T1', '2023-01-02', 'R2', 'Details 2');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (1, 10, 'Draft 10');
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (2, 20, 'Draft 20');
+```
+
+```sql
+-- DATASET 3
+-- Tests with Circulation_History populated to kill mutants that mistakenly join Draft_Copies with Circulation_History
+-- (which would inflate the COUNT(*)) or query Circulation_History instead of Draft_Copies.
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('R1', 'Role 1');
+
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (1, 'R1', 'Emp 1', 'D1');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (2, 'R1', 'Emp 2', 'D2');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (3, 'R1', 'Emp 3', 'D3');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (100, 'A1', 'S1', 'T1', '2023-01-01', 'R100', 'Doc 100');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (100, 1, 'Draft 1');
+
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (100, 1, 1);
+
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (100, 1, 1, 1);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (100, 1, 1, 2);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (100, 1, 1, 3);
+```
+
+```sql
+-- DATASET 4
+-- Tests where document_id, draft_number, and copy_number have very different magnitudes (e.g., negative vs large positive)
+-- to kill mutants that group by or select the wrong column (draft_number or copy_number instead of document_id)
+-- or use SUM(document_id)/SUM(copy_number)/MAX(copy_number) instead of COUNT(*).
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (500, 'A1', 'S1', 'T1', '2023-01-01', 'R500', 'Doc 500');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (500, 77, 'Draft 77');
+
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (500, 77, 999);
+```
+
+```sql
+-- DATASET 5
+-- If the test execution environment relaxes the anomalous column-level UNIQUE constraints on Draft_Copies / Document_Drafts,
+-- this dataset provides multiple copies per document with distinct counts (Doc 2 has 3 copies, Doc 1 has 2 copies, Doc 3 has 1 copy)
+-- to test GROUP BY document_id, ORDER BY n DESC (vs ASC), and LIMIT 1.
+-- Note: The first rows inserted still form a valid test if subsequent inserts fail, or if the full script runs in a relaxed schema.
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (1, 'A1', 'S1', 'T1', '2023-01-01', 'R1', 'Doc 1');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (2, 'A1', 'S1', 'T1', '2023-01-02', 'R2', 'Doc 2');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (3, 'A1', 'S1', 'T1', '2023-01-03', 'R3', 'Doc 3');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (1, 1, 'D1_1');
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (2, 2, 'D2_2');
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (3, 3, 'D3_3');
+
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (2, 2, 10);
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (1, 1, 20);
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (3, 3, 30);
+```

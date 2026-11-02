@@ -1,0 +1,108 @@
+-- Schema DDL
+CREATE TABLE "CLASS" (
+    "CLASS_CODE" TEXT,
+    "PROF_NUM" INT,
+    "CRS_CODE" TEXT,
+    "CLASS_SECTION" TEXT,
+    "CLASS_TIME" TEXT,
+    "CLASS_ROOM" TEXT,
+    PRIMARY KEY ("CLASS_CODE"),
+    FOREIGN KEY ("PROF_NUM") REFERENCES "EMPLOYEE"("EMP_NUM"),
+    FOREIGN KEY ("CRS_CODE") REFERENCES "COURSE"("CRS_CODE")
+);
+CREATE TABLE "COURSE" (
+    "CRS_CODE" TEXT,
+    "DEPT_CODE" TEXT,
+    "CRS_DESCRIPTION" TEXT,
+    "CRS_CREDIT" FLOAT,
+    PRIMARY KEY ("CRS_CODE"),
+    FOREIGN KEY ("DEPT_CODE") REFERENCES "DEPARTMENT"("DEPT_CODE")
+);
+CREATE TABLE "DEPARTMENT" (
+    "DEPT_CODE" TEXT,
+    "EMP_NUM" INT,
+    "DEPT_NAME" TEXT,
+    "SCHOOL_CODE" TEXT,
+    "DEPT_ADDRESS" TEXT,
+    "DEPT_EXTENSION" TEXT,
+    PRIMARY KEY ("DEPT_CODE"),
+    FOREIGN KEY ("EMP_NUM") REFERENCES "EMPLOYEE"("EMP_NUM")
+);
+CREATE TABLE "EMPLOYEE" (
+    "EMP_NUM" INT,
+    "EMP_LNAME" TEXT,
+    "EMP_FNAME" TEXT,
+    "EMP_INITIAL" TEXT,
+    "EMP_JOBCODE" TEXT,
+    "EMP_HIREDATE" DATETIME,
+    "EMP_DOB" DATETIME,
+    PRIMARY KEY ("EMP_NUM")
+);
+CREATE TABLE "ENROLL" (
+    "STU_NUM" INT,
+    "CLASS_CODE" TEXT,
+    "ENROLL_GRADE" TEXT,
+    FOREIGN KEY ("STU_NUM") REFERENCES "STUDENT"("STU_NUM"),
+    FOREIGN KEY ("CLASS_CODE") REFERENCES "CLASS"("CLASS_CODE")
+);
+CREATE TABLE "PROFESSOR" (
+    "DEPT_CODE" TEXT,
+    "EMP_NUM" INT,
+    "PROF_OFFICE" TEXT,
+    "PROF_EXTENSION" TEXT,
+    "PROF_HIGH_DEGREE" TEXT,
+    FOREIGN KEY ("DEPT_CODE") REFERENCES "DEPARTMENT"("DEPT_CODE"),
+    FOREIGN KEY ("EMP_NUM") REFERENCES "EMPLOYEE"("EMP_NUM")
+);
+CREATE TABLE "STUDENT" (
+    "STU_NUM" INT,
+    "DEPT_CODE" TEXT,
+    "STU_LNAME" TEXT,
+    "STU_FNAME" TEXT,
+    "STU_INIT" TEXT,
+    "STU_DOB" DATETIME,
+    "STU_HRS" INT,
+    "STU_CLASS" TEXT,
+    "STU_GPA" FLOAT,
+    "STU_TRANSFER" FLOAT,
+    "STU_PHONE" TEXT,
+    "PROF_NUM" INT,
+    PRIMARY KEY ("STU_NUM"),
+    FOREIGN KEY ("DEPT_CODE") REFERENCES "DEPARTMENT"("DEPT_CODE")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO CLASS VALUES (2, 1, 5, 0, 0, 0);
+INSERT INTO CLASS VALUES (3, 0, 4, 0, 0, 0);
+INSERT INTO COURSE VALUES (4, 0, 0, 0);
+INSERT INTO COURSE VALUES (5, 0, 0, 0);
+INSERT INTO DEPARTMENT VALUES (0, 1, -1, 40, 41, 42);
+INSERT INTO DEPARTMENT VALUES (1, 0, 0, 50, 51, 52);
+INSERT INTO EMPLOYEE VALUES (1, 0, 0, 0, 0, 0, 0);
+INSERT INTO EMPLOYEE VALUES (0, 0, 0, 0, 0, 0, 0);
+INSERT INTO ENROLL VALUES (-1, 2, 0);
+INSERT INTO ENROLL VALUES (0, 2, 0);
+INSERT INTO PROFESSOR VALUES (1, 1, 0, 0, 0);
+INSERT INTO PROFESSOR VALUES (1, 1, 0, 0, 0);
+INSERT INTO STUDENT VALUES (-1, 1, 33, 34, 35, 36, 0, 37, 0, 38, 39, 0);
+INSERT INTO STUDENT VALUES (0, 0, 43, 44, 45, 46, 1, 47, -1, 48, 49, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT dept_name FROM (SELECT LHS.stu_num AS stu_num, LHS.stu_lname AS stu_lname, LHS.stu_fname AS stu_fname, LHS.stu_init AS stu_init, LHS.stu_dob AS stu_dob, LHS.stu_hrs AS stu_hrs, LHS.stu_class AS stu_class, LHS.stu_gpa AS stu_gpa, LHS.stu_transfer AS stu_transfer, LHS.dept_code AS dept_code, LHS.stu_phone AS stu_phone, LHS.prof_num AS prof_num, RHS.dept_name AS dept_name, RHS.school_code AS school_code, RHS.dept_address AS dept_address, RHS.dept_extension AS dept_extension FROM student AS LHS INNER JOIN department AS RHS ON (LHS.stu_hrs = RHS.emp_num AND LHS.dept_code = RHS.dept_code)) ORDER BY dept_name;
+
+/*
+Gold Result:
+('-1',)
+('0',)
+*/
+
+-- Prediction Query
+SELECT T2.dept_name FROM student AS T1 JOIN department AS T2 ON T1.dept_code = T2.dept_code ORDER BY stu_gpa, T1.stu_num NULLS LAST, T2.dept_code NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('-1',)
+*/

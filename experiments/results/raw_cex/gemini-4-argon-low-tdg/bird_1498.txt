@@ -1,0 +1,92 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality, SUM vs AVG/MAX/MIN/COUNT, GROUP BY month vs no GROUP BY, ORDER BY DESC vs ASC, LIMIT 1, and year filtering ('2012' vs '2011'/'2013').
+-- Also tests SUBSTRING(Date, 5, 2) vs SUBSTRING(Date, 1, 6) or Date by using extra suffix characters.
+-- Also tests SUM(DISTINCT Consumption) by using identical consumption values (25.0) in the winning month.
+-- Also includes a customer with no yearmonth records and a NULL consumption to test INNER vs LEFT JOIN and NULL handling.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'CZK');
+
+-- Month '01' in 2012: 3 rows (two with identical Consumption 25.0, one with NULL).
+-- SUM = 50.0, SUM(DISTINCT) = 25.0, AVG = 25.0, MAX = 25.0, COUNT = 2 or 3.
+-- Notice different suffixes ('A', 'B') to kill GROUP BY Date instead of SUBSTRING(Date, 5, 2).
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201A', 25.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201B', 25.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201A', NULL);
+
+-- Month '02' in 2012: 1 row with Consumption 40.0.
+-- SUM = 40.0, MAX = 40.0, AVG = 40.0.
+-- Ensures Month '01' wins on SUM (50.0 > 40.0), while Month '02' would win on MAX or AVG (40.0 > 25.0) or if Month '01' used DISTINCT (40.0 > 25.0) or grouped by exact Date (40.0 > 25.0).
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202A', 40.0);
+
+-- Month '03' in 2012: 1 row with small Consumption 10.0 (tests ORDER BY ASC vs DESC).
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201203A', 10.0);
+
+-- Other years (2011, 2013) with huge Consumption to kill missing/wrong year filter (e.g., != '2012', >= '2012', <= '2012', or LIKE '%2012%').
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201101A', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201301A', 600.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '992012A', 700.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests off-by-one errors in SUBSTRING(Date, 5, 2), such as SUBSTRING(Date, 4, 2) or SUBSTRING(Date, 6, 2) or SUBSTRING(Date, 5, 1).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+-- In 2012, Month '11' has 2 rows -> SUM = 60.0.
+-- Notice the 6th character is '1', same as in '201201'.
+-- If mutant groups by SUBSTRING(Date, 5, 1) (5th char '1'), '201211' and '201212' merge (60 + 50 = 110).
+-- If mutant groups by SUBSTRING(Date, 6, 1) or (6, 2), '201211' and '201201' merge (60 + 45 = 105).
+-- If mutant groups by SUBSTRING(Date, 4, 2), '21' (from 201211 and 201212) merges.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201211', 30.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201211', 30.0);
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201212', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 45.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests negative Consumption values and ORDER BY / WHERE edge cases.
+-- If all months in 2012 have negative sums, MAX(Consumption) vs SUM(Consumption) and missing WHERE clauses behave very differently.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+-- Month '05': two negative values, SUM = -30.0.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201205', -10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201205', -20.0);
+
+-- Month '06': one negative value, SUM = -15.0 (This is the largest sum: -15.0 > -30.0).
+-- A mutant ordering by ABS(SUM) or ASC or grouping improperly will fail.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201206', -15.0);
+
+-- A 2012 month with both positive and negative values: Month '07' -> 50.0 + (-70.0) = -20.0.
+-- Kills mutants that filter WHERE Consumption > 0 or MAX(Consumption) (since 50.0 > -15.0).
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201207', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201207', -70.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result for year '2012' when other years exist.
+-- Kills mutants without GROUP BY (since SELECT SUM(...) without GROUP BY returns 1 row with NULL even when 0 rows match WHERE, whereas with GROUP BY it returns 0 rows).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201105', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201305', 200.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests grouping by CustomerID instead of Month.
+-- Customer 1 has high total across different months (40 + 40 = 80), while the highest single month across customers is Month '01' (40 + 30 = 70).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 40.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 30.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 40.0);
+```

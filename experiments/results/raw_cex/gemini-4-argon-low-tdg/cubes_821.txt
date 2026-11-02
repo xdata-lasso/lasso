@@ -1,0 +1,163 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match (single self-matching Undergoes row where Procedures == Physician and AssistingNurse IS NOT NULL), ordering, and duplicate elimination (DISTINCT).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Ten', 'Surgeon', 1110);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. Twenty', 'Internist', 1120);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Proc Ten', 500.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'Proc Twenty', 600.0);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (301, 'Nurse A', 'RN', 1, 2201);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1001, 10, 'Patient One', '123 Main', '555-0001', 9001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1002, 20, 'Patient Two', '456 Oak', '555-0002', 9002);
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (401, 101, 1001, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (402, 101, 1002, '2023-01-02 08:00:00', '2023-01-06 12:00:00');
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1002, 20, 402, '2023-01-03 10:00:00', 301, 20);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1001, 10, 401, '2023-01-02 09:00:00', 301, 10);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1001, 10, 401, '2023-01-03 09:00:00', 301, 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests the subtle aliasing in the inner subquery (`procedures AS physician`) vs standard `physician`.
+-- Patient 1001 has one row where Procedures == Physician (10 == 10).
+-- Patient 1002 has two rows where U1.Procedures == U2.Physician (10 == 10), but U1.Procedures != U1.Physician (10 != 20).
+-- The reference query requires U1.Physician = U1.Procedures AND U1.Procedures = U2.Physician. Thus 1001 matches, 1002 is excluded.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Ten', 'Surgeon', 1110);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. Twenty', 'Internist', 1120);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Proc Ten', 500.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'Proc Twenty', 600.0);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (301, 'Nurse A', 'RN', 1, 2201);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1001, 10, 'Patient One', '123 Main', '555-0001', 9001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1002, 20, 'Patient Two', '456 Oak', '555-0002', 9002);
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (401, 101, 1001, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (402, 101, 1002, '2023-01-02 08:00:00', '2023-01-06 12:00:00');
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1001, 10, 401, '2023-01-02 10:00:00', 301, 10);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1002, 10, 402, '2023-01-03 10:00:00', 301, 20);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1002, 20, 402, '2023-01-04 10:00:00', 301, 10);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL semantics in join conditions (`LHS.assistingnurse = RHS.assistingnurse`).
+-- Patient 1001 has AssistingNurse = NULL (should be filtered out by `=` join in SQL).
+-- Patient 1002 has AssistingNurse = 301 (should be included).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Ten', 'Surgeon', 1110);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Proc Ten', 500.0);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (301, 'Nurse A', 'RN', 1, 2201);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1001, 10, 'Patient NullNurse', '123 Main', '555-0001', 9001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1002, 10, 'Patient ValidNurse', '456 Oak', '555-0002', 9002);
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (401, 101, 1001, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (402, 101, 1002, '2023-01-02 08:00:00', '2023-01-06 12:00:00');
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1001, 10, 401, '2023-01-02 10:00:00', NULL, 10);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1002, 10, 402, '2023-01-03 10:00:00', 301, 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests the CROSS JOIN with Patient vs INNER JOIN on Patient.SSN = Undergoes.Patient, and projection of `patient` vs `ssn` or `pcp` or `stay.patient`.
+-- Patient 1001 undergoes a valid procedure (in a Stay belonging to 9999), and has PCP = 20.
+-- Patient 9999 never undergoes any procedure.
+-- Because of the CROSS JOIN, if Patient table is non-empty, `patient` (from Undergoes) is only 1001, while `ssn` (from Patient) would be both 1001 and 9999.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Ten', 'Surgeon', 1110);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. Twenty', 'PCP Doc', 1120);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Proc Ten', 500.0);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (301, 'Nurse A', 'RN', 1, 2201);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1001, 20, 'Active Patient', '123 Main', '555-0001', 9001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (9999, 20, 'Bystander Patient', '789 Pine', '555-9999', 9999);
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (401, 101, 9999, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1001, 10, 401, '2023-01-02 10:00:00', 301, 10);
+```
+
+```sql
+-- DATASET 5
+-- Tests `LHS.patient = RHS.patient` in the inner join and tests multi-row matching where LHS and RHS in the inner join are distinct rows.
+-- Patient 1001 has Proc=10, Phys=20; Patient 1002 has Proc=20, Phys=10 (cross-patient match on Proc=Phys, but different patients -> should NOT match).
+-- Patient 1003 has row 1 (Proc=10, Phys=10, Nurse=NULL) and row 2 (Proc=20, Phys=10, Nurse=301).
+-- If a mutant joins LHS with RHS (row 1 with row 2) and checks RHS.assistingnurse instead of LHS.assistingnurse, 1003 would falsely match.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Ten', 'Surgeon', 1110);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. Twenty', 'Internist', 1120);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Proc Ten', 500.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'Proc Twenty', 600.0);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (301, 'Nurse A', 'RN', 1, 2201);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1001, 10, 'Patient One', '123 Main', '555-0001', 9001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1002, 20, 'Patient Two', '456 Oak', '555-0002', 9002);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1003, 10, 'Patient Three', '789 Pine', '555-0003', 9003);
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (401, 101, 1001, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (402, 101, 1002, '2023-01-02 08:00:00', '2023-01-06 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (403, 101, 1003, '2023-01-03 08:00:00', '2023-01-07 12:00:00');
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1001, 10, 401, '2023-01-02 10:00:00', 301, 20);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1002, 20, 402, '2023-01-03 10:00:00', 301, 10);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1003, 10, 403, '2023-01-04 10:00:00', NULL, 10);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1003, 20, 403, '2023-01-05 10:00:00', 301, 10);
+```
+
+```sql
+-- DATASET 6
+-- Tests outer join condition mismatches when multiple Undergoes rows exist for the same patient with `Procedures = Physician`,
+-- where one row has NULL AssistingNurse and another has non-NULL AssistingNurse, or different Stay / DateUndergoes.
+-- Patient 1001: Row A (Stay 401, Date D1, Nurse NULL, Proc 10, Phys 10) and Row B (Stay 402, Date D2, Nurse 301, Proc 20, Phys 10).
+-- Here Row A has Proc=Phys (10=10), and joins with Row B in the inner join (since Row A.Proc = Row B.Phys = 10).
+-- If the outer join mistakenly equates LHS.stay = RHS.stay_other or LHS.dateundergoes = RHS.dateundergoes_other or LHS.assistingnurse = RHS.assistingnurse_other,
+-- then LHS (bound to Row B) could match RHS (where LHS is Row A and RHS is Row B)!
+-- Under the Reference Query, 1001 MUST NOT be returned because Row A has Nurse=NULL and Row B has Proc(20) != Phys(10).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Ten', 'Surgeon', 1110);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Proc Ten', 500.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'Proc Twenty', 600.0);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (301, 'Nurse A', 'RN', 1, 2201);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1001, 10, 'Patient One', '123 Main', '555-0001', 9001);
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (401, 101, 1001, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (402, 101, 1001, '2023-02-01 08:00:00', '2023-02-05 12:00:00');
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1001, 10, 401, '2023-01-02 10:00:00', NULL, 10);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1001, 20, 402, '2023-02-02 10:00:00', 301, 10);
+```
+
+```sql
+-- DATASET 7
+-- Tests empty Undergoes table with populated Patient, Physician, Procedures, Stay, Appointment, Prescribes.
+-- Ensures mutants that query Patient, Stay, Appointment, or Prescribes instead of Undergoes are killed.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Ten', 'Surgeon', 1110);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Proc Ten', 500.0);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (301, 'Nurse A', 'RN', 1, 2201);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (10, 10, 'Patient Ten', '123 Main', '555-0010', 9010);
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (10, 101, 10, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (501, 10, 301, 10, '2023-01-01 09:00:00', '2023-01-01 10:00:00', 'Room A');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (10, 'Med Ten', 'BrandX', 'Desc');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (10, 10, 10, '2023-01-01 09:30:00', 501, '10mg');
+```
+
+```sql
+-- DATASET 8
+-- Tests multiple patients with various combinations of (Procedures, Physician, Stay, Patient) ID collisions.
+-- Specifically tests mutants that confuse `Procedures = Physician` with `Stay = Physician`, `Patient = Physician`, or `Procedures = Stay`.
+-- Patient 10: Proc=20, Stay=10, Phys=10 (Patient=Phys, Stay=Phys, but Proc!=Phys) -> Should NOT match.
+-- Patient 20: Proc=10, Stay=10, Phys=20 (Proc=Stay, Patient=Phys, but Proc!=Phys) -> Should NOT match.
+-- Patient 30: Proc=10, Stay=20, Phys=10 (Proc=Phys=10) -> SHOULD match.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Ten', 'Surgeon', 1110);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. Twenty', 'Internist', 1120);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Proc Ten', 500.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'Proc Twenty', 600.0);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (301, 'Nurse A', 'RN', 1, 2201);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (10, 10, 'Patient Ten', '123 Main', '555-0010', 9010);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (20, 20, 'Patient Twenty', '456 Oak', '555-0020', 9020);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (30, 10, 'Patient Thirty', '789 Pine', '555-0030', 9030);
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (10, 101, 10, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (20, 101, 30, '2023-01-02 08:00:00', '2023-01-06 12:00:00');
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (10, 20, 10, '2023-01-02 10:00:00', 301, 10);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (20, 10, 10, '2023-01-03 10:00:00', 301, 20);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (30, 10, 20, '2023-01-04 10:00:00', 301, 10);
+```

@@ -1,0 +1,48 @@
+```sql
+-- DATASET 1
+-- Tests standard MAX behavior, string vs numeric sorting (95.0 > 12.5, whereas '95.0' > '100.0' if cast to text),
+-- duplicate maximums, NULL handling in aggregates, and unreferenced rows in foreign key tables (catches INNER JOIN flight/airport mutants).
+INSERT INTO "airport" ("id", "City", "Country", "IATA", "ICAO", "name") VALUES (1, 'London', 'UK', 'LHR', 'EGLL', 'Heathrow');
+
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (1, 'Alpha Air', 'Subsidiary', 'Passenger', 'UK', 12.5);
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (2, 'Beta Cargo', 'Joint Venture', 'Cargo', 'USA', 100.0);
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (3, 'Gamma Jets', 'Joint Venture', 'Charter', 'UK', 100.0);
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (4, 'Delta Wings', 'Subsidiary', 'Maintenance', 'France', 95.0);
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (5, 'Epsilon Hold', 'Holding', 'Investment', 'Germany', NULL);
+
+INSERT INTO "flight" ("id", "company_id", "airport_id", "Vehicle_Flight_number", "Date", "Pilot", "Velocity", "Altitude") VALUES (1, 1, 1, 'AA101', '2023-01-01', 'Smith', 500.0, 10000.0);
+INSERT INTO "flight" ("id", "company_id", "airport_id", "Vehicle_Flight_number", "Date", "Pilot", "Velocity", "Altitude") VALUES (2, 1, 1, 'AA102', '2023-01-02', 'Jones', 200.0, 15000.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests negative numbers, zero, floating-point precision, and ensures MAX is not confused with id, Velocity, or Altitude.
+-- Here the company with the max shareholding (0.0) has a flight, while another company has a negative shareholding.
+INSERT INTO "airport" ("id", "City", "Country", "IATA", "ICAO", "name") VALUES (10, 'Tokyo', 'Japan', 'HND', 'RJTT', 'Haneda');
+
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (10, 'NegCorp', 'Private', 'Leasing', 'Japan', -50.75);
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (20, 'MinorNeg', 'Public', 'Operations', 'Japan', -5.25);
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (30, 'ZeroCorp', 'Public', 'Catering', 'China', 0.0);
+
+INSERT INTO "flight" ("id", "company_id", "airport_id", "Vehicle_Flight_number", "Date", "Pilot", "Velocity", "Altitude") VALUES (100, 30, 10, 'ZC001', '2023-05-05', 'Tanaka', 850.5, 35000.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests strictly negative numbers (catches COALESCE(MAX(...), 0) or > 0 filter mutants) and fractional differences (catches CAST AS INT mutants).
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (1, 'SubZero A', 'LLC', 'Ground Handling', 'Canada', -10.8);
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (2, 'SubZero B', 'LLC', 'Refueling', 'Canada', -10.2);
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (3, 'SubZero C', 'Corp', 'Security', 'USA', -99.9);
+```
+
+```sql
+-- DATASET 4
+-- Tests single row with NULL target column (MAX over all NULLs must return a single row with NULL, whereas COUNT returns 0 and WHERE IS NOT NULL returns empty set).
+INSERT INTO "operate_company" ("id", "name", "Type", "Principal_activities", "Incorporated_in", "Group_Equity_Shareholding") VALUES (1, 'Ghost Corp', 'Unknown', 'None', 'Nowhere', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty operate_company table while other tables are populated (scalar aggregate MAX must still return 1 row with NULL, unlike non-aggregated queries or GROUP BY).
+INSERT INTO "airport" ("id", "City", "Country", "IATA", "ICAO", "name") VALUES (1, 'Paris', 'France', 'CDG', 'LFPG', 'Charles de Gaulle');
+```

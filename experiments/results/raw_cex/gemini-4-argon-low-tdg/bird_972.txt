@@ -1,0 +1,137 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, DISTINCT vs ALL (duplicate matching results for the same driver), 
+-- IS NOT NULL vs IS NULL on fastestLapTime, and LEFT JOIN vs INNER JOIN (driver without results).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://monza');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://2000');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2000, 1, 1, 'Italian GP', '2000-09-10', 'http://race1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2000, 2, 1, 'European GP', '2000-09-24', 'http://race2');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'ferrari', 'Ferrari', 'http://ferrari');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (10, 'd1', 'COU', 'David', 'Coulthard', '1971-03-27', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (20, 'd2', 'VIL', 'Jacques', 'Villeneuve', '1971-04-09', 'http://d2');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (30, 'd3', 'DIN', 'Pedro', 'Diniz', '1971-05-22', 'http://d3');
+
+-- Driver 10 has two valid results with fastestLapTime (kills mutants adding DISTINCT)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (101, 1, 10, 1, 1, '1', 1, 10.0, 53, '1:25.500', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (102, 2, 10, 1, 2, '2', 2, 6.0, 53, '1:26.100', 1);
+
+-- Driver 20 was born in 1971, has a result, but fastestLapTime IS NULL (kills mutants dropping the NOT NULL condition or using OR instead of AND)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (103, 1, 20, 1, 3, '3', 3, 4.0, 53, NULL, 1);
+
+-- Driver 30 was born in 1971, but has no rows in results (kills mutants using LEFT JOIN from drivers to results without proper filtering)
+```
+
+```sql
+-- DATASET 2
+-- Tests date boundary conditions (1970, 1971 start/end, 1972, NULL dob) and substring traps (e.g., '1971' appearing in another part of string or race date).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://spa');
+INSERT INTO seasons (year, url) VALUES (1971, 'http://1971');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1971, 1, 1, 'Belgian GP', '1971-06-20', 'http://race1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'lotus', 'Lotus', 'http://lotus');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- Boundary: First day of 1971
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (1, 'd_start', 'STA', 'Jan', 'One', '1971-01-01', 'http://d_start');
+-- Boundary: Last day of 1971
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (2, 'd_end', 'END', 'Dec', 'ThirtyOne', '1971-12-31', 'http://d_end');
+-- Boundary: Last day of 1970 (kills <=, <, or off-by-one year mutants)
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (3, 'd_1970', 'OLD', 'Old', 'Driver', '1970-12-31', 'http://d_1970');
+-- Boundary: First day of 1972 (kills >=, >, or off-by-one year mutants)
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (4, 'd_1972', 'YNG', 'Young', 'Driver', '1972-01-01', 'http://d_1972');
+-- NULL dob
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (5, 'd_null', 'NUL', 'Null', 'Dob', NULL, 'http://d_null');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (1, 1, 1, 1, 1, '1', 1, 9.0, 40, '1:40.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (2, 1, 2, 1, 2, '2', 2, 6.0, 40, '1:41.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (3, 1, 3, 1, 3, '3', 3, 4.0, 40, '1:42.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (4, 1, 4, 1, 4, '4', 4, 3.0, 40, '1:43.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (5, 1, 5, 1, 5, '5', 5, 2.0, 40, '1:44.000', 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests column confusions in SELECT and WHERE clauses:
+-- 1. Confusing fastestLapTime with time, fastestLap, or fastestLapSpeed.
+-- 2. Confusing code with driverRef, forename, surname, or number.
+-- 3. Confusing driverId with resultId, raceId, or constructorId.
+-- 4. Confusing empty string '' with NULL in fastestLapTime.
+-- 5. Confusing code IS NULL (a valid driver with NULL code should still be output).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (99, 'silverstone', 'Silverstone', 'http://silverstone');
+INSERT INTO seasons (year, url) VALUES (2005, 'http://2005');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (88, 2005, 1, 99, 'British GP', '2005-07-10', 'http://race88');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (77, 'mclaren', 'McLaren', 'http://mclaren');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- Driver 501: Born in 1971, code is NULL (kills mutants adding WHERE code IS NOT NULL)
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, url) VALUES (501, 'ref501', 10, NULL, 'Fore501', 'Sur501', '1971-06-15', 'http://d501');
+
+-- Driver 502: Born in 1971, has time, fastestLap, fastestLapSpeed NOT NULL, but fastestLapTime IS NULL (kills column confusion in WHERE)
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, url) VALUES (502, 'ref502', 20, 'C52', 'Fore502', 'Sur502', '1971-07-20', 'http://d502');
+
+-- Driver 503: Born in 1971, has fastestLapTime NOT NULL, but time, fastestLap, fastestLapSpeed ARE NULL (kills column confusion in WHERE)
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, url) VALUES (503, 'ref503', 30, 'C53', 'Fore503', 'Sur503', '1971-08-25', 'http://d503');
+
+-- Driver 504: Born in 1971, has fastestLapTime = '' (empty string is NOT NULL in SQL, kills mutants checking fastestLapTime != '')
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, url) VALUES (504, 'ref504', 40, 'C54', 'Fore504', 'Sur504', '1971-09-30', 'http://d504');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (9001, 88, 501, 77, 10, 1, '1', 1, 10.0, 60, '1:20:00', 4800000, 45, 1, '1:19.000', '220.5', 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (9002, 88, 502, 77, 20, 2, '2', 2, 8.0, 60, '1:20:10', 4810000, 40, 2, NULL, '219.0', 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (9003, 88, 503, 77, 30, 3, '3', 3, 6.0, 60, NULL, NULL, NULL, NULL, '1:21.000', NULL, 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (9004, 88, 504, 77, 40, 4, '4', 4, 5.0, 60, NULL, NULL, NULL, NULL, '', NULL, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong join key mutations (e.g. T1.resultId = T2.driverId, T1.constructorId = T2.driverId, T1.raceId = T2.driverId, or Cartesian product)
+-- and tests other tables (qualifying, lapTimes, driverStandings) in case a mutant joins the wrong table to drivers.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Monaco', 'http://monaco');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://2010');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2010, 1, 1, 'Monaco GP', '2010-05-16', 'http://race1');
+INSERT INTO constructors (constructorId, constructorId, constructorRef, name, url) VALUES (1, 1, 'red_bull', 'Red Bull', 'http://redbull');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- Driver 1: Born in 1971, has NO results, but its driverId (1) matches raceId (1), constructorId (1), and resultId (1) of Driver 2!
+-- Also Driver 1 has rows in lapTimes, qualifying, and driverStandings.
+-- Kills mutants joining on wrong keys or joining wrong tables.
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (1, 'trap_driver', 'TRP', 'Trap', 'Driver', '1971-02-02', 'http://d1');
+
+-- Driver 2: Born in 1980 (not 1971), has resultId = 1, raceId = 1, constructorId = 1, fastestLapTime NOT NULL.
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (2, 'other_driver', 'OTH', 'Other', 'Driver', '1980-05-05', 'http://d2');
+
+-- Driver 3: Born in 1971, has a valid result with resultId = 300, fastestLapTime NOT NULL.
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (3, 'valid_driver', 'VAL', 'Valid', 'Driver', '1971-11-11', 'http://d3');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (1, 1, 2, 1, 1, '1', 1, 25.0, 78, '1:15.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (300, 1, 3, 1, 2, '2', 2, 18.0, 78, '1:16.000', 1);
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '1:14.000', 74000);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 1, 1, 1, 99, 1, '1:14.000', '1:14.000', '1:14.000');
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (1, 1, 1, 25.0, 1, '1', 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set behavior (when all rows fail at least one condition) and ensures no false positives from LIKE '%1971%' or broken logic.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (10, 'suzuka', 'Suzuka', 'http://suzuka');
+INSERT INTO seasons (year, url) VALUES (1999, 'http://1999');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 1999, 1, 10, 'Japanese GP', '1999-10-31', 'http://race10');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (10, 'williams', 'Williams', 'http://williams');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- Driver 1: Born in 1971, but fastestLapTime IS NULL.
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (1, 'd1', 'ONE', 'Driver', 'One', '1971-04-04', 'http://d1');
+-- Driver 2: Born in 1975, fastestLapTime IS NOT NULL.
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, dob, url) VALUES (2, 'd2', 'TWO', 'Driver', 'Two', '1975-04-04', 'http://d2');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (1, 10, 1, 10, 1, '1', 1, 10.0, 53, NULL, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (2, 10, 2, 10, 2, '2', 2, 6.0, 53, '1:35.000', 1);
+```

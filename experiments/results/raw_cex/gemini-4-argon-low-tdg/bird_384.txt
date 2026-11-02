@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests basic join conditions, format predicate filtering ('legacy' vs 'modern', 'Legacy', 'legacy_custom', NULL), and orphan parent rows (testing INNER JOIN vs LEFT JOIN).
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (1, 'uuid-1', 'Black Lotus', 'LEA');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (2, 'uuid-2', 'Lightning Bolt', 'LEA');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (3, 'uuid-3', 'Counterspell', 'LEA');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (4, 'uuid-4', 'Giant Growth', 'LEA');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (5, 'uuid-5', 'Dark Ritual', 'LEA');
+
+-- uuid-1: matches 'legacy' and has foreign_data
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (1, 'legacy', 'Banned', 'uuid-1');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (1, 'German', 'Schwarzer Lotus', 'uuid-1');
+
+-- uuid-2: non-matching formats ('modern', 'Legacy' case check, NULL) with foreign_data
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (2, 'modern', 'Legal', 'uuid-2');
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (3, 'Legacy', 'Legal', 'uuid-2');
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (4, NULL, 'Legal', 'uuid-2');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (2, 'French', 'Foudre', 'uuid-2');
+
+-- uuid-3: matches 'legacy', but NO foreign_data (tests INNER JOIN vs LEFT JOIN on foreign_data)
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (5, 'legacy', 'Legal', 'uuid-3');
+
+-- uuid-4: has foreign_data, but NO legalities (tests INNER JOIN vs LEFT JOIN on legalities)
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (3, 'Spanish', 'Crecimiento gigante', 'uuid-4');
+
+-- uuid-5: substring format ('legacy_2') to kill LIKE '%legacy%' mutants
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (6, 'legacy_2', 'Legal', 'uuid-5');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (4, 'Italian', 'Rito Oscuro', 'uuid-5');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate rows (1-to-N and M-to-N relationships), DISTINCT vs ALL, NULL language values, and join on `id` vs `uuid` mutations.
+INSERT INTO "cards" ("id", "uuid", "name") VALUES (10, 'uuid-A', 'Ancestral Recall');
+INSERT INTO "cards" ("id", "uuid", "name") VALUES (20, 'uuid-B', 'Time Walk');
+
+-- Deliberately misalign `id` across tables to kill mutants joining on T1.id = T2.id or T1.id = T3.id
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (10, 'modern', 'Banned', 'uuid-B');
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (99, 'legacy', 'Restricted', 'uuid-A');
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (100, 'legacy', 'Banned', 'uuid-A');
+
+-- Multiple foreign_data entries for 'uuid-A': two identical languages (tests DISTINCT), one different, and one NULL language
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (10, 'Russian', 'Time Walk RU', 'uuid-B');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (50, 'Japanese', 'Ancestral Recall JP 1', 'uuid-A');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (51, 'Japanese', 'Ancestral Recall JP 2', 'uuid-A');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (52, NULL, 'Ancestral Recall Unknown', 'uuid-A');
+```
+
+```sql
+-- DATASET 3
+-- Tests column confusion (e.g., T2.status = 'legacy', T3.language = 'legacy', selecting T3.name/T1.name instead of T3.language, or joining via set_translations).
+INSERT INTO "sets" ("id", "code", "name") VALUES (1, 'SET1', 'Set One');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Korean', 'SET1', 'Set One KR');
+
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (1, 'uuid-X', 'Mox Pearl', 'SET1');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (2, 'uuid-Y', 'Mox Sapphire', 'SET1');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (3, 'uuid-Z', 'Mox Jet', 'SET1');
+
+-- uuid-X: status is 'legacy', format is 'vintage' (kills mutant WHERE T2.status = 'legacy')
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (1, 'vintage', 'legacy', 'uuid-X');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (1, 'Chinese', 'Mox Pearl CN', 'uuid-X');
+
+-- uuid-Y: foreign_data language is 'legacy', format is 'commander' (kills mutant WHERE T3.language = 'legacy')
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (2, 'commander', 'Legal', 'uuid-Y');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (2, 'legacy', 'Mox Sapphire Legacy', 'uuid-Y');
+
+-- uuid-Z: valid match where all text columns have distinct values to catch wrong column projection
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (3, 'legacy', 'Legal', 'uuid-Z');
+INSERT INTO "foreign_data" ("id", "language", "name", "type", "text", "flavorText", "uuid") VALUES (3, 'Portuguese', 'Mox Jet PT', 'Artifact', 'Tap: Add B', 'Flavor PT', 'uuid-Z');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL foreign keys in child tables and additional status variations (e.g., kills mutants that add AND T2.status = 'Legal').
+INSERT INTO "cards" ("id", "uuid", "name") VALUES (1, 'uuid-100', 'Sol Ring');
+
+-- Legality has format = 'legacy', but status is NULL (if a mutant adds a status check, it fails)
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (1, 'legacy', NULL, 'uuid-100');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (1, 'German', 'Sonnenring', 'uuid-100');
+
+-- Child rows with NULL uuid (kills mutants that omit join conditions or use wrong outer joins)
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (2, 'legacy', 'Legal', NULL);
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (2, 'Spanish', 'Anillo Solar', NULL);
+```

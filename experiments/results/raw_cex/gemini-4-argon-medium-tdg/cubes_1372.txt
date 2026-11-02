@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (1, 'USA', 'Washington', 'English');
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (2, 'Canada', 'Ottawa', 'English');
+
+INSERT INTO "team" ("Team_id", "Name") VALUES (10, 'Alpha');
+INSERT INTO "team" ("Team_id", "Name") VALUES (20, 'Beta');
+INSERT INTO "team" ("Team_id", "Name") VALUES (30, 'Gamma');
+
+-- LHS valid row: Midfielder, Country 1, Team 10
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2001.0, 10, 1, 'P1', 'Midfielder', 99, '2001', 'College_LHS');
+
+-- RHS valid match 1 (for ORDER BY and DISTINCT testing): Country 1, Draft_Pick_Number 10 -> Z_College
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2002.0, 20, 1, 'P2', 'Defender', 10, '2002', 'Z_College');
+
+-- RHS valid match 2 (duplicate college to test DISTINCT): Country 1, Draft_Pick_Number 10 -> Z_College
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2003.0, 30, 1, 'P3', 'Forward', 10, '2003', 'Z_College');
+
+-- RHS valid match 3 (for ORDER BY ASC vs DESC): Country 1, Draft_Pick_Number 10 -> A_College
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2004.0, 20, 1, 'P4', 'Defender', 10, '2004', 'A_College');
+```
+
+```sql
+-- DATASET 2
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (1, 'USA', 'Washington', 'English');
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (2, 'Canada', 'Ottawa', 'English');
+
+INSERT INTO "team" ("Team_id", "Name") VALUES (10, 'Alpha');
+INSERT INTO "team" ("Team_id", "Name") VALUES (20, 'Beta');
+
+-- Base LHS: Midfielder, Country 1, Team 10, Draft_Pick 50
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2001.0, 10, 1, 'P1', 'Midfielder', 50, '2001', 'Col_Base');
+
+-- True RHS match: Country 1, Draft_Pick 10
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2002.0, 20, 1, 'P2', 'Forward', 10, '2002', 'Col_Valid');
+
+-- Mutant trap: Wrong Country (Country 2, Draft_Pick 10) - tests LHS.country = RHS.country
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2003.0, 20, 2, 'P3', 'Forward', 10, '2003', 'Col_WrongCountry');
+
+-- Mutant trap: Wrong Draft_Pick (Country 1, Draft_Pick 99) - tests LHS.team = RHS.draft_pick_number
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2004.0, 10, 1, 'P4', 'Forward', 99, '2004', 'Col_SameTeamWrongPick');
+
+-- Mutant trap: Reversed Join (Country 1, Team 50 where LHS.Draft_Pick = RHS.Team)
+INSERT INTO "temp_team" SELECT 1 WHERE 0;
+INSERT INTO "team" ("Team_id", "Name") VALUES (50, 'Delta');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2005.0, 50, 1, 'P5', 'Forward', 88, '2005', 'Col_ReversedJoin');
+```
+
+```sql
+-- DATASET 3
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (1, 'USA', 'Washington', 'English');
+
+INSERT INTO "team" ("Team_id", "Name") VALUES (10, 'Alpha');
+INSERT INTO "team" ("Team_id", "Name") VALUES (20, 'Beta');
+INSERT INTO "team" ("Team_id", "Name") VALUES (30, 'Gamma');
+
+-- LHS with Position = 'Forward' (Tests mutant: position = 'Midfielder' OR position <> 'Defender')
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2001.0, 10, 1, 'P1', 'Forward', 99, '2001', 'Col_Forward_LHS');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2002.0, 30, 1, 'P2', 'Defender', 10, '2002', 'Col_MatchedByForward');
+
+-- LHS with Position = 'Defender', matched with RHS having Position = 'Midfielder' (Tests mutant: RHS.position = 'Midfielder')
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2003.0, 20, 1, 'P3', 'Defender', 99, '2003', 'Col_Defender_LHS');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2004.0, 30, 1, 'P4', 'Midfielder', 20, '2004', 'Col_RHS_Is_Midfielder');
+```
+
+```sql
+-- DATASET 4
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (1, 'USA', 'Washington', 'English');
+
+INSERT INTO "team" ("Team_id", "Name") VALUES (10, 'Alpha');
+
+-- Self-join row: Midfielder, Country 1, Team 10, Draft_Pick 10 (Matches itself)
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2001.0, 10, 1, 'P1', 'Midfielder', 10, '2001', 'Col_SelfJoin');
+
+-- Row with NULLs in join columns to test NULL handling
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2002.0, NULL, NULL, 'P2', 'Midfielder', NULL, '2002', 'Col_Nulls');
+
+-- Row matching LHS but with NULL College
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2003.0, 10, 1, 'P3', 'Defender', 10, '2003', NULL);
+```

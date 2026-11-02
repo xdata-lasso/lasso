@@ -1,0 +1,106 @@
+```sql
+-- DATASET 1
+-- Tests basic matching path alongside wrong-column join mutants (WikiPostId vs ExcerptPostId, LastEditorUserId vs OwnerUserId, ParentId, AcceptedAnswerId, Tag.Id vs Post.Id) and wrong-table projection mutants (OwnerDisplayName, LastEditorDisplayName).
+INSERT INTO users (Id, DisplayName, Location) VALUES (1, 'CorrectOwner', 'CorrectLocation');
+INSERT INTO users (Id, DisplayName, Location) VALUES (2, 'WrongEditor', 'WrongEditorLoc');
+INSERT INTO users (Id, DisplayName, Location) VALUES (3, 'WikiOwner', 'WikiLoc');
+INSERT INTO users (Id, DisplayName, Location) VALUES (10, 'IdMatchUser', 'IdMatchLoc');
+INSERT INTO users (Id, DisplayName, Location) VALUES (100, 'PostIdMatchUser', 'PostIdMatchLoc');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, ParentId, AcceptedAnswerId, OwnerDisplayName, LastEditorDisplayName, Tags) VALUES (10, 3, 3, 3, 3, 'Post10OwnerDisp', 'Post10EditorDisp', '<hypothesis-testing>');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, ParentId, AcceptedAnswerId, OwnerDisplayName, LastEditorDisplayName, Tags) VALUES (100, 1, 2, 2, 2, 'WrongOwnerDisp', 'WrongEditorDisp', '<other-tag>');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, ParentId, AcceptedAnswerId, OwnerDisplayName, LastEditorDisplayName, Tags) VALUES (200, 3, 1, 1, 1, 'WikiOwnerDisp', 'WikiEditorDisp', 'hypothesis-testing');
+
+INSERT INTO tags (Id, TagName, Count, ExcerptPostId, WikiPostId) VALUES (10, 'hypothesis-testing', 100, 100, 200);
+```
+
+```sql
+-- DATASET 2
+-- Tests WHERE clause mutations: wrong tag names, case sensitivity, substring/LIKE matches, and dropped WHERE clause.
+INSERT INTO users (Id, DisplayName, Location) VALUES (1, 'UserExact', 'LocExact');
+INSERT INTO users (Id, DisplayName, Location) VALUES (2, 'UserUpper', 'LocUpper');
+INSERT INTO users (Id, DisplayName, Location) VALUES (3, 'UserPrefix', 'LocPrefix');
+INSERT INTO users (Id, DisplayName, Location) VALUES (4, 'UserOther', 'LocOther');
+
+INSERT INTO posts (Id, OwnerUserId) VALUES (101, 1);
+INSERT INTO posts (Id, OwnerUserId) VALUES (102, 2);
+INSERT INTO posts (Id, OwnerUserId) VALUES (103, 3);
+INSERT INTO posts (Id, OwnerUserId) VALUES (104, 4);
+
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (1, 'hypothesis-testing', 101);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (2, 'HYPOTHESIS-TESTING', 102);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (3, 'hypothesis-testing-extra', 103);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (4, 'regression', 104);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN mutations by including NULL foreign keys (ExcerptPostId is NULL, OwnerUserId is NULL, TagName is NULL) and unreferenced users/posts.
+INSERT INTO users (Id, DisplayName, Location) VALUES (1, 'ValidUser', 'ValidLoc');
+INSERT INTO users (Id, DisplayName, Location) VALUES (2, 'UnreferencedUser', 'UnrefLoc');
+
+INSERT INTO posts (Id, OwnerUserId) VALUES (10, 1);
+INSERT INTO posts (Id, OwnerUserId) VALUES (20, NULL);
+INSERT INTO posts (Id, OwnerUserId) VALUES (30, 2);
+
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (1, 'hypothesis-testing', 10);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (2, 'hypothesis-testing', 20);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (3, 'hypothesis-testing', NULL);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (4, NULL, 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests DISTINCT vs ALL (duplicate output rows) and NULL handling in the projected columns (DisplayName and Location).
+INSERT INTO users (Id, DisplayName, Location) VALUES (1, 'DuplicateUser', 'DuplicateLoc');
+INSERT INTO users (Id, DisplayName, Location) VALUES (2, NULL, 'NullNameLoc');
+INSERT INTO users (Id, DisplayName, Location) VALUES (3, 'NullLocUser', NULL);
+INSERT INTO users (Id, DisplayName, Location) VALUES (4, NULL, NULL);
+
+INSERT INTO posts (Id, OwnerUserId) VALUES (10, 1);
+INSERT INTO posts (Id, OwnerUserId) VALUES (11, 1);
+INSERT INTO posts (Id, OwnerUserId) VALUES (12, 2);
+INSERT INTO posts (Id, OwnerUserId) VALUES (13, 3);
+INSERT INTO posts (Id, OwnerUserId) VALUES (14, 4);
+
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (1, 'hypothesis-testing', 10);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (2, 'hypothesis-testing', 10);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (3, 'hypothesis-testing', 11);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (4, 'hypothesis-testing', 12);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (5, 'hypothesis-testing', 13);
+INSERT INTO tags (Id, TagName, ExcerptPostId) VALUES (6, 'hypothesis-testing', 14);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when data exists but the specific chain for 'hypothesis-testing' is broken or absent, and tests mutants that join via comments, votes, badges, or postHistory instead of posts.
+INSERT INTO users (Id, DisplayName, Location) VALUES (1, 'ActiveUser', 'ActiveLoc');
+INSERT INTO users (Id, DisplayName, Location) VALUES (2, 'OtherUser', 'OtherLoc');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId) VALUES (10, NULL, 1);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId) VALUES (20, 2, 2);
+
+INSERT INTO tags (Id, TagName, ExcerptPostId, WikiPostId) VALUES (1, 'hypothesis-testing', 10, 20);
+INSERT INTO tags (Id, TagName, ExcerptPostId, WikiPostId) VALUES (2, 'other-tag', 20, 10);
+
+INSERT INTO comments (Id, PostId, UserId, UserDisplayName) VALUES (1, 10, 1, 'ActiveUser');
+INSERT INTO votes (Id, PostId, UserId) VALUES (1, 10, 1);
+INSERT INTO postHistory (Id, PostId, UserId, UserDisplayName) VALUES (1, 10, 1, 'ActiveUser');
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 1, 'hypothesis-testing');
+```
+
+```sql
+-- DATASET 6
+-- Tests mutations introducing spurious filters on nullable or numeric columns (e.g., Reputation > 0, Score > 0, Count > 0, PostTypeId = 1), or ordering/limiting results (LIMIT 1).
+INSERT INTO users (Id, Reputation, DisplayName, Location, Views, UpVotes, DownVotes, Age) VALUES (1, 0, 'ZetaUser', 'ZeroRepLoc', 0, 0, 0, NULL);
+INSERT INTO users (Id, Reputation, DisplayName, Location, Views, UpVotes, DownVotes, Age) VALUES (2, -10, 'AlphaUser', 'NegRepLoc', -1, 0, 10, 25);
+INSERT INTO users (Id, Reputation, DisplayName, Location, Views, UpVotes, DownVotes, Age) VALUES (3, 500, 'BetaUser', 'PosRepLoc', 100, 50, 2, 40);
+
+INSERT INTO posts (Id, PostTypeId, Score, ViewCount, OwnerUserId, AnswerCount, CommentCount, FavoriteCount) VALUES (10, 4, -5, 0, 1, 0, 0, 0);
+INSERT INTO posts (Id, PostTypeId, Score, ViewCount, OwnerUserId, AnswerCount, CommentCount, FavoriteCount) VALUES (20, NULL, 0, NULL, 2, NULL, NULL, NULL);
+INSERT INTO posts (Id, PostTypeId, Score, ViewCount, OwnerUserId, AnswerCount, CommentCount, FavoriteCount) VALUES (30, 1, 10, 100, 3, 5, 2, 1);
+
+INSERT INTO tags (Id, TagName, Count, ExcerptPostId, WikiPostId) VALUES (1, 'hypothesis-testing', 0, 10, NULL);
+INSERT INTO tags (Id, TagName, Count, ExcerptPostId, WikiPostId) VALUES (2, 'hypothesis-testing', -1, 20, NULL);
+INSERT INTO tags (Id, TagName, Count, ExcerptPostId, WikiPostId) VALUES (3, 'hypothesis-testing', 50, 30, NULL);
+```

@@ -1,0 +1,59 @@
+```sql
+-- DATASET 1
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Kickoff', '2019-09-04', 'Meeting', 'None', 'Room 101', 'Closed');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'CS', 'Eng', 'Tech');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'NYC', 'NY', 'New York', 'NY');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'John', 'Doe', 'j@d.com', 'President', 'L', '123-456', 10001, 'M1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Advertisement', 50.0, 50.0, 100, 'Closed', 'E1');
+
+-- Exact match with valid foreign keys
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Posters', '2019-09-04', 45.50, 'true', 'MEM1', 'B1');
+-- Match description only (tests missing date predicate or OR instead of AND)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Posters', '2019-09-05', 30.00, 'true', 'MEM1', 'B1');
+-- Match date only (tests missing description predicate or OR instead of AND)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Flyers', '2019-09-04', 15.25, 'true', 'MEM1', 'B1');
+-- Match neither
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Food', '2019-10-01', 100.00, 'false', 'MEM1', 'B1');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate costs (kills DISTINCT), multiple matching rows (kills LIMIT 1, SUM, AVG, MAX, MIN), and NULL foreign keys (kills unnecessary INNER JOINs to member, budget, or event)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Posters', '2019-09-04', 25.00, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Posters', '2019-09-04', 25.00, 'false', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Posters', '2019-09-04', 75.50, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests case sensitivity, substring/LIKE mutants, date boundary mutants, and NULLs in filtered columns
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'posters', '2019-09-04', 10.0, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'POSTERS', '2019-09-04', 20.0, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Posters and Flyers', '2019-09-04', 30.0, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Posters', '2019-09-04 00:00:00', 40.0, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP5', 'Posters', '2019-09-03', 50.0, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP6', NULL, '2019-09-04', 60.0, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP7', 'Posters', NULL, 70.0, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP8', 'Posters', '2019-09-04', 99.99, 'false', NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between expense_description/budget.category and expense_date/event.event_date, as well as expense.cost vs budget.spent/amount
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Poster Session', '2019-09-04', 'Event', 'Notes', 'Loc', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'General Meeting', '2019-10-10', 'Meeting', 'Notes', 'Loc', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Posters', 200.0, 100.0, 300, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Snacks', 50.0, 50.0, 100, 'Closed', 'E2');
+
+-- Linked to E1 (2019-09-04) and B1 (category 'Posters'), but expense itself has different description and date
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Printing', '2019-09-01', 88.00, 'true', NULL, 'B1');
+-- Linked to E2 (2019-10-10) and B2 (category 'Snacks'), but expense itself matches 'Posters' and '2019-09-04'
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Posters', '2019-09-04', 42.50, 'true', NULL, 'B2');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set handling and NULL cost values
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Posters', '2019-09-04', NULL, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Posters', '2019-09-04', 0.0, 'false', NULL, NULL);
+```

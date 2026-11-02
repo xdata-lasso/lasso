@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Target: Join path via district_id vs disp table, plus off-by-one and cross-join traps.
+-- T1(client 4) shares district 10 with T2(account 100), which has T3(trans 851).
+-- However, via the disp table, client 4 is linked to account 200 (in district 20), which has trans 852.
+-- Also includes boundary values for client_id (3, 5) and trans_id (850, 852).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'D10', 'R1', '1000', '10', '10', '10', 1, 1, 50.0, 8000, 1.0, 2.0, 100, 10, 20);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'D20', 'R2', '2000', '20', '20', '20', 2, 2, 60.0, 9000, 1.5, 2.5, 200, 20, 30);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'M', '1970-01-01', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'F', '1980-05-15', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (5, 'M', '1990-10-20', 20);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (100, 10, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (200, 20, 'POPLATEK TYDNE', '1996-01-01');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 4, 200, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 5, 100, 'OWNER');
+
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (850, 100, '1998-01-01', 'PRIJEM', 'VKLAD', 500, 1500, ' ', ' ', 0);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (851, 100, '1998-01-02', 'VYDAJ', 'VYBER', 999, 2500, ' ', ' ', 0);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (852, 200, '1998-01-03', 'PRIJEM', 'VKLAD', 700, 3500, ' ', ' ', 0);
+```
+
+```sql
+-- DATASET 2
+-- Target: Accidental ID equality mutants (e.g., T1.client_id = T2.account_id, T2.account_id = T3.account, T1.district_id = T2.account_id).
+-- Also tests when the valid join produces 0 rows because client 4 and trans 851 are in different districts, 
+-- while a mutant using disp or ignoring the district join would return a row.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 5000, 1.0, 1.0, 10, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '200', '2', '2', '2', 2, 2, 20.0, 6000, 2.0, 2.0, 20, 2, 2);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'M', '1975-03-03', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (40, 'F', '1985-04-04', 2);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (4, 2, 'POPLATEK MESICNE', '1993-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (50, 1, 'POPLATEK MESICNE', '1993-02-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (60, 2, 'POPLATEK MESICNE', '1993-03-03');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (10, 4, 60, 'OWNER');
+
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (851, 60, '1999-05-05', 'PRIJEM', 'PREVOD Z UCTU', 1200, 8888, ' ', 'AB', 50);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (4, 50, '1999-05-06', 'VYDAJ', 'VYBER', 300, 7777, ' ', ' ', 60);
+```
+
+```sql
+-- DATASET 3
+-- Target: Mutants using DISTINCT, GROUP BY, or LIMIT 1 when multiple accounts exist in the same district, 
+-- or mutants joining on T3.account instead of T3.account_id, or confusing T3.amount with T3.balance.
+-- Here, T3.trans_id = 851 is a PK so it can only belong to one account, testing that other accounts in the same district with other transactions don't interfere,
+-- and testing negative/zero balances.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (5, 'D5', 'R5', '500', '5', '5', '5', 5, 5, 50.0, 5000, NULL, 5.0, 50, NULL, 5);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'F', '1960-12-12', 5);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 5, 'POPLATEK PO OBRATU', '1994-07-07');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 5, 'POPLATEK MESICNE', '1994-08-08');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (100, 4, 10, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (101, 4, 20, 'DISPONENT');
+
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (851, 10, '1997-11-11', 'VYDAJ', 'VYBER', 5000, -250, NULL, NULL, 20);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (852, 20, '1997-11-11', 'PRIJEM', 'VKLAD', 0, 0, 'UROK', 'CD', 10);
+```

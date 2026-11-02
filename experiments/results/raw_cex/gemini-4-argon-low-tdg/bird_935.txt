@@ -1,0 +1,153 @@
+```sql
+-- DATASET 1
+-- Core Predicate & Boundary Testing:
+-- Tests T1.name = 'Australian Grand Prix', T1.year = 2008, T2.time IS NOT NULL,
+-- vs wrong race name, wrong years (2007, 2009), NULL time, and empty string time.
+-- Also tests confusion between circuits.name and races.name, and races.time vs results.time.
+INSERT INTO seasons (year, url) VALUES (2007, 'http://en.wikipedia.org/wiki/2007_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2008, 'http://en.wikipedia.org/wiki/2008_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2009, 'http://en.wikipedia.org/wiki/2009_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'albert_park', 'Albert Park Grand Prix Circuit', 'Melbourne', 'Australia', 'http://en.wikipedia.org/wiki/Melbourne_Grand_Prix_Circuit');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'sepang', 'Australian Grand Prix', 'Kuala Lumpur', 'Malaysia', 'http://en.wikipedia.org/wiki/Sepang_International_Circuit');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'mclaren', 'McLaren', 'British', 'http://en.wikipedia.org/wiki/McLaren');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://en.wikipedia.org/wiki/Lewis_Hamilton');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'heidfeld', 'Nick', 'Heidfeld', 'http://en.wikipedia.org/wiki/Nick_Heidfeld');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'rosberg', 'Nico', 'Rosberg', 'http://en.wikipedia.org/wiki/Nico_Rosberg');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'alonso', 'Fernando', 'Alonso', 'http://en.wikipedia.org/wiki/Fernando_Alonso');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO status (statusId, status) VALUES (2, 'Collision');
+
+-- Target Race: 2008 Australian Grand Prix (note: races.time is NULL to catch mutants checking T1.time IS NOT NULL)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2008, 1, 1, 'Australian Grand Prix', '2008-03-16', NULL, 'http://en.wikipedia.org/wiki/2008_Australian_Grand_Prix');
+-- Boundary Year: 2007 Australian Grand Prix
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2007, 1, 1, 'Australian Grand Prix', '2007-03-18', '04:00:00', 'http://en.wikipedia.org/wiki/2007_Australian_Grand_Prix');
+-- Boundary Year: 2009 Australian Grand Prix
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (3, 2009, 1, 1, 'Australian Grand Prix', '2009-03-29', '06:00:00', 'http://en.wikipedia.org/wiki/2009_Australian_Grand_Prix');
+-- Wrong Race Name in 2008 (but on circuit named 'Australian Grand Prix' to catch table confusion)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (4, 2008, 2, 2, 'Malaysian Grand Prix', '2008-03-23', '07:00:00', 'http://en.wikipedia.org/wiki/2008_Malaysian_Grand_Prix');
+
+-- Valid result for target race (Count +1)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (1, 1, 1, 1, 1, '1', 1, 10.0, 58, '1:34:50.616', 5690616, 1);
+-- Valid result for target race with empty string time (Count +1, kills mutants checking time != '')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (2, 1, 2, 1, 5, '2', 2, 8.0, 58, '', 5696094, 1);
+-- Invalid result for target race: time IS NULL (Count +0, kills mutants omitting time IS NOT NULL or checking milliseconds IS NOT NULL)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (3, 1, 3, 1, 7, 'R', 15, 0.0, 25, NULL, 2500000, 2);
+-- Invalid result: 2007 Australian GP with valid time (kills mutants omitting year = 2008 or using year <= 2008)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (4, 2, 1, 1, 1, '1', 1, 10.0, 58, '1:25:28.770', 5128770, 1);
+-- Invalid result: 2009 Australian GP with valid time (kills mutants using year >= 2008)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (5, 3, 2, 1, 1, '1', 1, 10.0, 58, '1:34:15.784', 5655784, 1);
+-- Invalid result: 2008 Malaysian GP with valid time (kills mutants omitting name = 'Australian Grand Prix')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (6, 4, 4, 1, 1, '1', 1, 10.0, 56, '1:31:18.555', 5478555, 1);
+```
+
+```sql
+-- DATASET 2
+-- Duplicate Driver & Multiple Target Races Testing:
+-- Tests COUNT(T2.driverId) vs COUNT(DISTINCT T2.driverId), COUNT(DISTINCT T1.raceId),
+-- and cross-join / missing join condition mutants.
+INSERT INTO seasons (year, url) VALUES (2008, 'http://en.wikipedia.org/wiki/2008_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'albert_park', 'Albert Park Grand Prix Circuit', 'Melbourne', 'Australia', 'http://en.wikipedia.org/wiki/Melbourne_Grand_Prix_Circuit');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'ferrari', 'Ferrari', 'Italian', 'http://en.wikipedia.org/wiki/Scuderia_Ferrari');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'bmw_sauber', 'BMW Sauber', 'German', 'http://en.wikipedia.org/wiki/BMW_Sauber');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'raikkonen', 'Kimi', 'Räikkönen', 'http://en.wikipedia.org/wiki/Kimi_R%C3%A4ikk%C3%B6nen');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'massa', 'Felipe', 'Massa', 'http://en.wikipedia.org/wiki/Felipe_Massa');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- Two races matching 2008 Australian Grand Prix
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (10, 2008, 1, 1, 'Australian Grand Prix', '2008-03-16', '04:30:00', 'http://en.wikipedia.org/wiki/2008_Australian_Grand_Prix_1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (20, 2008, 2, 1, 'Australian Grand Prix', '2008-03-17', '04:30:00', 'http://en.wikipedia.org/wiki/2008_Australian_Grand_Prix_2');
+-- Non-matching race in 2008
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (30, 2008, 3, 1, 'Bahrain Grand Prix', '2008-04-06', '11:30:00', 'http://en.wikipedia.org/wiki/2008_Bahrain_Grand_Prix');
+
+-- Same driver (driverId = 10) has two valid results in race 10 (e.g. shared drive / two entries) and one in race 20
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, fastestLapTime, statusId) VALUES (101, 10, 10, 1, 1, 1, '1', 1, 10.0, 58, '1:30:00.000', NULL, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, fastestLapTime, statusId) VALUES (102, 10, 10, 2, 2, NULL, '2', 2, 8.0, 58, '+5.0 secs', NULL, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, fastestLapTime, statusId) VALUES (103, 20, 10, 1, 1, 1, '1', 1, 10.0, 58, '1:31:00.000', NULL, 1);
+
+-- Driver 20 has NULL time in race 10, but non-NULL fastestLapTime (kills mutants checking fastestLapTime IS NOT NULL)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, fastestLapTime, statusId) VALUES (104, 10, 20, 1, 3, 3, 'R', 3, 0.0, 40, NULL, '1:27.452', 1);
+
+-- Driver 20 has valid time in non-matching race 30 (kills missing join condition or wrong join key mutants like T1.raceId = T2.driverId)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, fastestLapTime, statusId) VALUES (105, 30, 20, 1, 1, 1, '1', 1, 10.0, 57, '1:31:06.970', '1:33.193', 1);
+```
+
+```sql
+-- DATASET 3
+-- String Matching & Zero-Count Edge Case Testing:
+-- Target race exists, but all its results have NULL time (Expected COUNT = 0).
+-- Other races with substrings/case-variations ('Australian Grand Prix 2008', 'australian grand prix') have non-NULL times.
+-- Kills LIKE '%Australian Grand Prix%', case-insensitive mutants, and LEFT JOIN + COUNT(*) mutants.
+INSERT INTO seasons (year, url) VALUES (2008, 'http://en.wikipedia.org/wiki/2008_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'albert_park', 'Albert Park Grand Prix Circuit', 'Melbourne', 'Australia', 'http://en.wikipedia.org/wiki/Melbourne_Grand_Prix_Circuit');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'williams', 'Williams', 'British', 'http://en.wikipedia.org/wiki/Williams_Grand_Prix_Engineering');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'nakajima', 'Kazuki', 'Nakajima', 'http://en.wikipedia.org/wiki/Kazuki_Nakajima');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Retired');
+INSERT INTO status (statusId, status) VALUES (2, 'Finished');
+
+-- Exact target race, but will only have NULL time results (or no valid results)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2008, 1, 1, 'Australian Grand Prix', '2008-03-16', '04:30:00', 'http://en.wikipedia.org/wiki/2008_Australian_Grand_Prix');
+-- Case variation race name
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2008, 2, 1, 'australian grand prix', '2008-03-23', '04:30:00', 'http://en.wikipedia.org/wiki/2008_Australian_Grand_Prix_lower');
+-- Prefix/Suffix variation race name
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (3, 2008, 3, 1, 'Rolex Australian Grand Prix', '2008-03-30', '04:30:00', 'http://en.wikipedia.org/wiki/2008_Australian_Grand_Prix_prefix');
+
+-- Target race result has NULL time (so valid count for race 1 is 0)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (1, 1, 1, 1, 10, 'R', 10, 0.0, 10, NULL, 1);
+-- Non-target races have non-NULL time
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (2, 2, 1, 1, 1, '1', 1, 10.0, 58, '1:35:00.000', 2);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (3, 3, 1, 1, 1, '1', 1, 10.0, 58, '1:36:00.000', 2);
+```
+
+```sql
+-- DATASET 4
+-- Table Confusion & Logical Operator (AND vs OR) Testing:
+-- Tests confusion between results, lapTimes, pitStops, qualifying, driverStandings.
+-- Also tests AND vs OR in the WHERE clause.
+INSERT INTO seasons (year, url) VALUES (2006, 'http://en.wikipedia.org/wiki/2006_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2008, 'http://en.wikipedia.org/wiki/2008_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'albert_park', 'Albert Park Grand Prix Circuit', 'Melbourne', 'Australia', 'http://en.wikipedia.org/wiki/Melbourne_Grand_Prix_Circuit');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'renault', 'Renault', 'French', 'http://en.wikipedia.org/wiki/Renault_in_Formula_One');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'alonso', 'Fernando', 'Alonso', 'http://en.wikipedia.org/wiki/Fernando_Alonso');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'piquet_jr', 'Nelson', 'Piquet Jr.', 'http://en.wikipedia.org/wiki/Nelson_Piquet,_Jr.');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'trulli', 'Jarno', 'Trulli', 'http://en.wikipedia.org/wiki/Jarno_Trulli');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- Race 1: 2008 Australian Grand Prix (Matches both name and year)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2008, 1, 1, 'Australian Grand Prix', '2008-03-16', '04:30:00', 'http://en.wikipedia.org/wiki/2008_Australian_Grand_Prix');
+-- Race 2: 2006 Australian Grand Prix (Matches name, fails year)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2006, 3, 1, 'Australian Grand Prix', '2006-04-02', '04:00:00', 'http://en.wikipedia.org/wiki/2006_Australian_Grand_Prix');
+-- Race 3: 2008 Monaco Grand Prix (Fails name, matches year)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (3, 2008, 6, 1, 'Monaco Grand Prix', '2008-05-25', '12:00:00', 'http://en.wikipedia.org/wiki/2008_Monaco_Grand_Prix');
+
+-- Results for Race 1: 3 valid rows, 1 NULL time row
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (1, 1, 1, 1, 1, '1', 1, 10.0, 58, '1:34:50.616', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (2, 1, 2, 1, 2, '2', 2, 8.0, 58, '+5.478', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (3, 1, 3, 1, 3, '3', 3, 6.0, 58, '+8.163', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (4, 1, 1, 1, 4, 'R', 4, 0.0, 12, NULL, 1);
+
+-- Results for Race 2 & 3 (To catch OR mutants between name, year, and time)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (5, 2, 1, 1, 1, '1', 1, 10.0, 57, '1:34:27.870', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (6, 3, 2, 1, 1, '1', 1, 10.0, 76, '2:00:42.742', 1);
+
+-- Populate lapTimes, pitStops, driverStandings for Race 1 with different row counts (1 row each)
+-- so any mutant querying lapTimes, pitStops, or driverStandings instead of results returns 1 instead of 3.
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '1:27.000', 87000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 1, 20, '14:30:00', '22.500', 22500);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (1, 1, 1, 10.0, 1, '1', 1);
+```

@@ -1,0 +1,53 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (reverse relative to PK and asset_make), duplicate asset_model values (kills DISTINCT/GROUP BY), and valid foreign keys (kills INNER JOIN with missing references when tested against Dataset 2)
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'SUP', 'Acme Corp', '123 Way', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Standard');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Details Z', 'MakeA', 'Model_Z', '2023-01-01 00:00:00', '2024-01-01 00:00:00', 'OtherC');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (2, 1, 1, 'Details M', 'MakeB', 'Model_A', '2022-01-01 00:00:00', '2025-01-01 00:00:00', 'OtherB');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (3, 1, 1, 'Details A', 'MakeC', 'Model_M', '2021-01-01 00:00:00', '2026-01-01 00:00:00', 'OtherA');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (4, 1, 1, 'Details B', 'MakeD', 'Model_A', '2020-01-01 00:00:00', '2027-01-01 00:00:00', 'OtherD');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL foreign keys, NULL disposed dates, and missing child records in Fault_Log / Asset_Parts (kills erroneous INNER JOINs and WHERE IS NOT NULL clauses)
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (10, 'MNT', 'Beta LLC', '456 Blvd', 'Details');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (10, 10, '2021-01-01 00:00:00', '2023-01-01 00:00:00', 'Premium');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (100, 'Motor', 1, 500, 'None');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (100, 'Alice', 1, 'Tech');
+
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 10, 10, 'Has all links', 'Ford', 'F150', '2020-05-01 00:00:00', '2022-05-01 00:00:00', 'Disposed');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (2, NULL, NULL, 'No FK links, active', 'Chevy', 'Silverado', '2021-06-01 00:00:00', NULL, NULL);
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (3, 10, NULL, 'Partial FK', 'Dodge', 'Ram', '2019-03-01 00:00:00', NULL, 'Active');
+
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (1, 100);
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (1, 100, 1, '2021-01-01 10:00:00', 'Broken', 'Urgent');
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple child records per asset (kills queries with ungrouped JOINs to Asset_Parts or Fault_Log that multiply rows)
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Part A', 0, 0, 'None');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Part B', 1, 50, 'None');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Bob', 0, 'Admin');
+
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (10, NULL, NULL, 'Multi-child asset', 'Dell', 'XPS-15', '2022-01-01 00:00:00', NULL, 'Laptop');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (20, NULL, NULL, 'Single asset', 'Apple', 'MacBook', '2022-02-01 00:00:00', NULL, 'Laptop');
+
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (10, 1);
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (10, 2);
+
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (101, 1, 10, '2022-03-01 00:00:00', 'Fault 1', 'D1');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (102, 1, 10, '2022-04-01 00:00:00', 'Fault 2', 'D2');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL values in asset_model, lexicographical vs numerical sorting, and case-sensitivity in sorting
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, NULL, NULL, 'Null model', 'Make1', NULL, '2020-01-01 00:00:00', NULL, 'Details');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (2, NULL, NULL, 'Number 100', 'Make2', '100', '2020-01-02 00:00:00', NULL, 'Details');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (3, NULL, NULL, 'Number 20', 'Make3', '20', '2020-01-03 00:00:00', NULL, 'Details');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (4, NULL, NULL, 'Lowercase', 'Make4', 'alpha', '2020-01-04 00:00:00', NULL, 'Details');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (5, NULL, NULL, 'Uppercase', 'Make5', 'Beta', '2020-01-05 00:00:00', NULL, 'Details');
+```

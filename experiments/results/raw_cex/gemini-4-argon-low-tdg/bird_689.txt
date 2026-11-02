@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests LIMIT 1 vs no LIMIT, and basic WHERE T2.Id = 183 filtering.
+-- Multiple posts for User 183 will produce 2 rows if LIMIT 1 is omitted.
+INSERT INTO users (Id, DisplayName, Location) VALUES (183, 'Alice', 'New York');
+INSERT INTO users (Id, DisplayName, Location) VALUES (184, 'Bob', 'London');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, LastEditDate) VALUES (1, 183, 184, '2023-05-01 10:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, LastEditDate) VALUES (2, 183, 184, '2023-05-02 10:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, LastEditDate) VALUES (3, 184, 183, '2023-05-03 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT JOIN (users LEFT JOIN posts) and join key (OwnerUserId vs LastEditorUserId).
+-- User 183 has NO owned posts, only edited a post owned by User 184.
+-- Gold query returns 0 rows. Mutants using LEFT JOIN on users or joining on LastEditorUserId will return a row.
+INSERT INTO users (Id, DisplayName, Location) VALUES (183, 'Charlie', 'Paris');
+INSERT INTO users (Id, DisplayName, Location) VALUES (184, 'David', 'Berlin');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, LastEditDate) VALUES (10, 184, 183, '2023-06-01 12:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests WHERE condition boundary mutations (e.g., Id > 183, Id < 183, Id <> 183, or missing WHERE)
+-- when User 183 does not exist at all. Gold returns 0 rows.
+INSERT INTO users (Id, DisplayName, Location) VALUES (182, 'Eve', 'Tokyo');
+INSERT INTO users (Id, DisplayName, Location) VALUES (184, 'Frank', 'Sydney');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (20, 182, '2023-07-01 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (21, 184, '2023-07-02 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between T1.Id = 183 (Post Id) and T2.Id = 183 (User Id),
+-- as well as join condition mutations (e.g., T1.Id = T2.Id).
+-- User 183 has no posts, but Post 183 exists and is owned by User 99.
+-- Gold returns 0 rows.
+INSERT INTO users (Id, DisplayName, Location) VALUES (99, 'Grace', 'Toronto');
+INSERT INTO users (Id, DisplayName, Location) VALUES (183, 'Heidi', 'Rome');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (183, 99, '2023-08-01 08:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (99, 99, '2023-08-02 08:00:00');
+```
+
+```sql
+-- DATASET 5
+-- Tests ORDER BY T1.LastEditDate DESC vs ASC, and WHERE >= 183 / <= 183 if combined with ordering.
+-- Note: Since T2.DisplayName and T2.Location are functionally dependent on T2.Id = 183 in a standard query,
+-- ordering differences affect queries that either project T1 columns or fail to restrict strictly to T2.Id = 183.
+INSERT INTO users (Id, DisplayName, Location) VALUES (182, 'User182', 'Loc182');
+INSERT INTO users (Id, DisplayName, Location) VALUES (183, 'User183', 'Loc183');
+INSERT INTO users (Id, DisplayName, Location) VALUES (184, 'User184', 'Loc184');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate, CreaionDate, LasActivityDate) VALUES (1, 182, '2023-09-03 00:00:00', '2023-01-01 00:00:00', '2023-01-01 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate, CreaionDate, LasActivityDate) VALUES (2, 183, '2023-09-02 00:00:00', '2023-05-01 00:00:00', '2023-05-01 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate, CreaionDate, LasActivityDate) VALUES (3, 184, '2023-09-01 00:00:00', '2023-09-09 00:00:00', '2023-09-09 00:00:00');
+```
+
+```sql
+-- DATASET 6
+-- Tests NULL handling in projected columns (DisplayName, Location) and LastEditDate,
+-- plus tests column swaps in SELECT (e.g., selecting OwnerDisplayName or AboutMe instead of DisplayName/Location).
+INSERT INTO users (Id, DisplayName, Location, AboutMe, WebsiteUrl) VALUES (183, NULL, 'Madrid', 'AboutMeText', 'http://example.com');
+INSERT INTO posts (Id, OwnerUserId, OwnerDisplayName, LastEditDate, Title) VALUES (100, 183, 'FallbackName', NULL, 'PostTitle');
+```
+
+```sql
+-- DATASET 7
+-- Tests NULLS FIRST vs NULLS LAST in ORDER BY T1.LastEditDate DESC, and tie-breaking by T1.Id.
+-- Also tests if a mutant drops the WHERE clause when NULL dates exist.
+INSERT INTO users (Id, DisplayName, Location) VALUES (183, 'Ivan', 'Moscow');
+INSERT INTO users (Id, DisplayName, Location) VALUES (200, 'Judy', 'Seoul');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (10, 200, NULL);
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (5, 183, '2023-10-10 10:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (6, 183, NULL);
+```

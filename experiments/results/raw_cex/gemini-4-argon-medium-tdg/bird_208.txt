@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. GROUP BY T2.label vs GROUP BY T2.molecule_id (L1 has 2 molecules with 2 'h' each = 4 total; L2 has 1 molecule with 3 'h').
+-- 2. COUNT(T2.molecule_id) vs COUNT(DISTINCT T2.molecule_id) (L1 has 2 distinct molecules, L3 has 3 distinct molecules with 1 'h' each).
+-- 3. WHERE T1.element = 'h' vs missing WHERE or wrong element (L2 has many 'c' atoms).
+-- 4. ORDER BY COUNT DESC vs ASC.
+-- 5. LIMIT 1 vs no LIMIT.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', 'L1');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', 'L1');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', 'L2');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m4', 'L3');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m5', 'L3');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m6', 'L3');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm2', 'h');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a5', 'm3', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a6', 'm3', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a7', 'm3', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a8', 'm3', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a9', 'm3', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a10', 'm3', 'c');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a11', 'm4', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a12', 'm5', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a13', 'm6', 'h');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Tie-breaker on ORDER BY T2.label ASC vs DESC (both '+' and '-' have count 2).
+-- 2. Tie-breaker NULLS LAST vs NULLS FIRST (a NULL label also has count 2).
+-- 3. Case sensitivity of element = 'h' vs 'H'.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', NULL);
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'h');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm2', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a5', 'm2', 'H');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a6', 'm3', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a7', 'm3', 'h');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN from atom to molecule (orphan atoms with molecule_id = NULL and element = 'h').
+-- 2. COUNT(T2.molecule_id) vs COUNT(*) when LEFT JOIN is mistakenly used.
+-- 3. Unnecessary joins with bond or connected tables (m1 has no bonds/connections, m2 has bonds/connections).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', 'winner');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', 'loser');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', NULL, 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', NULL, 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', NULL, 'h');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm1', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a5', 'm1', 'h');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a6', 'm2', 'h');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm2', '1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a6', 'a6', 'b1');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty result set when no atoms have element = 'h' (kills mutants using RIGHT/LEFT JOIN from molecule without proper filtering).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', 'A');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', 'B');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Single molecule with multiple 'h' atoms vs multiple molecules with 0 'h' atoms (tests RIGHT JOIN molecule / COUNT(T2.molecule_id) where molecules without 'h' might be counted).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', 'many_mols_no_h');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', 'many_mols_no_h');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', 'many_mols_no_h');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m4', 'one_mol_with_h');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm4', 'h');
+```

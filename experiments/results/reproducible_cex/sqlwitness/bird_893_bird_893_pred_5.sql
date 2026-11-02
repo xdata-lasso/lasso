@@ -1,0 +1,56 @@
+-- Schema DDL
+CREATE TABLE circuits (circuitId INTEGER PRIMARY KEY AUTOINCREMENT, circuitRef TEXT DEFAULT '' NOT NULL, name TEXT DEFAULT '' NOT NULL, location TEXT, country TEXT, lat REAL, lng REAL, alt INTEGER, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE constructors (constructorId INTEGER PRIMARY KEY AUTOINCREMENT, constructorRef TEXT DEFAULT '' NOT NULL, name TEXT DEFAULT '' NOT NULL UNIQUE, nationality TEXT, url TEXT DEFAULT '' NOT NULL);
+
+CREATE TABLE drivers (driverId INTEGER PRIMARY KEY AUTOINCREMENT, driverRef TEXT DEFAULT '' NOT NULL, number INTEGER, code TEXT, forename TEXT DEFAULT '' NOT NULL, surname TEXT DEFAULT '' NOT NULL, dob DATE, nationality TEXT, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE seasons (year INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE races (raceId INTEGER PRIMARY KEY AUTOINCREMENT, year INTEGER DEFAULT 0 NOT NULL, round INTEGER DEFAULT 0 NOT NULL, circuitId INTEGER DEFAULT 0 NOT NULL, name TEXT DEFAULT '' NOT NULL, date DATE DEFAULT '0000-00-00' NOT NULL, time TEXT, url TEXT UNIQUE, FOREIGN KEY (year) REFERENCES seasons (year), FOREIGN KEY (circuitId) REFERENCES circuits (circuitId));
+
+CREATE TABLE constructorResults (constructorResultsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, points REAL, status TEXT, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE constructorStandings (constructorStandingsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT, wins INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE driverStandings (driverStandingsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT, wins INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE lapTimes (raceId INTEGER NOT NULL, driverId INTEGER NOT NULL, lap INTEGER NOT NULL, position INTEGER, time TEXT, milliseconds INTEGER, PRIMARY KEY (raceId, driverId, lap), FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE pitStops (raceId INTEGER NOT NULL, driverId INTEGER NOT NULL, stop INTEGER NOT NULL, lap INTEGER NOT NULL, time TEXT NOT NULL, duration TEXT, milliseconds INTEGER, PRIMARY KEY (raceId, driverId, stop), FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE qualifying (qualifyId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, number INTEGER DEFAULT 0 NOT NULL, position INTEGER, q1 TEXT, q2 TEXT, q3 TEXT, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE status (statusId INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT DEFAULT '' NOT NULL);
+
+CREATE TABLE results (resultId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, number INTEGER, grid INTEGER DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT DEFAULT '' NOT NULL, positionOrder INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, laps INTEGER DEFAULT 0 NOT NULL, time TEXT, milliseconds INTEGER, fastestLap INTEGER, rank INTEGER DEFAULT 0, fastestLapTime TEXT, fastestLapSpeed TEXT, statusId INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId), FOREIGN KEY (statusId) REFERENCES status (statusId));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO status (statusid, status) VALUES (0, 'Chinese Grand Prix'), (2018, 'default1'), (1, 'default1'), (2016, 'Chinese Grand Prix'), (4, 'Chinese Grand Prix'), (2017, 'Chinese Grand Prix'), (2, 'default1'), (3, 'Chinese Grand Prix'), (5, 'Chinese Grand Prix'), (6, 'default1'), (7, 'default1'), (8, 'Chinese Grand Prix'), (9, 'default1'), (10, 'default1'), (11, 'default1'), (12, 'default2');
+INSERT INTO seasons (year, url) VALUES (3, 'Chinese Grand Prix'), (1, 'default2'), (0, 'default1'), (4, 'unique_3'), (2018, 'unique_4'), (2017, 'unique_5'), (2016, 'unique_6'), (2, 'unique_7');
+INSERT INTO drivers (driverid, driverref, number, code, forename, surname, dob, nationality, url) VALUES (2017, 'default1', 4, NULL, 'default2', 'Chinese Grand Prix', NULL, NULL, 'Chinese Grand Prix'), (0, 'default1', 0, NULL, 'Chinese Grand Prix', 'default1', '2023-01-02', 'Chinese Grand Prix', 'default2'), (2016, 'default2', 3, 'default2', 'default1', 'Chinese Grand Prix', NULL, 'Chinese Grand Prix', 'default1'), (2, 'Chinese Grand Prix', 4, 'Chinese Grand Prix', 'Chinese Grand Prix', 'Chinese Grand Prix', '2023-01-02', 'default1', 'unique_3'), (4, 'Chinese Grand Prix', 3, 'default1', 'Chinese Grand Prix', 'default1', '2023-01-02', 'Chinese Grand Prix', 'unique_4'), (1, 'default2', 2016, 'Chinese Grand Prix', 'default2', 'Chinese Grand Prix', '2023-01-01', NULL, 'unique_5'), (2018, 'Chinese Grand Prix', 2016, 'default1', 'Chinese Grand Prix', 'default2', '2023-01-01', 'default1', 'unique_6'), (3, 'Chinese Grand Prix', 2016, NULL, 'default1', 'default1', '2023-01-01', NULL, 'unique_7'), (5, 'Chinese Grand Prix', 0, 'default2', 'Chinese Grand Prix', 'default1', '2023-01-02', NULL, 'unique_8'), (6, 'Chinese Grand Prix', 3, 'default1', 'default2', 'default2', '2023-01-01', 'default2', 'unique_9'), (7, 'default2', 2017, 'default2', 'default2', 'Chinese Grand Prix', '2023-01-01', NULL, 'unique_10'), (8, 'Chinese Grand Prix', 4, NULL, 'default1', 'default1', '2023-01-01', 'Chinese Grand Prix', 'unique_11');
+INSERT INTO constructors (constructorid, constructorref, name, nationality, url) VALUES (1, 'default2', 'default1', 'Chinese Grand Prix', 'Chinese Grand Prix'), (2018, 'Chinese Grand Prix', 'default2', NULL, 'default2'), (2016, 'default1', 'Chinese Grand Prix', NULL, 'default2'), (2017, 'default2', 'unique_3', 'default2', 'default1');
+INSERT INTO circuits (circuitid, circuitref, name, location, country, lat, lng, alt, url) VALUES (0, 'default1', 'default1', 'Chinese Grand Prix', NULL, 2018.0, 2017.0, 2017, 'Chinese Grand Prix'), (2016, 'Chinese Grand Prix', 'Chinese Grand Prix', 'Chinese Grand Prix', 'default1', 3.0, 4.0, 1, 'default1'), (3, 'Chinese Grand Prix', 'Chinese Grand Prix', 'Chinese Grand Prix', 'default2', 0.0, 2016.0, 3, 'default2'), (2, 'Chinese Grand Prix', 'Chinese Grand Prix', 'default2', 'Chinese Grand Prix', 2017.0, 2018.0, 4, 'unique_3'), (4, 'default2', 'Chinese Grand Prix', 'default1', 'Chinese Grand Prix', NULL, 2016.0, 2016, 'unique_4'), (2017, 'default2', 'Chinese Grand Prix', NULL, 'default2', 3.0, 0.0, 4, 'unique_5'), (2018, 'default1', 'default1', 'default2', 'default2', 2018.0, 0.0, 4, 'unique_6');
+INSERT INTO races (raceid, year, circuitid, round, name, date, time, url) VALUES (2018, 4, 2, 4, 'Chinese Grand Prix', '2023-01-02', 'default2', 'default2'), (2, 2017, 4, 3, 'default1', '2023-01-02', 'Chinese Grand Prix', 'default1'), (2017, 2016, 2, 1, 'default2', '2023-01-02', NULL, 'Chinese Grand Prix'), (0, 2018, 2018, 4, 'Chinese Grand Prix', '2023-01-01', NULL, NULL), (4, 2, 2, 4, 'Chinese Grand Prix', '2023-01-02', 'default2', 'unique_4'), (3, 2, 2017, 2, 'default2', '2023-01-01', 'default2', 'unique_5'), (2016, 2017, 2018, 3, 'Chinese Grand Prix', '2023-01-02', 'default2', 'unique_6'), (1, 2017, 2018, 2016, 'default1', '2023-01-02', 'default2', 'unique_7'), (5, 2018, 0, 0, 'default2', '2023-01-02', 'default2', 'unique_8'), (6, 3, 0, 2, 'default2', '2023-01-02', 'Chinese Grand Prix', 'unique_9'), (7, 2018, 2018, 3, 'default1', '2023-01-01', 'default1', 'unique_10'), (8, 1, 4, 0, 'Chinese Grand Prix', '2023-01-02', 'default2', 'unique_11'), (9, 4, 0, 1, 'default1', '2023-01-02', 'default1', 'unique_12');
+INSERT INTO results (resultid, raceid, driverid, constructorid, statusid, number, grid, position, positiontext, positionorder, points, laps, time, milliseconds, fastestlap, rank, fastestlaptime, fastestlapspeed) VALUES (2016, 1, 7, 2017, 2018, 2017, 4, 2, 'default2', 2016, 2.0, 2017, NULL, 2016, 0, 2018, 'default2', NULL), (2, 2016, 4, 2017, 10, 2017, 2, 0, 'default1', 2017, 3.0, 2017, NULL, 2018, 2017, 3, 'default2', 'default2'), (2018, 2, 7, 1, 8, 3, 2016, 2, 'default1', 2016, 2.0, 3, 'default2', NULL, NULL, 4, NULL, 'Chinese Grand Prix'), (0, 2, 6, 2018, 10, 2018, 0, 2016, 'Chinese Grand Prix', 2, 3.0, 0, 'Chinese Grand Prix', 2017, 2016, 2016, 'default2', 'default2'), (2017, 2018, 5, 1, 0, 4, 2017, NULL, 'default1', 2016, 2016.0, 2018, 'Chinese Grand Prix', 4, 1, 4, 'default2', 'Chinese Grand Prix'), (3, 7, 2018, 1, 2018, 4, 1, 2017, 'Chinese Grand Prix', 2, 0.0, 1, 'default1', 3, 2018, 2017, 'default1', 'Chinese Grand Prix'), (4, 1, 2, 2016, 11, 4, 0, NULL, 'default2', 2, 2017.0, 2016, 'default1', 4, 2018, 3, NULL, NULL), (1, 2016, 6, 2017, 2016, 2018, 2018, NULL, 'default2', 4, 3.0, 0, 'default1', 2016, 2017, 3, 'default2', 'default1'), (5, 8, 6, 2018, 2017, 2018, 3, 4, 'Chinese Grand Prix', 2, 1.0, 4, 'default2', NULL, 2016, 2, 'default2', NULL), (6, 1, 0, 2018, 12, 2017, 2016, 2016, 'default1', 4, 4.0, 0, 'default2', 3, 2017, 2017, 'Chinese Grand Prix', 'default1'), (7, 2016, 3, 2017, 0, 4, 0, 3, 'default1', 2016, 4.0, 0, 'default1', 4, 2017, 0, NULL, NULL);
+INSERT INTO driverstandings (driverstandingsid, raceid, driverid, points, position, positiontext, wins) VALUES (2018, 6, 3, 2.0, 2, 'default2', 3), (3, 5, 1, 2016.0, NULL, 'Chinese Grand Prix', 2018), (4, 9, 2018, 3.0, 4, 'default1', 2017), (2017, 8, 5, 2018.0, 2016, 'default1', 2016);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T3.forename, T3.surname, T2.points FROM races AS T1 INNER JOIN driverStandings AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T1.name = 'Chinese Grand Prix' AND T1.year = 2017 ORDER BY T2.points DESC, T1.raceid NULLS LAST, T2.driverstandingsid NULLS LAST, T3.driverid NULLS LAST LIMIT 3;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT T2.forename, T2.surname, T1.points FROM results AS T1 INNER JOIN drivers AS T2 ON T1.driverId = T2.driverId INNER JOIN races AS T3 ON T1.raceId = T3.raceId WHERE T3.year = 2017 AND T3.name = 'Chinese Grand Prix' ORDER BY T1.points DESC, T1.resultid NULLS LAST, T2.driverid NULLS LAST, T3.raceid NULLS LAST LIMIT 3;
+
+/*
+Prediction Result:
+('default1', 'default1', 4.0)
+('default2', 'default2', 3.0)
+('Chinese Grand Prix', 'default1', 3.0)
+*/

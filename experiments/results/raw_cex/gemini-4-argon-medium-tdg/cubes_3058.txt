@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN: An address with zip_postcode = 918 that has NO matching teacher (produces NULL email_address).
+-- 2. WHERE clause boundary & inequality mutants (<, >, <=, >=, !=): zip_postcode values 917, 918, 919, NULL.
+-- 3. ORDER BY ASC vs DESC vs no ORDER BY: Insert teachers such that natural insertion order of email_address is non-ascending ('z_teacher@school.edu' before 'a_teacher@school.edu').
+-- 4. Confusing Students with Teachers: A student living at a 918 address with a distinct email.
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (1, '100 Main St', 'Spring', 918, 'USA');
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (2, '200 Oak St', 'Spring', 918, 'USA');
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (3, '300 Pine St', 'Spring', 918, 'USA');
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (4, '400 Elm St', 'Fall', 917, 'USA');
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (5, '500 Maple St', 'Winter', 919, 'USA');
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (6, '600 Birch St', 'Summer', NULL, 'USA');
+
+INSERT INTO Teachers (teacher_id, address_id, first_name, last_name, email_address) VALUES (1, 1, 'Zack', 'Smith', 'z_teacher@school.edu');
+INSERT INTO Teachers (teacher_id, address_id, first_name, last_name, email_address) VALUES (2, 2, 'Alice', 'Jones', 'a_teacher@school.edu');
+INSERT INTO Teachers (teacher_id, address_id, first_name, last_name, email_address) VALUES (3, 4, 'Bob', 'Brown', 'b_917@school.edu');
+INSERT INTO Teachers (teacher_id, address_id, first_name, last_name, email_address) VALUES (4, 5, 'Charlie', 'Davis', 'c_919@school.edu');
+INSERT INTO Teachers (teacher_id, address_id, first_name, last_name, email_address) VALUES (5, 6, 'Diana', 'Evans', 'd_nullzip@school.edu');
+
+INSERT INTO Students (student_id, address_id, first_name, last_name, email_address) VALUES (1, 3, 'Student', 'Three', 'student_at_918@school.edu');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. SELECT DISTINCT vs SELECT ALL: Multiple teachers at the same 918 address or different 918 addresses sharing the exact same email_address, plus multiple unmatched 918 addresses producing multiple NULLs.
+-- 2. RIGHT JOIN / FULL OUTER JOIN / Unfiltered Teachers table: Teachers with NULL address_id or pointing to non-918 addresses.
+-- 3. Join condition mutants (e.g., LHS.address_id = RHS.teacher_id): Teacher with teacher_id = 10 living at address_id = 20 (where address 10 is zip 918, and address 20 is zip 500).
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (10, '10 First Ave', 'CityA', 918, 'USA');
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (11, '11 Second Ave', 'CityA', 918, 'USA');
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (12, '12 Third Ave', 'CityA', 918, 'USA');
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (20, '20 Fourth Ave', 'CityB', 500, 'USA');
+
+INSERT INTO Teachers (teacher_id, address_id, first_name, last_name, email_address) VALUES (10, 20, 'Misaligned', 'ID', 'wrong_join_id@school.edu');
+INSERT INTO Teachers (teacher_id, address_id, first_name, last_name, email_address) VALUES (101, 10, 'Dup', 'One', 'shared@school.edu');
+INSERT INTO Teachers (teacher_id, address_id, first_name, last_name, email_address) VALUES (102, 10, 'Dup', 'Two', 'shared@school.edu');
+INSERT INTO Teachers (teacher_id, address_id, first_name, last_name, email_address) VALUES (103, NULL, 'No', 'Address', 'no_address@school.edu');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Pure INNER JOIN vs LEFT JOIN when all 918 addresses have matches, EXCEPT one teacher at a 918 address has an explicit NULL email_address, vs an unmatched 918 address.
+-- 2. Column projection mutants: Ensure cell_mobile_number, first_name, last_name, other_details are distinct from email_address.
+-- 3. Subquery filter vs ON clause filter: `(SELECT * FROM addresses WHERE zip_postcode = 918) LHS LEFT JOIN teachers RHS` vs `addresses LHS LEFT JOIN teachers RHS ON LHS.address_id = RHS.address_id AND LHS.zip_postcode = 918` (which would include non-918 addresses as NULL rows!).
+INSERT INTO Addresses (address_id, line_1, line_2, line_3, city, zip_postcode, state_province_county, country, other_address_details) VALUES (1, 'Line1_A', 'Line2_A', 'Line3_A', 'City_A', 918, 'State_A', 'Country_A', 'Details_A');
+INSERT INTO Addresses (address_id, line_1, line_2, line_3, city, zip_postcode, state_province_county, country, other_address_details) VALUES (2, 'Line1_B', 'Line2_B', 'Line3_B', 'City_B', 999, 'State_B', 'Country_B', 'Details_B');
+
+INSERT INTO Teachers (teacher_id, address_id, first_name, middle_name, last_name, gender, cell_mobile_number, email_address, other_details) VALUES (1, 1, 'First_1', 'Mid_1', 'Last_1', 1, '555-0101', 'valid_918@school.edu', 'Other_1');
+INSERT INTO Teachers (teacher_id, address_id, first_name, middle_name, last_name, gender, cell_mobile_number, email_address, other_details) VALUES (2, 1, 'First_2', 'Mid_2', 'Last_2', 0, '555-0102', NULL, 'Other_2');
+INSERT INTO Teachers (teacher_id, address_id, first_name, middle_name, last_name, gender, cell_mobile_number, email_address, other_details) VALUES (3, 2, 'First_3', 'Mid_3', 'Last_3', 1, '555-0103', 'valid_999@school.edu', 'Other_3');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty matching teacher set for zip_postcode = 918 (only unmatched 918 addresses exist).
+--    RefQuery returns [NULL], whereas an INNER JOIN returns empty set [].
+-- 2. Checks if mutants erroneously pull from other tables like Assessment_Notes or Detention.
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (918, '918 ZipConfusion Rd', 'Town', 100, 'USA');
+INSERT INTO Addresses (address_id, line_1, city, zip_postcode, country) VALUES (100, '100 RealZip Rd', 'Town', 918, 'USA');
+
+INSERT INTO Teachers (teacher_id, address_id, first_name, last_name, email_address) VALUES (918, 918, 'ID', 'Is918', 'id_is_918@school.edu');
+```

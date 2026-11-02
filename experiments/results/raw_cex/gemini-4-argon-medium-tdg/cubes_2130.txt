@@ -1,0 +1,52 @@
+```sql
+-- DATASET 1
+-- Empty review table, non-empty parent tables.
+-- Catches mutants replacing the window function COUNT(*) OVER () with an aggregate COUNT(*).
+-- On an empty table, the window query returns 0 rows, whereas aggregate COUNT(*) returns 1 row with value 0.
+INSERT INTO item (i_id, title) VALUES (1, 'Item A');
+INSERT INTO useracct (u_id, name) VALUES (1, 'Alice');
+INSERT INTO trust (target_u_id, source_u_id, trust) VALUES (1, 1, 1);
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows in review with NULLs, duplicates, and unreferenced parent rows.
+-- Catches mutants that:
+-- 1) Omit DISTINCT (returns 3 rows instead of 1)
+-- 2) Use COUNT(col) or COUNT(DISTINCT col) instead of COUNT(*)
+-- 3) Add PARTITION BY or ORDER BY inside OVER(...)
+-- 4) Inner join with item, useracct, or trust
+-- 5) Query the wrong table (e.g., item, useracct, or trust which have different row counts)
+INSERT INTO item (i_id, title) VALUES (1, 'Book');
+INSERT INTO item (i_id, title) VALUES (2, 'Movie');
+INSERT INTO useracct (u_id, name) VALUES (10, 'Bob');
+INSERT INTO useracct (u_id, name) VALUES (20, 'Charlie');
+INSERT INTO trust (target_u_id, source_u_id, trust) VALUES (10, 20, 5);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (100, 1, 10, 5, 1);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (101, 1, 10, 5, 2);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (102, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Single row in review with all nullable fields set to NULL and negative/zero values in other tables.
+-- Catches mutants that filter out NULLs (e.g., WHERE i_id IS NOT NULL) or use COUNT(column) which would evaluate to 0 instead of 1.
+INSERT INTO item (i_id, title) VALUES (1, 'Single');
+INSERT INTO item (i_id, title) VALUES (2, 'Extra');
+INSERT INTO useracct (u_id, name) VALUES (1, 'User1');
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (1, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Multiple distinct items and users, testing partitioning and aggregation mutants.
+-- Specifically targets mutants using SUM, AVG, MIN, MAX, or COUNT(DISTINCT ...) by ensuring a_id, rating, and rank sums/mins/maxes do not equal the row count (4).
+INSERT INTO item (i_id, title) VALUES (10, 'Gadget');
+INSERT INTO item (i_id, title) VALUES (20, 'Widget');
+INSERT INTO useracct (u_id, name) VALUES (100, 'Dave');
+INSERT INTO useracct (u_id, name) VALUES (200, 'Eve');
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (10, 10, 100, 10, 10);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (20, 10, 200, 20, 10);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (30, 20, 100, 10, 20);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (40, 20, 200, 20, 20);
+```

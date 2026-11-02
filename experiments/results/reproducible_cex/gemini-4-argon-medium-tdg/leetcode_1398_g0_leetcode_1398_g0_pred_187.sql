@@ -1,0 +1,51 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "customer_name" TEXT(255));
+
+CREATE TABLE "Orders" ("order_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "product_name" TEXT(255), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 2
+INSERT INTO Customers (customer_id, customer_name) VALUES (10, 'Zebra');
+INSERT INTO Customers (customer_id, customer_name) VALUES (20, 'Alpha');
+INSERT INTO Customers (customer_id, customer_name) VALUES (30, 'Beta');
+INSERT INTO Customers (customer_id, customer_name) VALUES (40, 'Gamma');
+INSERT INTO Customers (customer_id, customer_name) VALUES (50, 'Delta');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (1, 10, 'A');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (2, 10, 'A');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (3, 10, 'B');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (4, 10, 'B');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (5, 10, 'D');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (6, 20, 'A');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (7, 20, 'B');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (8, 30, 'A');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (9, 30, 'A');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (10, 40, 'B');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (11, 40, 'B');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (12, 50, 'A');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (13, 50, 'B');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (14, 50, 'C');
+INSERT INTO Orders (order_id, customer_id, product_name) VALUES (15, 50, 'D');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CUSTOMER_ID, CUSTOMER_NAME FROM CUSTOMERS WHERE CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'A') AND CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'B') AND NOT CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'C') ORDER BY CUSTOMER_ID;
+
+/*
+Gold Result:
+(10, 'Zebra')
+(20, 'Alpha')
+*/
+
+-- Prediction Query
+WITH AB AS (SELECT C.CUSTOMER_ID AS ID, C.CUSTOMER_NAME AS NAME FROM CUSTOMERS AS C JOIN ORDERS AS O ON O.CUSTOMER_ID = C.CUSTOMER_ID JOIN ORDERS AS O2 ON O2.CUSTOMER_ID = C.CUSTOMER_ID WHERE O.PRODUCT_NAME = 'A' AND O2.PRODUCT_NAME = 'B'), HAVEC AS (SELECT C2.CUSTOMER_ID AS ID2, C2.CUSTOMER_NAME AS NAME2 FROM CUSTOMERS AS C2 JOIN ORDERS AS O4 ON O4.CUSTOMER_ID = C2.CUSTOMER_ID WHERE O4.PRODUCT_NAME = 'C'), JOINER AS (SELECT * FROM AB LEFT JOIN HAVEC ON AB.ID = HAVEC.ID2) SELECT ID AS CUSTOMER_ID, NAME AS CUSTOMER_NAME FROM JOINER WHERE ID2 IS NULL;
+
+/*
+Prediction Result:
+(10, 'Zebra')
+(10, 'Zebra')
+(10, 'Zebra')
+(10, 'Zebra')
+(20, 'Alpha')
+*/

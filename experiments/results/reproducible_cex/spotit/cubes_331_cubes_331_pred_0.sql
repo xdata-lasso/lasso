@@ -1,0 +1,48 @@
+-- Schema DDL
+CREATE TABLE "COURSE" (
+    "COURSE_ID" INT,
+    "STARING_DATE" TEXT,
+    "COURSE" TEXT,
+    PRIMARY KEY ("COURSE_ID")
+);
+CREATE TABLE "TEACHER" (
+    "TEACHER_ID" INT,
+    "NAME" TEXT,
+    "AGE" TEXT,
+    "HOMETOWN" TEXT,
+    PRIMARY KEY ("TEACHER_ID")
+);
+CREATE TABLE "COURSE_ARRANGE" (
+    "COURSE_ID" INT,
+    "TEACHER_ID" INT,
+    "GRADE" INT,
+    PRIMARY KEY ("COURSE_ID", "TEACHER_ID", "GRADE"),
+    FOREIGN KEY ("TEACHER_ID") REFERENCES "TEACHER"("TEACHER_ID"),
+    FOREIGN KEY ("COURSE_ID") REFERENCES "COURSE"("COURSE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO COURSE VALUES (1, 0, 0);
+INSERT INTO COURSE VALUES (0, 0, 0);
+INSERT INTO TEACHER VALUES (3, 14, 15, -1);
+INSERT INTO TEACHER VALUES (1, 12, 13, -1);
+INSERT INTO COURSE_ARRANGE VALUES (0, 1, -1);
+INSERT INTO COURSE_ARRANGE VALUES (1, 3, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT hometown FROM (SELECT LHS.hometown AS hometown, LHS.n AS n, RHS.name AS name, RHS.age AS age FROM (SELECT hometown, COUNT(*) AS n FROM teacher GROUP BY hometown) AS LHS INNER JOIN teacher AS RHS ON (LHS.n = RHS.teacher_id AND LHS.hometown = RHS.hometown)) ORDER BY hometown;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT Hometown FROM teacher GROUP BY Hometown ORDER BY COUNT(*) DESC, Hometown NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('-1',)
+*/

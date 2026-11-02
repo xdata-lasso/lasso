@@ -1,0 +1,66 @@
+-- Schema DDL
+CREATE TABLE alignment (id INTEGER NOT NULL PRIMARY KEY, alignment TEXT DEFAULT NULL);
+
+CREATE TABLE attribute (id INTEGER NOT NULL PRIMARY KEY, attribute_name TEXT DEFAULT NULL);
+
+CREATE TABLE colour (id INTEGER NOT NULL PRIMARY KEY, colour TEXT DEFAULT NULL);
+
+CREATE TABLE gender (id INTEGER NOT NULL PRIMARY KEY, gender TEXT DEFAULT NULL);
+
+CREATE TABLE publisher (id INTEGER NOT NULL PRIMARY KEY, publisher_name TEXT DEFAULT NULL);
+
+CREATE TABLE race (id INTEGER NOT NULL PRIMARY KEY, race TEXT DEFAULT NULL);
+
+CREATE TABLE superhero (id INTEGER NOT NULL PRIMARY KEY, superhero_name TEXT DEFAULT NULL, full_name TEXT DEFAULT NULL, gender_id INTEGER DEFAULT NULL, eye_colour_id INTEGER DEFAULT NULL, hair_colour_id INTEGER DEFAULT NULL, skin_colour_id INTEGER DEFAULT NULL, race_id INTEGER DEFAULT NULL, publisher_id INTEGER DEFAULT NULL, alignment_id INTEGER DEFAULT NULL, height_cm INTEGER DEFAULT NULL, weight_kg INTEGER DEFAULT NULL, FOREIGN KEY (alignment_id) REFERENCES alignment (id), FOREIGN KEY (eye_colour_id) REFERENCES colour (id), FOREIGN KEY (gender_id) REFERENCES gender (id), FOREIGN KEY (hair_colour_id) REFERENCES colour (id), FOREIGN KEY (publisher_id) REFERENCES publisher (id), FOREIGN KEY (race_id) REFERENCES race (id), FOREIGN KEY (skin_colour_id) REFERENCES colour (id));
+
+CREATE TABLE hero_attribute (hero_id INTEGER DEFAULT NULL, attribute_id INTEGER DEFAULT NULL, attribute_value INTEGER DEFAULT NULL, FOREIGN KEY (attribute_id) REFERENCES attribute (id), FOREIGN KEY (hero_id) REFERENCES superhero (id));
+
+CREATE TABLE superpower (id INTEGER NOT NULL PRIMARY KEY, power_name TEXT DEFAULT NULL);
+
+CREATE TABLE hero_power (hero_id INTEGER DEFAULT NULL, power_id INTEGER DEFAULT NULL, FOREIGN KEY (hero_id) REFERENCES superhero (id), FOREIGN KEY (power_id) REFERENCES superpower (id));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (1, 'Hero1', 'John Doe');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (2, 'Hero2', 'John Doe');
+INSERT INTO superpower (id, power_name) VALUES (1, 'P1');
+INSERT INTO superpower (id, power_name) VALUES (2, 'P2');
+INSERT INTO superpower (id, power_name) VALUES (3, 'P3');
+INSERT INTO superpower (id, power_name) VALUES (4, 'P4');
+INSERT INTO superpower (id, power_name) VALUES (5, 'P5');
+INSERT INTO superpower (id, power_name) VALUES (6, 'P6');
+INSERT INTO superpower (id, power_name) VALUES (7, 'P7');
+INSERT INTO superpower (id, power_name) VALUES (8, 'P8');
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 2);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 3);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 4);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 5);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 6);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 7);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 8);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 2);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 3);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 4);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 5);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 6);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 7);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 8);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT T1.full_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id GROUP BY T1.full_name HAVING COUNT(T2.power_id) > 15;
+
+/*
+Gold Result:
+('John Doe',)
+*/
+
+-- Prediction Query
+SELECT superhero.full_name FROM superhero INNER JOIN (SELECT hero_id FROM hero_power GROUP BY hero_id HAVING COUNT(DISTINCT power_id) > 15) AS power_count ON superhero.id = power_count.hero_id;
+
+/*
+Prediction Result:
+*/

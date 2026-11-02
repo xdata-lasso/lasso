@@ -1,0 +1,192 @@
+[
+  {
+    "id": "dw_0",
+    "original_id": "dw_0",
+    "question": "For each department, what is the maximum number of enrolled students in any course offered by that department in 2019, what is the name of the responsible faculty member for that course, and what is the average number of enrolled students for all such courses in that department, considering only courses where the maximum number of enrolled students is greater than 5, and only including departments of Mathematics (Course 18) and Chemistry (Course 5)? Do not return any rounded answers.",
+    "sql": "WITH inner_cte AS ( SELECT sd.DEPARTMENT_NAME, lso.NUM_ENROLLED_STUDENTS AS MAX_NUM_ENROLLED_STUDENTS, lso.RESPONSIBLE_FACULTY_NAME, lso.OFFER_DEPT_CODE FROM SIS_DEPARTMENT sd JOIN LIBRARY_SUBJECT_OFFERED lso ON sd.DEPARTMENT_CODE = lso.OFFER_DEPT_CODE WHERE lso.TERM_CODE LIKE '2019%' AND ( (sd.DEPARTMENT_NAME = 'Mathematics') OR (lso.OFFER_DEPT_NAME = 'Chemistry') ) AND lso.NUM_ENROLLED_STUDENTS > 5 AND lso.NUM_ENROLLED_STUDENTS = ( SELECT MAX(lso2.NUM_ENROLLED_STUDENTS) FROM LIBRARY_SUBJECT_OFFERED lso2 WHERE lso2.OFFER_DEPT_CODE = lso.OFFER_DEPT_CODE AND lso2.TERM_CODE LIKE '2019%' AND lso2.NUM_ENROLLED_STUDENTS > 5 ) ) SELECT ic.DEPARTMENT_NAME, ic.MAX_NUM_ENROLLED_STUDENTS, ic.RESPONSIBLE_FACULTY_NAME, avg_stats.avg_num_enrolled_students FROM inner_cte ic JOIN ( SELECT lso.OFFER_DEPT_CODE, AVG(lso.NUM_ENROLLED_STUDENTS) AS avg_num_enrolled_students FROM LIBRARY_SUBJECT_OFFERED lso WHERE lso.TERM_CODE LIKE '2019%' AND lso.NUM_ENROLLED_STUDENTS > 5 AND (lso.OFFER_DEPT_CODE = '18' OR lso.OFFER_DEPT_CODE = '5') GROUP BY lso.OFFER_DEPT_CODE ) avg_stats ON ic.OFFER_DEPT_CODE = avg_stats.OFFER_DEPT_CODE ORDER BY ic.DEPARTMENT_NAME;",
+    "tables": [
+      "LIBRARY_SUBJECT_OFFERED",
+      "TIP_SUBJECT_OFFERED",
+      "SIS_DEPARTMENT"
+    ],
+    "join_keys": [
+      [
+        "LIBRARY_SUBJECT_OFFERED.OFFER_DEPT_CODE",
+        "TIP_SUBJECT_OFFERED.OFFER_DEPT_CODE"
+      ],
+      [
+        "SIS_DEPARTMENT.DEPARTMENT_CODE",
+        "TIP_SUBJECT_OFFERED.OFFER_DEPT_CODE"
+      ]
+    ]
+  },
+  {
+    "id": "dw_1",
+    "original_id": "dw_3",
+    "question": "For the top 10 degree-granting departments (excluding Political Science), provide the department name, school name, the total number of unique courses they offer, and indicate whether the department is a 'LARGE_DEPT' (if it offers at least 20% more courses than the average among these departments), 'SMALL_DEPT' (if it offers at least 20% fewer), or 'AVERAGE' otherwise. Do not return any rounded answers.",
+    "sql": "WITH inner_cte AS ( SELECT SIS_DEPARTMENT.DEPARTMENT_NAME, SIS_DEPARTMENT.SCHOOL_NAME, COUNT(DISTINCT CIS_COURSE_CATALOG.SUBJECT_ID) AS total_courses FROM SIS_DEPARTMENT JOIN CIS_COURSE_CATALOG ON SIS_DEPARTMENT.DEPARTMENT_CODE = CIS_COURSE_CATALOG.DEPARTMENT_CODE JOIN SIS_SUBJECT_CODE ON CIS_COURSE_CATALOG.DEPARTMENT_CODE = SIS_SUBJECT_CODE.DEPARTMENT_CODE WHERE SIS_DEPARTMENT.IS_DEGREE_GRANTING = 'Y' AND SIS_DEPARTMENT.SCHOOL_NAME IS NOT NULL AND SIS_DEPARTMENT.DEPARTMENT_NAME <> 'Political Science' AND SIS_DEPARTMENT.DEPARTMENT_CODE <> '17' GROUP BY SIS_DEPARTMENT.DEPARTMENT_NAME, SIS_DEPARTMENT.SCHOOL_NAME ORDER BY total_courses DESC LIMIT 10 ), avg_cte AS ( SELECT AVG(total_courses) AS avg_courses FROM inner_cte ) SELECT i.DEPARTMENT_NAME, i.SCHOOL_NAME, i.total_courses, CASE WHEN i.total_courses > a.avg_courses * 1.2 THEN 'LARGE_DEPT' WHEN i.total_courses < a.avg_courses * 0.8 THEN 'SMALL_DEPT' ELSE 'AVERAGE' END AS dept_size_category FROM inner_cte i CROSS JOIN avg_cte a;",
+    "tables": [
+      "SIS_DEPARTMENT",
+      "CIS_COURSE_CATALOG",
+      "SIS_SUBJECT_CODE"
+    ],
+    "join_keys": [
+      [
+        "CIS_COURSE_CATALOG.DEPARTMENT_CODE",
+        "SIS_DEPARTMENT.DEPARTMENT_CODE"
+      ],
+      [
+        "CIS_COURSE_CATALOG.DEPARTMENT_CODE",
+        "SIS_SUBJECT_CODE.DEPARTMENT_CODE"
+      ]
+    ]
+  },
+  {
+    "id": "dw_2",
+    "original_id": "dw_6",
+    "question": "For each academic year, provide the academic year description and the total number of units for all subjects offered in terms with a term status of 'Previous', where the total number of units is greater than 100, and only include subjects offered by the Mathematics department (Course 18). Additionally, for each such academic year, report the number of subjects that are classified as undergraduate (HGN_DESC = 'Undergraduate'), and only include academic years where at least 60% of the subjects are undergraduate. Do not return any rounded answers.",
+    "sql": "WITH inner_cte AS ( SELECT ata.ACADEMIC_YEAR_DESC, SUM(ccso.TOTAL_UNITS) AS total_units FROM ACADEMIC_TERMS_ALL ata JOIN ACADEMIC_TERMS at ON ata.TERM_CODE = at.TERM_CODE JOIN COURSE_CATALOG_SUBJECT_OFFERED ccso ON at.TERM_CODE = ccso.EFFECTIVE_TERM_CODE WHERE at.TERM_STATUS = 'Previous' AND ccso.DEPARTMENT_NAME = 'Mathematics' GROUP BY ata.ACADEMIC_YEAR_DESC HAVING SUM(ccso.TOTAL_UNITS) > 100 ), SubjectCounts AS ( SELECT ata.ACADEMIC_YEAR_DESC, COUNT(*) AS total_subjects, COUNT(CASE WHEN ccso.HGN_DESC = 'Undergraduate' THEN 1 END) AS undergraduate_subjects FROM ACADEMIC_TERMS_ALL ata JOIN ACADEMIC_TERMS at ON ata.TERM_CODE = at.TERM_CODE JOIN COURSE_CATALOG_SUBJECT_OFFERED ccso ON at.TERM_CODE = ccso.EFFECTIVE_TERM_CODE WHERE at.TERM_STATUS = 'Previous' AND ccso.DEPARTMENT_NAME = 'Mathematics' GROUP BY ata.ACADEMIC_YEAR_DESC ) SELECT ic.ACADEMIC_YEAR_DESC, ic.total_units, sc.undergraduate_subjects, sc.total_subjects FROM inner_cte ic JOIN SubjectCounts sc ON ic.ACADEMIC_YEAR_DESC = sc.ACADEMIC_YEAR_DESC WHERE sc.undergraduate_subjects > 0.6 * sc.total_subjects;",
+    "tables": [
+      "ACADEMIC_TERMS_ALL",
+      "ACADEMIC_TERMS",
+      "COURSE_CATALOG_SUBJECT_OFFERED"
+    ],
+    "join_keys": [
+      [
+        "ACADEMIC_TERMS.TERM_CODE",
+        "ACADEMIC_TERMS_ALL.TERM_CODE"
+      ],
+      [
+        "ACADEMIC_TERMS.TERM_CODE",
+        "COURSE_CATALOG_SUBJECT_OFFERED.EFFECTIVE_TERM_CODE"
+      ]
+    ]
+  },
+  {
+    "id": "dw_3",
+    "original_id": "dw_9",
+    "question": "List the subject IDs, the corresponding subject titles from the library, the department names from TIP, and the total number of such subjects per department, for each subject offered in both the library and TIP systems in 2019, where the maximum number of enrolled students in the library offering is greater than 5 and the department name from TIP is 'Chemistry'. Do not return any rounded answers.",
+    "sql": "WITH inner_cte AS ( SELECT lso.MASTER_SUBJECT_ID_SORT, MAX(lso.NUM_ENROLLED_STUDENTS) AS max_num_enrolled_students, lso.SUBJECT_TITLE AS library_subject_title, tso.OFFER_DEPT_NAME AS tip_department_name, lso.SUBJECT_ID AS library_subject_id FROM LIBRARY_SUBJECT_OFFERED lso JOIN TIP_SUBJECT_OFFERED tso ON lso.MASTER_SUBJECT_ID_SORT = tso.MASTER_SUBJECT_ID_SORT WHERE lso.TERM_CODE LIKE '2019%' AND tso.OFFER_DEPT_NAME = 'Chemistry' GROUP BY lso.MASTER_SUBJECT_ID_SORT, lso.SUBJECT_TITLE, tso.OFFER_DEPT_NAME, lso.SUBJECT_ID HAVING MAX(lso.NUM_ENROLLED_STUDENTS) > 5 ) SELECT inner_cte.library_subject_id, inner_cte.library_subject_title, inner_cte.tip_department_name, dept_counts.total_subjects_per_department FROM inner_cte JOIN ( SELECT tip.OFFER_DEPT_NAME, COUNT(DISTINCT lso.MASTER_SUBJECT_ID_SORT) AS total_subjects_per_department FROM LIBRARY_SUBJECT_OFFERED lso JOIN TIP_SUBJECT_OFFERED tip ON lso.MASTER_SUBJECT_ID_SORT = tip.MASTER_SUBJECT_ID_SORT WHERE lso.TERM_CODE LIKE '2019%' AND tip.OFFER_DEPT_NAME = 'Chemistry' GROUP BY tip.OFFER_DEPT_NAME ) dept_counts ON inner_cte.tip_department_name = dept_counts.OFFER_DEPT_NAME;",
+    "tables": [
+      "LIBRARY_SUBJECT_OFFERED",
+      "TIP_SUBJECT_OFFERED"
+    ],
+    "join_keys": [
+      [
+        "LIBRARY_SUBJECT_OFFERED.MASTER_SUBJECT_ID_SORT",
+        "TIP_SUBJECT_OFFERED.MASTER_SUBJECT_ID_SORT"
+      ]
+    ]
+  },
+  {
+    "id": "dw_4",
+    "original_id": "dw_10",
+    "question": "For each department that is degree-granting, has a department budget code above 100000, and is not the Political Science department, give the department code, department name, school name, the number of unique courses offered by the department, the total number of units for all those courses, and the number of unique subject codes associated with those courses. Do not return any rounded answers.",
+    "sql": "WITH inner_cte AS ( SELECT d.DEPARTMENT_CODE, d.DEPARTMENT_NAME, d.SCHOOL_NAME, COUNT(DISTINCT c.SUBJECT_CODE) AS num_unique_courses, SUM(c.TOTAL_UNITS) AS total_units FROM SIS_DEPARTMENT d JOIN CIS_COURSE_CATALOG c ON d.DEPARTMENT_CODE = c.DEPARTMENT_CODE WHERE d.IS_DEGREE_GRANTING = 'Y' AND d.DEPT_BUDGET_CODE > 100000 AND d.DEPARTMENT_NAME <> 'Political Science' AND d.DEPARTMENT_CODE <> '17' GROUP BY d.DEPARTMENT_CODE, d.DEPARTMENT_NAME, d.SCHOOL_NAME ) SELECT i.DEPARTMENT_CODE, i.DEPARTMENT_NAME, i.SCHOOL_NAME, i.num_unique_courses, i.total_units, COUNT(DISTINCT s.SUBJECT_CODE) AS num_unique_subject_codes FROM inner_cte i JOIN SIS_DEPARTMENT d ON i.DEPARTMENT_CODE = d.DEPARTMENT_CODE JOIN CIS_COURSE_CATALOG c ON d.DEPARTMENT_CODE = c.DEPARTMENT_CODE JOIN SIS_SUBJECT_CODE s ON c.SUBJECT_CODE = s.SUBJECT_CODE GROUP BY i.DEPARTMENT_CODE, i.DEPARTMENT_NAME, i.SCHOOL_NAME, i.num_unique_courses, i.total_units ORDER BY i.DEPARTMENT_CODE;",
+    "tables": [
+      "SIS_DEPARTMENT",
+      "CIS_COURSE_CATALOG",
+      "SIS_SUBJECT_CODE"
+    ],
+    "join_keys": [
+      [
+        "CIS_COURSE_CATALOG.DEPARTMENT_CODE",
+        "SIS_DEPARTMENT.DEPARTMENT_CODE"
+      ],
+      [
+        "CIS_COURSE_CATALOG.DEPARTMENT_CODE",
+        "SIS_SUBJECT_CODE.DEPARTMENT_CODE"
+      ]
+    ]
+  },
+  {
+    "id": "dw_5",
+    "original_id": "dw_11",
+    "question": "For each department (only Chemistry and Biology), what is the average of the range of enrolled students per subject (where each subject has at least one associated course material), grouped by department? Do not return any rounded answers.",
+    "sql": "WITH inner_cte AS ( SELECT tso.OFFER_DEPT_NAME, tso.SUBJECT_ID, MAX(tso.NUM_ENROLLED_STUDENTS) - MIN(tso.NUM_ENROLLED_STUDENTS) AS enrolled_range FROM TIP_SUBJECT_OFFERED tso JOIN TIP_DETAIL td ON tso.SUBJECT_ID = td.SUBJECT_ID WHERE tso.OFFER_DEPT_NAME IN ('Chemistry', 'Biology') AND td.TIP_MATERIAL_STATUS_KEY IS NOT NULL AND td.TIP_MATERIAL_STATUS_KEY <> 'NM' GROUP BY tso.OFFER_DEPT_NAME, tso.SUBJECT_ID ) SELECT OFFER_DEPT_NAME, AVG(enrolled_range) AS avg_enrolled_range_per_subject FROM inner_cte GROUP BY OFFER_DEPT_NAME;",
+    "tables": [
+      "TIP_SUBJECT_OFFERED",
+      "TIP_DETAIL"
+    ],
+    "join_keys": [
+      [
+        "TIP_DETAIL.SUBJECT_ID",
+        "TIP_SUBJECT_OFFERED.SUBJECT_ID"
+      ]
+    ]
+  },
+  {
+    "id": "dw_6",
+    "original_id": "dw_15",
+    "question": "For each student in the Political Science department, show their first name, last name, email address, department name, school name, the maximum department budget code for each student considering the current row and the next 2 rows ordered by last name, and also include the department full name, where the student year is 'G' and the department is degree granting. Do not return any rounded answers.",
+    "sql": "WITH inner_cte AS ( SELECT t1.FIRST_NAME, t1.LAST_NAME, t1.EMAIL_ADDRESS, t1.DEPARTMENT_NAME, t0.SCHOOL_NAME, MAX(t0.DEPT_BUDGET_CODE) OVER (ORDER BY t1.LAST_NAME ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING) AS MAX_DEPT_BUDGET_CODE, t1.DEPARTMENT, t0.DEPARTMENT_CODE FROM SIS_DEPARTMENT t0 JOIN MIT_STUDENT_DIRECTORY t1 ON t0.DEPARTMENT_CODE = t1.DEPARTMENT WHERE t1.STUDENT_YEAR = 'G' AND t0.IS_DEGREE_GRANTING = 'Y' AND t0.DEPARTMENT_NAME = 'Political Science' ) SELECT i.FIRST_NAME, i.LAST_NAME, i.EMAIL_ADDRESS, i.DEPARTMENT_NAME, i.SCHOOL_NAME, i.MAX_DEPT_BUDGET_CODE, d.DEPARTMENT_FULL_NAME FROM inner_cte i JOIN SIS_DEPARTMENT d ON i.DEPARTMENT = d.DEPARTMENT_CODE;",
+    "tables": [
+      "SIS_DEPARTMENT",
+      "MIT_STUDENT_DIRECTORY"
+    ],
+    "join_keys": [
+      [
+        "MIT_STUDENT_DIRECTORY.DEPARTMENT",
+        "SIS_DEPARTMENT.DEPARTMENT_CODE"
+      ]
+    ]
+  },
+  {
+    "id": "dw_7",
+    "original_id": "dw_17",
+    "question": "For each academic building at MIT with more than 10 rooms (excluding the 'Ray and Maria Stata Center'), list the building key, building name, building type, the number of historical records, the total assignable area from the building history, and the average assignable area per historical record, but only include buildings where the total assignable area is greater than the average total assignable area across all such buildings. Do not return any rounded answers.",
+    "sql": "WITH inner_cte AS ( SELECT fb.FCLT_BUILDING_KEY, fb.BUILDING_NAME, fb.BUILDING_TYPE, COUNT(fbh.FCLT_BUILDING_HIST_KEY) AS num_historical_records, SUM(fbh.ASSIGNABLE_AREA) AS total_assignable_area FROM FCLT_BUILDING fb JOIN FCLT_BUILDING_HIST fbh ON fb.FCLT_BUILDING_KEY = fbh.FCLT_BUILDING_KEY AND fb.ACCESS_LEVEL_CODE = fbh.ACCESS_LEVEL_CODE WHERE fb.BUILDING_TYPE = 'ACADEMIC' AND fb.NUM_OF_ROOMS > 10 AND fb.SITE = 'MIT' AND fb.BUILDING_NAME <> 'Ray and Maria Stata Center' AND fb.FCLT_BUILDING_KEY <> '32' GROUP BY fb.FCLT_BUILDING_KEY, fb.BUILDING_NAME, fb.BUILDING_TYPE ) SELECT FCLT_BUILDING_KEY, BUILDING_NAME, BUILDING_TYPE, num_historical_records, total_assignable_area, (total_assignable_area * 1.0 / num_historical_records) AS avg_assignable_area_per_record FROM inner_cte WHERE total_assignable_area > (SELECT AVG(total_assignable_area) FROM inner_cte);",
+    "tables": [
+      "FCLT_BUILDING",
+      "FCLT_BUILDING_HIST"
+    ],
+    "join_keys": [
+      [
+        "FCLT_BUILDING.ACCESS_LEVEL_CODE",
+        "FCLT_BUILDING_HIST.ACCESS_LEVEL_CODE"
+      ]
+    ]
+  },
+  {
+    "id": "dw_8",
+    "original_id": "dw_18",
+    "question": "For each department, list the department name, the total number of graduate students whose department is degree granting, whose student year is 'G', and who are in the Mathematics department (Course 18), along with the school name and the department's full name. Do not repeat the department name if it is the same as the previous row. Sort the table by department name. Do not return any rounded answers.",
+    "sql": "WITH inner_cte AS ( SELECT sd.DEPARTMENT_NAME, COUNT(msd.FULL_NAME) AS total_graduate_students FROM SIS_DEPARTMENT sd JOIN MIT_STUDENT_DIRECTORY msd ON sd.DEPARTMENT_CODE = msd.DEPARTMENT WHERE sd.IS_DEGREE_GRANTING = 'Y' AND msd.STUDENT_YEAR = 'G' AND sd.DEPARTMENT_NAME = 'Mathematics' GROUP BY sd.DEPARTMENT_NAME ) SELECT CASE WHEN LAG(inner_cte.DEPARTMENT_NAME) OVER (ORDER BY inner_cte.DEPARTMENT_NAME) = inner_cte.DEPARTMENT_NAME THEN NULL ELSE inner_cte.DEPARTMENT_NAME END AS department_name, inner_cte.total_graduate_students, sd.SCHOOL_NAME, sd.DEPARTMENT_FULL_NAME FROM inner_cte LEFT JOIN SIS_DEPARTMENT sd ON inner_cte.DEPARTMENT_NAME = sd.DEPARTMENT_NAME ORDER BY inner_cte.DEPARTMENT_NAME;",
+    "tables": [
+      "SIS_COURSE_DESCRIPTION",
+      "SIS_DEPARTMENT",
+      "MIT_STUDENT_DIRECTORY"
+    ],
+    "join_keys": [
+      [
+        "SIS_COURSE_DESCRIPTION.DEPARTMENT",
+        "SIS_DEPARTMENT.DEPARTMENT_CODE"
+      ],
+      [
+        "MIT_STUDENT_DIRECTORY.DEPARTMENT",
+        "SIS_DEPARTMENT.DEPARTMENT_CODE"
+      ]
+    ]
+  },
+  {
+    "id": "dw_9",
+    "original_id": "dw_20",
+    "question": "For each department, show the department name, department full name, the number of graduate students in that department whose department is degree granting, and the highest dense rank over the school code among those students, ordered by school code. Do not return any rounded answers.",
+    "sql": "WITH inner_cte AS ( SELECT sd.DEPT_NAME_IN_COMMENCEMENT_BK AS department_name, sd.DEPARTMENT_FULL_NAME AS department_full_name, msd.FULL_NAME AS student_full_name, msd.EMAIL_ADDRESS AS student_email_address, DENSE_RANK() OVER (ORDER BY sd.SCHOOL_CODE) AS school_code_dense_rank, sd.DEPARTMENT_CODE FROM MIT_STUDENT_DIRECTORY msd JOIN SIS_DEPARTMENT sd ON msd.DEPARTMENT = sd.DEPARTMENT_CODE WHERE msd.STUDENT_YEAR = 'G' AND sd.IS_DEGREE_GRANTING = 'Y' ) SELECT department_name, department_full_name, COUNT(student_full_name) AS num_graduate_students, MAX(school_code_dense_rank) AS highest_school_code_dense_rank FROM inner_cte GROUP BY department_name, department_full_name ORDER BY department_name;",
+    "tables": [
+      "SIS_SUBJECT_CODE",
+      "SIS_DEPARTMENT",
+      "MIT_STUDENT_DIRECTORY"
+    ],
+    "join_keys": [
+      [
+        "SIS_DEPARTMENT.DEPARTMENT_CODE",
+        "SIS_SUBJECT_CODE.DEPARTMENT_CODE"
+      ],
+      [
+        "MIT_STUDENT_DIRECTORY.DEPARTMENT",
+        "SIS_DEPARTMENT.DEPARTMENT_CODE"
+      ]
+    ]
+  }
+]

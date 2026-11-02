@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests EXISTS is TRUE (via EMPNO = 19) causing all rows in EMP to be returned, even those where EMPNO >= 20 and SAL >= 100.
+-- Also tests boundary conditions for EMPNO (19, 20, 21) and SAL (99, 100, 101), and logical OR vs AND.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (19, 10, 'SMITH', 'CLERK', NULL, '1980-12-17', 100, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (20, 10, 'ALLEN', 'SALESMAN', 19, '1981-02-20', 99, 300, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (21, 10, 'WARD', 'SALESMAN', 19, '1981-02-22', 100, 500, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (22, 10, 'JONES', 'MANAGER', NULL, '1981-04-02', 101, 0, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests EXISTS is FALSE (all EMPNO >= 20), so only rows with SAL < 100 are returned.
+-- Tests boundary EMPNO = 20 (ensuring < 20 is not mutated to <= 20) and SAL boundaries (99, 100, 101).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (20, 20, 'CLARK', 'MANAGER', NULL, '1981-06-09', 100, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (21, 20, 'SCOTT', 'ANALYST', 20, '1982-12-09', 99, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (22, 20, 'KING', 'PRESIDENT', NULL, '1981-11-17', 101, 0, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests when both EXISTS is FALSE and SAL < 100 is FALSE for all rows (empty result set expected).
+-- Catches mutations like NOT EXISTS, EMPNO >= 20, or SAL >= 100.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'SALES');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (20, 30, 'TURNER', 'SALESMAN', NULL, '1981-09-08', 100, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (25, 30, 'ADAMS', 'CLERK', 20, '1983-01-12', 150, 0, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests when EXISTS is TRUE and both conditions (EMPNO < 20 and SAL < 100) hold simultaneously on a single row, plus another row where neither holds.
+-- Specifically kills mutants that replace OR with XOR, or correlate the subquery, or replace EXISTS with a scalar subquery check.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (40, 'OPERATIONS');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 40, 'MILLER', 'CLERK', NULL, '1982-01-23', 50, 10, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (15, 40, 'FORD', 'ANALYST', 10, '1981-12-03', 80, 20, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (30, 40, 'BLAKE', 'MANAGER', NULL, '1981-05-01', 200, 30, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests an empty EMP table while other tables in the schema are populated.
+-- Catches mutants querying the wrong table (e.g., EMP_B, EMPNULLABLES, DEPT) or returning constants.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('SMITH', 'CLERK', 50, 0);
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 10, 'SMITH', 'CLERK', NULL, '1980-12-17', 50, 0, 0);
+INSERT INTO "EMPNULLABLES_20" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 10, 'SMITH', 'CLERK', NULL, '1980-12-17', 50, 0, 0);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (10, 10, 'SMITH', 'CLERK', NULL, '1980-12-17', 50, 0, 0, '1960-01-01');
+```
+
+```sql
+-- DATASET 6
+-- Tests negative and zero values, and column confusion (e.g., DEPTNO, MGR, COMM, SLACKER vs EMPNO and SAL).
+-- Here DEPTNO < 20, MGR < 20, COMM < 100, SLACKER < 100, but EMPNO >= 20 and SAL >= 100.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (5, 'HR');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (100, 5, 'JAMES', 'CLERK', 10, '1981-12-03', 500, -50, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (101, 5, 'MARTIN', 'SALESMAN', 15, '1981-09-28', 100, 10, 1);
+```
+
+```sql
+-- DATASET 7
+-- Tests negative EMPNO and negative SAL values specifically.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (50, 'IT');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (-5, 50, 'NEG_EMP', 'CLERK', NULL, '1990-01-01', 200, 200, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (50, 50, 'NEG_SAL', 'CLERK', -5, '1990-01-02', -10, 200, 0);
+```

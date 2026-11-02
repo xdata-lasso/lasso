@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests semi-join multiplicity (EXISTS vs INNER JOIN without DISTINCT) and ordering (ASC vs DESC).
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name") VALUES (1, 'B1');
+INSERT INTO "Guests" ("guest_id", "guest_first_name") VALUES (1, 'John');
+
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (10, 1, '202');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (20, 1, '101');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (30, 1, '303');
+
+INSERT INTO "Apartment_Bookings" ("apt_booking_id", "guest_id", "apt_id") VALUES (100, 1, 10);
+
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-01-01', 100, 10, 0);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-01-02', 100, 10, 0);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-01-03', 100, 20, 0);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-01-04', 100, 30, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate apt_number across different apartments (kills SELECT DISTINCT apt_number vs semi-join).
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name") VALUES (1, 'B1');
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name") VALUES (2, 'B2');
+INSERT INTO "Guests" ("guest_id", "guest_first_name") VALUES (1, 'Alice');
+
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (1, 1, '101');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (2, 2, '101');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (3, 1, '102');
+
+INSERT INTO "Apartment_Bookings" ("apt_booking_id", "guest_id", "apt_id") VALUES (10, 1, 1);
+
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-02-01', 10, 1, 0);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-02-02', 10, 2, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary values for available_yn (0, 1, -1, 2, NULL) and apartments with no status records.
+-- Catches mutations like available_yn = 0, available_yn < 1, available_yn > 1, IS NULL, or NOT EXISTS.
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name") VALUES (1, 'B1');
+INSERT INTO "Guests" ("guest_id", "guest_first_name") VALUES (1, 'Bob');
+
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (1, 1, 'A_Zero');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (2, 1, 'B_One');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (3, 1, 'C_Two');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (4, 1, 'D_Neg');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (5, 1, 'E_Null');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (6, 1, 'F_None');
+
+INSERT INTO "Apartment_Bookings" ("apt_booking_id", "guest_id", "apt_id") VALUES (1, 1, 1);
+
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-03-01', 1, 1, 0);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-03-02', 1, 2, 1);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-03-03', 1, 3, 2);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-03-04', 1, 4, -1);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-03-05', 1, 5, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests mixed availability for the same apartment, plus decoupled apt_id vs apt_booking_id, and NULL foreign keys.
+-- Kills mutants joining via Apartment_Bookings instead of View_Unit_Status.apt_id, or requiring all statuses to be <> 1.
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name") VALUES (1, 'B1');
+INSERT INTO "Guests" ("guest_id", "guest_first_name") VALUES (1, 'Charlie');
+
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (1, 1, '10');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (2, 1, '20');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (3, NULL, '30');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (4, 1, NULL);
+
+INSERT INTO "Apartment_Bookings" ("apt_booking_id", "guest_id", "apt_id") VALUES (50, 1, 1);
+
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-04-01', 50, 2, 0);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-04-02', 50, 2, 1);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-04-03', NULL, 3, 0);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-04-04', NULL, 4, 0);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-04-05', NULL, NULL, 0);
+```
+
+```sql
+-- DATASET 5
+-- Tests lexicographical vs numerical sorting on apt_number, and inverse order between apt_id and apt_number.
+-- Kills ORDER BY apt_id, ORDER BY CAST(apt_number AS INT), or missing ORDER BY.
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name") VALUES (1, 'B1');
+
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (1, 1, '9');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (2, 1, '80');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_number") VALUES (3, 1, '100');
+
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-05-01', NULL, 1, 0);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-05-02', NULL, 2, 0);
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-05-03', NULL, 3, 0);
+```

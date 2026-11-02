@@ -1,0 +1,55 @@
+```sql
+-- DATASET 1
+-- Tests ties for maximum elevation with duplicate and distinct countries, out-of-order insertion, and lower elevations.
+-- Catches mutants using LIMIT 1, DISTINCT, ORDER BY DESC, or MIN instead of MAX.
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (1, 'Ap1', 'City1', 'Zambia', 10.0, 20.0, 5000, 'AA1', 'AAA1');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (2, 'Ap2', 'City2', 'Argentina', 11.0, 21.0, 5000, 'AA2', 'AAA2');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (3, 'Ap3', 'City3', 'Argentina', 12.0, 22.0, 5000, 'AA3', 'AAA3');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (4, 'Ap4', 'City4', 'Brazil', 13.0, 23.0, 1000, 'AA4', 'AAA4');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (5, 'Ap5', 'City5', 'Canada', 14.0, 24.0, -50, 'AA5', 'AAA5');
+```
+
+```sql
+-- DATASET 2
+-- Tests when all airports have NULL elevation.
+-- LHS returns 1 row with NULL, LEFT JOIN condition (NULL = NULL) fails, returning 1 row with country = NULL.
+-- Catches mutants using INNER JOIN, IS NOT DISTINCT FROM, or WHERE elevation = (SELECT MAX...).
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (1, 'NullAp1', 'City1', 'France', 10.0, 20.0, NULL, 'NA1', 'NAA1');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (2, 'NullAp2', 'City2', 'Germany', 15.0, 25.0, NULL, 'NA2', 'NAA2');
+```
+
+```sql
+-- DATASET 3
+-- Tests negative elevations as the maximum, alongside NULL elevations.
+-- Catches mutants using COALESCE(elevation, 0) or failing to handle negative numbers properly in MAX or sorting.
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (1, 'SubZero1', 'City1', 'Netherlands', 10.0, 20.0, -10, 'SZ1', 'SZZ1');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (2, 'SubZero2', 'City2', 'Netherlands', 11.0, 21.0, -500, 'SZ2', 'SZZ2');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (3, 'NullAp', 'City3', 'Belgium', 12.0, 22.0, NULL, 'NAP', 'NAPP');
+```
+
+```sql
+-- DATASET 4
+-- Tests when the airport with the maximum elevation has a NULL country, tied with non-NULL countries.
+-- Catches mutants that filter out NULL countries (WHERE country IS NOT NULL) or mishandle NULLs in ORDER BY.
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (1, 'HighNullCountry', 'City1', NULL, 10.0, 20.0, 8000, 'HN1', 'HNN1');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (2, 'HighValidCountry', 'City2', 'Nepal', 11.0, 21.0, 8000, 'HV1', 'HVV1');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (3, 'LowValidCountry', 'City3', 'India', 12.0, 22.0, 200, 'LV1', 'LVV1');
+```
+
+```sql
+-- DATASET 5
+-- Tests potential confusion between tables (airports vs airlines/routes) and column names (name/city vs country).
+-- Also includes an airport with max elevation that has NO routes, to kill mutants that inner-join with routes.
+INSERT INTO airlines (alid, name, iata, icao, callsign, country, active) VALUES (1, 'AirMax', 'AM', 'AMX', 'AIRMAX', 'WrongCountryAirline', 'Y');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (1, 'CityIsNotCountry', 'WrongCountryCity', 'Peru', 10.0, 20.0, 12000, 'PR1', 'PRR1');
+INSERT INTO airports (apid, name, city, country, x, y, elevation, iata, icao) VALUES (2, 'LowConnectedAp', 'Lima', 'Chile', 11.0, 21.0, 500, 'CL1', 'CLL1');
+INSERT INTO routes (rid, alid, src_apid, dst_apid, dst_ap, src_ap, airline, codeshare) VALUES (1, 1, 2, 2, 'CLL1', 'CLL1', 'AMX', 'N');
+```
+
+```sql
+-- DATASET 6
+-- Empty airports table test (only airlines populated).
+-- MAX(elevation) over empty table produces 1 row with NULL; LEFT JOIN yields 1 row with NULL country.
+-- Catches mutants that lack the scalar aggregate subquery behavior (e.g., simple SELECT country FROM airports ORDER BY elevation DESC LIMIT 1, which would return 0 rows).
+INSERT INTO airlines (alid, name, iata, icao, callsign, country, active) VALUES (1, 'SoloAirline', 'SA', 'SAA', 'SOLO', 'Iceland', 'Y');
+```

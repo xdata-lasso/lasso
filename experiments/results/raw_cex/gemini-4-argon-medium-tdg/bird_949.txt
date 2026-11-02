@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Single highest points in constructorStandings vs highest SUM(points) across multiple rows.
+-- 2. constructorStandings vs constructorResults vs results.
+-- 3. points vs wins vs position in constructorStandings.
+-- 4. Unmatched constructors (LEFT JOIN vs INNER JOIN).
+INSERT INTO seasons (year, url) VALUES (2021, 'http://en.wikipedia.org/wiki/2021_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://monza');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2021, 1, 1, 'Italian GP', '2021-09-12', 'http://race1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2021, 2, 1, 'Russian GP', '2021-09-26', 'http://race2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'ham', 'Lewis', 'Hamilton', 'http://ham');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'alpha', 'Team Single Max', 'British', 'http://alpha');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'beta', 'Team Sum Max', 'German', 'http://beta');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (3, 'gamma', 'Team Wins Max', 'Italian', 'http://gamma');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (4, 'delta', 'Team Results Max', 'French', 'http://delta');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (5, 'epsilon', 'Team No Standings', 'American', 'http://epsilon');
+
+-- Constructor 1 has the single highest points entry (100.5), but position=2 and wins=1.
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (10, 1, 1, 100.5, 2, '2', 1);
+
+-- Constructor 2 has two entries of 60.0 (SUM = 120.0 > 100.5, AVG = 60.0).
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (20, 1, 2, 60.0, 3, '3', 2);
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (21, 2, 2, 60.0, 3, '3', 2);
+
+-- Constructor 3 has lowest points (10.0), but position=1 and highest wins (50).
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (30, 1, 3, 10.0, 1, '1', 50);
+
+-- Constructor 4 has highest points in constructorResults and results (500.0), but low in constructorStandings (5.0).
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (40, 1, 4, 5.0, 4, '4', 0);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points, status) VALUES (1, 1, 4, 500.0, 'Finished');
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionOrder, points, laps, statusId) VALUES (1, 1, 1, 4, 1, 1, 500.0, 50, 1);
+
+-- DriverStandings trap: Driver 1 has 999.0 points
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (1, 1, 1, 999.0, 1, '1', 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Tie-breaking on T1.points DESC using T1.constructorStandingsId ASC.
+-- 2. Distinguishes ORDER BY T1.constructorStandingsId ASC from T2.constructorId ASC, T2.name ASC, or insertion order.
+INSERT INTO seasons (year, url) VALUES (2022, 'http://en.wikipedia.org/wiki/2022_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://spa');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2022, 1, 1, 'Belgian GP', '2022-08-28', 'http://race1');
+
+-- Constructor 10 has smaller constructorId and alphabetically first name, but larger constructorStandingsId (500).
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (10, 'aaa_ref', 'AAA Racing', 'British', 'http://aaa');
+-- Constructor 20 has larger constructorId and alphabetically later name, but smaller constructorStandingsId (100).
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (20, 'zzz_ref', 'ZZZ Racing', 'Italian', 'http://zzz');
+
+-- Insert Constructor 10 first to catch missing secondary sort or wrong secondary sort column/direction
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (500, 1, 10, 250.0, 1, '1', 5);
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (100, 1, 20, 250.0, 1, '1', 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Negative and zero points handling (e.g., if a mutant filters WHERE points > 0 or uses ABS(points)).
+-- 2. Selecting constructor.name vs constructor.constructorRef or nationality.
+INSERT INTO seasons (year, url) VALUES (2020, 'http://en.wikipedia.org/wiki/2020_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://silverstone');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'British GP', '2020-08-02', 'http://race1');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'ref_zero', 'Zero Point Team', 'British', 'http://zero');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'ref_neg', 'Negative Point Team', 'German', 'http://neg');
+
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (1, 1, 2, -15.0, 2, '2', 0);
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (2, 1, 1, 0.0, 1, '1', 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Multiple rows for the same top constructor vs other constructors (kills mutants without LIMIT 1 or with DISTINCT instead of LIMIT 1).
+-- 2. String vs Numeric sorting on points (e.g., 9.0 vs 85.0 vs 100.0; in lexicographical sort '9' > '85' > '100').
+INSERT INTO seasons (year, url) VALUES (2023, 'http://en.wikipedia.org/wiki/2023_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'bahrain', 'Bahrain', 'http://bahrain');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2023, 1, 1, 'Bahrain GP', '2023-03-05', 'http://race1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2023, 2, 1, 'Saudi GP', '2023-03-19', 'http://race2');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'c1', 'Lexicographical Trap 9', 'British', 'http://c1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'c2', 'Lexicographical Trap 85', 'German', 'http://c2');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (3, 'c3', 'Numeric Winner 100', 'Austrian', 'http://c3');
+
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (1, 1, 1, 9.0, 3, '3', 0);
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (2, 1, 2, 85.0, 2, '2', 1);
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (3, 1, 3, 100.0, 1, '1', 2);
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, position, positionText, wins) VALUES (4, 2, 3, 100.0, 1, '1', 2);
+```

@@ -1,0 +1,48 @@
+-- Schema DDL
+CREATE TABLE "COLLEGE" (
+    "CNAME" TEXT,
+    "STATE" TEXT,
+    "ENR" FLOAT,
+    PRIMARY KEY ("CNAME")
+);
+CREATE TABLE "PLAYER" (
+    "PID" FLOAT,
+    "PNAME" TEXT,
+    "YCARD" TEXT,
+    "HS" FLOAT,
+    PRIMARY KEY ("PID")
+);
+CREATE TABLE "TRYOUT" (
+    "PID" FLOAT,
+    "CNAME" TEXT,
+    "PPOS" TEXT,
+    "DECISION" TEXT,
+    PRIMARY KEY ("CNAME", "PID"),
+    FOREIGN KEY ("CNAME") REFERENCES "COLLEGE"("CNAME"),
+    FOREIGN KEY ("PID") REFERENCES "PLAYER"("PID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO COLLEGE VALUES (2, 0, 13);
+INSERT INTO COLLEGE VALUES (3, -1, 15);
+INSERT INTO PLAYER VALUES (4, 0, 0, 0);
+INSERT INTO PLAYER VALUES (5, 0, 0, 0);
+INSERT INTO TRYOUT VALUES (4, 3, 6, 14);
+INSERT INTO TRYOUT VALUES (4, 2, 7, 16);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT STATE FROM (SELECT * FROM COLLEGE AS LHS WHERE NOT EXISTS(SELECT 1 FROM (SELECT * FROM TRYOUT WHERE (PPOS <> 'striker')) AS RHS WHERE (LHS.cname = RHS.cname))) ORDER BY state, STATE NULLS LAST;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT T1.state FROM college AS T1 JOIN tryout AS T2 ON T1.cName = T2.cName WHERE T2.pPos = 'striker';
+
+/*
+Prediction Result:
+*/

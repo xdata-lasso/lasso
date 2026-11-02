@@ -1,0 +1,52 @@
+```sql
+-- DATASET 1
+-- Tests basic counting of 'TR005' atoms, presence of other molecules, NULL values in non-key columns, and isolated/multiply-connected atoms/bonds to kill mutants that incorrectly JOIN with 'bond' or 'connected' or count the wrong column (e.g., COUNT(element), COUNT(DISTINCT element), COUNT(DISTINCT molecule_id)).
+INSERT INTO molecule (molecule_id, label) VALUES ('TR005', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR006', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR004', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_1', 'TR005', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_2', 'TR005', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_3', 'TR005', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR006_1', 'TR006', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_1', 'TR004', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('ORPHAN_1', NULL, 'n');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_TR005_1', 'TR005', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_TR006_1', 'TR006', '2');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR005_1', 'TR005_2', 'B_TR005_1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR005_2', 'TR005_1', 'B_TR005_1');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set for the target molecule ('TR005' has 0 atoms, though the molecule exists and has bonds, and other molecules have atoms). Kills mutants using GROUP BY molecule_id (which would return no rows or wrong rows instead of 0), missing WHERE clause, or querying the 'bond'/'molecule' table instead of 'atom'.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR005', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_1', 'TR001', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_2', 'TR001', 'h');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_TR005_1', 'TR005', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_TR005_2', 'TR005', '2');
+```
+
+```sql
+-- DATASET 3
+-- Tests string matching edge cases, column confusion (atom_id or element or label = 'TR005'), and fan-out on joins (1 atom connected to multiple bonds). Kills LIKE '%TR005%', case-insensitivity, wrong column in WHERE predicate, and unfiltered JOIN with 'connected' or 'bond'.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR005', 'label_1');
+INSERT INTO molecule (molecule_id, label) VALUES ('tr005', 'TR005');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR0050', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'TR005', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005', 'tr005', 'TR005');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'TR0050', 'TR005');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR005', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR005', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR005', '2');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'TR005', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B2');
+```

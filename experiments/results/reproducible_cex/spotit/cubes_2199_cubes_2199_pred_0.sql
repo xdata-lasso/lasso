@@ -1,0 +1,51 @@
+-- Schema DDL
+CREATE TABLE "ALLERGY_TYPE" (
+    "ALLERGY" TEXT,
+    "ALLERGYTYPE" TEXT,
+    PRIMARY KEY ("ALLERGY")
+);
+CREATE TABLE "HAS_ALLERGY" (
+    "ALLERGY" TEXT,
+    "STUID" INT,
+    FOREIGN KEY ("ALLERGY") REFERENCES "ALLERGY_TYPE"("ALLERGY"),
+    FOREIGN KEY ("STUID") REFERENCES "STUDENT"("STUID")
+);
+CREATE TABLE "STUDENT" (
+    "STUID" INT,
+    "LNAME" TEXT,
+    "FNAME" TEXT,
+    "AGE" INT,
+    "SEX" TEXT,
+    "MAJOR" INT,
+    "ADVISOR" INT,
+    "CITY_CODE" TEXT,
+    PRIMARY KEY ("STUID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ALLERGY_TYPE VALUES (2, 0);
+INSERT INTO ALLERGY_TYPE VALUES (3, 0);
+INSERT INTO HAS_ALLERGY VALUES (3, 0);
+INSERT INTO HAS_ALLERGY VALUES (2, 1);
+INSERT INTO STUDENT VALUES (0, 19, 20, -1, 21, 0, 0, 22);
+INSERT INTO STUDENT VALUES (1, 9, 10, 0, 11, 0, 0, 12);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT n AS count___ FROM (SELECT age, COUNT(*) AS n FROM student GROUP BY age) WHERE (age = 18 OR n > age) ORDER BY count___;
+
+/*
+Gold Result:
+(1,)
+(1,)
+*/
+
+-- Prediction Query
+SELECT COUNT(*) FROM Student WHERE age = 18;
+
+/*
+Prediction Result:
+(0,)
+*/

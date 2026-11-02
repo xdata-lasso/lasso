@@ -1,0 +1,4 @@
+INSERT INTO "mit_student_directory" ("first_name", "middle_name", "last_name", "full_name", "office_location", "office_phone", "email_address", "department", "department_name", "student_year", "full_name_uppercase", "warehouse_load_date") VALUES ('Danielle', 'Donald Walker', 'Doyle', 'Stephanie Miller', '33890 Jennifer Squares
+Robinsonshire, KY 01352', '001-626-254-2351x16155', 'yherrera@example.org', 'old', 'Mark Mcclure', 'G', 'Corey Jones', '1970-01-01');
+INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('recently', 'Dylan Miller', 'Stephanie Miller', 'early', 'Chiropractor', 'Y', '525 Clark Grove Apt. 928
+East Steven, KY 84387', 'Hawkins, Cohen and Cameron', 'Kimberly', 'Perez', 'Ethan Adams', 'development');

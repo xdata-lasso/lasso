@@ -1,0 +1,32 @@
+-- Schema DDL
+CREATE TABLE "School" ("School_id" TEXT PRIMARY KEY, "School_name" TEXT, "Location" TEXT, "Mascot" TEXT, "Enrollment" INTEGER, "IHSAA_Class" TEXT, "IHSAA_Football_Class" TEXT, "County" TEXT);
+
+CREATE TABLE "budget" ("School_id" INTEGER, "Year" INTEGER, "Budgeted" INTEGER, "total_budget_percent_budgeted" REAL, "Invested" INTEGER, "total_budget_percent_invested" REAL, "Budget_invested_percent" TEXT, PRIMARY KEY ("School_id", "Year"), FOREIGN KEY ("School_id") REFERENCES "School" ("School_id"));
+
+CREATE TABLE "endowment" ("endowment_id" INTEGER PRIMARY KEY, "School_id" INTEGER, "donator_name" TEXT, "amount" REAL, FOREIGN KEY ("School_id") REFERENCES "School" ("School_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "School" ("School_id", "School_name") VALUES ('1', 'School A');
+INSERT INTO "School" ("School_id", "School_name") VALUES ('2', 'School B');
+INSERT INTO "endowment" ("endowment_id", "School_id", "donator_name", "amount") VALUES (1, '1', 'John Doe', 100.0);
+INSERT INTO "endowment" ("endowment_id", "School_id", "donator_name", "amount") VALUES (2, '2', 'John Doe', 200.0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT donator_name, sumamount AS sum_amount_ FROM (SELECT donator_name, school_id, SUM(amount) AS sumamount FROM endowment GROUP BY donator_name, school_id) ORDER BY donator_name, sum_amount_ NULLS LAST;
+
+/*
+Gold Result:
+('John Doe', 100.0)
+('John Doe', 200.0)
+*/
+
+-- Prediction Query
+SELECT donator_name, SUM(amount) FROM endowment GROUP BY donator_name ORDER BY SUM(amount) DESC, donator_name NULLS LAST;
+
+/*
+Prediction Result:
+('John Doe', 300.0)
+*/

@@ -1,0 +1,109 @@
+```sql
+-- DATASET 1
+-- Tests: Basic functionality, WHERE clause filtering (molecule_id = 'TR006'), ORDER BY ASC, and LIMIT 2.
+-- Also tests mutants that incorrectly query the 'bond' table directly instead of 'connected'.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR006', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR007', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'TR006', 'C');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'TR006', 'H');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'TR006', 'O');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'TR006', 'N');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', 'TR007', 'C');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A6', 'TR007', 'H');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B0_UNCONN', 'TR006', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1_OTHER', 'TR007', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR006', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR006', '2');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'TR006', '1');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A5', 'A6', 'B1_OTHER');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A4', 'B4');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B3');
+```
+
+```sql
+-- DATASET 2
+-- Tests: DISTINCT keyword necessity. 
+-- Bidirectional connections in 'connected' cause duplicate bond_id values ('B1' appears twice).
+-- Without DISTINCT, output would be ('B1', 'B1') instead of ('B1', 'B2').
+INSERT INTO molecule (molecule_id, label) VALUES ('TR006', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'TR006', 'C');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'TR006', 'C');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'TR006', 'O');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR006', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR006', '2');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR006', '1');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A1', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A1', 'B3');
+```
+
+```sql
+-- DATASET 3
+-- Tests: JOIN condition (T1.atom_id = T2.atom_id vs T1.atom_id = T2.atom_id2) and ORDER BY column (bond_id vs atom_id).
+INSERT INTO molecule (molecule_id, label) VALUES ('TR006', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR999', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_Z', 'TR006', 'C');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_M', 'TR006', 'H');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_A', 'TR006', 'O');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A_OTHER', 'TR999', 'N');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_0', 'TR999', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_1', 'TR006', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_2', 'TR006', '2');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_3', 'TR006', '1');
+
+-- If joined on T2.atom_id2 = T1.atom_id, 'B_0' would be included because A_Z is in TR006.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A_OTHER', 'A_Z', 'B_0');
+
+-- Atom IDs ('A_Z', 'A_M', 'A_A') are in reverse alphabetical order compared to Bond IDs ('B_1', 'B_2', 'B_3').
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A_Z', 'A_OTHER', 'B_1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A_M', 'A_OTHER', 'B_2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A_A', 'A_OTHER', 'B_3');
+```
+
+```sql
+-- DATASET 4
+-- Tests: INNER JOIN vs LEFT JOIN on 'atom' and handling of NULL bond_id in 'connected'.
+-- Also tests fewer than 2 non-null results or NULL sorting in SQLite (NULLs sort first in ASC).
+INSERT INTO molecule (molecule_id, label) VALUES ('TR006', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'TR006', 'C');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'TR006', 'H');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'TR006', 'O');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR006', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR006', '1');
+
+-- A1 has no connections (tests LEFT JOIN vs INNER JOIN).
+-- A2 has a connection with NULL bond_id, and a connection with 'B2'.
+-- A3 has a connection with 'B1'.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A1', NULL);
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A1', 'B1');
+```
+
+```sql
+-- DATASET 5
+-- Tests: Cross-molecule bond attribution (where atom.molecule_id = 'TR006' but bond.molecule_id != 'TR006')
+-- and boundary condition where total matching rows is strictly less than LIMIT 2 (only 1 row).
+INSERT INTO molecule (molecule_id, label) VALUES ('TR006', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR008', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'TR006', 'C');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'TR008', 'N');
+
+-- Bond belongs to TR008, even though A1 belongs to TR006.
+-- Catches mutants that filter on bond.molecule_id = 'TR006' instead of atom.molecule_id = 'TR006'.
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B_CROSS', 'TR008', '1');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B_CROSS');
+```

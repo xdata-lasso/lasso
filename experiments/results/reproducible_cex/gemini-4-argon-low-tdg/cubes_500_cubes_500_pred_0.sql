@@ -1,0 +1,48 @@
+-- Schema DDL
+CREATE TABLE "stadium" ("Stadium_ID" INTEGER PRIMARY KEY, "Location" TEXT, "Name" TEXT, "Capacity" INTEGER, "Highest" INTEGER, "Lowest" INTEGER, "Average" INTEGER);
+
+CREATE TABLE "singer" ("Singer_ID" INTEGER PRIMARY KEY, "Name" TEXT, "Country" TEXT, "Song_Name" TEXT, "Song_release_year" TEXT, "Age" INTEGER, "Is_male" INTEGER);
+
+CREATE TABLE "concert" ("concert_ID" INTEGER PRIMARY KEY, "Stadium_ID" TEXT, "concert_Name" TEXT, "Theme" TEXT, "Year" TEXT, FOREIGN KEY ("Stadium_ID") REFERENCES "stadium" ("Stadium_ID"));
+
+CREATE TABLE "singer_in_concert" ("concert_ID" INTEGER, "Singer_ID" TEXT, PRIMARY KEY ("concert_ID", "Singer_ID"), FOREIGN KEY ("Singer_ID") REFERENCES "singer" ("Singer_ID"), FOREIGN KEY ("concert_ID") REFERENCES "concert" ("concert_ID"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO stadium (Stadium_ID, Location, Name, Capacity, Highest, Lowest, Average) VALUES (1, 'NY', 'MSG', 20000, 20000, 10000, 15000);
+INSERT INTO singer (Singer_ID, Name, Country, Song_Name, Song_release_year, Age, Is_male) VALUES (1, 'Alice', 'USA', 'Song A', '2020', 25, 0);
+INSERT INTO singer (Singer_ID, Name, Country, Song_Name, Song_release_year, Age, Is_male) VALUES (2, 'Bob', 'UK', 'Song B', '2019', 30, 1);
+INSERT INTO singer (Singer_ID, Name, Country, Song_Name, Song_release_year, Age, Is_male) VALUES (3, 'Charlie', 'Canada', 'Song C', '2021', 35, 1);
+INSERT INTO concert (concert_ID, Stadium_ID, concert_Name, Theme, Year) VALUES (10, '1', 'No Singer Concert', 'Silent', '2022');
+INSERT INTO concert (concert_ID, Stadium_ID, concert_Name, Theme, Year) VALUES (20, '1', 'Solo Concert', 'Acoustic', '2022');
+INSERT INTO concert (concert_ID, Stadium_ID, concert_Name, Theme, Year) VALUES (30, '1', 'Duo Concert', 'Rock', '2022');
+INSERT INTO concert (concert_ID, Stadium_ID, concert_Name, Theme, Year) VALUES (40, '1', 'Trio Concert', 'Pop', '2023');
+INSERT INTO singer_in_concert (concert_ID, Singer_ID) VALUES (20, '1');
+INSERT INTO singer_in_concert (concert_ID, Singer_ID) VALUES (30, '1');
+INSERT INTO singer_in_concert (concert_ID, Singer_ID) VALUES (30, '2');
+INSERT INTO singer_in_concert (concert_ID, Singer_ID) VALUES (40, '1');
+INSERT INTO singer_in_concert (concert_ID, Singer_ID) VALUES (40, '2');
+INSERT INTO singer_in_concert (concert_ID, Singer_ID) VALUES (40, '3');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT concert_name, theme, n AS count___ FROM (SELECT LHS.concert_id AS concert_id, LHS.n AS n, RHS.concert_name AS concert_name, RHS.theme AS theme, RHS.stadium_id AS stadium_id, RHS.year AS YEAR FROM (SELECT concert_id, COUNT(*) AS n FROM singer_in_concert GROUP BY concert_id) AS LHS LEFT JOIN concert AS RHS ON (LHS.concert_id = RHS.concert_id)) ORDER BY concert_name, theme NULLS LAST, count___ NULLS LAST;
+
+/*
+Gold Result:
+('Duo Concert', 'Rock', 2)
+('Solo Concert', 'Acoustic', 1)
+('Trio Concert', 'Pop', 3)
+*/
+
+-- Prediction Query
+SELECT t2.concert_name, t2.theme, COUNT(*) FROM singer_in_concert AS t1 JOIN concert AS t2 ON t1.concert_id = t2.concert_id GROUP BY t2.concert_id;
+
+/*
+Prediction Result:
+('Solo Concert', 'Acoustic', 1)
+('Duo Concert', 'Rock', 2)
+('Trio Concert', 'Pop', 3)
+*/

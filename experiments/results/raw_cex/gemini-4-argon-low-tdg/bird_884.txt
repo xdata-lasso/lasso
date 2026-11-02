@@ -1,0 +1,59 @@
+```sql
+-- DATASET 1
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO seasons (year, url) VALUES (1950, 'http://s1950.com');
+INSERT INTO seasons (year, url) VALUES (1951, 'http://s1951.com');
+
+-- Earliest date is 1950-05-01
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1950, 1, 1, 'British Grand Prix', '1950-05-01', 'http://r1.com');
+-- Same year and month, different day and name (kills LIMIT 1 on outer query, kills exact date = min(date) mutants)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 1950, 2, 1, 'Monaco Grand Prix', '1950-05-21', 'http://r2.com');
+-- Same year and month, duplicate name (kills SELECT DISTINCT mutants)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 1950, 3, 1, 'British Grand Prix', '1950-05-28', 'http://r3.com');
+-- Same year, earlier month '01' than '05' exists in another year (1951-01-15), so MIN(month) overall is '01', whereas month of earliest date is '05' (kills WHERE month = (SELECT MIN(month) FROM races))
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 1951, 1, 1, 'Swiss Grand Prix', '1951-01-15', 'http://r4.com');
+-- Same year (1950), different month ('06') (kills missing month condition, or OR instead of AND)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (5, 1950, 4, 1, 'Belgian Grand Prix', '1950-06-18', 'http://r5.com');
+-- Different year (1951), same month ('05') as earliest race (kills missing year condition, or OR instead of AND)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (6, 1951, 2, 1, 'French Grand Prix', '1951-05-10', 'http://r6.com');
+```
+
+```sql
+-- DATASET 2
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO seasons (year, url) VALUES (1950, 'http://s1950.com');
+INSERT INTO seasons (year, url) VALUES (1951, 'http://s1951.com');
+INSERT INTO seasons (year, url) VALUES (1952, 'http://s1952.com');
+
+-- Tests mismatch between `races.year` column and `STRFTIME('%Y', date)`
+-- Earliest date is '1951-03-10', but its `year` column is 1950.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 1950, 2, 1, 'Early Date Mismatched Year GP', '1951-03-10', 'http://r10.com');
+-- Another race in 1951-03, with `year` column = 1951. Should be included because STRFTIME('%Y', date) = '1951' and '%m' = '03'.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 1951, 1, 1, 'True 1951 March GP', '1951-03-25', 'http://r2.com');
+-- A race with `year` = 1950 and date '1952-03-15' (kills mutants using `year = MIN(year)`)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1950, 1, 1, 'Min Year Col GP', '1952-03-15', 'http://r1.com');
+-- Latest race (kills DESC vs ASC mutants)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 1952, 5, 1, 'Latest GP', '1952-11-20', 'http://r3.com');
+```
+
+```sql
+-- DATASET 3
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO seasons (year, url) VALUES (1960, 'http://s1960.com');
+
+-- Single month where earliest race is NOT on the 1st of the month, and NOT round 1, and NOT raceId 1.
+-- Kills mutants assuming round = 1, raceId = 1, or day = '01'.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (50, 1960, 5, 1, 'Argentine Grand Prix', '1960-02-07', 'http://r50.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 1960, 1, 1, 'Monaco Grand Prix', '1960-05-29', 'http://r10.com');
+```
+
+```sql
+-- DATASET 4
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO seasons (year, url) VALUES (1970, 'http://s1970.com');
+
+-- Tie-breaking test and same year/month boundary test (December vs January)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (5, 1970, 1, 1, 'South African GP', '1970-12-01', 'http://r5.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 1970, 2, 1, 'Mexican GP', '1970-12-01', 'http://r2.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (9, 1970, 3, 1, 'Spanish GP', '1970-12-31', 'http://r9.com');
+```

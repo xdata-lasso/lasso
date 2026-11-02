@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests basic join, WHERE filter (exact match, case sensitivity, substring, NULL), and INNER vs LEFT/RIGHT JOINs.
+INSERT INTO cards (id, uuid, artist, text) VALUES (1, 'uuid-1', 'Kev Walker', 'Card Text 1');
+INSERT INTO cards (id, uuid, artist, text) VALUES (2, 'uuid-2', 'kev walker', 'Card Text 2');
+INSERT INTO cards (id, uuid, artist, text) VALUES (3, 'uuid-3', 'Kev Walker Jr.', 'Card Text 3');
+INSERT INTO cards (id, uuid, artist, text) VALUES (4, 'uuid-4', 'John Avon', 'Card Text 4');
+INSERT INTO cards (id, uuid, artist, text) VALUES (5, 'uuid-5', NULL, 'Card Text 5');
+INSERT INTO cards (id, uuid, artist, text) VALUES (6, 'uuid-6', 'Kev Walker', 'Card Text 6 (No Rulings)');
+
+INSERT INTO rulings (id, uuid, date, text) VALUES (10, 'uuid-1', '2020-05-01', 'Ruling for Kev Walker');
+INSERT INTO rulings (id, uuid, date, text) VALUES (20, 'uuid-2', '2021-01-01', 'Ruling for lowercase kev walker');
+INSERT INTO rulings (id, uuid, date, text) VALUES (30, 'uuid-3', '2022-01-01', 'Ruling for Kev Walker Jr.');
+INSERT INTO rulings (id, uuid, date, text) VALUES (40, 'uuid-4', '2023-01-01', 'Ruling for John Avon');
+INSERT INTO rulings (id, uuid, date, text) VALUES (50, 'uuid-5', '2024-01-01', 'Ruling for NULL artist');
+INSERT INTO rulings (id, uuid, date, text) VALUES (60, NULL, '2025-01-01', 'Orphan Ruling with NULL uuid');
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY T2.date DESC, T1.id ASC, T2.id ASC, and ensures join is on uuid, not id.
+INSERT INTO cards (id, uuid, artist, text) VALUES (10, 'uuid-a', 'Kev Walker', 'Card A');
+INSERT INTO cards (id, uuid, artist, text) VALUES (20, 'uuid-b', 'Kev Walker', 'Card B');
+
+-- Different dates to test primary sort (T2.date DESC)
+INSERT INTO rulings (id, uuid, date, text) VALUES (100, 'uuid-a', '2019-01-01', 'Date 2019');
+INSERT INTO rulings (id, uuid, date, text) VALUES (101, 'uuid-b', '2021-01-01', 'Date 2021');
+
+-- Same date ('2020-01-01'), different T1.id (10 vs 20) to test secondary sort (T1.id ASC)
+-- Note: T2.id is inverted relative to T1.id (id 300 is with card 10, id 200 is with card 20) to catch wrong column sorting
+INSERT INTO rulings (id, uuid, date, text) VALUES (200, 'uuid-b', '2020-01-01', 'Date 2020, Card 20, Ruling 200');
+INSERT INTO rulings (id, uuid, date, text) VALUES (300, 'uuid-a', '2020-01-01', 'Date 2020, Card 10, Ruling 300');
+
+-- Same date ('2020-01-01'), same T1.id (10), different T2.id (300 vs 250) to test tertiary sort (T2.id ASC)
+INSERT INTO rulings (id, uuid, date, text) VALUES (250, 'uuid-a', '2020-01-01', 'Date 2020, Card 10, Ruling 250');
+
+-- Trap for mutant joining on T1.id = T2.id
+INSERT INTO cards (id, uuid, artist, text) VALUES (500, 'uuid-trap', 'Other Artist', 'Trap Card');
+INSERT INTO rulings (id, uuid, date, text) VALUES (10, 'uuid-trap', '2025-01-01', 'Trap Ruling matching Card 10 id');
+```
+
+```sql
+-- DATASET 3
+-- Tests DISTINCT vs ALL (duplicate ruling texts) and NULL handling in T2.date.
+INSERT INTO cards (id, uuid, artist, text) VALUES (1, 'uuid-1', 'Kev Walker', 'Card 1');
+INSERT INTO cards (id, uuid, artist, text) VALUES (2, 'uuid-2', 'Kev Walker', 'Card 2');
+
+-- Identical ruling text across different rulings/cards to kill SELECT DISTINCT mutants
+INSERT INTO rulings (id, uuid, date, text) VALUES (1, 'uuid-1', '2020-06-01', 'Duplicate Ruling Text');
+INSERT INTO rulings (id, uuid, date, text) VALUES (2, 'uuid-2', '2020-05-01', 'Duplicate Ruling Text');
+
+-- Ruling with NULL date to test NULL ordering in T2.date DESC
+INSERT INTO rulings (id, uuid, date, text) VALUES (3, 'uuid-1', NULL, 'Ruling with NULL date');
+
+-- Ruling with NULL text to ensure NULL projection is preserved
+INSERT INTO rulings (id, uuid, date, text) VALUES (4, 'uuid-1', '2020-07-01', NULL);
+```

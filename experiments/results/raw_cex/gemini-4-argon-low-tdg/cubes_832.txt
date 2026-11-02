@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Unreferenced furniture rows (kills RIGHT JOIN, FULL JOIN, or reversed LEFT JOIN).
+-- 2. Duplicate (name, price_in_dollar) pairs across different manufacturers (kills SELECT DISTINCT).
+-- 3. NULLs in furniture.Name and furniture_manufacte.Price_in_Dollar (tests NULLS FIRST vs NULLS LAST in ORDER BY).
+-- 4. Multi-column sorting (ORDER BY name ASC, price_in_dollar ASC) vs single-column or DESC sorting.
+-- 5. Confounding values in Manufacturer.Name and Furniture.Market_Rate (kills wrong column/table selection).
+
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (1, 1990.0, ' Mfg_Z', 5, 10);
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (2, 2000.0, 'Mfg_A', 3, 8);
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (3, 2010.0, 'Mfg_M', 1, 2);
+
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (10, 'Chair', 4, 999.99);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (20, 'Table', 6, 50.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (30, NULL, 2, 10.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (40, 'Unmanufactured_Sofa', 10, 500.0);
+
+-- Duplicate output rows ('Chair', 150.0) from different manufacturers
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (1, 10, 150.0);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (2, 10, 150.0);
+
+-- Different price and NULL price for 'Chair' to test secondary sort and NULLS LAST
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (3, 10, 80.0);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (3, 20, NULL);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (1, 20, 300.0);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (2, 20, 200.0);
+
+-- Furniture with NULL Name to test primary sort NULL ordering
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (1, 30, 50.0);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (2, 30, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Overlapping IDs between Manufacturer_ID and Furniture_ID (kills wrong JOIN condition like LHS.manufacturer_id = RHS.furniture_id).
+-- 2. Distinct furniture items sharing the same Name (tests GROUP BY name vs GROUP BY furniture_id vs no GROUP BY).
+-- 3. Negative, zero, and decimal prices.
+
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (1, 1985.0, 'Alpha', 2, 4);
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (2, 1995.0, 'Beta', 4, 6);
+
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Desk', 5, 120.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Desk', 8, 250.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (3, 'Bed', 12, 400.0);
+
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (1, 2, 199.99);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (2, 1, 0.0);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (1, 3, 450.5);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. NULL foreign key in LHS (furniture_manufacte.Furniture_ID IS NULL).
+--    In SQLite, PRIMARY KEY columns (except INTEGER PRIMARY KEY) allow NULLs, and FK allows NULLs.
+--    This directly differentiates LEFT JOIN from INNER JOIN on (LHS.furniture_id = RHS.furniture_id).
+-- 2. Empty furniture_manufacte vs populated furniture edge cases.
+
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (10, 2005.0, 'MakerOne', 1, 1);
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (20, 2015.0, 'MakerTwo', 2, 2);
+
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (100, 'Lamp', 3, 25.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (200, 'Shelf', 4, 45.0);
+
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (10, 100, 30.0);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (20, NULL, 75.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty child table (furniture_manufacte) with populated parent tables (furniture, manufacturer).
+--    Kills mutants using RIGHT JOIN or querying directly from furniture without checking furniture_manufacte.
+
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (1, 2020.0, 'SoloMfg', 1, 1);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'GhostChair', 4, 100.0);
+```

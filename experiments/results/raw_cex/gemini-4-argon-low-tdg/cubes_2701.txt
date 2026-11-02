@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Tests basic threshold boundaries (0, 1, 2, 3 orders) and alphabetical ordering vs count ordering.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'ZeroOrders', 'Detail 1');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'OneOrder', 'Detail 2');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (3, 'Charlie', 'Detail 3');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (4, 'Bravo', 'Detail 4');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (101, 2, 'Shipped', '2023-01-01 10:00:00', 'Order 101');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (102, 3, 'Shipped', '2023-01-02 10:00:00', 'Order 102');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (103, 3, 'Pending', '2023-01-03 10:00:00', 'Order 103');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (104, 4, 'Shipped', '2023-01-04 10:00:00', 'Order 104');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (105, 4, 'Shipped', '2023-01-05 10:00:00', 'Order 105');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (106, 4, 'Cancelled', '2023-01-06 10:00:00', 'Order 106');
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY customer_name vs GROUP BY customer_id (two distinct customers sharing the same name, each with 1 order).
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'John Smith', 'First John');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'John Smith', 'Second John');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (3, 'Alice', 'Unique Alice');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (201, 1, 'Pending', '2023-02-01 09:00:00', 'John 1 Order');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (202, 2, 'Shipped', '2023-02-02 09:00:00', 'John 2 Order');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (203, 3, 'Shipped', '2023-02-03 09:00:00', 'Alice Order 1');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (204, 3, 'Shipped', '2023-02-04 09:00:00', 'Alice Order 2');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL customer_name handling, NULL order attributes (COUNT(*) vs COUNT(col)), and NULL customer_id in Orders (INNER vs RIGHT/FULL JOIN).
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, NULL, NULL);
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'ValidName', NULL);
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (301, 1, NULL, NULL, NULL);
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (302, 1, NULL, NULL, NULL);
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (303, 2, NULL, NULL, NULL);
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (304, 2, 'Active', NULL, NULL);
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (305, NULL, 'Orphan1', '2023-03-01 00:00:00', 'No customer');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (306, NULL, 'Orphan2', '2023-03-02 00:00:00', 'No customer');
+```
+
+```sql
+-- DATASET 4
+-- Tests resistance to join fan-out if a mutant unnecessarily joins Order_Items, Shipments, or Invoices.
+-- Customer 1 has 1 Order, but 3 Order_Items and 2 Shipments (should NOT appear in result).
+-- Customer 2 has 2 Orders, each with 2 Order_Items (should appear with count 2, NOT 4).
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'SingleOrderManyItems', 'Details 1');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'TwoOrdersManyItems', 'Details 2');
+
+INSERT INTO Products (product_id, product_name, product_details) VALUES (10, 'Widget', 'Standard widget');
+INSERT INTO Invoices (invoice_number, invoice_date, invoice_details) VALUES (500, '2023-04-01 12:00:00', 'Invoice 500');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (401, 1, 'Shipped', '2023-04-01 10:00:00', 'Order 401');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (402, 2, 'Shipped', '2023-04-02 10:00:00', 'Order 402');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (403, 2, 'Shipped', '2023-04-03 10:00:00', 'Order 403');
+
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1001, 10, 401, 'Delivered', 'Item 1');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1002, 10, 401, 'Delivered', 'Item 2');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1003, 10, 401, 'Delivered', 'Item 3');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1004, 10, 402, 'Delivered', 'Item 4');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1005, 10, 402, 'Delivered', 'Item 5');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1006, 10, 403, 'Delivered', 'Item 6');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1007, 10, 403, 'Delivered', 'Item 7');
+
+INSERT INTO Shipments (shipment_id, invoice_number, order_id, shipment_tracking_number, shipment_date, other_shipment_details) VALUES (2001, 500, 401, 'TRK1', '2023-04-02 00:00:00', 'Ship 1');
+INSERT INTO Shipments (shipment_id, invoice_number, order_id, shipment_tracking_number, shipment_date, other_shipment_details) VALUES (2002, 500, 401, 'TRK2', '2023-04-03 00:00:00', 'Ship 2');
+
+INSERT INTO Shipment_Items (shipment_id, order_item_id) VALUES (2001, 1001);
+INSERT INTO Shipment_Items (shipment_id, order_item_id) VALUES (2002, 1002);
+```
+
+```sql
+-- DATASET 5
+-- Tests accidental joins on wrong keys (e.g., LHS.customer_id = RHS.order_id) and COUNT(DISTINCT ...) mutations on order attributes.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (10, 'IdenticalOrdersCust', 'Same status/date/details on orders');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (20, 'WrongJoinTarget', 'ID matches order_id of cust 10');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (20, 10, 'Placed', '2023-05-01 08:00:00', 'Duplicate Detail');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (21, 10, 'Placed', '2023-05-01 08:00:00', 'Duplicate Detail');
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set when multiple customers exist with orders, but none reach the >= 2 threshold (also tests LEFT JOIN + COUNT(*) trap where 0 orders becomes count 1).
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'NoOrders1', 'D1');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'NoOrders1', 'D2');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (3, 'SingleOrderA', 'D3');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (4, 'SingleOrderB', 'D4');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (601, 3, 'New', '2023-06-01 00:00:00', 'O1');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (602, 4, 'New', '2023-06-02 00:00:00', 'O2');
+```

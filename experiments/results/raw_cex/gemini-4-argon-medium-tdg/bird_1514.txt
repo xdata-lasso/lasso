@@ -1,0 +1,99 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, WHERE clause variations (AND vs OR, inequality, boundary dates/times), and INNER JOIN filtering (missing GasStationID or CustomerID in parent tables).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'GBP');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 1, 'CZE', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 2, 'SVK', 'Premium');
+
+-- Valid match (Expected output: EUR)
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (100, '2012-08-24', '16:25:00', 1, 111, 10, 1, 10, 25.5);
+
+-- Date matches, Time does not (kills OR mutants, missing Time condition, Time inequalities)
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (101, '2012-08-24', '16:25:01', 2, 112, 10, 1, 15, 30.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (102, '2012-08-24', '16:24:59', 2, 112, 10, 1, 15, 30.0);
+
+-- Time matches, Date does not (kills OR mutants, missing Date condition, Date inequalities)
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (103, '2012-08-25', '16:25:00', 3, 113, 20, 2, 20, 40.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (104, '2012-08-23', '16:25:00', 3, 113, 20, 2, 20, 40.0);
+
+-- Date and Time match, but GasStationID does not exist in gasstations (kills omitted gasstations JOIN or LEFT JOIN gasstations)
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (105, '2012-08-24', '16:25:00', 4, 114, 999, 1, 5, 10.0);
+
+-- Date and Time match, but CustomerID does not exist in customers (kills LEFT JOIN customers)
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (106, '2012-08-24', '16:25:00', 999, 115, 10, 1, 5, 10.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate outputs (kills DISTINCT mutants), column selection confusion (Segment/Country vs Currency), and incorrect JOIN key predicates (e.g., CustomerID = GasStationID, ChainID = GasStationID).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'SME_CUST', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'KAM_CUST', 'USD');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 99, 'CZE', 'Value');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (30, 10, 'SVK', 'Premium');
+
+-- Two transactions for Customer 10 at the exact same Date and Time across valid GasStations (Expected output: two rows of 'CZK'; kills SELECT DISTINCT)
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (201, '2012-08-24', '16:25:00', 10, 501, 10, 1, 10, 20.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (202, '2012-08-24', '16:25:00', 10, 502, 30, 2, 20, 40.0);
+
+-- Transaction with invalid GasStationID=20, but CustomerID=20 and ChainID=10 exist (kills mutants joining T1.CustomerID = T2.GasStationID or T1.GasStationID = T2.ChainID)
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (203, '2012-08-24', '16:25:00', 20, 10, 99, 1, 15, 30.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Currency, Date, Time, and foreign keys, as well as extra table joins (products, yearmonth).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'KAM', NULL);
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Premium');
+
+-- Note: products and yearmonth are left empty to kill mutants that unnecessarily INNER JOIN products or yearmonth.
+
+-- Valid match where Currency is NULL (Expected output: one row with NULL; kills mutants adding WHERE T3.Currency IS NOT NULL or COUNT(T3.Currency) checks)
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (301, '2012-08-24', '16:25:00', 1, 100, 1, 999, 10, 100.0);
+
+-- Transactions with NULL in Date, Time, CustomerID, or GasStationID
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (302, NULL, '16:25:00', 2, 101, 1, 999, 10, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (303, '2012-08-24', NULL, 2, 101, 1, 999, 10, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (304, '2012-08-24', '16:25:00', NULL, 101, 1, 999, 10, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (305, '2012-08-24', '16:25:00', 2, 101, NULL, 999, 10, 100.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when data exists (kills mutants with tautologies, missing WHERE clauses, or incorrect Date/Time literals).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 10, 'CZE', 'Value');
+
+INSERT INTO products (ProductID, Description) VALUES (1, 'Diesel');
+
+INSERT INTO "yearmonth" (CustomerID, Date, Consumption) VALUES (1, '201208', 500.0);
+
+-- Close but non-matching dates/times (e.g., 12-hour vs 24-hour time '04:25:00', swapped month/day, substring matches)
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (401, '2012-08-24', '04:25:00', 1, 1, 1, 1, 10, 20.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (402, '2012-08-24', '16:25', 2, 2, 1, 1, 10, 20.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (403, '2011-08-24', '16:25:00', 1, 1, 1, 1, 10, 20.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple distinct currencies matching simultaneously (kills LIMIT 1, MIN/MAX aggregation mutants, and wrong join combinations / Cartesian products).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'HUF');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (101, 1, 'CZE', 'Value');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (102, 2, 'HUN', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (103, 3, 'SVK', 'Discount');
+
+-- Two matching transactions with different customers/currencies, leaving Customer 3 and GasStation 103 unreferenced in matching rows (kills Cartesian product mutants or missing ON clauses)
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (501, '2012-08-24', '16:25:00', 1, 10, 101, 1, 0, 0.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (502, '2012-08-24', '16:25:00', 2, 20, 102, 2, -5, -10.5);
+```

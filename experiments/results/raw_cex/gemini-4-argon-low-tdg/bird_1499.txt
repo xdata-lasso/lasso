@@ -1,0 +1,108 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality, WHERE clause filtering ('EUR' vs 'USD', 'CZK', NULL), 
+-- SUM vs AVG vs MAX (Customer 2 has higher SUM across multiple rows, Customer 1 has higher single row/AVG),
+-- floating point division (145.5 / 12 = 12.125), and DESC vs ASC ordering.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'KAM', NULL);
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201202', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201203', 45.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 5000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201201', 6000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (5, '201201', 7000.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY CustomerID vs GROUP BY Segment or Currency, and SUM vs SUM(DISTINCT).
+-- Customer 1 has identical consumption values (60.0 + 60.0 = 120.0), beating Customer 2 (100.0).
+-- If DISTINCT is used on SUM, Customer 1 drops to 60.0 and loses to Customer 2.
+-- If grouped by Segment, 'SME' combines to 130.0 and beats 'KAM' (120.0).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 60.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 60.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 30.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN and NULL handling in Consumption.
+-- All EUR customers either have no yearmonth records or only NULL consumption.
+-- Reference query returns 1 row with NULL (from Customer 2), whereas missing GROUP BY or LEFT JOIN without records might behave differently.
+-- Also tests when the only valid numerical consumption belongs to a non-EUR customer.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'USD');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 1200.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when EUR customers exist in 'customers' table, 
+-- but have no matching rows in 'yearmonth' (kills LEFT JOIN mutants which would return a NULL row instead of 0 rows).
+-- Also includes a 'transactions_1k' row to kill mutants that join the wrong table.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 240.0);
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-01-01', '12:00:00', 1, 100, 10, 1, 500, 1000.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests negative consumption values and 0 values.
+-- Ensures ORDER BY MonthlyConsumption DESC works properly with negative numbers (-12.0 > -24.0),
+-- and kills mutants using ABS() or filtering out negative values.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', -144.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', -100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201202', -188.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', -300.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201202', NULL);
+```
+
+```sql
+-- DATASET 6
+-- Tests string matching sensitivity on Currency ('EUR' vs 'eur', 'EUR ', 'EURO').
+-- If a mutant uses LIKE '%EUR%' or case-insensitive matching, Customer 2, 3, or 4 would win instead of Customer 1.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'eur');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EURO');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'EUR ');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 120.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 240.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 360.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201201', 480.0);
+```
+
+```sql
+-- DATASET 7
+-- Tests GROUP BY Date vs GROUP BY CustomerID.
+-- On Date '201201', total consumption across EUR customers is 100 + 100 = 200.
+-- Per customer, Customer 1 has 100 + 50 = 150, Customer 2 has 100 + 40 = 140.
+-- Grouping by Date instead of CustomerID would yield 200/12 instead of 150/12.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201202', 40.0);
+```

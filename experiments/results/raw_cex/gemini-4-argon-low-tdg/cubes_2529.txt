@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary condition: product_price exactly equal to AVG(product_price) (mean = 20.0).
+-- 2. DISTINCT requirement: duplicate product_name ('Alpha') where both rows are >= mean.
+-- 3. ORDER BY product_name vs insertion order, product_id order, or product_price order.
+-- 4. Products table vs Services table (which also has Product_Name and Product_Price).
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P1', 'Zebra', 10.0, 'Desc 1', 'Det 1');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P2', 'Beta', 20.0, 'Desc 2', 'Det 2');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P3', 'Alpha', 25.0, 'Desc 3', 'Det 3');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P4', 'Alpha', 25.0, 'Desc 4', 'Det 4');
+
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('S1', 'S1', 'Service Type 1');
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('1', '123 Main', '', 'Town', 'State', '');
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (1, 1, 'USD', 'US', 'Store', '123', 'a@b.c', '');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (1, 'S1', 1, 'Service Desc', 'Service_Only_Product', 1000.0, '');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Floating-point average vs integer division (Prices: 1, 2, 4 -> sum = 7, count = 3, avg = 2.3333; integer avg = 2).
+--    If integer division is used, 'Item_Two' (price 2) is falsely included (2 <= 2).
+-- 2. Duplicate product_prices skewing the average ( testing AVG(product_price) vs AVG(DISTINCT product_price) ).
+--    Prices: 1, 1, 2, 4 -> sum = 8, count = 4, avg = 2.0. Distinct prices: 1, 2, 4 -> avg = 2.3333.
+--    Here we use 1.0, 2.0, 4.0, 4.0 -> AVG = 11/4 = 2.75, AVG(DISTINCT) = 7/3 = 2.333.
+--    With a product at 2.5: 1.0, 2.5, 4.0, 4.0 -> AVG = 11.5/4 = 2.875. AVG(DISTINCT) = 7.5/3 = 2.5.
+--    Product at 2.5 is < 2.875 (excluded in Gold), but >= 2.5 (included if AVG(DISTINCT) is used).
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P1', 'Item_One', 1.0, 'Low', 'D1');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P2', 'Item_Mid', 2.5, 'Mid', 'D2');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P3', 'Item_High_A', 4.0, 'High', 'D3');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P4', 'Item_High_B', 4.0, 'High', 'D4');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Same product_name having one row above the overall mean and one row below the overall mean.
+--    Refutes mutants that GROUP BY product_name and filter by HAVING AVG(product_price) >= overall_mean.
+--    Product 'SharedName' has prices 10 and 30 (group avg = 20).
+--    Product 'Anchor' has price 35.
+--    Overall prices: 10, 30, 35 -> overall mean = 25.0.
+--    In Gold: 'SharedName' (30 >= 25) and 'Anchor' (35 >= 25) are returned.
+--    If grouped by product_name first, 'SharedName' avg is 20 < 25, so it would be falsely excluded.
+-- 2. Unordered products (products not in Order_Items / Invoices) must still be included (refutes INNER JOIN with Order_Items/Invoices).
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P1', 'SharedName', 10.0, 'Low variant', 'D1');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P2', 'SharedName', 30.0, 'High variant', 'D2');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P3', 'Anchor', 35.0, 'Anchor item', 'D3');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Handling of NULL product_price and negative/zero product_price.
+--    AVG() ignores NULLs: prices (-10, 0, 10, NULL) -> AVG is 0.0 (not 0/4 = 0, let's make sum non-zero: 10, 20, 60, NULL -> AVG = 30.0; if NULL treated as 0, AVG = 22.5).
+--    Let's include a product with price 25.0:
+--    Prices: 10, 25, 55, NULL -> sum = 90, count = 3, AVG = 30.0.
+--    If NULL is treated as 0 (e.g. SUM(price)/COUNT(*)), AVG = 90/4 = 22.5, which would falsely include the 25.0 product.
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P1', 'Cheap', 10.0, 'D1', 'O1');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P2', 'Trap_Null_Count', 25.0, 'D2', 'O2');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P3', 'Expensive', 55.0, 'D3', 'O3');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P4', 'Null_Price_Item', NULL, 'D4', 'O4');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Single row / all rows equal to mean.
+--    If a mutant uses `<` or `>` instead of `<=` or `>=`, all rows will be dropped when all prices are identical.
+-- 2. Multiple products with the exact same price and different names, sorted alphabetically.
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P1', 'Gamma', 50.0, 'Desc G', 'Det G');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('P2', 'Delta', 50.0, 'Desc D', 'Det D');
+```

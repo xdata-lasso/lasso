@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Core test: Duplicates, out-of-order insertion, and differences between Invoice.BillingCountry, Customer.Country, Employee.Country, and other Invoice fields.
+INSERT INTO "Employee" ("EmployeeId", "LastName", "FirstName", "Country") VALUES (1, 'Adams', 'Andrew', 'Mexico');
+INSERT INTO "Employee" ("EmployeeId", "LastName", "FirstName", "Country") VALUES (2, 'Edwards', 'Nancy', 'Japan');
+
+INSERT INTO "Customer" ("CustomerId", "SupportRepId", "FirstName", "LastName", "Country", "Email") VALUES (1, 1, 'Luís', 'Gonçalves', 'United Kingdom', 'luis@test.com');
+INSERT INTO "Customer" ("CustomerId", "SupportRepId", "FirstName", "LastName", "Country", "Email") VALUES (2, 2, 'Leonie', 'Köhler', 'Australia', 'leonie@test.com');
+
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingAddress", "BillingCity", "BillingState", "BillingCountry", "BillingPostalCode", "Total") VALUES (1, 1, '2023-05-01 00:00:00', '123 Main', 'Paris', 'NY', 'USA', '10001', 15.50);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingAddress", "BillingCity", "BillingState", "BillingCountry", "BillingPostalCode", "Total") VALUES (2, 1, '2023-01-01 00:00:00', '456 Oak', 'Berlin', 'TX', 'Germany', '75001', 5.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingAddress", "BillingCity", "BillingState", "BillingCountry", "BillingPostalCode", "Total") VALUES (3, 2, '2023-03-01 00:00:00', '789 Pine', 'London', 'CA', 'Canada', '90210', 25.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingAddress", "BillingCity", "BillingState", "BillingCountry", "BillingPostalCode", "Total") VALUES (4, 2, '2023-02-01 00:00:00', '101 Maple', 'Toronto', 'ON', 'USA', 'M5V', 10.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingAddress", "BillingCity", "BillingState", "BillingCountry", "BillingPostalCode", "Total") VALUES (5, 1, '2023-04-01 00:00:00', '202 Birch', 'Sydney', 'NSW', 'Brazil', '2000', 50.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingAddress", "BillingCity", "BillingState", "BillingCountry", "BillingPostalCode", "Total") VALUES (6, 2, '2023-06-01 00:00:00', '303 Cedar', 'Tokyo', 'TK', 'Canada', '100', 5.00);
+```
+
+```sql
+-- DATASET 2
+-- Edge cases: NULL values in BillingCountry, NULL CustomerId (testing INNER JOIN vs direct table scan), and 0 vsMany InvoiceLines (testing INNER JOIN InvoiceLine).
+INSERT INTO "Employee" ("EmployeeId", "LastName", "FirstName", "Country") VALUES (1, 'Peacock', 'Jane', 'Canada');
+INSERT INTO "Customer" ("CustomerId", "SupportRepId", "FirstName", "LastName", "Country", "Email") VALUES (1, 1, 'François', 'Tremblay', 'France', 'francois@test.com');
+
+INSERT INTO "Artist" ("ArtistId", "Name") VALUES (1, 'AC/DC');
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (1, 1, 'For Those About To Rock');
+INSERT INTO "MediaType" ("MediaTypeId", "Name") VALUES (1, 'MPEG audio file');
+INSERT INTO "Genre" ("GenreId", "Name") VALUES (1, 'Rock');
+INSERT INTO "Track" ("TrackId", "Name", "AlbumId", "MediaTypeId", "GenreId", "Milliseconds", "UnitPrice") VALUES (1, 'Track 1', 1, 1, 1, 300000, 0.99);
+
+-- Invoice with CustomerId and multiple InvoiceLines
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (1, 1, '2023-01-01', 'Zambia', 1.98);
+INSERT INTO "InvoiceLine" ("InvoiceLineId", "InvoiceId", "TrackId", "UnitPrice", "Quantity") VALUES (1, 1, 1, 0.99, 1);
+INSERT INTO "InvoiceLine" ("InvoiceLineId", "InvoiceId", "TrackId", "UnitPrice", "Quantity") VALUES (2, 1, 1, 0.99, 1);
+
+-- Invoice with NULL CustomerId and NO InvoiceLines
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (2, NULL, '2023-01-02', 'Argentina', 0.00);
+
+-- Invoices with NULL BillingCountry (testing DISTINCT on NULLs and NULL ordering)
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (3, 1, '2023-01-03', NULL, 5.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (4, NULL, '2023-01-04', NULL, 10.00);
+```
+
+```sql
+-- DATASET 3
+-- Case sensitivity, empty strings, and Customers without Invoices (testing RIGHT/LEFT JOIN Customer mistakes).
+INSERT INTO "Customer" ("CustomerId", "FirstName", "LastName", "Country") VALUES (1, 'Bjørn', 'Hansen', 'Norway');
+INSERT INTO "Customer" ("CustomerId", "FirstName", "LastName", "Country") VALUES (2, 'František', 'Wichterlová', 'Czech Republic');
+INSERT INTO "Customer" ("CustomerId", "FirstName", "LastName", "Country") VALUES (3, 'Helena', 'Holý', 'Austria');
+
+-- Customer 1 and 2 have invoices; Customer 3 has NO invoices.
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "BillingCountry", "Total") VALUES (1, 1, 'usa', 10.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "BillingCountry", "Total") VALUES (2, 1, 'USA', 20.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "BillingCountry", "Total") VALUES (3, 2, '', 0.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "BillingCountry", "Total") VALUES (4, 2, 'Norway', -5.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "BillingCountry", "Total") VALUES (5, 1, 'usa', 10.00);
+```
+
+```sql
+-- DATASET 4
+-- Inverse correlation between InvoiceId, InvoiceDate, Total, and BillingCountry (catches ORDER BY wrong column or GROUP BY HAVING MAX/MIN mutants). Also >10 distinct countries to catch LIMIT mutants.
+INSERT INTO "Customer" ("CustomerId", "FirstName", "LastName", "Country") VALUES (1, 'Dan', 'Miller', 'USA');
+
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (1, 1, '2023-01-12', 'L_Country', 100.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (2, 1, '2023-01-11', 'K_Country', 90.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (3, 1, '2023-01-10', 'J_Country', 80.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (4, 1, '2023-01-09', 'I_Country', 70.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (5, 1, '2023-01-08', 'H_Country', 60.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (6, 1, '2023-01-07', 'G_Country', 50.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (7, 1, '2023-01-06', 'F_Country', 40.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (8, 1, '2023-01-05', 'E_Country', 30.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (9, 1, '2023-01-04', 'D_Country', 20.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (10, 1, '2023-01-03', 'C_Country', 10.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (11, 1, '2023-01-02', 'B_Country', 5.00);
+INSERT INTO "Invoice" ("InvoiceId", "CustomerId", "InvoiceDate", "BillingCountry", "Total") VALUES (12, 1, '2023-01-01', 'A_Country', 1.00);
+```

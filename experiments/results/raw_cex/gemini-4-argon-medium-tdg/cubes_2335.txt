@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by Amount_Settled (ASC vs DESC), sorting by Amount_Settled vs Amount_Claimed, and table distinction (Claims vs Settlements).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Alice Smith');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 1, 'AUTO', '2022-01-01', '2023-01-01');
+
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (101, 10, '2022-05-01', '2022-06-01', 500, 300);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (102, 10, '2022-02-01', '2022-03-01', 800, 100);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (103, 10, '2022-01-15', '2022-02-15', 100, 900);
+
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1001, 101, '2022-05-01', '2022-06-01', 50, 20, 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on the minimum Amount_Settled using Claim_ID (ASC vs DESC), where tied rows have distinct Amount_Claimed values.
+-- Also tests joins against Settlements (minimum claim has no settlement rows).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Bob Jones');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (20, 1, 'HOME', '2021-01-01', '2024-01-01');
+
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (5, 20, '2022-03-10', '2022-04-10', 400, 150);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (2, 20, '2022-04-10', '2022-05-10', 950, 150);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (8, 20, '2022-01-10', '2022-02-10', 600, 500);
+
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (2001, 8, '2022-01-10', '2022-02-10', 600, 500, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Amount_Settled (in SQLite, NULLs sort first in ASC order unless NULLS LAST is specified on that column) and tie-breaking among NULLs via Claim_ID.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Charlie Day');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (30, 1, 'LIFE', '2020-01-01', '2030-01-01');
+
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (30, 30, '2022-07-01', NULL, 1200, NULL);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (10, 30, '2022-08-01', NULL, 750, NULL);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (20, 30, '2022-06-01', '2022-06-15', 300, 50);
+```
+
+```sql
+-- DATASET 4
+-- Tests independent aggregation mutations (e.g., SELECT MIN(Amount_Settled), MIN(Amount_Claimed) or MAX(Amount_Claimed)) and orphaned Policy_IDs (INNER JOIN vs Direct Query).
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (1, NULL, '2022-01-01', '2022-01-10', 500, 100);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (2, NULL, '2022-02-01', '2022-02-10', 200, 300);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (3, NULL, '2022-03-01', '2022-03-10', 900, 400);
+```
+
+```sql
+-- DATASET 5
+-- Tests integer vs string (lexicographical) sorting on Amount_Settled and Claim_ID, plus zero/negative edge cases.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Dana White');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (40, 1, 'HEALTH', '2021-06-01', '2022-06-01');
+
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (10, 40, '2022-01-01', '2022-01-05', 450, 20);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (2, 40, '2022-01-02', '2022-01-06', 850, 100);
+```
+
+```sql
+-- DATASET 6
+-- Tests WHERE Amount_Settled = (SELECT MIN(Amount_Settled) FROM Claims) WITHOUT LIMIT 1 (all tied rows have different Claim_IDs, testing if multiple rows are returned when LIMIT 1 is omitted).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Evan Wright');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (50, 1, 'AUTO', '2022-01-01', '2023-01-01');
+
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (1, 50, '2022-01-01', '2022-01-02', 100, 50);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (2, 50, '2022-01-03', '2022-01-04', 100, 50);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (3, 50, '2022-01-05', '2022-01-06', 200, 75);
+```

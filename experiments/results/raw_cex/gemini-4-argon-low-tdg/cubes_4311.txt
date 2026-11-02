@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+-- Tests tie-breaking for maximum account count (multiple customers tied for max) and ordering.
+-- Also tests INNER JOIN vs LEFT JOIN with Customers table (Customer 40 has no accounts; Customer 30 is not in Customers table).
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (10, 'Alice', 'Smith');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (20, 'Bob', 'Jones');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (40, 'David', 'Lee');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (1, 30, 'Checking', 'Details 1');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (2, 30, 'Savings', NULL);
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (3, 10, 'Checking', 'Details 3');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (4, 10, 'Checking', 'Details 4');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (5, 20, 'Savings', 'Details 5');
+```
+
+```sql
+-- DATASET 2
+-- Tests unique maximum where the customer with the maximum count has the highest customer_id,
+-- while a customer with a lower customer_id has fewer accounts (catches ORDER BY count DESC LIMIT 1 vs ORDER BY customer_id).
+-- Also includes Customers_Cards and Financial_Transactions to catch mutants querying the wrong table.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'CustOne', 'LastOne');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (2, 'CustTwo', 'LastTwo');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (3, 'CustThree', 'LastThree');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (101, 1, 'Acc1', 'D1');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (102, 2, 'Acc2', 'D2');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (103, 2, 'Acc3', 'D3');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (104, 3, 'Acc4', 'D4');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (105, 3, 'Acc5', 'D5');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (106, 3, 'Acc6', 'D6');
+
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (501, 1, 'VISA', '1111');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (502, 1, 'VISA', '2222');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (503, 1, 'MC', '3333');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (504, 1, 'AMEX', '4444');
+
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_amount") VALUES (101, 501, 901, 100.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_amount") VALUES (101, 501, 902, 200.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL customer_id handling in GROUP BY vs COUNT(customer_id) vs COUNT(*).
+-- Here, NULL customer_id has 3 accounts (the maximum via COUNT(*)), while customer 5 has 2 accounts.
+-- GROUP BY customer_id groups the NULLs into a group of 3, whereas COUNT(customer_id) yields 0 for the NULL group.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (5, 'Eve', 'Adams');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (1, NULL, 'Unassigned 1', 'Details');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (2, NULL, 'Unassigned 2', 'Details');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (3, NULL, 'Unassigned 3', 'Details');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (4, 5, 'Personal 1', 'Details');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (5, 5, 'Personal 2', 'Details');
+```
+
+```sql
+-- DATASET 4
+-- Tests tie between a NULL customer_id group and a non-NULL customer_id group to verify ORDER BY customer_id sorting with NULLs,
+-- as well as COUNT(account_name) vs COUNT(*) when account_name contains NULLs.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (100, 'Frank', 'Wright');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (200, 'Grace', 'Hopper');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (10, NULL, 'Anon 1', 'D1');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (11, NULL, 'Anon 2', 'D2');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (12, 100, NULL, NULL);
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (13, 100, NULL, NULL);
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (14, 200, 'Named', 'D3');
+```
+
+```sql
+-- DATASET 5
+-- Tests single-account customers where all customers are tied at count = 1, and customer_ids are inserted out of order.
+-- Catches mutants with `<` instead of `<=`, `MIN` instead of `MAX`, or missing `ORDER BY customer_id`.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (50, 'Zack', 'Taylor');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (10, 'Amy', 'Pond');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (30, 'Rory', 'Williams');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (1, 50, 'AccA', 'OtherA');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (2, 10, 'AccB', 'OtherB');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (3, 30, 'AccC', 'OtherC');
+```

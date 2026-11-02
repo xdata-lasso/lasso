@@ -1,0 +1,19 @@
+{
+  "id": "derived_table_conditional_agg_order_test",
+  "dialect": "sqlite",
+  "schema": [
+    "CREATE TABLE Students (student_id INTEGER PRIMARY KEY, student_name TEXT);",
+    "CREATE TABLE Enrollments (enrollment_id INTEGER PRIMARY KEY, student_id INTEGER, course_code TEXT, FOREIGN KEY (student_id) REFERENCES Students(student_id));"
+  ],
+  "correct_query": "SELECT Students.student_id AS student_id, student_name FROM (SELECT student_id, SUM(IIF(course_code = 'Math', 1, 0)) AS has_math, SUM(IIF(course_code = 'Physics', 1, 0)) AS has_phys, SUM(IIF(course_code = 'History', 1, 0)) AS has_hist FROM Enrollments GROUP BY student_id) AS inter JOIN Students ON Students.student_id = inter.student_id WHERE has_math > 0 AND has_phys > 0 AND has_hist = 0 ORDER BY student_id",
+  "expected_mutants_to_kill": [
+    {
+      "id": "missing_order_by_anti_join_rewrite",
+      "query": "SELECT s.student_id, s.student_name FROM Students AS s JOIN (SELECT DISTINCT student_id FROM Enrollments WHERE course_code IN ('Math')) AS m ON s.student_id = m.student_id JOIN (SELECT DISTINCT student_id FROM Enrollments WHERE course_code IN ('Physics')) AS p ON s.student_id = p.student_id LEFT JOIN (SELECT DISTINCT student_id FROM Enrollments WHERE course_code = 'History') AS h ON m.student_id = h.student_id WHERE h.student_id IS NULL"
+    },
+    {
+      "id": "missing_negated_conditional_agg_filter",
+      "query": "SELECT Students.student_id AS student_id, student_name FROM (SELECT student_id, SUM(IIF(course_code = 'Math', 1, 0)) AS has_math, SUM(IIF(course_code = 'Physics', 1, 0)) AS has_phys, SUM(IIF(course_code = 'History', 1, 0)) AS has_hist FROM Enrollments GROUP BY student_id) AS inter JOIN Students ON Students.student_id = inter.student_id WHERE has_math > 0 AND has_phys > 0 ORDER BY student_id"
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT T1.ID) vs COUNT(*) or COUNT(T1.ID) when a single patient has multiple matching laboratory records.
+-- Also tests all valid combinations of ('negative', '0') for CENTROMEA and SSB.
+INSERT INTO Patient (ID, SEX) VALUES (1, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (1, '2023-01-01', 'negative', 'negative');
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (1, '2023-01-02', '0', '0');
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (1, '2023-01-03', 'negative', '0');
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (2, '2023-01-01', '0', 'negative');
+```
+
+```sql
+-- DATASET 2
+-- Tests single-condition mutants where only one of the IN list values ('negative' or '0') is checked,
+-- and tests AND vs OR between CENTROMEA, SSB, and SEX conditions.
+INSERT INTO Patient (ID, SEX) VALUES (1, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (4, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (5, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (6, NULL);
+
+-- Valid match using only '0'
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (1, '2023-01-01', '0', '0');
+-- Valid match using only 'negative'
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (2, '2023-01-01', 'negative', 'negative');
+-- Fails SSB (Tests AND vs OR, and SSB filtering)
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (3, '2023-01-01', 'negative', 'positive');
+-- Fails CENTROMEA (Tests AND vs OR, and CENTROMEA filtering)
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (4, '2023-01-01', '1', '0');
+-- Fails SEX='M' (Female)
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (5, '2023-01-01', 'negative', 'negative');
+-- Fails SEX='M' (NULL)
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (6, '2023-01-01', '0', '0');
+```
+
+```sql
+-- DATASET 3
+-- Tests a single patient having split matching conditions across different laboratory dates.
+-- Refutes mutants that check existence of CENTROMEA and SSB conditions independently per patient rather than on the same Laboratory row.
+INSERT INTO Patient (ID, SEX) VALUES (1, 'M');
+
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (1, '2023-01-01', 'negative', 'positive');
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (1, '2023-01-02', 'positive', 'negative');
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (1, '2023-01-03', '0', NULL);
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (1, '2023-01-04', NULL, '0');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT JOIN (Patients without Lab records) and JOIN condition omission (Cartesian product).
+-- Also tests extraneous Examination table records (in case a mutant joins Examination instead or additionally).
+INSERT INTO Patient (ID, SEX) VALUES (1, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+
+-- Patient 1 has no Laboratory records, only an Examination record
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '2023-01-01', 'Normal');
+
+-- Patient 2 has a valid Laboratory record, but NO Examination record
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (2, '2023-01-01', 'negative', '0');
+
+-- Patient 3 is Female with a valid Laboratory record (would match Patient 1 in a cross join if ON T1.ID = T2.ID is omitted)
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (3, '2023-01-01', 'negative', 'negative');
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion mutants (e.g., checking SSA, SC170, RNP, SM instead of SSB or CENTROMEA)
+-- and case-sensitivity / substring matching (LIKE '%0%' or LIKE '%negative%').
+INSERT INTO Patient (ID, SEX) VALUES (1, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (4, 'm');
+
+-- Confusing SSA with SSB, or SC170 with CENTROMEA
+INSERT INTO Laboratory (ID, Date, SSA, SSB, SC170, CENTROMEA) VALUES (1, '2023-01-01', 'negative', 'positive', 'negative', 'positive');
+-- Substring / imprecise matching ('00', '-0', 'non-negative')
+INSERT INTO Laboratory (ID, Date, SSA, SSB, SC170, CENTROMEA) VALUES (2, '2023-01-01', '0', '00', '0', 'non-negative');
+-- Exact valid match with neighbor columns set to invalid values
+INSERT INTO Laboratory (ID, Date, SSA, SSB, SC170, CENTROMEA) VALUES (3, '2023-01-01', 'positive', '0', 'positive', 'negative');
+-- Lowercase 'm' for SEX
+INSERT INTO Laboratory (ID, Date, SSA, SSB, SC170, CENTROMEA) VALUES (4, '2023-01-01', 'negative', 'negative', 'negative', 'negative');
+```
+
+```sql
+-- DATASET 6
+-- Empty result set boundary test (returns 0 for COUNT, whereas SUM or other aggregations might return NULL).
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Laboratory (ID, Date, CENTROMEA, SSB) VALUES (1, '2023-01-01', 'negative', 'negative');
+```

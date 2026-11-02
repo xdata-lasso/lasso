@@ -1,0 +1,29 @@
+-- Schema DDL
+CREATE TABLE "EMPLOYEE" (
+    "EMPLOYEE_ID" INT,
+    "DEPARTMENT_ID" INT,
+    "PRIMARY_FLAG" TEXT,
+    PRIMARY KEY ("EMPLOYEE_ID", "DEPARTMENT_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO EMPLOYEE VALUES (0, 28102, 1118963477469575567);
+INSERT INTO EMPLOYEE VALUES (0, 28101, 1118963477469575567);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT e.employee_id, e.department_id FROM employee AS e WHERE e.primary_flag = 'Y' OR e.employee_id IN (SELECT employee_id FROM employee GROUP BY employee_id HAVING COUNT(DISTINCT department_id) = 1);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT EMPLOYEE_ID, CASE WHEN (COUNT(DEPARTMENT_ID) > 1) THEN SUM(IIF(PRIMARY_FLAG = 'Y', DEPARTMENT_ID, NULL)) WHEN (COUNT(DEPARTMENT_ID)) = 1 THEN DEPARTMENT_ID END AS DEPARTMENT_ID FROM EMPLOYEE GROUP BY EMPLOYEE_ID;
+
+/*
+Prediction Result:
+(0, None)
+*/

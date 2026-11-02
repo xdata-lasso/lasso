@@ -1,0 +1,52 @@
+```sql
+-- DATASET 1
+-- Empty bank table: COUNT(*) OVER () returns 0 rows, whereas COUNT(*) returns 1 row with value 0.
+INSERT INTO "customer" ("cust_ID", "branch_ID", "cust_name", "acc_type", "acc_bal", "no_of_loans", "credit_score", "state") VALUES ('C01', NULL, 'Alice', 'S', 1000, 0, 700, 'NY');
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows with NULLs and duplicate non-key attributes, plus unmatched/matched foreign keys.
+-- Tests:
+-- 1. Missing DISTINCT (would return 3 rows instead of 1)
+-- 2. COUNT(col) vs COUNT(*) due to NULLs
+-- 3. COUNT(DISTINCT col) vs COUNT(*) due to duplicate values
+-- 4. Accidental INNER JOINs with customer or loan tables
+-- 5. SUM(no_of_customers) vs COUNT(*)
+INSERT INTO "bank" ("branch_ID", "bname", "no_of_customers", "city", "state") VALUES (1, 'Main', 10, 'NYC', 'NY');
+INSERT INTO "bank" ("branch_ID", "bname", "no_of_customers", "city", "state") VALUES (2, 'Main', 10, 'NYC', 'NY');
+INSERT INTO "bank" ("branch_ID", "bname", "no_of_customers", "city", "state") VALUES (3, NULL, NULL, NULL, NULL);
+
+INSERT INTO "customer" ("cust_ID", "branch_ID", "cust_name", "acc_type", "acc_bal", "no_of_loans", "credit_score", "state") VALUES ('C01', 1, 'Alice', 'S', 1000, 1, 700, 'NY');
+INSERT INTO "customer" ("cust_ID", "branch_ID", "cust_name", "acc_type", "acc_bal", "no_of_loans", "credit_score", "state") VALUES ('C02', 1, 'Bob', 'C', 2000, 2, 750, 'NY');
+
+INSERT INTO "loan" ("loan_ID", "cust_ID", "branch_ID", "loan_type", "amount") VALUES ('L01', 'C01', '1', 'Home', 50000);
+INSERT INTO "loan" ("loan_ID", "cust_ID", "branch_ID", "loan_type", "amount") VALUES ('L02', 'C02', '1', 'Auto', 15000);
+INSERT INTO "loan" ("loan_ID", "cust_ID", "branch_ID", "loan_type", "amount") VALUES ('L03', 'C02', '1', 'Personal', 5000);
+```
+
+```sql
+-- DATASET 3
+-- Single row in bank with 0 customers and negative/edge values, and more rows in customer/loan.
+-- Tests boundary condition of 1 row, and confuses queries that count from wrong tables or use no_of_customers.
+INSERT INTO "bank" ("branch_ID", "bname", "no_of_customers", "city", "state") VALUES (10, 'Solo', 0, 'LA', 'CA');
+
+INSERT INTO "customer" ("cust_ID", "branch_ID", "cust_name", "acc_type", "acc_bal", "no_of_loans", "credit_score", "state") VALUES ('C01', 10, 'Charlie', 'S', 500, 1, 600, 'CA');
+INSERT INTO "customer" ("cust_ID", "branch_ID", "cust_name", "acc_type", "acc_bal", "no_of_loans", "credit_score", "state") VALUES ('C02', 10, 'David', 'C', 1500, 1, 650, 'CA');
+INSERT INTO "customer" ("cust_ID", "branch_ID", "cust_name", "acc_type", "acc_bal", "no_of_loans", "credit_score", "state") VALUES ('C03', NULL, 'Eve', 'S', 3000, 0, 800, 'TX');
+
+INSERT INTO "loan" ("loan_ID", "cust_ID", "branch_ID", "loan_type", "amount") VALUES ('L01', 'C01', '10', 'Auto', 10000);
+INSERT INTO "loan" ("loan_ID", "cust_ID", "branch_ID", "loan_type", "amount") VALUES ('L02', 'C02', '10', 'Home', 200000);
+```
+
+```sql
+-- DATASET 4
+-- Window function framing / partitioning / ordering traps.
+-- Different states/cities/bnames to catch accidental PARTITION BY or ORDER BY inside OVER(...).
+-- If a mutant has COUNT(*) OVER (ORDER BY city), it will produce running counts (1, 2, 3, 4) which DISTINCT won't collapse to a single value.
+-- If a mutant has COUNT(*) OVER (PARTITION BY state), it will produce partition counts (1, 2, 1) which DISTINCT collapses to (1, 2).
+INSERT INTO "bank" ("branch_ID", "bname", "no_of_customers", "city", "state") VALUES (1, 'Alpha', 5, 'Austin', 'TX');
+INSERT INTO "bank" ("branch_ID", "bname", "no_of_customers", "city", "state") VALUES (2, 'Beta', 15, 'Dallas', 'TX');
+INSERT INTO "bank" ("branch_ID", "bname", "no_of_customers", "city", "state") VALUES (3, 'Gamma', 25, 'Miami', 'FL');
+INSERT INTO "bank" ("branch_ID", "bname", "no_of_customers", "city", "state") VALUES (4, 'Delta', 35, 'Boston', 'MA');
+```

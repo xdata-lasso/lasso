@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions for GLU (>= 180) and T-CHO (< 250), and logical AND vs OR.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'M', '1980-05-15');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '1990-08-20');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'M', '1975-12-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (4, 'F', '2000-01-10');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (5, 'M', '1965-03-25');
+
+-- Exact boundary match (GLU = 180, T-CHO = 249) -> Should be included
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (1, '2023-01-01', 180, 249);
+-- Off-by-one boundary fail on GLU (GLU = 179, T-CHO = 200) -> Should be excluded
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (2, '2023-01-01', 179, 200);
+-- Exact boundary fail on T-CHO (GLU = 180, T-CHO = 250) -> Should be excluded
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (3, '2023-01-01', 180, 250);
+-- Fails both conditions (GLU = 100, T-CHO = 300) -> Should be excluded
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (4, '2023-01-01', 100, 300);
+-- Strictly inside boundaries (GLU = 200, T-CHO = 150) -> Should be included
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (5, '2023-01-01', 200, 150);
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT requirement and multiple Laboratory records per Patient (some matching, some not).
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (10, 'F', '1985-07-19');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (20, 'M', '1992-11-30');
+
+-- Patient 10 has two matching lab records on different dates (tests if DISTINCT is missing).
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (10, '2023-01-10', 190, 210);
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (10, '2023-02-15', 220, 180);
+
+-- Patient 20 has one matching condition per row across two rows, but never both in the same row.
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (20, '2023-03-01', 190, 260);
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (20, '2023-04-01', 150, 200);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in WHERE clause (GLU, T-CHO) and SELECT projections (SEX, Birthday), plus INNER JOIN vs LEFT JOIN.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (101, NULL, '1970-06-15');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (102, 'F', NULL);
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (103, 'M', '1988-04-12');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (104, 'F', '1995-09-09');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (105, 'M', '1960-02-28');
+
+-- Patient 101 matches criteria, has NULL SEX -> Should be included
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (101, '2023-05-01', 185, 240);
+-- Patient 102 matches criteria, has NULL Birthday -> Should be included (age calculation evaluates to NULL)
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (102, '2023-05-02', 210, 190);
+-- Patient 103 has NULL GLU -> Should be excluded
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (103, '2023-05-03', NULL, 200);
+-- Patient 104 has NULL T-CHO -> Should be excluded
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (104, '2023-05-04', 200, NULL);
+-- Patient 105 has no Laboratory records at all (tests INNER JOIN vs LEFT JOIN)
+```
+
+```sql
+-- DATASET 4
+-- Tests date/age calculation nuances (exact year subtraction vs full timestamp/day-of-year math) and wrong table/column references.
+-- In Patient, Description and "First Date" are also DATE columns; Diagnosis exists in both Patient and Examination.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) 
+VALUES (201, 'M', '1980-12-31', '2010-01-01', '2015-06-01', 'F', 'SLE');
+
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) 
+VALUES (202, 'F', '1980-01-01', '2005-05-05', '2012-03-03', 'M', 'RA');
+
+-- Lab Date is 2020-06-15 (if mutant uses Lab.Date instead of '2025-01-01' or Patient.Birthday, age will differ).
+-- Also sets other integer columns (GOT, GPT, TG, CPK) to values that would pass if swapped with GLU or T-CHO.
+INSERT INTO Laboratory (ID, Date, GOT, GPT, "T-CHO", TG, CPK, GLU) 
+VALUES (201, '2020-06-15', 190, 200, 245, 300, 100, 182);
+
+-- Patient 202 has swapped values in GOT/TG vs GLU/T-CHO to catch column reference mutants.
+INSERT INTO Laboratory (ID, Date, GOT, GPT, "T-CHO", TG, CPK, GLU) 
+VALUES (202, '2021-01-01', 200, 150, 260, 200, 190, 150);
+
+-- Populate Examination table to catch mutants that erroneously join Examination instead of or in addition to Laboratory.
+INSERT INTO Examination (ID, "Examination Date", ANA, "aCL IgA", Thrombosis) 
+VALUES (202, '2021-01-01', 200, 180, 1);
+```

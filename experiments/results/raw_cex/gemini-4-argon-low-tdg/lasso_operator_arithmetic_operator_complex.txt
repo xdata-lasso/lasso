@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Core arithmetic, join, and boundary condition testing.
+-- Subquery evaluates to: 100.0 * 2 = 200.0
+-- Order 2: 200 * (1 - 0.1) + 200 * 0.1 = 180 + 20 = 200.0 (Exact boundary, tests > vs >=)
+-- Order 3: 200 * (1 - 0.1) + 200 * 0.2 = 180 + 40 = 220.0 (Strictly greater, tests discount and tax arithmetic)
+-- Order 4: 250 * (1 - 0.3) + 250 * 0.05 = 175 + 12.5 = 187.5 (Less than 200, tests high discount)
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (1, 'SubqueryCust', 0.0);
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (2, 'Alice', 0.1);
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (3, 'Bob', 0.3);
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (4, 'UnmatchedCust', 0.5);
+
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (1, 1, '2023-01-01', 100.0, 2.0);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (2, 2, '2023-01-02', 200.0, 0.1);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (3, 2, '2023-01-03', 200.0, 0.2);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (4, 3, '2023-01-04', 250.0, 0.05);
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT vs ALL in SELECT, and INNER JOIN vs LEFT/RIGHT JOIN (NULL customer_id in Orders).
+-- Subquery evaluates to: 50.0 * 2 = 100.0 (Notice customer_id is NULL in the subquery target row).
+-- Two identical valid orders for 'Charlie' to kill mutants that erroneously add DISTINCT.
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (1, 'Charlie', 0.2);
+
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (1, NULL, '2023-02-01', 50.0, 2.0);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (2, NULL, '2023-02-02', 500.0, 0.5);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (3, 1, '2023-02-03', 150.0, 0.1);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (4, 1, '2023-02-04', 150.0, 0.1);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in arithmetic expressions (discount_rate is NULL or tax_rate is NULL) and empty subquery result.
+-- Here, no order has tax_rate = 2.0, so the scalar subquery returns NULL, and the outer query should return 0 rows.
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (1, 'David', 0.1);
+
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (1, 1, '2023-03-01', 100.0, 1.99);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (2, 1, '2023-03-02', 1000.0, 2.01);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL values in columns involved in the calculation when the subquery DOES return a valid number.
+-- Subquery evaluates to: 10.0 * 2 = 20.0
+-- Kills mutants using COALESCE/IFNULL or dropping terms from the equation.
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (1, 'Eve', NULL);
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (2, 'Frank', 0.25);
+
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (1, 2, '2023-04-01', 10.0, 2.0);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (2, 1, '2023-04-02', 100.0, 0.5);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (3, 2, '2023-04-03', 100.0, NULL);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (4, 2, '2023-04-04', 40.0, 0.5);
+```
+
+```sql
+-- DATASET 5
+-- Tests operator precedence and sign mutations using negative numbers and zero.
+-- Subquery evaluates to: -50.0 * 2 = -100.0
+-- Order 2: total_amount = 100, discount_rate = 1.5, tax_rate = 0.2 -> 100*(-0.5) + 20 = -30.0 (> -100.0 is True)
+-- Order 3: total_amount = -100, discount_rate = 0.2, tax_rate = 0.3 -> -100*(0.8) + (-30) = -110.0 (> -100.0 is False)
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (1, 'Grace', 1.5);
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (2, 'Heidi', 0.2);
+
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (1, 1, '2023-05-01', -50.0, 2.0);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (2, 1, '2023-05-02', 100.0, 0.2);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (3, 2, '2023-05-03', -100.0, 0.3);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (4, 2, '2023-05-04', 0.0, 0.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests whether the row matching `tax_rate = 2` in the subquery can also be returned in the main query.
+-- Subquery evaluates to: 100.0 * 2 = 200.0
+-- For Order 1 itself: 100.0 * (1 - 0.5) + (100.0 * 2.0) = 50.0 + 200.0 = 250.0 > 200.0 (True).
+-- For Order 2 (tax_rate = 2 in another sense or testing subquery WHERE clause mutations like `total_amount = 2`):
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (1, 'Ivan', 0.5);
+INSERT INTO Customers (customer_id, name, discount_rate) VALUES (2, 'Judy', 0.9);
+
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (1, 1, '2023-06-01', 100.0, 2.0);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (2, 2, '2023-06-02', 2.0, 0.5);
+INSERT INTO Orders (order_id, customer_id, order_date, total_amount, tax_rate) VALUES (3, 2, '2023-06-03', 300.0, 0.8);
+```

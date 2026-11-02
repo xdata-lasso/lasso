@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor 1');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (2, 'Investor 2');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (10, 'Investor 10');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (20, 'Investor 20');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (99, 'Investor 99');
+
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BUY', 'Buy Shares');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('SELL', 'Sell Shares');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('DIV', 'Dividend');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('FEE', 'Fee');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('TAX', 'Tax');
+
+-- RHS target row (transaction_id = 10)
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (10, 'BUY', 1, '2023-01-01 10:00:00', 100.0000, '500', 'Target RHS');
+
+-- LHS matching row 1 (investor_id = 10 matches RHS.transaction_id = 10, share_count = '500' matches)
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (20, 'SELL', 10, '2023-01-02 10:00:00', 200.0000, '500', 'Match 1');
+
+-- LHS matching row 2 (tests GROUP BY deduplication on 'SELL')
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (21, 'SELL', 10, '2023-01-03 10:00:00', 300.0000, '500', 'Match 2');
+
+-- Partial match: investor_id matches RHS.transaction_id (10), but share_count differs
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (30, 'DIV', 10, '2023-01-04 10:00:00', 400.0000, '999', 'Diff share_count');
+
+-- Partial match: share_count matches ('500'), but investor_id (99) has no corresponding transaction_id
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (40, 'FEE', 99, '2023-01-05 10:00:00', 500.0000, '500', 'Diff id');
+
+-- Self-match on ID (transaction_id = 2 = investor_id), share_count = '100'
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'TAX', 2, '2023-01-06 10:00:00', 50.0000, '100', 'Self match');
+```
+
+```sql
+-- DATASET 2
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor 1');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (2, 'Investor 2');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (3, 'Investor 3');
+
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('AAA', 'Type AAA');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BBB', 'Type BBB');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('CCC', 'Type CCC');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('DDD', 'Type DDD');
+
+-- Tests NULL handling in join conditions and ORDER BY sorting (inserted out of alphabetical order)
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'CCC', 2, '2023-02-01 00:00:00', 10.0, '50', 'D1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'AAA', 3, '2023-02-02 00:00:00', 20.0, '50', 'D2');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (3, 'BBB', 3, '2023-02-03 00:00:00', 30.0, '50', 'D3');
+
+-- Row with NULL share_count (should not join even though investor_id = transaction_id = 4)
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (4, 'Investor 4');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (4, 'DDD', 4, '2023-02-04 00:00:00', 40.0, NULL, 'Null share count');
+
+-- Row with NULL investor_id and NULL transaction_type_code
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (5, NULL, 1, '2023-02-05 00:00:00', 50.0, '50', 'Null type code');
+```
+
+```sql
+-- DATASET 3
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (5, 'Investor 5');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (6, 'Investor 6');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (7, 'Investor 7');
+
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('T2', 'Type 2');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('T3', 'Type 3');
+
+-- Tests mutants that confuse LHS.investor_id = RHS.investor_id or LHS.transaction_id = RHS.transaction_id
+-- Here, rows 100 and 101 share investor_id = 5 and share_count = '10', but neither 5 nor 6 nor 7 is a transaction_id!
+-- Gold query returns empty set; mutant joining on LHS.investor_id = RHS.investor_id or omitting join condition returns T1, T2.
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (100, 'T1', 5, '2023-03-01 00:00:00', 100.0, '10', 'Same inv 1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (101, 'T2', 5, '2023-03-01 00:00:00', 100.0, '10', 'Same inv 2');
+
+-- Here, transaction_id = 6 matches investor_id = 6 of row 102, and other columns (date, amount, details) match, but share_count differs ('10' vs '20')
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (6, 'T3', 7, '2023-03-02 00:00:00', 250.0, '10', 'RHS candidate');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (102, 'T3', 6, '2023-03-02 00:00:00', 250.0, '20', 'LHS candidate mismatch share_count');
+```
+
+```sql
+-- DATASET 4
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (10, 'Inv 10');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (20, 'Inv 20');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (30, 'Inv 30');
+
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (1, 10, 'Lot 1');
+
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('X_LHS', 'Only on LHS');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('Y_RHS', 'Only on RHS');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('Z_UN', 'Unmatched');
+
+-- Tests directionality: LHS.investor_id = RHS.transaction_id vs LHS.transaction_id = RHS.investor_id
+-- And tests selecting LHS.transaction_type_code vs RHS.transaction_type_code_other
+-- Also populates child tables (Sales, Purchases, Transactions_Lots) to catch mutants that erroneously join them.
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (10, 'Y_RHS', 30, '2023-04-01 00:00:00', 500.0, '77', 'Acts as RHS only');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (50, 'X_LHS', 10, '2023-04-02 00:00:00', 600.0, '77', 'Acts as LHS only');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (60, 'Z_UN', 20, '2023-04-03 00:00:00', 700.0, '88', 'Unmatched transaction in Sales/Purchases');
+
+INSERT INTO "Sales" ("sales_transaction_id", "sales_details") VALUES (60, 'Sale 60');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (60, 'Purchase 60');
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (60, 1);
+```

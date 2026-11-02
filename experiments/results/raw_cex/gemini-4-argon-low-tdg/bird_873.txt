@@ -1,0 +1,99 @@
+```sql
+-- DATASET 1
+-- Tests basic join, WHERE clause filtering (forename, surname, raceId), and distinction from other columns/tables.
+INSERT INTO seasons (year, url) VALUES (1960, 'http://en.wikipedia.org/wiki/1960_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Circuit de Monaco', 'http://en.wikipedia.org/wiki/Circuit_de_Monaco');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'cooper', 'Cooper', 'http://en.wikipedia.org/wiki/Cooper_Car_Company');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (743, 1960, 1, 1, 'Monaco Grand Prix', '1960-05-29', '14:00:00', 'http://en.wikipedia.org/wiki/1960_Monaco_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (744, 1960, 2, 1, 'Dutch Grand Prix', '1960-06-06', '15:00:00', 'http://en.wikipedia.org/wiki/1960_Dutch_Grand_Prix');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'mclaren', 'Bruce', 'McLaren', 'http://en.wikipedia.org/wiki/Bruce_McLaren');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (11, 'other_bruce', 'Bruce', 'Wayne', 'http://en.wikipedia.org/wiki/Bruce_Wayne');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (12, 'other_mclaren', 'John', 'McLaren', 'http://en.wikipedia.org/wiki/John_McLaren');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (100, 743, 10, 1, 1, '1', 1, 8.0, 100, '1:55:41.0', 6941000, '1:36.2', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (101, 744, 10, 1, 2, '2', 2, 6.0, 75, '2:01:10.5', 7270500, '1:35.0', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (102, 743, 11, 1, 3, '3', 3, 4.0, 100, '1:56:00.0', 6960000, '1:37.0', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (103, 743, 12, 1, 4, '4', 4, 3.0, 100, '1:57:00.0', 7020000, '1:38.0', 1);
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (743, 10, 1, 1, '1:40.000', 100000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (743, 10, 1, 50, '14:50:00', '30.000', 30000);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate values, multiple matching records (to kill DISTINCT / LIMIT 1 mutants), and join key confusion (e.g. joining on resultId or constructorId instead of driverId).
+INSERT INTO seasons (year, url) VALUES (1961, 'http://en.wikipedia.org/wiki/1961_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Circuit de Spa-Francorchamps', 'http://en.wikipedia.org/wiki/Circuit_de_Spa-Francorchamps');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'cooper', 'Cooper', 'http://en.wikipedia.org/wiki/Cooper');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (5, 'ferrari', 'Ferrari', 'http://en.wikipedia.org/wiki/Ferrari');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (743, 1961, 1, 1, 'Belgian Grand Prix', '1961-06-18', '15:00:00', 'http://en.wikipedia.org/wiki/1961_Belgian_Grand_Prix');
+
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, url) VALUES (5, 'mclaren', 99, 'Bruce', 'McLaren', 'http://en.wikipedia.org/wiki/Bruce_McLaren');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, url) VALUES (99, 'moss', 5, 'Stirling', 'Moss', 'http://en.wikipedia.org/wiki/Stirling_Moss');
+
+-- Two matching rows with identical time for Bruce McLaren (driverId = 5) in race 743 (kills DISTINCT and LIMIT 1 mutants)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (10, 743, 5, 1, 5, 1, '1', 1, 9.0, 30, '+12.3 secs', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (11, 743, 5, 1, 5, 2, '2', 2, 6.0, 30, '+12.3 secs', 1);
+
+-- Trap rows where resultId = 5, constructorId = 5, or number = 5, but driverId != 5 (kills wrong join key mutants)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (5, 743, 99, 5, 99, 3, '3', 3, 4.0, 30, 'WRONG_JOIN_KEY_TIME', 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in T2.time (kills WHERE time IS NOT NULL mutants) and INNER JOIN vs LEFT JOIN behavior when a matching driver has no results in race 743.
+INSERT INTO seasons (year, url) VALUES (1962, 'http://en.wikipedia.org/wiki/1962_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Autodromo Nazionale di Monza', 'http://en.wikipedia.org/wiki/Monza');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mclaren_const', 'McLaren', 'http://en.wikipedia.org/wiki/McLaren');
+INSERT INTO status (statusId, status) VALUES (1, 'Engine');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (743, 1962, 1, 1, 'Italian Grand Prix', '1962-09-16', '15:00:00', 'http://en.wikipedia.org/wiki/1962_Italian_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (742, 1962, 2, 1, 'German Grand Prix', '1962-08-05', '14:00:00', 'http://en.wikipedia.org/wiki/1962_German_Grand_Prix');
+
+-- Two drivers named Bruce McLaren (allowed by schema as url and driverRef are unique)
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'mclaren_1', 'Bruce', 'McLaren', 'http://en.wikipedia.org/wiki/Bruce_McLaren_1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'mclaren_2', 'Bruce', 'McLaren', 'http://en.wikipedia.org/wiki/Bruce_McLaren_2');
+
+-- Driver 1 has a result in race 743, but time is NULL (e.g., retired due to engine failure)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (1, 743, 1, 1, 5, 'R', 15, 0.0, 10, NULL, 1);
+
+-- Driver 2 only has a result in race 742 (if a mutant uses LEFT JOIN with raceId filter in ON clause, Driver 2 would produce an extra NULL row)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (2, 742, 2, 1, 1, '1', 1, 9.0, 50, '1:40:00.0', 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests string matching precision (kills LIKE '%Bruce%', LIKE '%McLaren%', case-insensitivity, or swapped forename/surname mutants) and boundary raceIds (742, 744).
+INSERT INTO seasons (year, url) VALUES (1963, 'http://en.wikipedia.org/wiki/1963_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone Circuit', 'http://en.wikipedia.org/wiki/Silverstone_Circuit');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'brabham', 'Brabham', 'http://en.wikipedia.org/wiki/Brabham');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (742, 1963, 1, 1, 'Race 742', '1963-01-01', 'http://en.wikipedia.org/wiki/R742');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (743, 1963, 2, 1, 'Race 743', '1963-02-01', 'http://en.wikipedia.org/wiki/R743');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (744, 1963, 3, 1, 'Race 744', '1963-03-01', 'http://en.wikipedia.org/wiki/R744');
+
+-- Exact match driver
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'exact', 'Bruce', 'McLaren', 'http://en.wikipedia.org/wiki/Exact');
+-- Swapped forename and surname
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'swapped', 'McLaren', 'Bruce', 'http://en.wikipedia.org/wiki/Swapped');
+-- Superstring names (kills unanchored LIKE mutants)
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'super', 'BruceJr', 'McLarenSr', 'http://en.wikipedia.org/wiki/Super');
+-- Case difference (kills case-insensitive/LOWER() mutants)
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'lower', 'bruce', 'mclaren', 'http://en.wikipedia.org/wiki/Lower');
+
+-- Results in race 743 for all drivers
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (1, 743, 1, 1, 1, '1', 1, 9.0, 50, '2:15:00.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (2, 743, 2, 1, 2, '2', 2, 6.0, 50, 'SWAPPED_NAME_TIME', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (3, 743, 3, 1, 3, '3', 3, 4.0, 50, 'LIKE_MUTANT_TIME', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (4, 743, 4, 1, 4, '4', 4, 3.0, 50, 'CASE_MUTANT_TIME', 1);
+
+-- Results for exact driver in boundary races 742 and 744 (kills <, <=, >, >=, != mutants on raceId)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (5, 742, 1, 1, 1, '1', 1, 9.0, 50, 'RACE_742_TIME', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (6, 744, 1, 1, 1, '1', 1, 9.0, 50, 'RACE_744_TIME', 1);
+```

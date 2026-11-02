@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests DISTINCT, ORDER BY ASC/DESC, LIMIT 5 (more than 5 distinct matching molecules), and filtering on bond_type = '='
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR007', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR001', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR005', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR003', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR006', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR002', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR004', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR000', '-');
+
+-- Insert in non-alphabetical order to catch missing ORDER BY or wrong ORDER BY direction
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B01', 'TR007', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B02', 'TR002', '=');
+-- Duplicate molecule_id with '=' to catch missing DISTINCT (also affects LIMIT count)
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B03', 'TR002', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B04', 'TR005', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B05', 'TR001', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B06', 'TR006', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B07', 'TR003', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B08', 'TR004', '=');
+
+-- Non-matching bond_type for TR000 (which would sort first if WHERE filter is missing or wrong)
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B09', 'TR000', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B10', 'TR000', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B11', 'TR000', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in molecule_id, orphan molecules (no bonds), and bonds without connected atoms (catches unnecessary JOINs with atom/connected)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M3', NULL);
+
+-- M1 has '=' bond and connected atoms
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M1', 'o');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'M1', '=');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'B1');
+
+-- M2 has '=' bond, but NO atoms and NO entries in connected (catches unnecessary INNER JOIN with atom or connected)
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'M2', '=');
+
+-- Bond with NULL molecule_id and bond_type '=' (catches INNER JOIN with molecule table, as NULL sorts first in SQLite)
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', NULL, '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B4', NULL, '=');
+
+-- M3 has no bonds at all (catches queries selecting from molecule without proper filtering)
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary conditions: fewer than 5 results, mixed bond types on the same molecule, and ordering by bond_id vs molecule_id
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M_Z', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M_A', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M_M', '-');
+
+-- bond_id order ('B1', 'B2', 'B3') is inverse of molecule_id order ('M_Z', 'M_M', 'M_A') to catch ORDER BY bond_id
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'M_Z', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'M_M', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'M_A', '=');
+
+-- Same molecule having both '=' and other bond types (catches mutants using GROUP BY HAVING or EXCEPT/NOT IN)
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B4', 'M_A', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B5', 'M_Z', '#');
+
+-- String similarity edge cases for bond_type
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M_FAKE1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M_FAKE2', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B6', 'M_FAKE1', '==');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B7', 'M_FAKE2', ' = ');
+```

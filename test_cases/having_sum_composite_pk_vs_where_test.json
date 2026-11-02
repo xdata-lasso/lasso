@@ -1,0 +1,18 @@
+{
+  "id": "having_sum_composite_pk_vs_where_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE accounts (account_id INTEGER PRIMARY KEY, tier TEXT);\nCREATE TABLE monthly_usage (account_id INTEGER NOT NULL REFERENCES accounts(account_id), period TEXT NOT NULL, usage_amount REAL, PRIMARY KEY (period, account_id));",
+  "correct_query": "SELECT COUNT(*) FROM (SELECT T2.account_id FROM accounts AS T1 INNER JOIN monthly_usage AS T2 ON T1.account_id = T2.account_id WHERE T1.tier = 'PRO' AND SUBSTRING(T2.period, 1, 4) = '2023' GROUP BY T2.account_id HAVING SUM(T2.usage_amount) < 500) AS t1",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "where_instead_of_having_sum_no_group_by",
+      "description": "Replaces grouped HAVING SUM(usage_amount) < 500 subquery with ungrouped WHERE usage_amount < 500",
+      "query": "SELECT COUNT(*) FROM accounts AS T1 INNER JOIN monthly_usage AS T2 ON T1.account_id = T2.account_id WHERE T1.tier = 'PRO' AND T2.usage_amount < 500 AND T2.period LIKE '2023%'"
+    },
+    {
+      "id": "where_instead_of_having_sum_with_distinct",
+      "description": "Replaces HAVING SUM(usage_amount) < 500 with row-level WHERE usage_amount < 500 and COUNT(DISTINCT)",
+      "query": "SELECT COUNT(DISTINCT T2.account_id) FROM accounts AS T1 INNER JOIN monthly_usage AS T2 ON T1.account_id = T2.account_id WHERE T1.tier = 'PRO' AND T2.usage_amount < 500 AND T2.period LIKE '2023%'"
+    }
+  ]
+}

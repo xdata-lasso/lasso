@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Uncorrelated EXISTS vs Correlated EXISTS (Instructor 2 teaches nothing, Instructor 3 teaches in 2009).
+-- 2. Decoupled inner EXISTS vs Joined condition (Instructor 1 teaches in Fall 2010, while a different untaught section exists in Spring 2010).
+-- 3. Duplicate names in instructor table (DISTINCT vs ALL).
+-- 4. Multiple teaches records for the same instructor in 2010 (JOIN vs EXISTS).
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'Taylor', 100000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS101', 'Intro to CS', 'CS', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS102', 'Data Structures', 'CS', 4);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('1', 'Alice', 'CS', 50000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('2', 'Bob', 'CS', 60000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('3', 'Charlie', 'CS', 70000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('4', 'Alice', 'CS', 55000);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '1', 'Fall', 2010, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '2', 'Fall', 2010, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS102', '1', 'Spring', 2010, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '1', 'Fall', 2009, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('1', 'CS101', '1', 'Fall', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('1', 'CS101', '2', 'Fall', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('3', 'CS101', '1', 'Fall', 2009);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Teaches in 2010 exists (Fall 2010), and a Spring section exists (Spring 2009), but NO Spring 2010 section exists.
+-- Refutes mutants that drop `year = 2010` from the innermost EXISTS or drop the innermost EXISTS entirely.
+-- Expected result: Empty set.
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'Taylor', 100000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS101', 'Intro to CS', 'CS', 4);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('1', 'Alice', 'CS', 50000);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '1', 'Fall', 2010, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '1', 'Spring', 2009, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('1', 'CS101', '1', 'Fall', 2010);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. A Spring 2010 section exists in `section`, and `teaches` has a record for Spring 2009, but NO `teaches` record exists for 2010.
+-- Refutes mutants that drop `t1.year = 2010` or replace the outer query with just checking `section` in Spring 2010.
+-- Expected result: Empty set.
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'Taylor', 100000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS101', 'Intro to CS', 'CS', 4);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('1', 'Alice', 'CS', 50000);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '1', 'Spring', 2010, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '1', 'Spring', 2009, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('1', 'CS101', '1', 'Spring', 2009);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Instructor teaches in Spring 2010 directly.
+-- Ensures that when all conditions are tightly coupled and satisfied by the exact same row, the instructor is returned.
+-- Also includes a second instructor who does not teach, to still catch correlation mutants in this standard scenario.
+INSERT INTO department (dept_name, building, budget) VALUES ('Math', 'Watson', 90000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('M101', 'Calculus', 'Math', 4);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10', 'David', 'Math', 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20', 'Eve', 'Math', 75000);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('M101', '1', 'Spring', 2010, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10', 'M101', '1', 'Spring', 2010);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Boundary year values (2009, 2011) vs 2010.
+-- Refutes mutants that change `= 2010` to `>= 2010`, `<= 2010`, `> 2010`, `< 2010`, or `!= 2010`.
+-- Expected result: Empty set.
+INSERT INTO department (dept_name, building, budget) VALUES ('Physics', 'Watson', 80000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('P101', 'Mechanics', 'Physics', 4);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('1', 'Frank', 'Physics', 50000);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('P101', '1', 'Spring', 2009, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('P101', '1', 'Spring', 2011, NULL, NULL, NULL);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('1', 'P101', '1', 'Spring', 2009);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('1', 'P101', '1', 'Spring', 2011);
+```

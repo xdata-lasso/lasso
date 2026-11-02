@@ -1,0 +1,35 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "customer_name" TEXT(255));
+
+CREATE TABLE "Orders" ("order_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "product_name" TEXT(255), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "customers" ("customer_id", "customer_name") VALUES (1102, 'Stephanie Ross');
+INSERT INTO "customers" ("customer_id", "customer_name") VALUES (1107, 'Stephanie Ross');
+INSERT INTO "customers" ("customer_id", "customer_name") VALUES (1113, 'Zachary Hicks');
+INSERT INTO "customers" ("customer_id", "customer_name") VALUES (1114, 'Anthony Rodriguez');
+INSERT INTO "customers" ("customer_id", "customer_name") VALUES (1112, 'Rebecca Henderson');
+INSERT INTO "orders" ("order_id", "customer_id", "product_name") VALUES (1103, 1102, 'A');
+INSERT INTO "orders" ("order_id", "customer_id", "product_name") VALUES (1104, 1102, 'B');
+INSERT INTO "orders" ("order_id", "customer_id", "product_name") VALUES (1108, 1102, 'B');
+INSERT INTO "orders" ("order_id", "customer_id", "product_name") VALUES (1109, 1102, 'A');
+INSERT INTO "orders" ("order_id", "customer_id", "product_name") VALUES (1110, 1102, 'B');
+INSERT INTO "orders" ("order_id", "customer_id", "product_name") VALUES (1111, NULL, 'C');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CUSTOMERS.CUSTOMER_ID AS CUSTOMER_ID, CUSTOMER_NAME FROM (SELECT CUSTOMER_ID, SUM(IIF(PRODUCT_NAME = 'A', 1, 0)) AS A, SUM(IIF(PRODUCT_NAME = 'B', 1, 0)) AS B, SUM(IIF(PRODUCT_NAME = 'C', 1, 0)) AS C FROM ORDERS GROUP BY CUSTOMER_ID) AS INTER JOIN CUSTOMERS ON CUSTOMERS.CUSTOMER_ID = INTER.CUSTOMER_ID WHERE A > 0 AND B > 0 AND C = 0 ORDER BY CUSTOMER_ID;
+
+/*
+Gold Result:
+(1102, 'Stephanie Ross')
+*/
+
+-- Prediction Query
+WITH CTE AS (SELECT CUSTOMER_ID FROM (SELECT CUSTOMER_ID, CASE WHEN PRODUCT_NAME IN ('A') THEN 1 ELSE 0 END AS A FROM ORDERS) AS X WHERE A <> 0), CTE1 AS (SELECT CUSTOMER_ID FROM (SELECT CUSTOMER_ID, CASE WHEN PRODUCT_NAME IN ('B') THEN 1 ELSE 0 END AS B FROM ORDERS) AS X WHERE B <> 0), CTE2 AS (SELECT CUSTOMER_ID FROM (SELECT CUSTOMER_ID, CASE WHEN PRODUCT_NAME = 'C' THEN 1 ELSE 0 END AS C FROM ORDERS) AS Y WHERE C = 1) SELECT DISTINCT CUSTOMER_ID, CUSTOMER_NAME FROM CUSTOMERS WHERE CUSTOMER_ID IN (SELECT * FROM CTE) AND CUSTOMER_ID IN (SELECT * FROM CTE1) AND NOT CUSTOMER_ID IN (SELECT * FROM CTE2) ORDER BY 1, CUSTOMER_ID NULLS LAST, CUSTOMER_NAME NULLS LAST;
+
+/*
+Prediction Result:
+*/

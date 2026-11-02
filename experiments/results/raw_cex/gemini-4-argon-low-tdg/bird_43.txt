@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by the sum (AvgScrMath + AvgScrRead + AvgScrWrite), ensuring mutants that order by individual columns (e.g., only AvgScrMath, only AvgScrRead, or only two of the three) or DESC instead of ASC are caught. Also includes a row with NULL AvgScrMath to test the WHERE clause.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('1', 'Active', 'County_LowMath_HighSum', 'D1', '00', 'Doc', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('2', 'Active', 'County_LowRead_HighSum', 'D2', '00', 'Doc', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('3', 'Active', 'County_LowWrite_HighSum', 'D3', '00', 'Doc', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('4', 'Active', 'County_TrueLowestSum', 'D4', '00', 'Doc', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('5', 'Active', 'County_NullMath', 'D5', '00', 'Doc', '2020-01-01');
+
+-- Sum = 100 + 600 + 600 = 1300 (Lowest Math, but high sum)
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('1', 'S', 'CName_Wrong1', 100, 50, 600, 100, 600, 10);
+-- Sum = 600 + 100 + 600 = 1300 (Lowest Read, but high sum)
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('2', 'S', 'CName_Wrong2', 100, 50, 100, 600, 600, 20);
+-- Sum = 600 + 600 + 100 = 1300 (Lowest Write, but high sum)
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('3', 'S', 'CName_Wrong3', 100, 50, 600, 600, 100, 30);
+-- Sum = 350 + 350 + 350 = 1050 (True lowest total sum, expected winner)
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('4', 'S', 'CName_Wrong4', 100, 50, 350, 350, 350, 5);
+-- NULL AvgScrMath (should be filtered out by WHERE clause, otherwise NULL sum would sort first in SQLite)
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('5', 'S', 'CName_Wrong5', 100, 50, 200, NULL, 200, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests SQLite NULL propagation in the ORDER BY arithmetic expression (AvgScrMath + AvgScrRead + AvgScrWrite).
+-- If AvgScrMath is NOT NULL, but AvgScrRead or AvgScrWrite IS NULL, the sum evaluates to NULL, which sorts FIRST in SQLite ASC order.
+-- This catches mutants that add `AND AvgScrRead IS NOT NULL` or `AND AvgScrWrite IS NOT NULL` or use COALESCE(col, 0).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('A', 'Active', 'County_NonNullSum', 'D1', '00', 'Doc', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('B', 'Active', 'County_NullRead_Winner', 'D2', '00', 'Doc', '2020-01-01');
+
+-- Sum = 900
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('A', 'S', 'DiffCNameA', 100, 50, 300, 300, 300, 10);
+-- AvgScrMath is 700 (not null), AvgScrRead is NULL -> Sum is NULL (sorts before 900 in SQLite)
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('B', 'S', 'DiffCNameB', 100, 50, NULL, 700, 300, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on `T1.cds` in the ORDER BY clause when the sum is identical, and tests that `schools` rows without `satscores` are excluded (INNER JOIN vs RIGHT/OUTER JOIN), and checks `frpm` table distractions.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('001', 'Active', 'County_UnmatchedSchool', 'D0', '00', 'Doc', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('002', 'Active', 'County_TieWinner', 'D1', '00', 'Doc', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('003', 'Active', 'County_TieLoser', 'D2', '00', 'Doc', '2020-01-01');
+
+-- Both 002 and 003 have the exact same total score (1200), but different AvgScrMath and County so the tie-breaker matters.
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('003', 'S', 'WrongC3', 100, 50, 400, 450, 350, 10);
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('002', 'S', 'WrongC2', 100, 50, 400, 400, 400, 10);
+
+-- Only 003 is in frpm; catches mutants that erroneously join with `frpm`.
+INSERT INTO frpm (CDSCode, "County Name") VALUES ('003', 'FRPM_County_3');
+```
+
+```sql
+-- DATASET 4
+-- Tests edge cases where AvgScrWrite is NULL vs non-NULL, and where AvgScrMath is 0 (falsy in boolean contexts, catching `WHERE T1.AvgScrMath` instead of `WHERE NOT T1.AvgScrMath IS NULL`).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('10', 'Active', 'County_ZeroMath', 'D1', '00', 'Doc', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('20', 'Active', 'County_NormalMath', 'D2', '00', 'Doc', '2020-01-01');
+
+-- Sum = 0 + 100 + 100 = 200. AvgScrMath is 0 (NOT NULL, so valid, and lowest sum).
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('10', 'S', 'C10', 100, 50, 100, 0, 100, 0);
+-- Sum = 200 + 200 + 200 = 600.
+INSERT INTO satscores (cds, rtype, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('20', 'S', 'C20', 100, 50, 200, 200, 200, 5);
+```

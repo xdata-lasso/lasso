@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests basic join, WHERE clause filtering (A2 = 'Prachatice'), wrong column filtering (e.g., A3 = 'Prachatice'),
+-- wrong join conditions (e.g., T1.account_id = T2.district_id), and cardinality/DISTINCT issues (multiple accounts in the same district, same dates).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'Prachatice', 'South Bohemia', '10000', '10', '5', '2', 1, 1, 50.5, 8500, 2.5, 3.1, 100, 120, 150);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'Tabor', 'Prachatice', '20000', '20', '10', '4', 2, 2, 60.0, 9000, 3.0, 3.5, 110, 130, 160);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (30, 'Prachatice', 'West Bohemia', '30000', '30', '15', '6', 3, 3, 70.0, 9500, NULL, 4.0, 120, NULL, 170);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 10, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 10, 'POPLATEK TYDNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 10, 'POPLATEK PO OBRATU', '1996-05-15');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 20, 'POPLATEK MESICNE', '1997-08-20');
+```
+
+```sql
+-- DATASET 2
+-- Tests intermediate table joins (e.g., joining account to client/disp/loan/order/trans when those tables are empty or partially populated)
+-- and tests case sensitivity / LIKE mutations on 'Prachatice'.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Prachatice', 'Region1', '5000', '1', '1', '1', 1, 1, 40.0, 8000, 1.0, 1.0, 50, 50, 50);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'prachatice', 'Region2', '6000', '2', '2', '2', 2, 2, 45.0, 8100, 1.1, 1.1, 60, 60, 60);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'Prachatice North', 'Region3', '7000', '3', '3', '3', 3, 3, 48.0, 8200, 1.2, 1.2, 70, 70, 70);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'POPLATEK MESICNE', '1993-03-10');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 2, 'POPLATEK MESICNE', '1994-04-11');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (103, 3, 'POPLATEK MESICNE', '1995-05-12');
+```
+
+```sql
+-- DATASET 3
+-- Tests mutants that erroneously join through `client` and `disp` (e.g., account -> disp -> client -> district)
+-- where the client's district_id differs from the account's district_id, or where an account has multiple disps.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Prachatice', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'Praha', 'R2', '200', '2', '2', '2', 2, 2, 20.0, 2000, 2.0, 2.0, 20, 20, 20);
+
+-- Account 50 is in 'Prachatice' (district 1), but its client is in 'Praha' (district 2), and it has two disps (to catch duplicate rows if joined with disp).
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (50, 1, 'POPLATEK MESICNE', '1998-11-11');
+-- Account 60 is in 'Praha' (district 2), but its client is in 'Prachatice' (district 1).
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (60, 2, 'POPLATEK MESICNE', '1999-12-12');
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (500, 'M', '1970-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (501, 'F', '1975-02-02', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (600, 'M', '1980-03-03', 1);
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (5000, 500, 50, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (5001, 501, 50, 'DISPONENT');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (6000, 600, 60, 'OWNER');
+
+-- Add loan and trans with different dates to catch mutants selecting date from the wrong table
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 50, '2000-01-01', 10000, 12, 833.3, 'A');
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 50, '2001-01-01', 'PRIJEM', 'VKLAD', 500, 500, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result handling when 'Prachatice' exists in district but has no accounts, while other districts have accounts.
+-- Kills mutants using RIGHT/FULL OUTER JOIN on district or omitting the WHERE clause.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Prachatice', 'South', '100', '1', '1', '1', 1, 1, 50.0, 8000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'Brno', 'Moravia', '200', '2', '2', '2', 2, 2, 80.0, 9000, 2.0, 2.0, 20, 20, 20);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 2, 'POPLATEK MESICNE', '1995-07-07');
+```

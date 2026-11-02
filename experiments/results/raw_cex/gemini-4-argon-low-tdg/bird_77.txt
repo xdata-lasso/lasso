@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Core differentiation: Distinguishes among similar columns across tables (School vs School Name, County vs County Name, GSserved vs GSoffered, and the various FRPM/Free Meal/Enrollment K-12 vs 5-17 columns). Also tests arithmetic formula vs pre-calculated percentage column.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES 
+('01', 'Active', 'Los Angeles', 'LAUSD', 'Target School A', '00', 'District', 'K-12', 'K-9', '2020-01-01'),
+('02', 'Active', 'Orange', 'OCUSD', 'Wrong County School', '00', 'District', 'K-9', 'K-9', '2020-01-01'),
+('03', 'Active', 'Los Angeles', 'LAUSD', 'Wrong GSserved School', '00', 'District', 'K-9', 'K-12', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade", "Enrollment (K-12)", "Free Meal Count (K-12)", "Percent (%) Eligible Free (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible FRPM (K-12)", "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES 
+('01', 'Orange', 'Wrong School Name A', 'K', '12', 500.0, 200.0, 40.0, 250.0, 50.0, 200.0, 30.0, 15.0, 50.0, 99.9),
+('02', 'Los Angeles', 'Decoy County Name', 'K', '9', 100.0, 50.0, 50.0, 50.0, 50.0, 100.0, 50.0, 50.0, 50.0, 50.0),
+('03', 'Los Angeles', 'Decoy Grades', 'K', '9', 100.0, 50.0, 50.0, 50.0, 50.0, 100.0, 50.0, 50.0, 50.0, 50.0);
+```
+
+```sql
+-- DATASET 2
+-- Join semantics and Duplicate elimination: Tests INNER JOIN vs LEFT/RIGHT JOIN (unmatched schools), DISTINCT vs ALL (two schools with identical names and calculated percentages), and non-trivial floating point arithmetic (100 / 3).
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES 
+('10', 'Active', 'Los Angeles', 'LAUSD', 'Duplicate Name School', '00', 'District', 'K-9', 'K-9', '2020-01-01'),
+('11', 'Active', 'Los Angeles', 'LAUSD', 'Duplicate Name School', '00', 'District', 'K-9', 'K-9', '2020-01-01'),
+('12', 'Active', 'Los Angeles', 'LAUSD', 'Unmatched In FRPM', '00', 'District', 'K-9', 'K-9', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Enrollment (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES 
+('10', 'Los Angeles', 'Duplicate Name School', 300.0, 100.0, 33.3),
+('11', 'Los Angeles', 'Duplicate Name School', 600.0, 200.0, 33.3);
+```
+
+```sql
+-- DATASET 3
+-- Null handling, Zero values, and String boundary conditions: Tests NULL in arithmetic, 0 in numerator, and partial/case-sensitive string matches on County and GSserved.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES 
+('20', 'Active', 'Los Angeles', 'LAUSD', 'Zero FRPM School', '00', 'District', 'K-9', 'K-9', '2020-01-01'),
+('21', 'Active', 'Los Angeles', 'LAUSD', 'Null FRPM School', '00', 'District', 'K-9', 'K-9', '2020-01-01'),
+('22', 'Active', 'Los Angeles', 'LAUSD', NULL, '00', 'District', 'K-9', 'K-9', '2020-01-01'),
+('23', 'Active', 'Los Angeles County', 'LAUSD', 'Substring County', '00', 'District', 'K-9', 'K-9', '2020-01-01'),
+('24', 'Active', 'Los Angeles', 'LAUSD', 'Substring GSserved', '00', 'District', 'K-9', 'PK-9', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Enrollment (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES 
+('20', 'Los Angeles', 'Zero FRPM School', 250.0, 0.0, 0.0),
+('21', 'Los Angeles', 'Null FRPM School', 250.0, NULL, 10.0),
+('22', 'Los Angeles', 'Non-Null FRPM Name', 100.0, 25.0, 25.0),
+('23', 'Los Angeles', 'Substring County', 100.0, 50.0, 50.0),
+('24', 'Los Angeles', 'Substring GSserved', 100.0, 50.0, 50.0);
+```
+
+```sql
+-- DATASET 4
+-- Join condition and Aggregation traps: Tests missing join condition (Cartesian product), Joining on wrong columns (e.g., School Name or District Code), and unexpected GROUP BY / Aggregation (SUM, AVG, MAX, MIN, COUNT) or LIMIT 1.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES 
+('30', 'Active', 'Los Angeles', 'D1', 'Alpha School', '00', 'District', 'K-9', 'K-9', '2020-01-01'),
+('31', 'Active', 'Los Angeles', 'D1', 'Beta School', '00', 'District', 'K-9', 'K-9', '2020-01-01'),
+('32', 'Active', 'San Diego', 'D1', 'Alpha School', '00', 'District', 'K-12', 'K-12', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "District Code", "County Name", "District Name", "School Name", "Enrollment (Ages 5-17)", "FRPM Count (Ages 5-17)") VALUES 
+('30', 101, 'Los Angeles', 'D1', 'Beta School', 80.0, 20.0),
+('31', 101, 'Los Angeles', 'D1', 'Alpha School', 160.0, 120.0),
+('32', 101, 'San Diego', 'D1', 'Alpha School', 50.0, 40.0);
+```
+
+```sql
+-- DATASET 5
+-- Unnecessary Join to satscores & Empty Result Set check: Tests mutants that unnecessarily join `satscores` (filtering out valid schools not in satscores) or use `satscores.sname` / `satscores.cname`.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES 
+('40', 'Active', 'Los Angeles', 'LAUSD', 'No SAT Record School', '00', 'District', 'K-9', 'K-9', '2020-01-01'),
+('41', 'Active', 'Los Angeles', 'LAUSD', 'Has SAT Record School', '00', 'District', 'K-9', 'K-9', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Enrollment (Ages 5-17)", "FRPM Count (Ages 5-17)") VALUES 
+('40', 'Los Angeles', 'No SAT Record School', 400.0, 100.0),
+('41', 'Los Angeles', 'Has SAT Record School', 500.0, 300.0);
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr) VALUES 
+('41', 'S', 'SAT Name Override', 'LAUSD', 'Los Angeles', 100, 50);
+```

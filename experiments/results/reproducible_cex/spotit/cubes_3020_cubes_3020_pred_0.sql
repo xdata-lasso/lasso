@@ -1,0 +1,63 @@
+-- Schema DDL
+CREATE TABLE "SHOP" (
+    "SHOP_ID" INT,
+    "ADDRESS" TEXT,
+    "NUM_OF_STAFF" TEXT,
+    "SCORE" FLOAT,
+    "OPEN_YEAR" TEXT,
+    PRIMARY KEY ("SHOP_ID")
+);
+CREATE TABLE "MEMBER" (
+    "MEMBER_ID" INT,
+    "NAME" TEXT,
+    "MEMBERSHIP_CARD" TEXT,
+    "AGE" INT,
+    "TIME_OF_PURCHASE" INT,
+    "LEVEL_OF_MEMBERSHIP" INT,
+    "ADDRESS" TEXT,
+    PRIMARY KEY ("MEMBER_ID")
+);
+CREATE TABLE "HAPPY_HOUR" (
+    "HH_ID" INT,
+    "SHOP_ID" INT,
+    "MONTH" TEXT,
+    "NUM_OF_SHAFF_IN_CHARGE" INT,
+    PRIMARY KEY ("HH_ID", "SHOP_ID", "MONTH"),
+    FOREIGN KEY ("SHOP_ID") REFERENCES "SHOP"("SHOP_ID")
+);
+CREATE TABLE "HAPPY_HOUR_MEMBER" (
+    "HH_ID" INT,
+    "MEMBER_ID" INT,
+    "TOTAL_AMOUNT" FLOAT,
+    PRIMARY KEY ("HH_ID", "MEMBER_ID"),
+    FOREIGN KEY ("MEMBER_ID") REFERENCES "MEMBER"("MEMBER_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO SHOP VALUES (0, 0, 0, 0, 0);
+INSERT INTO SHOP VALUES (-1, 0, 0, 0, 0);
+INSERT INTO MEMBER VALUES (0, 0, 0, 0, 0, 0, 0);
+INSERT INTO MEMBER VALUES (1, 0, 0, 0, 0, 0, 0);
+INSERT INTO HAPPY_HOUR VALUES (-1, 0, 7, 0);
+INSERT INTO HAPPY_HOUR VALUES (0, 0, 8, 0);
+INSERT INTO HAPPY_HOUR_MEMBER VALUES (0, 0, 0);
+INSERT INTO HAPPY_HOUR_MEMBER VALUES (1, 1, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT address, num_of_staff FROM (SELECT * FROM shop AS LHS WHERE NOT EXISTS(SELECT 1 FROM happy_hour AS RHS WHERE (LHS.shop_id = RHS.shop_id))) ORDER BY address, num_of_staff NULLS LAST;
+
+/*
+Gold Result:
+('0', '0')
+*/
+
+-- Prediction Query
+SELECT address, num_of_staff FROM shop WHERE NOT shop_id IN (SELECT shop_id FROM happy_hour);
+
+/*
+Prediction Result:
+('0', '0')
+*/

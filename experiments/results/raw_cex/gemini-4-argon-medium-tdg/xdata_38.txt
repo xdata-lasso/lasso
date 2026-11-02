@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- 1. 'Comp. Sci.' shares 'Taylor' with 'Math' (kills missing dept_name filter in JOIN).
+-- 2. 'Taylor' has two rooms with identical room_number ('101') as 'Watson' (kills COUNT(DISTINCT room_number) if unfiltered, and tests >1 count).
+-- 3. 'Taylor' has rooms with identical capacities (50) (kills COUNT(DISTINCT capacity) or COUNT(DISTINCT building)).
+-- 4. One room in 'Taylor' has NULL capacity (kills COUNT(capacity)).
+-- 5. 'Comp. Sci.' has courses/sections in 'Watson', while 'Math' has sections in 'Taylor' (kills queries joining via course/section instead of department->classroom).
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Math', 'Taylor', 80000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Physics', 'Watson', 90000);
+
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Taylor', '101', 50);
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Taylor', '102', 50);
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Taylor', '103', NULL);
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Watson', '101', 30);
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Watson', '201', 40);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-102', 'Data Structures', 'Comp. Sci.', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('MATH-101', 'Calculus', 'Math', 3);
+
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '1', 'Fall', 2020, 'Watson', '101', 'A');
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '2', 'Spring', 2021, 'Watson', '101', 'B');
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-102', '1', 'Fall', 2020, 'Taylor', '101', 'C');
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('MATH-101', '1', 'Fall', 2020, 'Taylor', '102', 'D');
+```
+
+```sql
+-- DATASET 2
+-- Edge case: 'Comp. Sci.' exists in a building that has 0 classrooms in the classroom table.
+-- Kills RIGHT JOIN / LEFT JOIN from department to classroom with COUNT(*) or COUNT(d.building), and kills GROUP BY without empty-group handling.
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Packard', 100000);
+INSERT INTO department (dept_name, building, budget) VALUES ('History', 'Painter', 50000);
+
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Painter', '514', 10);
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Painter', '515', 20);
+```
+
+```sql
+-- DATASET 3
+-- Edge case: 'Comp. Sci.' department does not exist at all, and department names with similar substrings exist.
+-- Kills LIKE '%Comp. Sci.%', case-insensitive/typo variations ('Comp. Sci', 'Computer Science'), and queries lacking the dept_name filter.
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci', 'Taylor', 100000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Computer Science', 'Taylor', 120000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Applied Comp. Sci.', 'Watson', 90000);
+
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Taylor', '101', 50);
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Watson', '102', 60);
+```
+
+```sql
+-- DATASET 4
+-- Edge case: NULL values in primary key columns (allowed in SQLite for non-INTEGER PRIMARY KEY) and NULL building in department.
+-- 'Comp. Sci.' has building 'Taylor'. 'Taylor' has a room with NULL room_number.
+-- Kills COUNT(*) vs COUNT(room_number) and COUNT(building) vs COUNT(room_number).
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Biology', NULL, 75000);
+
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Taylor', '3128', 70);
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Taylor', NULL, 40);
+INSERT INTO classroom (building, room_number, capacity) VALUES (NULL, '999', 25);
+```
+
+```sql
+-- DATASET 5
+-- Edge case: 'Comp. Sci.' has a NULL building, while classrooms with NULL building exist.
+-- In SQL, `building = NULL` evaluates to UNKNOWN, so the result must be 0.
+-- Kills mutants using `IS NOT DISTINCT FROM`, `COALESCE`, or improper NULL handling.
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', NULL, 100000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Music', 'Packard', 40000);
+
+INSERT INTO classroom (building, room_number, capacity) VALUES (NULL, '101', 30);
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Packard', '101', 100);
+```
+
+```sql
+-- DATASET 6
+-- Numeric room numbers and capacities to kill aggregation mutants (SUM, AVG, MAX, MIN instead of COUNT).
+-- Count is 2, whereas SUM(room_number) is 300, MIN is 100, MAX is 200, AVG is 150.
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Taylor', '100', 10);
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Taylor', '200', 20);
+```

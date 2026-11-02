@@ -1,0 +1,107 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality, WHERE clause filtering ('2015/2016'), SUM vs MAX/AVG/COUNT, and home_team_goal + away_team_goal vs single goal column.
+INSERT INTO Country (id, name) VALUES (1, 'Country A');
+INSERT INTO Country (id, name) VALUES (2, 'Country B');
+INSERT INTO Country (id, name) VALUES (3, 'Country C');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 100, 1000, 'Team A', 'TMA');
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'Premier League');
+INSERT INTO League (id, country_id, name) VALUES (2, 2, 'La Liga');
+INSERT INTO League (id, country_id, name) VALUES (3, 3, 'Serie A');
+
+-- League 1 (Premier League): 2 matches in 2015/2016. Total goals = (2+3) + (1+4) = 10. Home = 3, Away = 7. AVG = 5.
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (1, 1, 1, '2015/2016', 100, 2, 3);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (2, 1, 1, '2015/2016', 100, 1, 4);
+
+-- League 2 (La Liga): 1 match in 2015/2016 (Total=8, Home=6, Away=2, AVG=8), 1 match in 2014/2015 (Total=20).
+-- Kills mutants ignoring season filter (Total=28), using only home_team_goal (6 vs 3), or using AVG/MAX (8 vs 5).
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (3, 2, 2, '2015/2016', 100, 6, 2);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (4, 2, 2, '2014/2015', 100, 10, 10);
+
+-- League 3 (Serie A): 3 matches in 2015/2016. Total = 0+8 + 0+0 + 0+0 = 8. Home = 0, Away = 8. COUNT = 3.
+-- Kills mutants using only away_team_goal (8 vs 7) or COUNT(matches) (3 vs 2).
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (5, 3, 3, '2015/2016', 100, 0, 8);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (6, 3, 3, '2015/2016', 100, 0, 0);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (7, 3, 3, '2015/2016', 100, 0, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY t2.name vs GROUP BY t2.id or t1.league_id when two leagues share the same name.
+-- Also tests join condition t1.league_id = t2.id vs t1.country_id = t2.country_id.
+INSERT INTO Country (id, name) VALUES (10, 'Country X');
+INSERT INTO Country (id, name) VALUES (20, 'Country Y');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 100, 1000, 'Team A', 'TMA');
+
+-- Two leagues with the same name 'Super League' (ids 1 and 2), and one 'Unique League' (id 3).
+INSERT INTO League (id, country_id, name) VALUES (1, 10, 'Super League');
+INSERT INTO League (id, country_id, name) VALUES (2, 10, 'Super League');
+INSERT INTO League (id, country_id, name) VALUES (3, 20, 'Unique League');
+
+-- League 1 has 6 goals, League 2 has 6 goals. Grouped by name 'Super League', total is 12.
+-- League 3 has 10 goals. Grouped by id, League 3 wins (10 > 6). Grouped by name, 'Super League' wins (12 > 10).
+-- Also, Match 3 has country_id=10 but league_id=3, testing incorrect join on country_id.
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (1, 20, 1, '2015/2016', 100, 3, 3);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (2, 20, 2, '2015/2016', 100, 4, 2);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (3, 10, 3, '2015/2016', 100, 5, 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking in ORDER BY: SUM(...) DESC, t2.name ASC NULLS LAST.
+-- Kills mutants with t2.name DESC or NULLS FIRST when tied for max goals.
+INSERT INTO Country (id, name) VALUES (1, 'Country A');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 100, 1000, 'Team A', 'TMA');
+
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'Alpha League');
+INSERT INTO League (id, country_id, name) VALUES (2, 1, 'Zeta League');
+INSERT INTO League (id, country_id, name) VALUES (3, 1, NULL);
+
+-- All three leagues tie with 10 goals in 2015/2016.
+-- 'Alpha League' should win because 'Alpha League' < 'Zeta League' and NULL is ordered last.
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (1, 1, 1, '2015/2016', 100, 5, 5);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (2, 1, 2, '2015/2016', 100, 6, 4);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (3, 1, 3, '2015/2016', 100, 7, 3);
+```
+
+```sql
+-- DATASET 4
+-- Tests SUM(home_team_goal + away_team_goal) vs SUM(home_team_goal) + SUM(away_team_goal) in the presence of NULL goals.
+-- In SQL, 5 + NULL = NULL, whereas SUM(col1) + SUM(col2) ignores NULLs per column.
+INSERT INTO Country (id, name) VALUES (1, 'Country A');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 100, 1000, 'Team A', 'TMA');
+
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'League NullTrap');
+INSERT INTO League (id, country_id, name) VALUES (2, 1, 'League Clean');
+
+-- League 1: Match 1 has (4, 4) -> 8. Match 2 has (10, NULL) -> NULL.
+-- SUM(home + away) = 8.
+-- SUM(home) + SUM(away) = (4 + 10) + 4 = 18.
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (1, 1, 1, '2015/2016', 100, 4, 4);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (2, 1, 1, '2015/2016', 100, 10, NULL);
+
+-- League 2: Match 3 has (6, 6) -> 12.
+-- Reference Query picks 'League Clean' (12 > 8). Mutant SUM(h)+SUM(a) picks 'League NullTrap' (18 > 12).
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (3, 1, 2, '2015/2016', 100, 6, 6);
+```
+
+```sql
+-- DATASET 5
+-- Tests SUM(t1.home_team_goal + t1.away_team_goal) vs SUM(DISTINCT ...).
+-- Also tests INNER JOIN vs RIGHT/LEFT JOIN with leagues having no matches, and ORDER BY ASC vs DESC.
+INSERT INTO Country (id, name) VALUES (1, 'Country A');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 100, 1000, 'Team A', 'TMA');
+
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'Repeated Score League');
+INSERT INTO League (id, country_id, name) VALUES (2, 1, 'Varied Score League');
+INSERT INTO League (id, country_id, name) VALUES (3, 1, 'Empty League');
+
+-- League 1: Three matches each with 2+2=4 goals. Total SUM = 12. SUM(DISTINCT) = 4.
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (1, 1, 1, '2015/2016', 100, 2, 2);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (2, 1, 1, '2015/2016', 100, 2, 2);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (3, 1, 1, '2015/2016', 100, 2, 2);
+
+-- League 2: Two matches with 2+3=5 and 2+2=4 goals. Total SUM = 9. SUM(DISTINCT) = 9.
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (4, 1, 2, '2015/2016', 100, 2, 3);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, home_team_goal, away_team_goal) VALUES (5, 1, 2, '2015/2016', 100, 2, 2);
+```

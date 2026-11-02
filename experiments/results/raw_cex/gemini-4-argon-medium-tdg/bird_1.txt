@@ -1,0 +1,59 @@
+```sql
+-- DATASET 1
+-- Tests column confusion (K-12 vs Ages 5-17, Free Meal vs FRPM, Computed Ratio vs Precomputed Percent), 
+-- Educational Option Type vs School Type/EdOpsName, NULL filtering (numerator NULL, denominator NULL, division by zero), 
+-- ORDER BY direction, and LIMIT 3 boundary.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, SOCType, LastUpdate) VALUES 
+('01', 'Active', 'C1', 'D1', '00', 'District', 'Continuation School', 'Continuation High Schools', '2020-01-01'),
+('02', 'Active', 'C1', 'D1', '00', 'District', 'Traditional', 'High Schools', '2020-01-01'),
+('03', 'Active', 'C1', 'D1', '00', 'District', 'Continuation School', 'Continuation High Schools', '2020-01-01'),
+('04', 'Active', 'C1', 'D1', '00', 'District', 'Continuation School', 'Continuation High Schools', '2020-01-01'),
+('05', 'Active', 'C1', 'D1', '00', 'District', 'Continuation School', 'Continuation High Schools', '2020-01-01'),
+('06', 'Active', 'C1', 'D1', '00', 'District', 'Continuation School', 'Continuation High Schools', '2020-01-01'),
+('07', 'Active', 'C1', 'D1', '00', 'District', 'Continuation School', 'Continuation High Schools', '2020-01-01'),
+('08', 'Active', 'C1', 'D1', '00', 'District', 'Continuation School', 'Continuation High Schools', '2020-01-01'),
+('09', 'Active', 'C1', 'D1', '00', 'District', 'Continuation School', 'Continuation High Schools', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Educational Option Type", "School Type", "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (K-12)", "Percent (%) Eligible Free (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible FRPM (K-12)") VALUES 
+-- Valid Continuation Schools with distinct ratios and deliberately inverted K-12 / FRPM / Percent values to kill column-swap mutants
+('01', 'Continuation School', 'High Schools', 100.0, 15.0, 0.99, 90.0, 0.90, 100.0, 85.0, 0.85, 95.0, 0.95),
+('03', 'Continuation School', 'High Schools', 200.0, 50.0, 0.88, 160.0, 0.80, 200.0, 150.0, 0.75, 180.0, 0.90),
+('04', 'Continuation School', 'High Schools', 100.0, 35.0, 0.77, 70.0, 0.70, 100.0, 65.0, 0.65, 75.0, 0.75),
+('05', 'Continuation School', 'High Schools', 100.0, 45.0, 0.10, 10.0, 0.10, 100.0, 5.0, 0.05, 10.0, 0.10),
+-- Wrong Educational Option Type, but School Type and schools.EdOpsName say Continuation School (very low ratio 0.01 to tempt inclusion)
+('02', 'Traditional', 'Continuation School', 100.0, 1.0, 0.01, 1.0, 0.01, 100.0, 1.0, 0.01, 1.0, 0.01),
+-- NULL Free Meal Count (Ages 5-17)
+('06', 'Continuation School', 'High Schools', 100.0, NULL, 0.02, 2.0, 0.02, 100.0, 2.0, 0.02, 2.0, 0.02),
+-- NULL Enrollment (Ages 5-17)
+('07', 'Continuation School', 'High Schools', NULL, 10.0, 0.03, 3.0, 0.03, 100.0, 3.0, 0.03, 3.0, 0.03),
+-- Zero Enrollment (Ages 5-17) -> In SQLite, X / 0.0 evaluates to NULL, testing division-by-zero IS NOT NULL filtering
+('08', 'Continuation School', 'High Schools', 0.0, 10.0, 0.04, 4.0, 0.04, 100.0, 4.0, 0.04, 4.0, 0.04),
+-- Zero Free Meal Count (Ages 5-17) -> Evaluates to 0.0 (NOT NULL), tests that 0.0 is kept and not mistaken for NULL
+('09', 'Continuation School', 'High Schools', 100.0, 0.0, 0.50, 50.0, 0.50, 100.0, 50.0, 0.50, 50.0, 0.50);
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT vs ALL (duplicate ratios in top 3), unjoined tables (if mutant INNER JOINs satscores, rows without satscores vanish),
+-- and tie-breaking / secondary sort behavior.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES 
+('10', 'Active', 'C1', 'D1', '00', 'District', '2020-01-01'),
+('20', 'Active', 'C1', 'D1', '00', 'District', '2020-01-01'),
+('30', 'Active', 'C1', 'D1', '00', 'District', '2020-01-01'),
+('40', 'Active', 'C1', 'D1', '00', 'District', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Educational Option Type", "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)") VALUES 
+-- Two schools with the exact same ratio (0.20), derived from different counts (20/100 vs 40/200)
+-- Kills mutants using SELECT DISTINCT or GROUP BY, or sorting by numerator/denominator alone instead of the ratio
+('20', 'Continuation School', 200.0, 40.0, 20.0),
+('10', 'Continuation School', 100.0, 20.0, 20.0),
+-- Third school with ratio 0.25 (derived from 75/300 -> higher numerator than '40' which has 50/100=0.50)
+('30', 'Continuation School', 300.0, 75.0, 25.0),
+-- Fourth school with ratio 0.50, but smaller numerator (50) and smaller denominator (100) than '30'
+('40', 'Continuation School', 100.0, 50.0, 50.0);
+
+-- Only provide satscores for '30' and '40' to kill mutants that unnecessarily INNER JOIN satscores
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr) VALUES 
+('30', 'S', 100, 50),
+('40', 'S', 100, 50);
+```

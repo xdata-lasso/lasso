@@ -1,0 +1,44 @@
+-- Schema DDL
+CREATE TABLE "MANUFACTURERS" (
+    "CODE" INT,
+    "NAME" TEXT,
+    "HEADQUARTER" TEXT,
+    "FOUNDER" TEXT,
+    "REVENUE" FLOAT,
+    PRIMARY KEY ("CODE")
+);
+CREATE TABLE "PRODUCTS" (
+    "CODE" INT,
+    "MANUFACTURER" INT,
+    "NAME" TEXT,
+    "PRICE" FLOAT,
+    PRIMARY KEY ("CODE"),
+    FOREIGN KEY ("MANUFACTURER") REFERENCES "MANUFACTURERS"("CODE")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO MANUFACTURERS VALUES (-2147483648, 0, 0, 0, 0);
+INSERT INTO MANUFACTURERS VALUES (-2147483647, 0, 0, 0, 0);
+INSERT INTO PRODUCTS VALUES (-1, -2147483647, 8, 61);
+INSERT INTO PRODUCTS VALUES (0, -2147483648, 8, 61);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT code, name, price, manufacturer FROM products WHERE (price > 60.0 AND price <= 120.0) ORDER BY code;
+
+/*
+Gold Result:
+(-1, '8', 61.0, -2147483647)
+(0, '8', 61.0, -2147483648)
+*/
+
+-- Prediction Query
+SELECT * FROM products WHERE price BETWEEN 60 AND 120;
+
+/*
+Prediction Result:
+(-1, -2147483647, '8', 61.0)
+(0, -2147483648, '8', 61.0)
+*/

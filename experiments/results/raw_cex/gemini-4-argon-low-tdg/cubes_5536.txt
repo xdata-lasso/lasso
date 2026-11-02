@@ -1,0 +1,103 @@
+```sql
+-- DATASET 1
+-- Tests basic anti-join logic, universal quantification vs existential quantification (albums with mixed track prices), albums with no tracks, and albums with multiple valid tracks (to kill INNER JOIN without DISTINCT mutants).
+INSERT INTO "Artist" ("ArtistId", "Name") VALUES (1, 'Artist A');
+INSERT INTO "MediaType" ("MediaTypeId", "Name") VALUES (1, 'MPEG audio file');
+INSERT INTO "Genre" ("GenreId", "Name") VALUES (1, 'Rock');
+
+-- Album 1: Only cheap tracks (< 1.0) -> Should be excluded
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (1, 1, 'Cheap Album');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (1, 1, 1, 1, 'Track 1A', 200000, 0.99);
+
+-- Album 2: Mixed tracks (one <= 1.0, one > 1.0) -> Should be excluded (kills EXISTS(unitprice > 1.0) mutants)
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (2, 1, 'Mixed Album');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (2, 1, 1, 2, 'Track 2A', 200000, 0.99);
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (3, 1, 1, 2, 'Track 2B', 200000, 1.99);
+
+-- Album 3: Multiple expensive tracks (> 1.0) -> Should be included once (kills JOIN without DISTINCT / GROUP BY mutants)
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (3, 1, 'Expensive Album');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (4, 1, 1, 3, 'Track 3A', 200000, 1.29);
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (5, 1, 1, 3, 'Track 3B', 200000, 1.99);
+
+-- Album 4: No tracks at all -> Should be included (kills INNER JOIN to Track mutants)
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (4, 1, 'Empty Album');
+```
+
+```sql
+-- DATASET 2
+-- Tests exact boundary condition (UnitPrice = 1.0 vs < 1.0 vs > 1.0).
+INSERT INTO "Artist" ("ArtistId", "Name") VALUES (1, 'Boundary Artist');
+INSERT INTO "MediaType" ("MediaTypeId", "Name") VALUES (1, 'Audio');
+INSERT INTO "Genre" ("GenreId", "Name") VALUES (1, 'Pop');
+
+-- Album 10: Track price exactly 1.0 -> Should be excluded (kills < 1.0 mutants)
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (10, 1, 'Exact One Dollar');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (10, 1, 1, 10, 'Track 1.00', 1000, 1.00);
+
+-- Album 11: Track price slightly above 1.0 -> Should be included
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (11, 1, 'Just Above One Dollar');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (11, 1, 1, 11, 'Track 1.01', 1000, 1.01);
+
+-- Album 12: Track price slightly below 1.0 -> Should be excluded (kills = 1.0 mutants)
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (12, 1, 'Just Below One Dollar');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (12, 1, 1, 12, 'Track 0.99', 1000, 0.99);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL semantics in Track.AlbumId (kills NOT IN (SELECT AlbumId FROM Track WHERE UnitPrice <= 1.0) mutants when NULL AlbumId is present) and NULL in Track.UnitPrice.
+INSERT INTO "Artist" ("ArtistId", "Name") VALUES (1, 'Null Test Artist');
+INSERT INTO "MediaType" ("MediaTypeId", "Name") VALUES (1, 'Audio');
+INSERT INTO "Genre" ("GenreId", "Name") VALUES (1, 'Jazz');
+
+-- Orphan track with NULL AlbumId and UnitPrice <= 1.0.
+-- A mutant using `WHERE AlbumId NOT IN (SELECT AlbumId FROM Track WHERE UnitPrice <= 1.0)` will evaluate to UNKNOWN and return 0 rows!
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (100, 1, 1, NULL, 'Orphan Cheap Track', 1500, 0.50);
+
+-- Album 20: Has a track with NULL UnitPrice -> Should be included (since NULL <= 1.0 is Unknown/False in WHERE)
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (20, 1, 'Null Price Album');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (101, 1, 1, 20, 'Priceless Track', 1500, NULL);
+
+-- Album 21: Standard valid album with expensive track -> Should be included
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (21, 1, 'Valid Expensive Album');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (102, 1, 1, 21, 'Expensive Track', 1500, 2.50);
+```
+
+```sql
+-- DATASET 4
+-- Tests ORDER BY title, albumid NULLS LAST, including duplicate titles with different albumids, NULL titles, and case/sorting order.
+INSERT INTO "Artist" ("ArtistId", "Name") VALUES (1, 'Sorting Artist');
+
+-- Duplicate titles with out-of-order AlbumIds (tests secondary sort on albumid and kills DISTINCT Title or GROUP BY Title mutants)
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (50, 1, 'Greatest Hits');
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (10, 1, 'Greatest Hits');
+
+-- Distinct titles in reverse AlbumId order (tests primary sort on title vs albumid)
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (40, 1, 'Alpha');
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (5, 1, 'Zebra');
+
+-- NULL titles (tests NULL handling in ORDER BY title)
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (30, 1, NULL);
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (20, 1, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests aggregate/MIN/AVG/SUM mutants (e.g., HAVING AVG(UnitPrice) > 1.0 or SUM(UnitPrice) > 1.0 vs MIN(UnitPrice) > 1.0).
+INSERT INTO "Artist" ("ArtistId", "Name") VALUES (1, 'Math Artist');
+INSERT INTO "MediaType" ("MediaTypeId", "Name") VALUES (1, 'Audio');
+INSERT INTO "Genre" ("GenreId", "Name") VALUES (1, 'Classical');
+
+-- Album 1: Average price > 1.0, Sum > 1.0, Max > 1.0, but has one track <= 1.0 -> Should be excluded!
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (1, 1, 'High Average But One Cheap');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (1, 1, 1, 1, 'Cheap Intro', 500, 0.50);
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (2, 1, 1, 1, 'Expensive Symphony', 5000, 10.00);
+
+-- Album 2: Only one track, price 1.05 (Sum = 1.05, Avg = 1.05, Min = 1.05) -> Should be included!
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (2, 1, 'Single Slightly Expensive');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (3, 1, 1, 2, 'Solo', 1000, 1.05);
+
+-- Album 3: Negative and Zero price tracks -> Should be excluded
+INSERT INTO "Album" ("AlbumId", "ArtistId", "Title") VALUES (3, 1, 'Free Album');
+INSERT INTO "Track" ("TrackId", "MediaTypeId", "GenreId", "AlbumId", "Name", "Milliseconds", "UnitPrice") VALUES (4, 1, 1, 3, 'Free Track', 1000, 0.00);
+```

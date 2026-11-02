@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering on EMP_JOBCODE ('PROF' vs others, case sensitivity, NULL), 
+-- duplicate EMP_FNAME values (to catch SELECT DISTINCT mutants),
+-- and ordering by EMP_FNAME when insertion order differs from alphabetical order.
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (10, 'Zeta', 'Zack', 'Z', 'PROF', '2010-01-01', '1970-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (20, 'Alpha', 'Alice', 'A', 'PROF', '2012-01-01', '1980-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (15, 'Beta', 'Alice', 'B', 'PROF', '2011-01-01', '1975-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (30, 'Gamma', 'Bob', 'C', 'TECH', '2013-01-01', '1985-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (40, 'Delta', 'Charlie', 'D', 'prof', '2014-01-01', '1990-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (50, 'Epsilon', 'David', 'E', NULL, '2015-01-01', '1995-01-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests joins with PROFESSOR, CLASS, DEPARTMENT, and STUDENT tables.
+-- Catches mutants that erroneously join EMPLOYEE with PROFESSOR (or other tables) instead of checking EMP_JOBCODE = 'PROF',
+-- or mutants that do inner joins which either drop valid employees or multiply rows (1-to-many relationships).
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (1, 'Smith', 'John', 'J', 'PROF', '2000-01-01', '1960-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (2, 'Doe', 'Jane', 'D', 'PROF', '2001-01-01', '1965-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (3, 'Brown', 'Sam', 'B', 'ADMIN', '2002-01-01', '1970-01-01');
+
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "SCHOOL_CODE", "DEPT_ADDRESS", "DEPT_EXTENSION") VALUES ('CS', 1, 'Computer Science', 'ENG', 'Bldg 1', '1234');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "SCHOOL_CODE", "DEPT_ADDRESS", "DEPT_EXTENSION") VALUES ('MATH', 3, 'Mathematics', 'SCI', 'Bldg 2', '5678');
+
+-- Employee 2 is a 'PROF' in EMPLOYEE, but has MULTIPLE rows in PROFESSOR (tests fan-out if joined).
+-- Employee 1 is a 'PROF' in EMPLOYEE, but has NO rows in PROFESSOR (tests missing rows if inner joined with PROFESSOR).
+-- Employee 3 is 'ADMIN' in EMPLOYEE, but HAS a row in PROFESSOR (tests using PROFESSOR table existence instead of WHERE emp_jobcode = 'PROF').
+INSERT INTO "PROFESSOR" ("DEPT_CODE", "EMP_NUM", "PROF_OFFICE", "PROF_EXTENSION", "PROF_HIGH_DEGREE") VALUES ('CS', 2, 'Rm 101', '1111', 'PhD');
+INSERT INTO "PROFESSOR" ("DEPT_CODE", "EMP_NUM", "PROF_OFFICE", "PROF_EXTENSION", "PROF_HIGH_DEGREE") VALUES ('MATH', 2, 'Rm 202', '2222', 'PhD');
+INSERT INTO "PROFESSOR" ("DEPT_CODE", "EMP_NUM", "PROF_OFFICE", "PROF_EXTENSION", "PROF_HIGH_DEGREE") VALUES ('MATH', 3, 'Rm 303', '3333', 'MS');
+
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('CS101', 'CS', 'Intro to CS', 4.0);
+
+-- Employee 2 teaches multiple classes (tests fan-out if joined with CLASS).
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('C1', 2, 'CS101', '1', 'MWF 9', 'R1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('C2', 2, 'CS101', '2', 'MWF 10', 'R2');
+
+-- Employee 2 advises multiple students (tests fan-out if joined with STUDENT).
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT", "STU_DOB", "STU_HRS", "STU_CLASS", "STU_GPA", "STU_TRANSFER", "STU_PHONE", "PROF_NUM") VALUES (100, 'CS', 'StudentA', 'StuA', 'A', '2000-01-01', 30, 'SO', 3.5, 0.0, '0001', 2);
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT", "STU_DOB", "STU_HRS", "STU_CLASS", "STU_GPA", "STU_TRANSFER", "STU_PHONE", "PROF_NUM") VALUES (101, 'CS', 'StudentB', 'StuB', 'B', '2000-01-02', 60, 'JR', 3.8, 0.0, '0002', 2);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in EMP_FNAME and EMP_NUM, as well as column confusion (EMP_LNAME vs EMP_FNAME)
+-- and LIKE / prefix matching mutants on EMP_JOBCODE (e.g. 'PROF%', ' clerical').
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (100, 'Aaron', NULL, 'A', 'PROF', '2010-01-01', '1970-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (50, 'Zachary', 'Bob', 'B', 'PROF', '2010-01-01', '1970-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (10, 'Middle', 'Aaron', 'M', 'PROF', '2010-01-01', '1970-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (NULL, 'NullNum', 'Bob', 'N', 'PROF', '2010-01-01', '1970-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (200, 'Profson', 'PROF', 'P', 'CLRK', '2010-01-01', '1970-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (300, 'PROF', 'FakeProf', 'F', 'PROFS', '2010-01-01', '1970-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when no employee has EMP_JOBCODE = 'PROF'
+-- (kills mutants that omit the WHERE clause or use OR instead of AND / negation).
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (1, 'One', 'First', 'F', 'TECH', '2010-01-01', '1980-01-01');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (2, 'Two', 'Second', 'S', 'CLRK', '2011-01-01', '1981-01-01');
+```

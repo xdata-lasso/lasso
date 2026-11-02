@@ -1,0 +1,165 @@
+```sql
+-- DATASET 1
+-- Tests multiple groups with different frequencies in RA, boundary conditions (count = 2 vs count = 4), and NULL handling in RA.B.
+-- Also tests extra tables RI and RJ being empty.
+INSERT INTO RA (A1, B) VALUES ('a1', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'val2');
+INSERT INTO RA (A1, B) VALUES ('a4', NULL);
+INSERT INTO RA (A1, B) VALUES ('a5', NULL);
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'a2');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+INSERT INTO RG (A7, B) VALUES ('g1', 'f1');
+INSERT INTO RH (A8, B) VALUES ('h1', 'g1');
+```
+
+```sql
+-- DATASET 2
+-- Tests CROSS JOIN vs INNER JOIN (Foreign Key joins). 
+-- RB..RH have 2 rows in RH, making the cross join product 2 per RA row.
+-- 'val1' has 2 rows in RA, so 2 * 2 = 4 (> 3).
+-- However, the foreign keys only link through 'a3' ('val2'), which only has 1 row in RA (count = 2, not > 3).
+-- A mutant using INNER JOIN on FKs will return nothing, whereas the CROSS JOIN returns 'val1'.
+INSERT INTO RA (A1, B) VALUES ('a1', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'val2');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a3');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+INSERT INTO RG (A7, B) VALUES ('g1', 'f1');
+INSERT INTO RH (A8, B) VALUES ('h1', 'g1');
+INSERT INTO RH (A8, B) VALUES ('h2', 'g1');
+```
+
+```sql
+-- DATASET 3
+-- Tests exact boundary condition COUNT(RA.B) = 3 (should return empty set, killing >= 3 mutants).
+-- Also populates RI and RJ with multiple rows to kill mutants that erroneously include RI or RJ in the CROSS JOIN.
+INSERT INTO RA (A1, B) VALUES ('a1', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'val1');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+INSERT INTO RG (A7, B) VALUES ('g1', 'f1');
+INSERT INTO RH (A8, B) VALUES ('h1', 'g1');
+
+INSERT INTO RI (A9, B) VALUES ('i1', 'h1');
+INSERT INTO RI (A9, B) VALUES ('i2', 'h1');
+INSERT INTO RJ (A10, B) VALUES ('j1', 'i1');
+INSERT INTO RJ (A10, B) VALUES ('j2', 'i1');
+```
+
+```sql
+-- DATASET 4
+-- Tests missing table in CROSS JOIN. Each table RB through RH has 1 row, except RC, RE, RG which have 2 rows.
+-- Total cross join multiplier is 1 * 2 * 1 * 2 * 1 * 2 * 1 = 8.
+-- Wait: if RB..RH each have 2 rows, the product is 128. 
+-- Here, we give RB, RC, RD, RE, RF, RG, RH specific row counts to detect if any table is omitted from the FROM clause.
+-- Specifically, RA has 1 row. RB has 2 rows, RC has 2 rows, others have 1 row. Product = 4 (> 3).
+-- If RB or RC is omitted, count drops to 2 (not > 3).
+INSERT INTO RA (A1, B) VALUES ('a1', 'val1');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'a1');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'b1');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+INSERT INTO RG (A7, B) VALUES ('g1', 'f1');
+INSERT INTO RH (A8, B) VALUES ('h1', 'g1');
+```
+
+```sql
+-- DATASET 5
+-- Similar to Dataset 4, but places the 2-row multipliers in RD and RE (product = 4).
+-- If RD or RE is omitted from the CROSS JOIN, the count drops to 2 (failing HAVING > 3).
+INSERT INTO RA (A1, B) VALUES ('a1', 'val1');
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c1');
+
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+INSERT INTO RE (A5, B) VALUES ('e2', 'd1');
+
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+INSERT INTO RG (A7, B) VALUES ('g1', 'f1');
+INSERT INTO RH (A8, B) VALUES ('h1', 'g1');
+```
+
+```sql
+-- DATASET 6
+-- Places the multipliers in RF, RG, and RH. RF has 1, RG has 2, RH has 2 (product = 4).
+-- Also tests NULL in RB.B, RC.B, etc., to ensure CROSS JOIN doesn't filter out NULL foreign keys.
+INSERT INTO RA (A1, B) VALUES ('a1', 'val1');
+INSERT INTO RB (A2, B) VALUES ('b1', NULL);
+INSERT INTO RC (A3, B) VALUES ('c1', NULL);
+INSERT INTO RD (A4, B) VALUES ('d1', NULL);
+INSERT INTO RE (A5, B) VALUES ('e1', NULL);
+
+INSERT INTO RF (A6, B) VALUES ('f1', NULL);
+INSERT INTO RF (A6, B) VALUES ('f2', NULL);
+
+INSERT INTO RG (A7, B) VALUES ('g1', NULL);
+INSERT INTO RG (A7, B) VALUES ('g2', NULL);
+
+INSERT INTO RH (A8, B) VALUES ('h1', NULL);
+```
+
+```sql
+-- DATASET 7
+-- Tests when RH has 4 rows and all other tables have 1 row.
+-- Also tests GROUP BY RA.A1 vs GROUP BY RA.B by having 4 rows in RA with the same B ('val1') and 1 row in RB..RH,
+-- alongside another group 'val2' that has 1 row in RA.
+-- Wait: To specifically kill GROUP BY RA.A1 when RB..RH have 1 row:
+-- RA has 4 rows with B='val1' (A1='a1'..'a4'). RB..RH have 1 row each.
+-- Grouping by RA.B gives count=4 (>3), returning 'val1'.
+-- Grouping by RA.A1 gives 4 groups of count=1 (none >3), returning empty!
+INSERT INTO RA (A1, B) VALUES ('a1', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a4', 'val1');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+INSERT INTO RG (A7, B) VALUES ('g1', 'f1');
+INSERT INTO RH (A8, B) VALUES ('h1', 'g1');
+```
+
+```sql
+-- DATASET 8
+-- Tests COUNT(DISTINCT ...) mutants and empty table in the cross join chain (RH is empty).
+-- Since RH is empty, the CROSS JOIN produces 0 rows.
+-- A mutant omitting RH will produce 4 rows and return 'val1'.
+INSERT INTO RA (A1, B) VALUES ('a1', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a4', 'val1');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+INSERT INTO RG (A7, B) VALUES ('g1', 'f1');
+```

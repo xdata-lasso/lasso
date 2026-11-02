@@ -1,0 +1,63 @@
+```sql
+-- DATASET 1
+-- Tests standard foreign key join (Reservations.Room = Rooms.RoomId) vs the unusual reference query join (Reservations.CheckIn = Rooms.RoomId AND Reservations.FirstName = Rooms.decor).
+-- Also tests single condition matches (only CheckIn=RoomId or only FirstName=decor) to kill OR mutants and partial join mutants.
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('R1', 'Ocean View', 2, 'Queen', 4, 150, 'Modern');
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('2023-01-01', 'Weird Room', 1, 'King', 2, 100, 'Alice');
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('2023-01-02', 'Partial Match Room', 1, 'Twin', 1, 80, 'Rustic');
+
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (1, 'R1', '2023-01-01', '2023-01-05', 150.0, 'Smith', 'Alice', 2, 0);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (2, 'R1', '2023-01-02', '2023-01-06', 150.0, 'Jones', 'Bob', 1, 1);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (3, 'R1', '2023-01-03', '2023-01-07', 150.0, 'Brown', 'Modern', 2, 2);
+```
+
+```sql
+-- DATASET 2
+-- Tests cross-column confusion: CheckIn vs CheckOut vs Room, and FirstName vs LastName.
+-- Ensures mutants joining on CheckOut=RoomId or LastName=decor produce different counts.
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('D1', 'Suite A', 2, 'King', 4, 200, 'John');
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('D2', 'Suite B', 1, 'Queen', 2, 120, 'Doe');
+
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (10, 'D1', 'D2', 'D1', 200.0, 'Doe', 'John', 2, 0);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (20, 'D2', 'D1', 'D2', 120.0, 'John', 'Doe', 1, 0);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (30, 'D1', 'D1', 'D2', 200.0, 'Smith', 'John', 1, 0);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (40, 'D2', 'D2', 'D1', 120.0, 'Doe', 'Alice', 1, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests COUNT(*) vs COUNT(column) with NULL values, and COUNT(DISTINCT ...) with duplicate reservations matching the same room.
+-- Also tests OUTER JOIN mutants by having unmatched rows in both Rooms and Reservations.
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('MATCH_ID', NULL, NULL, NULL, NULL, NULL, 'MatchDecor');
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('UNMATCHED_ROOM', 'Empty', 1, 'Twin', 2, 50, 'NoMatch');
+
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (101, NULL, 'MATCH_ID', NULL, NULL, NULL, 'MatchDecor', NULL, NULL);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (102, NULL, 'MATCH_ID', NULL, NULL, NULL, 'MatchDecor', NULL, NULL);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (103, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set from the join (COUNT(*) = 0) when tables are non-empty.
+-- Differentiates INNER JOIN from LEFT/RIGHT JOIN and tests behavior when no strange matches exist, only valid FK matches.
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('RM101', 'Standard', 2, 'Queen', 4, 100, 'Traditional');
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('RM102', 'Deluxe', 1, 'King', 2, 180, 'Modern');
+
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (501, 'RM101', '2023-05-01', '2023-05-03', 100.0, 'White', 'Walter', 2, 1);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (502, 'RM102', '2023-06-10', '2023-06-15', 180.0, 'Pinkman', 'Jesse', 1, 0);
+```
+
+```sql
+-- DATASET 5
+-- Tests 1-to-many and many-to-1 join multiplicities where multiple reservations match multiple rooms (via self-similar attributes or multiple rooms having same decor if RoomId is matched).
+-- Since RoomId is PK, a single CheckIn can match at most one RoomId, so we test multiple Reservations matching the same RoomId + decor, plus another Reservation matching a different RoomId + decor.
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('A', 'Room A', 1, 'King', 2, 100, 'X');
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('B', 'Room B', 2, 'Queen', 4, 200, 'Y');
+INSERT INTO Rooms (RoomId, roomName, beds, bedType, maxOccupancy, basePrice, decor) VALUES ('C', 'Room C', 3, 'Twin', 6, 300, 'X');
+
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (1, 'A', 'A', '2023-01-02', 100.0, 'L1', 'X', 1, 0);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (2, 'B', 'A', '2023-01-03', 100.0, 'L2', 'X', 2, 0);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (3, 'C', 'C', '2023-01-04', 300.0, 'L3', 'X', 1, 1);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (4, 'A', 'B', '2023-01-05', 200.0, 'L4', 'Y', 2, 2);
+INSERT INTO Reservations (Code, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (5, 'B', 'B', '2023-01-06', 200.0, 'L5', 'X', 1, 0);
+```

@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT requirement: 'Sepang International Circuit' (circuitId 1) has multiple races.
+-- 2. INNER JOIN vs Direct table query / LEFT JOIN: Another 'Sepang International Circuit' (circuitId 2) has NO races.
+-- 3. Wrong column projection (T2.url vs T1.url): T1.url and T2.url have distinct values.
+-- 4. WHERE clause filtering & substring/case sensitivity: Other circuits with similar names ('Sepang', 'sepang international circuit', 'Sepang International Circuit 2') have races.
+-- 5. Wrong join condition (e.g., T1.circuitId = T2.raceId): raceId 2 belongs to circuitId 3, mientras circuitId 2 is Sepang without races.
+
+INSERT INTO seasons (year, url) VALUES (2000, 'http://en.wikipedia.org/wiki/2000_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2001, 'http://en.wikipedia.org/wiki/2001_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'sepang', 'Sepang International Circuit', 'Kuala Lumpur', 'Malaysia', 'http://en.wikipedia.org/wiki/Sepang_International_Circuit');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'sepang_unraced', 'Sepang International Circuit', 'Kuala Lumpur', 'Malaysia', 'http://en.wikipedia.org/wiki/Sepang_Unraced');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (3, 'sepang_short', 'Sepang', 'Kuala Lumpur', 'Malaysia', 'http://en.wikipedia.org/wiki/Sepang_Short');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (4, 'sepang_lower', 'sepang international circuit', 'Kuala Lumpur', 'Malaysia', 'http://en.wikipedia.org/wiki/Sepang_Lower');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (5, 'sepang_extra', 'Sepang International Circuit ', 'Kuala Lumpur', 'Malaysia', 'http://en.wikipedia.org/wiki/Sepang_Extra');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2000, 1, 1, 'Malaysian Grand Prix', '2000-10-22', 'http://en.wikipedia.org/wiki/2000_Malaysian_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (11, 2001, 2, 1, 'Malaysian Grand Prix', '2001-03-18', 'http://en.wikipedia.org/wiki/2001_Malaysian_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2000, 2, 3, 'Sepang Short Grand Prix', '2000-04-01', 'http://en.wikipedia.org/wiki/2000_Sepang_Short_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (12, 2000, 3, 4, 'Sepang Lower Grand Prix', '2000-05-01', 'http://en.wikipedia.org/wiki/2000_Sepang_Lower_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (13, 2000, 4, 5, 'Sepang Extra Grand Prix', '2000-06-01', 'http://en.wikipedia.org/wiki/2000_Sepang_Extra_GP');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Empty result set verification when 'Sepang International Circuit' exists in circuits, but has NO matching rows in races.
+-- 2. Trap for mutants filtering on T2.name = 'Sepang International Circuit' instead of T1.name.
+-- 3. Trap for mutants joining on T1.name = T2.name or T1.url = T2.url.
+
+INSERT INTO seasons (year, url) VALUES (2020, 'http://en.wikipedia.org/wiki/2020_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'sepang', 'Sepang International Circuit', 'Kuala Lumpur', 'Malaysia', 'http://en.wikipedia.org/wiki/Sepang_International_Circuit');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'albert_park', 'Albert Park Grand Prix Circuit', 'Melbourne', 'Australia', 'http://en.wikipedia.org/wiki/Melbourne_Grand_Prix_Circuit');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 2, 'Sepang International Circuit', '2020-03-15', 'http://en.wikipedia.org/wiki/Sepang_International_Circuit');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple distinct circuits named 'Sepang International Circuit' (different URLs), both having multiple races.
+-- 2. Kills mutants using LIMIT 1 instead of DISTINCT.
+-- 3. Kills mutants where T2.url is NULL vs not NULL (if mutant wrongly filters or selects T2.url).
+
+INSERT INTO seasons (year, url) VALUES (1999, 'http://en.wikipedia.org/wiki/1999_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (10, 'sepang_v1', 'Sepang International Circuit', 'Sepang', 'Malaysia', 'http://url1.com/sepang');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (20, 'sepang_v2', 'Sepang International Circuit', 'Kuala Lumpur', 'Malaysia', 'http://url2.com/sepang');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (100, 1999, 1, 10, 'Malaysian GP 1', '1999-10-17', NULL);
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (101, 1999, 2, 10, 'Malaysian GP 2', '1999-10-24', 'http://race101.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (102, 1999, 3, 20, 'Malaysian GP 3', '1999-10-31', 'http://race102.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (103, 1999, 4, 20, 'Malaysian GP 4', '1999-11-07', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Trap for mutants checking `T1.circuitRef = 'Sepang International Circuit'` or `T1.location = 'Sepang International Circuit'` or `T1.country = 'Sepang International Circuit'`.
+-- 2. Trap for mutants joining with other tables unnecessarily (e.g., results, qualifying, constructors, drivers) which are empty here.
+
+INSERT INTO seasons (year, url) VALUES (2010, 'http://en.wikipedia.org/wiki/2010_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'Sepang International Circuit', 'Bahrain International Circuit', 'Sepang International Circuit', 'Sepang International Circuit', 'http://wrong-circuit.com');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'sepang', 'Sepang International Circuit', 'Sepang', 'Malaysia', 'http://correct-sepang.com');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2010, 1, 1, 'Bahrain Grand Prix', '2010-03-14', 'http://race1.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2010, 2, 2, 'Malaysian Grand Prix', '2010-04-04', 'http://race2.com');
+```

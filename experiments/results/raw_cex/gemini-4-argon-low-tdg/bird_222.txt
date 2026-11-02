@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset: asymmetric counts (3 '+', 1 '-'), NULL and other labels, 
+-- uneven child rows (0, 1, 2) to kill join mutants, non-numeric molecule_ids to kill SUM(molecule_id) mutants, 
+-- and duplicate non-PK values across tables to kill COUNT(DISTINCT ...) mutants.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m4', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m5', NULL);
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m6', '0');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm4', 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a5', 'm4', 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a6', 'm4', 'c');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm4', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm4', '-');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a4', 'a5', 'b2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a5', 'a6', 'b3');
+```
+
+```sql
+-- DATASET 2
+-- Negative difference test: more '-' labels than '+' labels (1 '+', 3 '-').
+-- Kills ABS() mutants, reversed subtraction (count('-') - count('+')), and division/multiplication mutants.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m4', '-');
+```
+
+```sql
+-- DATASET 3
+-- Zero '-' labels (only '+' labels present).
+-- Kills mutants using INNER JOIN between two subqueries grouped by label (which would return empty set instead of 2).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '+');
+```
+
+```sql
+-- DATASET 4
+-- Zero '+' labels (only '-' labels present).
+-- Kills asymmetric subquery JOIN mutants and COALESCE omission on the '+' side (returns -2).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+```
+
+```sql
+-- DATASET 5
+-- No '+' or '-' labels at all (only NULL and other values), plus numeric string molecule_ids.
+-- Kills SUM(CASE...) without COALESCE (which returns NULL instead of 0), and mutants that cast molecule_id to integer.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('10', NULL);
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('20', '?');
+```
+
+```sql
+-- DATASET 6
+-- Equal non-zero counts of '+' and '-' with whitespace/formatting variations.
+-- Tests zero difference (2 - 2 = 0) and kills LIKE '%+%' or TRIM() mutants.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('100', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('200', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('300', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('400', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('500', ' + ');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('600', '+-');
+```
+
+```sql
+-- DATASET 7
+-- Empty tables (0 rows in molecule).
+-- Gold query returns 1 row with value 0.
+-- Kills mutants with GROUP BY label, HAVING clauses, or SUM() without COALESCE (which return 0 rows or NULL).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m_temp', '+');
+DELETE FROM "molecule" WHERE "molecule_id" = 'm_temp';
+```

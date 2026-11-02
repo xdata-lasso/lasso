@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Tests basic inner join filtering, non-stocked shops/devices (catching OUTER JOIN or missing JOIN condition mutants), and duplicates (catching DISTINCT mutants).
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (1, 'iPhone 13', 'Verizon', '1.0', 'Maps', 'iOS');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (2, 'Pixel 6', 'Verizon', '2.0', 'Docs', 'Android');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (3, 'Galaxy S21', 'AT&T', '1.1', 'Chat', 'Android');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (4, 'Nokia 3310', 'T-Mobile', '0.1', 'Snake', 'Symbian');
+
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (10, 'Alpha Tech', 'NY', '2020-01-01', 2020);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (20, 'Beta Store', 'CA', '2021-05-15', 2021);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (30, 'Gamma Shop', 'TX', '2019-11-20', 2019);
+
+-- Alpha Tech has two different devices with the same carrier ('Verizon'), testing if duplicate (Shop_Name, Carrier) pairs are preserved.
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (10, 1, 50);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (10, 2, 30);
+-- Beta Store has one device.
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (20, 3, 15);
+-- Device 4 and Shop 30 have no stock entries.
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY directions (ASC vs DESC), multi-column sorting priority, and NULLS LAST handling.
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (1, 'DevA', 'ZetaMobile', '1.0', 'App1', 'OS1');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (2, 'DevB', 'AlphaComm', '1.0', 'App2', 'OS2');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (3, 'DevC', NULL, '1.0', 'App3', 'OS3');
+
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (1, 'Shop B', 'Loc1', '2020-01-01', 2020);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (2, 'Shop A', 'Loc2', '2020-01-02', 2020);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (3, NULL, 'Loc3', '2020-01-03', 2020);
+
+-- Shop A has ZetaMobile, AlphaComm, and NULL carrier (tests secondary sort and NULLS LAST on carrier).
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (2, 1, 10);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (2, 2, 20);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (2, 3, 30);
+
+-- Shop B has AlphaComm.
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (1, 2, 15);
+
+-- Shop with NULL name has ZetaMobile and NULL carrier.
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (3, 1, 5);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (3, 3, 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests edge case values in stock.Quantity (0, negative, NULL) and column confusion mutants (e.g., selecting Device instead of Carrier, or Location instead of Shop_Name, or joining on Shop_ID = Device_ID).
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (1, 'Distinct_Device_1', 'Distinct_Carrier_1', 'v9', 'AppX', 'PlatX');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (2, 'Distinct_Device_2', 'Distinct_Carrier_2', 'v8', 'AppY', 'PlatY');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (3, 'Distinct_Device_3', 'Distinct_Carrier_3', 'v7', 'AppZ', 'PlatZ');
+
+-- Using overlapping IDs (1, 2, 3) for Shop_ID and Device_ID to catch mutants that join on (stock.Shop_ID = device.Device_ID) or (shop.Shop_ID = device.Device_ID).
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (1, 'Distinct_Shop_1', 'Distinct_Loc_1', '2010-10-10', 2010);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (2, 'Distinct_Shop_2', 'Distinct_Loc_2', '2011-11-11', 2011);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (3, 'Distinct_Shop_3', 'Distinct_Loc_3', '2012-12-12', 2012);
+
+-- Asymmetric stock assignments (Shop_ID != Device_ID) with zero, negative, and NULL quantities to kill mutants adding "WHERE Quantity > 0" or "WHERE Quantity IS NOT NULL" or wrong join keys.
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (1, 2, 0);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (2, 3, NULL);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (3, 1, -5);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty stock table with populated device and shop tables (catches CROSS JOIN mutants that omit the stock join or use LEFT JOIN from the cross join).
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (100, 'SoloPhone', 'SoloCarrier', '1.0', 'None', 'SoloOS');
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (200, 'EmptyStockShop', 'Nowhere', '2022-01-01', 2022);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple shops stocking the exact same device, and a single shop stocking multiple devices with different carriers, verifying full M:N relationship resolution.
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (10, 'PhoneX', 'Carrier_A', '1.0', 'App', 'OS');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (20, 'PhoneY', 'Carrier_B', '1.0', 'App', 'OS');
+
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (100, 'Store_1', 'CityA', '2015-01-01', 2015);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (200, 'Store_1', 'CityB', '2016-01-01', 2016);
+
+-- Two different shops with the exact same Shop_Name ('Store_1') stocking the same device (tests GROUP BY Shop_ID vs Shop_Name or DISTINCT mutants).
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (100, 10, 5);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (200, 10, 8);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (100, 20, 12);
+```

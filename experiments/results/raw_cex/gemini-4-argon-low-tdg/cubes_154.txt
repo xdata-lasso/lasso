@@ -1,0 +1,86 @@
+```sql
+-- DATASET 1
+-- General case: Latest date_of_treatment does NOT have the highest or lowest cost_of_treatment, nor the highest or lowest treatment_id.
+-- Catches mutants that sort by cost_of_treatment, sort date_of_treatment ASC, omit LIMIT 1, or select MAX/MIN(cost_of_treatment).
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Bulldog');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Medium');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T1', 'Checkup');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'Alice', 'Smith');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (1, 1, 'S1', 'B1', 'Rex');
+INSERT INTO "Professionals" ("professional_id", "first_name", "last_name") VALUES (1, 'John', 'Doe');
+
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (1, 1, 1, 'T1', '2022-05-01 10:00:00', 500.00);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (2, 1, 1, 'T1', '2023-08-15 12:00:00', 250.00);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (3, 1, 1, 'T1', '2021-01-20 09:00:00', 50.00);
+```
+
+```sql
+-- DATASET 2
+-- Tie-breaker on date_of_treatment: Multiple rows share the maximum date_of_treatment with different treatment_ids and costs.
+-- Tests secondary sort (treatment_id ASC) vs (treatment_id DESC) and tests queries using WHERE date_of_treatment = (SELECT MAX(date_of_treatment)...) without proper LIMIT/tie-breaking.
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Poodle');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Small');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T1', 'Vaccine');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'Bob', 'Jones');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (1, 1, 'S1', 'B1', 'Bella');
+INSERT INTO "Professionals" ("professional_id", "first_name", "last_name") VALUES (1, 'Jane', 'Roe');
+
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (10, 1, 1, 'T1', '2023-10-10 14:00:00', 120.00);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (20, 1, 1, 'T1', '2023-10-10 14:00:00', 340.00);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (5, 1, 1, 'T1', '2020-01-01 08:00:00', 999.00);
+```
+
+```sql
+-- DATASET 3
+-- Orphan foreign keys in Treatments (NULL dog_id, professional_id, treatment_type_code).
+-- Catches mutants that unnecessarily INNER JOIN Treatments with Dogs, Professionals, or Treatment_Types.
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (1, NULL, NULL, NULL, '2023-12-31 23:59:59', 175.50);
+```
+
+```sql
+-- DATASET 4
+-- Duplicate maximum costs on different dates and same dates.
+-- Catches mutants using DISTINCT, GROUP BY cost_of_treatment, or aggregating (SUM/AVG) on tied dates.
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Beagle');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Medium');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T1', 'Surgery');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'Charlie', 'Brown');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (1, 1, 'S1', 'B1', 'Snoopy');
+INSERT INTO "Professionals" ("professional_id", "first_name", "last_name") VALUES (1, 'Lucy', 'Van Pelt');
+
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (1, 1, 1, 'T1', '2023-11-01 10:00:00', 300.00);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (2, 1, 1, 'T1', '2023-11-01 10:00:00', 300.00);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (3, 1, 1, 'T1', '2022-11-01 10:00:00', 100.00);
+```
+
+```sql
+-- DATASET 5
+-- NULL handling in date_of_treatment and cost_of_treatment.
+-- In SQLite, NULLs are considered smaller than any non-NULL value, so ORDER BY date_of_treatment DESC places NULLs last.
+-- Also tests when the latest treatment has a NULL cost_of_treatment (catches mutants with WHERE cost_of_treatment IS NOT NULL).
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Terrier');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Small');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T1', 'Dental');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'David', 'adams');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (1, 1, 'S1', 'B1', 'Max');
+INSERT INTO "Professionals" ("professional_id", "first_name", "last_name") VALUES (1, 'Sarah', 'Connor');
+
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (1, 1, 1, 'T1', NULL, 800.00);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (2, 1, 1, 'T1', '2023-09-01 00:00:00', NULL);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (3, 1, 1, 'T1', '2023-01-01 00:00:00', 150.00);
+```
+
+```sql
+-- DATASET 6
+-- Same date, different times of day.
+-- Catches mutants that cast date_of_treatment to DATE (truncating the time component) before sorting.
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Husky');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Large');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T1', 'Grooming');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'Eve', 'White');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (1, 1, 'S1', 'B1', 'Ghost');
+INSERT INTO "Professionals" ("professional_id", "first_name", "last_name") VALUES (1, 'Mike', 'Ross');
+
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (1, 1, 1, 'T1', '2023-07-04 08:30:00', 90.00);
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "date_of_treatment", "cost_of_treatment") VALUES (2, 1, 1, 'T1', '2023-07-04 17:45:00', 210.00);
+```

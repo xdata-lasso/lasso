@@ -1,0 +1,62 @@
+-- Schema DDL
+CREATE TABLE "FLIGHT" (
+    "FLNO" FLOAT,
+    "AID" FLOAT,
+    "ORIGIN" TEXT,
+    "DESTINATION" TEXT,
+    "DISTANCE" FLOAT,
+    "DEPARTURE_DATE" DATE,
+    "ARRIVAL_DATE" DATE,
+    "PRICE" FLOAT,
+    PRIMARY KEY ("FLNO"),
+    FOREIGN KEY ("AID") REFERENCES "AIRCRAFT"("AID")
+);
+CREATE TABLE "AIRCRAFT" (
+    "AID" FLOAT,
+    "NAME" TEXT,
+    "DISTANCE" FLOAT,
+    PRIMARY KEY ("AID")
+);
+CREATE TABLE "EMPLOYEE" (
+    "EID" FLOAT,
+    "NAME" TEXT,
+    "SALARY" FLOAT,
+    PRIMARY KEY ("EID")
+);
+CREATE TABLE "CERTIFICATE" (
+    "EID" FLOAT,
+    "AID" FLOAT,
+    PRIMARY KEY ("EID", "AID"),
+    FOREIGN KEY ("AID") REFERENCES "AIRCRAFT"("AID"),
+    FOREIGN KEY ("EID") REFERENCES "EMPLOYEE"("EID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO FLIGHT VALUES (4, 8, 25, 26, 27, '0001-01-02', '0001-01-01', 28);
+INSERT INTO FLIGHT VALUES (29, 8, 30, 31, 32, '0001-01-01', '0001-01-01', 33);
+INSERT INTO AIRCRAFT VALUES (5, 13, 14);
+INSERT INTO AIRCRAFT VALUES (8, 0, 15);
+INSERT INTO EMPLOYEE VALUES (6, 0, 0);
+INSERT INTO EMPLOYEE VALUES (7, 0, 0);
+INSERT INTO CERTIFICATE VALUES (7, 5);
+INSERT INTO CERTIFICATE VALUES (6, 8);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name, n AS count___ FROM (SELECT LHS.aid AS aid, LHS.departure_date AS departure_date, LHS.n AS n, RHS.name AS name, RHS.distance AS distance FROM (SELECT aid, departure_date, COUNT(*) AS n FROM flight GROUP BY aid, departure_date) AS LHS INNER JOIN aircraft AS RHS ON (LHS.aid = RHS.aid)) ORDER BY name, count___ NULLS LAST;
+
+/*
+Gold Result:
+('0', 1)
+('0', 1)
+*/
+
+-- Prediction Query
+SELECT T2.name, COUNT(*) FROM Flight AS T1 JOIN Aircraft AS T2 ON T1.aid = T2.aid GROUP BY T1.aid;
+
+/*
+Prediction Result:
+('0', 2)
+*/

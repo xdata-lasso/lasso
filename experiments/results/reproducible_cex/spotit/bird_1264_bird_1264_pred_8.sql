@@ -1,0 +1,102 @@
+-- Schema DDL
+CREATE TABLE "EXAMINATION" (
+    "ID" INT,
+    "EXAMINATION_DATE" DATE,
+    "ACL_IGG" FLOAT,
+    "ACL_IGM" FLOAT,
+    "ANA" INT,
+    "ANA_PATTERN" TEXT,
+    "ACL_IGA" INT,
+    "DIAGNOSIS" TEXT,
+    "KCT" TEXT,
+    "RVVT" TEXT,
+    "LAC" TEXT,
+    "SYMPTOMS" TEXT,
+    "THROMBOSIS" INT,
+    FOREIGN KEY ("ID") REFERENCES "PATIENT"("ID")
+);
+CREATE TABLE "PATIENT" (
+    "ID" INT,
+    "SEX" TEXT,
+    "BIRTHDAY" DATE,
+    "DESCRIPTION" DATE,
+    "FIRST_DATE" DATE,
+    "ADMISSION" TEXT,
+    "DIAGNOSIS" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "LABORATORY" (
+    "ID" INT,
+    "DATE" DATE,
+    "GOT" INT,
+    "GPT" INT,
+    "LDH" INT,
+    "ALP" INT,
+    "TP" FLOAT,
+    "ALB" FLOAT,
+    "UA" FLOAT,
+    "UN" INT,
+    "CRE" FLOAT,
+    "T_BIL" FLOAT,
+    "T_CHO" INT,
+    "TG" INT,
+    "CPK" INT,
+    "GLU" INT,
+    "WBC" FLOAT,
+    "RBC" FLOAT,
+    "HGB" FLOAT,
+    "HCT" FLOAT,
+    "PLT" INT,
+    "PT" FLOAT,
+    "APTT" INT,
+    "FG" FLOAT,
+    "PIC" INT,
+    "TAT" INT,
+    "TAT2" INT,
+    "U_PRO" TEXT,
+    "IGG" INT,
+    "IGA" INT,
+    "IGM" INT,
+    "CRP" TEXT,
+    "RA" TEXT,
+    "RF" TEXT,
+    "C3" INT,
+    "C4" INT,
+    "RNP" TEXT,
+    "SM" TEXT,
+    "SC170" TEXT,
+    "SSA" TEXT,
+    "SSB" TEXT,
+    "CENTROMEA" TEXT,
+    "DNA" TEXT,
+    "DNA_II" INT,
+    PRIMARY KEY ("DATE", "ID"),
+    FOREIGN KEY ("ID") REFERENCES "PATIENT"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO EXAMINATION VALUES (0, '0001-01-01', 59, 60, 0, 61, 0, 62, 63, 64, 65, 66, 1);
+INSERT INTO EXAMINATION VALUES (-1, '0001-01-01', 70, 71, 0, 72, 0, 73, 74, 75, 76, 77, 0);
+INSERT INTO PATIENT VALUES (0, 56, '0001-01-01', '0001-01-01', '0001-01-01', 57, 58);
+INSERT INTO PATIENT VALUES (-1, 67, '0001-01-01', '0001-01-01', '0001-01-01', 68, 69);
+INSERT INTO LABORATORY VALUES (0, '0001-01-01', 0, 0, 0, 0, 9, 10, 12, 0, 13, 14, 0, 0, 0, 0, 15, 16, 17, 18, 0, 19, 0, 20, 0, 0, 0, 21, 0, 0, 0, 22, 23, 24, 0, 11, 25, 26, 27, 28, 29, 30, 31, 0);
+INSERT INTO LABORATORY VALUES (0, '0001-01-02', 0, 0, 0, 0, 32, 33, 34, 0, 35, 36, 0, 0, 0, 0, 37, 38, 39, 40, 0, 41, 0, 42, 0, 0, 0, 43, 0, 0, 0, 44, 45, 46, 0, 11, 47, 48, 49, 50, 51, 52, 53, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.C4 > 10 AND T1.Diagnosis = 'APS';
+
+/*
+Gold Result:
+(0,)
+*/
+
+-- Prediction Query
+SELECT COUNT(DISTINCT PATIENT.ID) FROM PATIENT INNER JOIN EXAMINATION ON PATIENT.ID = EXAMINATION.ID INNER JOIN LABORATORY ON PATIENT.ID = LABORATORY.ID WHERE EXAMINATION.THROMBOSIS > 0 AND LABORATORY.C4 > 10;
+
+/*
+Prediction Result:
+(1,)
+*/

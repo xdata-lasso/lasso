@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests ties for the minimum order_quantity (kills LIMIT 1 vs all minimum rows), duplicate payment_methods (kills SELECT DISTINCT), and ordering (kills missing/DESC ORDER BY).
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'PayPal', 'Alice', '2020-01-01', 'None');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Credit Card', 'Bob', '2020-01-02', 'None');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (3, 'Credit Card', 'Charlie', '2020-01-03', 'None');
+INSERT INTO Products (product_id, product_details) VALUES (1, 'Widget');
+INSERT INTO Products (product_id, product_details) VALUES (2, 'Gadget');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (10, 1, 'Shipped', '2021-01-01', 'None');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (20, 2, 'Shipped', '2021-01-02', 'None');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (30, 3, 'Pending', '2021-01-03', 'None');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (10, 1, '1');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (20, 2, '1');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (30, 1, '1');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (30, 2, '5');
+```
+
+```sql
+-- DATASET 2
+-- Tests string vs integer comparison on TEXT column order_quantity ('10' < '2' lexicographically) and MAX vs MIN mutations.
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Cash', 'Dave', '2020-01-01', 'None');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Debit', 'Eve', '2020-01-02', 'None');
+INSERT INTO Products (product_id, product_details) VALUES (1, 'Item A');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (100, 1, 'Paid', '2021-01-01', 'None');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (200, 2, 'Paid', '2021-01-02', 'None');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (100, 1, '10');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (200, 1, '2');
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition completeness in the self-join of Order_Items (same order_id with different product_id and quantities, same product_id across different order_ids) and multi-hop join vs direct IN/JOIN shortcuts.
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Check', 'Frank', '2020-01-01', 'None');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Wire', 'Grace', '2020-01-02', 'None');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (3, 'Crypto', 'Heidi', '2020-01-03', 'None');
+INSERT INTO Products (product_id, product_details) VALUES (10, 'Prod 10');
+INSERT INTO Products (product_id, product_details) VALUES (20, 'Prod 20');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (1, 1, 'Done', '2021-01-01', 'None');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (2, 2, 'Done', '2021-01-02', 'None');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (1, 10, '3');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (1, 20, '9');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (2, 10, '9');
+```
+
+```sql
+-- DATASET 4
+-- Tests dangling foreign keys (NULLs), unreferenced customers, orders without items, and an orphan order_item holding the global minimum quantity (causes INNER JOIN with Customers/Customer_Orders to differ from querying Order_Items alone).
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'ApplePay', 'Ivan', '2020-01-01', 'None');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'GooglePay', 'Judy', '2020-01-02', 'None');
+INSERT INTO Products (product_id, product_details) VALUES (1, 'Phone');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (10, 1, 'New', '2021-01-01', 'None');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (20, NULL, 'New', '2021-01-02', 'Orphan Order');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (30, 2, 'New', '2021-01-03', 'Empty Order');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (10, 1, '5');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (20, 1, '1');
+```
+
+```sql
+-- DATASET 5
+-- Tests exact duplicate rows in Order_Items (no PK on Order_Items) to catch mutations that drop self-join conditions or alter join cardinality, plus NULL handling in order_quantity.
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Voucher', 'Mallory', '2020-01-01', 'None');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Card', 'Niaj', '2020-01-02', 'None');
+INSERT INTO Products (product_id, product_details) VALUES (1, 'Book');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (1, 1, 'Closed', '2021-01-01', 'None');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (2, 2, 'Closed', '2021-01-02', 'None');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (1, 1, '2');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (1, 1, '4');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (2, 1, NULL);
+```

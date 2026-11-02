@@ -1,0 +1,41 @@
+-- Schema DDL
+CREATE TABLE "buildings" ("id" INTEGER PRIMARY KEY, "name" TEXT, "City" TEXT, "Height" INTEGER, "Stories" INTEGER, "Status" TEXT);
+
+CREATE TABLE "Companies" ("id" INTEGER PRIMARY KEY, "name" TEXT, "Headquarters" TEXT, "Industry" TEXT, "Sales_billion" REAL, "Profits_billion" REAL, "Assets_billion" REAL, "Market_Value_billion" TEXT);
+
+CREATE TABLE "Office_locations" ("building_id" INTEGER, "company_id" INTEGER, "move_in_year" INTEGER, PRIMARY KEY ("building_id", "company_id"), FOREIGN KEY ("company_id") REFERENCES "Companies" ("id"), FOREIGN KEY ("building_id") REFERENCES "buildings" ("id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (1, 'Zenith Tower', 'Chicago', 100, 20, 'on-hold');
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (2, 'Apex Plaza', 'New York', 300, 60, 'on-hold');
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (3, 'Apex Plaza', 'Boston', 200, 40, 'on-hold');
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (4, 'Midtown Center', 'Seattle', 250, 50, 'completed');
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (5, 'Crown Point', 'Austin', 150, 30, 'On-hold');
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (6, 'Harbor View', 'Miami', 180, 35, 'on hold');
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (7, 'Beacon Hill', 'Denver', 400, 80, 'on-hold');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT "name" FROM "buildings" WHERE ("status" = 'on-hold') ORDER BY name, buildings.id NULLS LAST;
+
+/*
+Gold Result:
+('Apex Plaza',)
+('Apex Plaza',)
+('Beacon Hill',)
+('Zenith Tower',)
+*/
+
+-- Prediction Query
+SELECT name FROM buildings WHERE Status = 'on-hold' ORDER BY Stories ASC, buildings.id NULLS LAST;
+
+/*
+Prediction Result:
+('Zenith Tower',)
+('Apex Plaza',)
+('Apex Plaza',)
+('Beacon Hill',)
+*/

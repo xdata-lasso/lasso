@@ -1,0 +1,96 @@
+```sql
+-- DATASET 1
+-- Comprehensive predicate, DISTINCT, NULL, and ID collision testing
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'DC Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (3, 'Marvel Comics');
+
+INSERT INTO gender (id, gender) VALUES (10, 'Female');
+INSERT INTO gender (id, gender) VALUES (20, 'Male');
+INSERT INTO gender (id, gender) VALUES (30, 'Female');
+
+-- Valid matches (multiple heroes sharing the same publisher/gender to catch COUNT(DISTINCT T2.id) / COUNT(DISTINCT T3.id))
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (100, 'Storm', NULL, 10, 1);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (101, 'Black Widow', 'Natasha Romanoff', 10, 1);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (102, 'Captain Marvel', 'Carol Danvers', 30, 3);
+
+-- Partial matches (catches OR vs AND, missing predicates, negation errors)
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (103, 'Iron Man', 'Tony Stark', 20, 1);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (104, 'Wonder Woman', 'Diana Prince', 10, 2);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (105, 'Batman', 'Bruce Wayne', 20, 2);
+
+-- NULL foreign keys (catches LEFT/RIGHT JOIN vs INNER JOIN and COUNT(*) vs COUNT(col) on outer joins)
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (106, 'Mystery Hero 1', 'Unknown', NULL, 1);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (107, 'Mystery Hero 2', 'Unknown', 10, NULL);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (108, 'Mystery Hero 3', 'Unknown', NULL, NULL);
+
+-- Accidental ID collision traps (catches wrong join conditions like T1.id = T2.id or T2.id = T3.id)
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (1, 'Trap Hero 1', 'Trap', 20, 2);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id) VALUES (10, 'Trap Hero 2', 'Trap', 20, 2);
+```
+
+```sql
+-- DATASET 2
+-- Zero-match boundary testing and substring/case-sensitivity traps
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Marvel');
+INSERT INTO publisher (id, publisher_name) VALUES (3, 'marvel comics');
+INSERT INTO publisher (id, publisher_name) VALUES (4, NULL);
+
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'Male');
+INSERT INTO gender (id, gender) VALUES (3, 'female');
+INSERT INTO gender (id, gender) VALUES (4, NULL);
+
+-- Crossed conditions: no single hero has exact 'Marvel Comics' AND exact 'Female'
+INSERT INTO superhero (id, superhero_name, gender_id, publisher_id) VALUES (10, 'Hero A', 2, 1);
+INSERT INTO superhero (id, superhero_name, gender_id, publisher_id) VALUES (20, 'Hero B', 1, 2);
+INSERT INTO superhero (id, superhero_name, gender_id, publisher_id) VALUES (30, 'Hero C', 3, 1);
+INSERT INTO superhero (id, superhero_name, gender_id, publisher_id) VALUES (40, 'Hero D', 1, 3);
+INSERT INTO superhero (id, superhero_name, gender_id, publisher_id) VALUES (50, 'Hero E', 4, 1);
+INSERT INTO superhero (id, superhero_name, gender_id, publisher_id) VALUES (60, 'Hero F', 1, 4);
+```
+
+```sql
+-- DATASET 3
+-- Cross-join and unjoined lookup rows trap + extra tables join trap
+INSERT INTO alignment (id, alignment) VALUES (1, 'Good');
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Intelligence');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Strength');
+INSERT INTO superpower (id, power_name) VALUES (1, 'Flight');
+INSERT INTO superpower (id, power_name) VALUES (2, 'Telepathy');
+
+-- Unreferenced matching lookup rows (catches RIGHT JOIN or Cartesian products)
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Marvel Comics');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'Female');
+
+-- Only 1 superhero, linked to multiple powers and attributes (catches unnecessary joins to hero_power or hero_attribute)
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (5, 'Jean Grey', 'Jean Grey', 1, 1, 1, 168, 52);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (5, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (5, 2, 80);
+
+INSERT INTO hero_power (hero_id, power_id) VALUES (5, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (5, 2);
+```
+
+```sql
+-- DATASET 4
+-- Swapped Foreign Key column trap (catches T1.gender_id = T2.id or T1.publisher_id = T3.id)
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'DC Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Marvel Comics');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'Male');
+
+-- Hero 100 has gender_id=2 ('Male') and publisher_id=1 ('DC Comics').
+-- If a mutant swaps FKs (joining publisher on gender_id=2 and gender on publisher_id=1), this hero falsely matches 'Marvel Comics' & 'Female'!
+INSERT INTO superhero (id, superhero_name, gender_id, publisher_id) VALUES (100, 'Swapped FK Trap', 2, 1);
+
+-- Hero 200 is the true match (gender_id=1 'Female', publisher_id=2 'Marvel Comics')
+INSERT INTO superhero (id, superhero_name, gender_id, publisher_id) VALUES (200, 'True Match 1', 1, 2);
+INSERT INTO superhero (id, superhero_name, gender_id, publisher_id) VALUES (201, 'True Match 2', 1, 2);
+```

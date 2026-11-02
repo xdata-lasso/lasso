@@ -1,0 +1,13 @@
+{
+  "id": "composite_pk_derived_join_null_count_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE \"Sessions\" (\"member_id\" INTEGER, \"login_day\" DATE, \"score\" INTEGER, PRIMARY KEY (\"member_id\", \"login_day\"), CHECK (\"score\" >= 0));",
+  "correct_query": "SELECT s1.first_day, COUNT(DISTINCT s1.member_id) AS cohort_size, ROUND(CAST(SUM(CASE WHEN (s1.first_day + 1) = s2.login_day THEN 1 ELSE 0 END) AS REAL) / COUNT(DISTINCT s1.member_id), 2) AS retention_rate FROM (SELECT member_id, MIN(login_day) AS first_day FROM SESSIONS GROUP BY member_id) AS s1 JOIN SESSIONS AS s2 ON s1.member_id = s2.member_id GROUP BY s1.first_day",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "left_join_count_star_on_nullable_composite_pk",
+      "description": "Replaces INNER JOIN + COUNT(DISTINCT member_id) over a derived GROUP BY on a SQLite-nullable composite PRIMARY KEY column with LEFT OUTER JOIN + COUNT(*), retaining and counting the NULL key group",
+      "query": "WITH FIRST_LOGINS AS (SELECT MEMBER_ID, MIN(LOGIN_DAY) AS FIRST_DAY FROM SESSIONS GROUP BY MEMBER_ID), NEXT_DAY AS (SELECT A.MEMBER_ID FROM SESSIONS AS A JOIN FIRST_LOGINS AS F ON A.MEMBER_ID = F.MEMBER_ID AND A.LOGIN_DAY = F.FIRST_DAY + 1) SELECT FIRST_DAY, COUNT(*) AS COHORT_SIZE, ROUND(CAST(COUNT(N.MEMBER_ID) AS REAL) / COUNT(*), 2) AS RETENTION_RATE FROM FIRST_LOGINS AS F LEFT OUTER JOIN NEXT_DAY AS N ON F.MEMBER_ID = N.MEMBER_ID GROUP BY FIRST_DAY"
+    }
+  ]
+}

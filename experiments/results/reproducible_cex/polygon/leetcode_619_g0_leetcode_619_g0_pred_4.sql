@@ -1,0 +1,24 @@
+-- Schema DDL
+CREATE TABLE "mynumbers" ("num" INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "mynumbers" ("num") VALUES (2617);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT MAX(num) AS num FROM (SELECT num FROM mynumbers GROUP BY num HAVING COUNT(num) = 1) AS T;
+
+/*
+Gold Result:
+(2617,)
+*/
+
+-- Prediction Query
+SELECT CASE WHEN COUNT(*) > 0 THEN MAX(NUM) ELSE NULL END AS NUM FROM (SELECT NUM, COUNT(*) AS NUM_COUNT FROM MYNUMBERS GROUP BY 1 HAVING NUM_COUNT = 1) AS NUMBER_COUNTS;
+
+/*
+Prediction Result:
+(2617,)
+*/

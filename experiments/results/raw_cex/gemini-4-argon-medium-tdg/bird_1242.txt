@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, DISTINCT requirement (multiple valid Laboratory records for same Patient), and INNER JOIN requirement (Patient without Laboratory records).
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1950-05-15', '1984-01-01', '1984-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', '1960-01-01', '1984-01-01', '1984-01-01', '-', 'RA');
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (1, '1984-03-10', 250);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (1, '1984-07-20', 300);
+```
+
+```sql
+-- DATASET 2
+-- Tests PLT boundary conditions: exact lower bound (100), exact upper bound (400), just below (99), just above (401), and NULL.
+INSERT INTO Patient (ID, Birthday) VALUES (1, '1950-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (2, '1950-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (3, '1950-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (4, '1950-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (5, '1950-01-01');
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (1, '1984-06-15', 100);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (2, '1984-06-15', 400);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (3, '1984-06-15', 99);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (4, '1984-06-15', 401);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (5, '1984-06-15', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests age calculation boundary conditions (STRFTIME('%Y', T2.Date) - STRFTIME('%Y', T1.Birthday) < 50):
+-- Age = 49 (1984 - 1935), Age = 50 (1984 - 1934), Age = 51 (1984 - 1933), and NULL Birthday.
+-- Also tests month/day differences where exact date age is < 50 or > 49 to catch mutants using JULIANDAY or exact date diffs instead of year diff.
+INSERT INTO Patient (ID, Birthday) VALUES (1, '1935-12-31');
+INSERT INTO Patient (ID, Birthday) VALUES (2, '1934-12-31');
+INSERT INTO Patient (ID, Birthday) VALUES (3, '1933-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (4, NULL);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (1, '1984-01-01', 200);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (2, '1984-01-01', 200);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (3, '1984-06-01', 200);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (4, '1984-06-01', 200);
+```
+
+```sql
+-- DATASET 4
+-- Tests Laboratory Date year condition (STRFTIME('%Y', T2.Date) = '1984'):
+-- Tests 1983, 1985, beginning/end of 1984, and other date columns in Patient/Examination to catch wrong column references.
+INSERT INTO Patient (ID, Birthday, Description, "First Date") VALUES (1, '1960-05-05', '1980-01-01', '1980-01-01');
+INSERT INTO Patient (ID, Birthday, Description, "First Date") VALUES (2, '1960-05-05', '1984-01-01', '1984-01-01');
+INSERT INTO Patient (ID, Birthday, Description, "First Date") VALUES (3, '1960-05-05', '1984-01-01', '1984-01-01');
+INSERT INTO Patient (ID, Birthday, Description, "First Date") VALUES (4, '1984-05-05', '1980-01-01', '1980-01-01');
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (1, '1984-12-31', 150);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (2, '1983-12-31', 150);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (3, '1985-01-01', 150);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (4, '1990-01-01', 150);
+INSERT INTO Examination (ID, "Examination Date") VALUES (2, '1984-05-05');
+INSERT INTO Examination (ID, "Examination Date") VALUES (3, '1984-05-05');
+```
+
+```sql
+-- DATASET 5
+-- Tests conjunction vs disjunction (AND vs OR) and same patient having mixed valid/invalid laboratory rows.
+-- Patient 1: One row with valid Date (1984) but invalid PLT (50), another row with invalid Date (1985) but valid PLT (200). Should NOT be returned.
+-- Patient 2: Valid PLT (200) and valid Age (24), but wrong Year (1982). Should NOT be returned.
+-- Patient 3: Valid Year (1984) and valid Age (24), but wrong PLT (500). Should NOT be returned.
+-- Patient 4: Valid Year (1984) and valid PLT (200), but wrong Age (60). Should NOT be returned.
+INSERT INTO Patient (ID, Birthday) VALUES (1, '1960-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (2, '1960-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (3, '1960-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (4, '1924-01-01');
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (1, '1984-05-01', 50);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (1, '1985-05-01', 200);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (2, '1982-05-01', 200);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (3, '1984-05-01', 500);
+INSERT INTO Laboratory (ID, Date, PLT) VALUES (4, '1984-05-01', 200);
+```
+
+```sql
+-- DATASET 6
+-- Tests that unnecessary joins to Examination are not present (Patient has valid Lab in 1984, but no Examination record),
+-- and tests similar numeric columns in Laboratory (e.g., GOT, GPT, LDH, ALP, UN, "T-CHO", TG, CPK, GLU) to ensure PLT is specifically checked.
+INSERT INTO Patient (ID, Birthday) VALUES (10, '1970-03-15');
+INSERT INTO Patient (ID, Birthday) VALUES (20, '1970-03-15');
+INSERT INTO Laboratory (ID, Date, PLT, GOT, GPT, LDH, ALP, UN, "T-CHO", TG, CPK, GLU) VALUES (10, '1984-01-01', 250, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+INSERT INTO Laboratory (ID, Date, PLT, GOT, GPT, LDH, ALP, UN, "T-CHO", TG, CPK, GLU) VALUES (20, '1984-01-01', 50, 250, 250, 250, 250, 250, 250, 250, 250, 250);
+INSERT INTO Examination (ID, "Examination Date", ANA) VALUES (20, '1984-01-01', 250);
+```

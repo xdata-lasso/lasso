@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. SUBSTRING vs exact equality on "date" (date has trailing timestamp).
+-- 2. Filtering on player_name ('Francesco Parravicini' vs others).
+-- 3. Filtering on date ('2010-08-30' vs others).
+-- 4. Selecting potential vs overall_rating or other integer columns.
+-- 5. INNER JOIN vs LEFT/RIGHT JOIN (unmatched Player and Player_Attributes rows).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 101, 'Francesco Parravicini', 1001, '1982-01-31 00:00:00', 185, 78);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 102, 'Lionel Messi', 1002, '1987-06-24 00:00:00', 170, 72);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (3, 103, 'Francesco Parravicini', 1003, '1982-01-31 00:00:00', 185, 78);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (10, 1001, 101, '2010-08-30 00:00:00', 68, 72);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (20, 1001, 101, '2011-08-30 00:00:00', 65, 85);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (30, 1002, 102, '2010-08-30 00:00:00', 90, 95);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (40, NULL, 999, '2010-08-30 00:00:00', 70, 80);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Join condition: t1.player_api_id = t2.player_api_id vs t1.player_fifa_api_id = t2.player_fifa_api_id or t1.id = t2.id.
+-- 2. Duplicate outputs (SELECT potential vs SELECT DISTINCT potential).
+-- 3. Exact 10-character date string ('2010-08-30') alongside timestamped date string.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 201, 'Francesco Parravicini', 2001, '1982-01-31', 185, 78);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 202, 'Other Player', 2002, '1985-05-05', 180, 75);
+
+-- Matches on player_api_id (201), but player_fifa_api_id points to Player 2 (2002) and id is 50.
+-- Two matching rows with identical potential (74) to kill DISTINCT or GROUP BY mutants, plus differing overall_rating.
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (50, 2002, 201, '2010-08-30 12:34:56', 60, 74);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (51, 2002, 201, '2010-08-30', 62, 74);
+
+-- Matches Player 1 on player_fifa_api_id (2001) and id (1), but NOT on player_api_id (202).
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (1, 2001, 202, '2010-08-30 00:00:00', 70, 99);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. SUBSTRING start index and length boundaries (e.g., 'X2010-08-30', '2010-08-3', '2010-08-30' at end of string).
+-- 2. Case sensitivity and substring matching on player_name ('Francesco Parravicini Jr.', 'francesco parravicini').
+-- 3. Logical AND vs OR in WHERE clause.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 301, 'Francesco Parravicini', 3001, '2010-08-30', 185, 78);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 302, 'Francesco Parravicini Extra', 3002, '1982-01-31', 185, 78);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (3, 303, 'francesco parravicini', 3003, '1982-01-31', 185, 78);
+
+-- Valid match
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (1, 3001, 301, '2010-08-30 00:00:00', 65, 77);
+-- Invalid dates testing SUBSTRING(date, 1, 10) boundaries and LIKE '%2010-08-30%' mutants
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (2, 3001, 301, ' 2010-08-30 00:00:00', 65, 81);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (3, 3001, 301, '2010-08-30', 65, 79);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (4, 3001, 301, '2010-08-3', 65, 82);
+-- Invalid player_name matches
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (5, 3002, 302, '2010-08-30 00:00:00', 65, 88);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (6, 3003, 303, '2010-08-30 00:00:00', 65, 89);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty result set behavior (when conditions are only partially met across rows) to kill mutants that use OR, drop predicates, or use Aggregates (MAX/MIN/COUNT) which return a row on empty sets.
+-- 2. Handling of NULL values in join keys, target columns, and predicates.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 401, 'Francesco Parravicini', 4001, '1982-01-31', 185, 78);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 402, 'Wrong Name', 4002, '1982-01-31', 185, 78);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (3, NULL, 'Francesco Parravicini', 4003, '1982-01-31', 185, 78);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (1, 4001, 401, '2010-08-31 00:00:00', 68, 75);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (2, 4002, 402, '2010-08-30 00:00:00', 68, 76);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (3, 4003, NULL, '2010-08-30 00:00:00', 68, 77);
+```

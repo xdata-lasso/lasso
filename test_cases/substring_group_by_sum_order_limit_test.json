@@ -1,0 +1,18 @@
+{
+  "id": "substring_group_by_sum_order_limit_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE accounts (account_id INTEGER PRIMARY KEY, tier TEXT);\nCREATE TABLE monthly_usage (account_id INTEGER NOT NULL, period_code TEXT NOT NULL, units REAL, PRIMARY KEY (period_code, account_id), FOREIGN KEY (account_id) REFERENCES accounts (account_id));",
+  "correct_query": "SELECT SUBSTRING(T2.period_code, 5, 2) FROM accounts AS T1 INNER JOIN monthly_usage AS T2 ON T1.account_id = T2.account_id WHERE SUBSTRING(T2.period_code, 1, 4) = '2022' AND T1.tier = 'PRO' GROUP BY SUBSTRING(T2.period_code, 5, 2) ORDER BY SUM(T2.units) DESC, SUBSTRING(T2.period_code, 5, 2) NULLS LAST LIMIT 1",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "missing_group_by_and_sum_in_order_by",
+      "description": "Omits GROUP BY on SUBSTRING slice and orders by individual row column DESC instead of group SUM DESC",
+      "query": "SELECT SUBSTRING(T1.period_code, 5, 2) FROM monthly_usage AS T1 INNER JOIN accounts AS T2 ON T1.account_id = T2.account_id WHERE T2.tier = 'PRO' AND SUBSTRING(T1.period_code, 1, 4) = '2022' ORDER BY T1.units DESC, T1.period_code NULLS LAST, T1.account_id NULLS LAST LIMIT 1"
+    },
+    {
+      "id": "wrong_aggregate_avg_instead_of_sum_in_order_by",
+      "description": "Replaces SUM with AVG in ORDER BY over a SUBSTRING-grouped query with LIMIT 1",
+      "query": "SELECT SUBSTRING(T2.period_code, 5, 2) FROM accounts AS T1 INNER JOIN monthly_usage AS T2 ON T1.account_id = T2.account_id WHERE SUBSTRING(T2.period_code, 1, 4) = '2022' AND T1.tier = 'PRO' GROUP BY SUBSTRING(T2.period_code, 5, 2) ORDER BY AVG(T2.units) DESC, SUBSTRING(T2.period_code, 5, 2) NULLS LAST LIMIT 1"
+    }
+  ]
+}

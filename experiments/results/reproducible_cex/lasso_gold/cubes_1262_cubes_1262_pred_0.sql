@@ -1,0 +1,31 @@
+-- Schema DDL
+CREATE TABLE "book_club" ("book_club_id" INTEGER PRIMARY KEY, "Year" INTEGER, "Author_or_Editor" TEXT, "Book_Title" TEXT, "Publisher" TEXT, "Category" TEXT, "Result" TEXT);
+
+CREATE TABLE "movie" ("movie_id" INTEGER PRIMARY KEY, "Title" TEXT, "Year" INTEGER, "Director" TEXT, "Budget_million" REAL, "Gross_worldwide" INTEGER);
+
+CREATE TABLE "culture_company" ("Company_name" TEXT PRIMARY KEY, "movie_id" TEXT, "book_club_id" TEXT, "Type" TEXT, "Incorporated_in" TEXT, "Group_Equity_Shareholding" REAL, FOREIGN KEY ("movie_id") REFERENCES "movie" ("movie_id"), FOREIGN KEY ("book_club_id") REFERENCES "book_club" ("book_club_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "book_club" ("book_club_id", "year", "author_or_editor", "book_title", "publisher", "category", "result") VALUES (1006, 1008, 'almost', 'Air traffic controller', 'begin', 'discover', 'early');
+INSERT INTO "book_club" ("book_club_id", "year", "author_or_editor", "book_title", "publisher", "category", "result") VALUES (1008, 1007, 'require', 'Sports administrator', 'better', 'performance', 'knowledge');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT YEAR, book_title, publisher FROM book_club ORDER BY YEAR, book_club.book_club_id NULLS LAST;
+
+/*
+Gold Result:
+(1007, 'Sports administrator', 'better')
+(1008, 'Air traffic controller', 'begin')
+*/
+
+-- Prediction Query
+SELECT YEAR, book_title, publisher FROM book_club ORDER BY YEAR DESC, book_club.book_club_id NULLS LAST;
+
+/*
+Prediction Result:
+(1008, 'Air traffic controller', 'begin')
+(1007, 'Sports administrator', 'better')
+*/

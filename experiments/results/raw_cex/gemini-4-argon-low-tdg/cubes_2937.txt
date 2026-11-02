@@ -1,0 +1,135 @@
+```sql
+-- DATASET 1
+-- Tests core WHERE conditions (enroll_grade = 'A' OR class_code <> 10018), JOIN predicates (stu_num and stu_init = enroll_grade), and LEFT/RIGHT JOIN vs INNER JOIN.
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (1, 'EmpOne');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('CS', 1, 'CompSci');
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION") VALUES ('CS101', 'CS', 'Intro');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('10018', 1, 'CS101');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('10019', 1, 'CS101');
+
+-- Matches: grade 'A' and class_code '10018' (tests first branch of OR)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (101, 'CS', 'Adams', 'John', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (101, '10018', 'A');
+
+-- Excluded: grade 'B' and class_code '10018' (fails both branches of OR, even though stu_init matches enroll_grade)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (102, 'CS', 'Baker', 'Jane', 'B');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (102, '10018', 'B');
+
+-- Matches: grade 'B' and class_code '10019' (tests second branch of OR and non-'A' grade matching stu_init)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (103, 'CS', 'Clark', 'Bob', 'B');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (103, '10019', 'B');
+
+-- Excluded: stu_init ('X') does not match enroll_grade ('A')
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (104, 'CS', 'Davis', 'Eve', 'X');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (104, '10019', 'A');
+
+-- Excluded: Student with no enrollments (tests INNER JOIN vs LEFT JOIN)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (105, 'CS', 'Evans', 'Tom', 'A');
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT, ORDER BY ASC/DESC, and NULLS LAST handling on stu_lname.
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (1, 'EmpOne');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('MATH', 1, 'Mathematics');
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION") VALUES ('M101', 'MATH', 'Calc');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('20001', 1, 'M101');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('20002', 1, 'M101');
+
+-- Student with multiple valid enrollments (tests DISTINCT for same student)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (201, 'MATH', 'Zeta', 'Zed', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (201, '20001', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (201, '20002', 'A');
+
+-- Different student with the same last name (tests DISTINCT across different students)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (202, 'MATH', 'Zeta', 'Zoe', 'C');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (202, '20001', 'C');
+
+-- Student for ordering test
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (203, 'MATH', 'Alpha', 'Ann', 'B');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (203, '20001', 'B');
+
+-- Student with NULL stu_lname (tests NULLS LAST in ORDER BY)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (204, 'MATH', NULL, 'NoLast', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (204, '20001', 'A');
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition stu_num = stu_num (catches cross-student matching on stu_init = enroll_grade) and NULL handling in join/filter columns.
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (1, 'EmpOne');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('HIST', 1, 'History');
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION") VALUES ('H101', 'HIST', 'World');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('10018', 1, 'H101');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('10020', 1, 'H101');
+
+-- Student 301 has init 'A', enrolled in 10020 with grade 'B' (fails own join, but matches 302's grade if stu_num join condition is missing)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (301, 'HIST', 'CrossOne', 'One', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (301, '10020', 'B');
+
+-- Student 302 has init 'C', enrolled in 10020 with grade 'A' (fails own join, provides 'A' grade in ENROLL)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (302, 'HIST', 'CrossTwo', 'Two', 'C');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (302, '10020', 'A');
+
+-- Student 303 has NULL stu_init and NULL enroll_grade (tests '=' vs 'IS' in join condition)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (303, 'HIST', 'NullInit', 'Three', NULL);
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (303, '10020', NULL);
+
+-- Valid match to ensure non-empty baseline output
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (304, 'HIST', 'ValidMatch', 'Four', 'D');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (304, '10020', 'D');
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary values around class_code 10018 (10017, 10019, alphanumeric) to catch <, >, <=, >= mutations in class_code <> 10018.
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (1, 'EmpOne');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('BIO', 1, 'Biology');
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION") VALUES ('B101', 'BIO', 'Cells');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('10017', 1, 'B101');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('10018', 1, 'B101');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('10019', 1, 'B101');
+
+-- Class 10017 (< 10018) with grade 'B'
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (401, 'BIO', 'LowerClass', 'Low', 'B');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (401, '10017', 'B');
+
+-- Class 10018 (= 10018) with grade 'B' (must be excluded)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (402, 'BIO', 'ExactClass', 'Exact', 'B');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (402, '10018', 'B');
+
+-- Class 10019 (> 10018) with grade 'B'
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (403, 'BIO', 'HigherClass', 'High', 'B');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (403, '10019', 'B');
+
+-- Enroll row with NULL class_code and grade 'A' (tests OR short-circuit with NULL in class_code <> 10018)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (404, 'BIO', 'NullClassGradeA', 'NullA', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (404, NULL, 'A');
+
+-- Enroll row with NULL class_code and grade 'B' (tests NULL <> 10018 evaluating to UNKNOWN/falsy)
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (405, 'BIO', 'NullClassGradeB', 'NullB', 'B');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (405, NULL, 'B');
+```
+
+```sql
+-- DATASET 5
+-- Tests column projection mistakes (e.g., selecting stu_fname, stu_init, or dept_code instead of stu_lname) and case sensitivity.
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (1, 'EmpLname');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('D1', 1, 'DeptName');
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION") VALUES ('C1', 'D1', 'CourseDesc');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('10018', 1, 'C1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('10025', 1, 'C1');
+
+-- Lowercase 'a' in grade and init for class 10018 (tests case-sensitivity of enroll_grade = 'A')
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (501, 'D1', 'LowerA_Last', 'LowerA_First', 'a');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (501, '10018', 'a');
+
+-- Distinct values across all student text attributes to catch wrong column projection
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT", "STU_CLASS", "STU_PHONE") VALUES (502, 'D1', 'TargetLastName', 'WrongFirstName', 'A', 'JR', '9999');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (502, '10018', 'A');
+
+-- Student with multiple enrollments where one passes and one fails
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME", "STU_FNAME", "STU_INIT") VALUES (503, 'D1', 'MixedEnroll', 'MixedFirst', 'C');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (503, '10018', 'C');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (503, '10025', 'C');
+```

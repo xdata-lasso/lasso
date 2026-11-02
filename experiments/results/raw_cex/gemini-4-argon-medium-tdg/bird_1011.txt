@@ -1,0 +1,111 @@
+```sql
+-- DATASET 1
+-- Tests lexicographical string sorting of `time` vs numerical time parsing, and `milliseconds` discrepancy vs `time` string.
+INSERT INTO seasons (year, url) VALUES (2020, 'http://en.wikipedia.org/wiki/2020_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://en.wikipedia.org/wiki/Monza');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Italian GP', '2020-09-06', 'http://en.wikipedia.org/wiki/2020_Italian_GP');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://en.wikipedia.org/wiki/Lewis_Hamilton');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'verstappen', 'Max', 'Verstappen', 'http://en.wikipedia.org/wiki/Max_Verstappen');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'leclerc', 'Charles', 'Leclerc', 'http://en.wikipedia.org/wiki/Charles_Leclerc');
+
+-- Driver 1 has numerical fastest time (59.9s = '0:59.900'), but '10:00.000' is lexicographically smaller ('1' < '5' or '0:59' vs '00:59'), and milliseconds says Driver 2 is faster.
+-- Actually '0:59.900' vs '1:05.100' vs '10:00.000':
+-- Lexicographically: '10:00.000' < '2:00.000' < '9:00.000'.
+-- Here Driver 1 has '2:05.000' (125s), Driver 2 has '10:01.000' (601s). Lexicographically '10:01.000' < '2:05.000'!
+-- Also Driver 3 has milliseconds = 1000 (very small), but `time` = '5:00.000' (300s).
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '2:05.000', 125000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 2, '10:01.000', 601000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 3, 1, 3, '5:00.000', 1000);
+```
+
+```sql
+-- DATASET 2
+-- Tests MIN vs AVG vs SUM vs MAX across multiple laps per driver, and NULL time handling.
+INSERT INTO seasons (year, url) VALUES (2021, 'http://en.wikipedia.org/wiki/2021_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://en.wikipedia.org/wiki/Spa');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2021, 1, 1, 'Belgian GP', '2021-08-29', 'http://en.wikipedia.org/wiki/2021_Belgian_GP');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'norris', 'Lando', 'Norris', 'http://en.wikipedia.org/wiki/Lando_Norris');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'sainz', 'Carlos', 'Sainz', 'http://en.wikipedia.org/wiki/Carlos_Sainz');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'alonso', 'Fernando', 'Alonso', 'http://en.wikipedia.org/wiki/Fernando_Alonso');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'vettel', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Sebastian_Vettel');
+
+-- Driver 1 (Norris): 1 very fast lap (1:10.000 = 70s) and 1 very slow lap (5:00.000 = 300s). MIN = 70s, AVG = 185s, SUM = 370s, MAX = 300s.
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '1:10.000', 70000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 2, 1, '5:00.000', 300000);
+
+-- Driver 2 (Sainz): 2 medium laps (1:20.000 = 80s each). MIN = 80s, AVG = 80s (lowest AVG and MAX), SUM = 160s.
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 2, '1:20.000', 80000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 2, 2, '1:20.000', 80000);
+
+-- Driver 3 (Alonso): 1 lap (1:30.000 = 90s). MIN = 90s, SUM = 90s (lowest SUM).
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 3, 1, 3, '1:30.000', 90000);
+
+-- Driver 4 (Vettel): Only NULL time in lapTimes (tests NULLS LAST / MIN ignoring NULLs).
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 4, 1, 4, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on `T2.driverId ASC` when two drivers have the exact same minimum lap time, plus a driver with no lapTimes at all (tests INNER JOIN vs LEFT JOIN).
+INSERT INTO seasons (year, url) VALUES (2022, 'http://en.wikipedia.org/wiki/2022_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://en.wikipedia.org/wiki/Silverstone');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2022, 1, 1, 'British GP', '2022-07-03', 'http://en.wikipedia.org/wiki/2022_British_GP');
+
+-- Driver 1 has no lap times (if LEFT JOIN is used without NULLS LAST, NULL min_time_in_seconds might sort first in SQLite ASC!).
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'piastri', 'Oscar', 'Piastri', 'http://en.wikipedia.org/wiki/Oscar_Piastri');
+-- Driver 10 and Driver 20 tie on min_time_in_seconds, inserted in reverse order of driverId to catch missing secondary sort.
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'russell', 'George', 'Russell', 'http://en.wikipedia.org/wiki/George_Russell');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'perez', 'Sergio', 'Perez', 'http://en.wikipedia.org/wiki/Sergio_Perez');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 20, 1, 1, '1:15.250', 75250);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 10, 1, 2, '1:15.250', 75250);
+```
+
+```sql
+-- DATASET 4
+-- Tests fractional milliseconds precision, seconds precision, and hours component in the Gold Query's time formula, plus confusion between `lapTimes.time`, `results.fastestLapTime`, and `qualifying.q1`.
+INSERT INTO seasons (year, url) VALUES (2023, 'http://en.wikipedia.org/wiki/2023_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Monaco', 'http://en.wikipedia.org/wiki/Monaco');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2023, 1, 1, 'Monaco GP', '2023-05-28', 'http://en.wikipedia.org/wiki/2023_Monaco_GP');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'ferrari', 'Ferrari', 'http://en.wikipedia.org/wiki/Ferrari');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'gasly', 'Pierre', 'Gasly', 'http://en.wikipedia.org/wiki/Pierre_Gasly');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'ocon', 'Esteban', 'Ocon', 'http://en.wikipedia.org/wiki/Esteban_Ocon');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'bottas', 'Valtteri', 'Bottas', 'http://en.wikipedia.org/wiki/Valtteri_Bottas');
+
+-- Driver 1: 1:12.005 (72.005s)
+-- Driver 2: 1:12.050 (72.050s) -> If milliseconds aren't divided by 1000 or parsed properly, or if integer division is used (CAST AS INT / 1000 = 0), Driver 1 and Driver 2 tie at 72.0s!
+-- Let's make Driver 2 have driverId=1 and Driver 1 have driverId=2 so that if milliseconds are truncated to 0 via integer division, Driver 2 (id=1) wins instead of Driver 1 (id=2)!
+-- Wait: let's set Driver 1 (id=1, Gasly) to '1:12.500' (72.5s) and Driver 2 (id=2, Ocon) to '1:12.050' (72.05s).
+-- If milliseconds are truncated (integer division / 1000 = 0), both have 72.0s, and id=1 (Gasly) wins by tie-breaker! With REAL division, id=2 (Ocon) wins (72.05 < 72.5)!
+-- Also Driver 3 (id=3, Bottas) has '1:01:00.001' (has an hour component: 1 hour, 1 min, 0.001s). If hours are ignored, it looks like 1 min 0.001s (60.001s), beating everyone!
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 2, '1:12.500', 72500);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 1, '1:12.050', 72050);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 3, 1, 3, '1:01:00.001', 3660001);
+
+-- Decoy fastestLapTime in `results` and `qualifying` where Driver 1 is fastest (to kill queries using `results` or `qualifying` instead of `lapTimes`).
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, statusId) VALUES (1, 1, 1, 1, 1, '1', 1, 25, 1, '1:05.000', 65000, 1, 1, '1:05.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, statusId) VALUES (2, 1, 2, 1, 2, '2', 2, 18, 1, '1:12.050', 72050, 1, 2, '1:12.050', 1);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 1, 1, 1, 10, 1, '1:04.000', '1:04.000', '1:04.000');
+```
+
+```sql
+-- DATASET 5
+-- Tests seconds comparison when minutes differ vs when seconds differ (e.g., 1:50.000 vs 2:10.000 where 50 > 10 in seconds, catching queries that only extract seconds or forget * 60 on minutes).
+INSERT INTO seasons (year, url) VALUES (2024, 'http://en.wikipedia.org/wiki/2024_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'suzuka', 'Suzuka', 'http://en.wikipedia.org/wiki/Suzuka');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2024, 1, 1, 'Japanese GP', '2024-04-07', 'http://en.wikipedia.org/wiki/2024_Japanese_GP');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'tsunoda', 'Yuki', 'Tsunoda', 'http://en.wikipedia.org/wiki/Yuki_Tsunoda');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'albon', 'Alexander', 'Albon', 'http://en.wikipedia.org/wiki/Alexander_Albon');
+
+-- Driver 1 (Tsunoda): 2:05.100 (125.1s). Minutes=2, Seconds=5.
+-- Driver 2 (Albon): 1:55.900 (115.9s). Minutes=1, Seconds=55.
+-- True fastest: Driver 2 (115.9s < 125.1s).
+-- If minutes aren't multiplied by 60 (e.g., 2+5.1=7.1 vs 1+55.9=56.9), Driver 1 wins!
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 2, '2:05.100', 125100);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 1, '1:55.900', 115900);
+```

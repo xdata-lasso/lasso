@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests basic boundary conditions for COUNT(*): n=1, n=2, n=3.
+-- Also tests ORDER BY team (inserted out of alphabetical order) and ensures machine.Team is ignored.
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, 'Alice', 'Zulu', 2015.0, 30);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'Bob', 'Zulu', 2016.0, 28);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (3.0, 'Charlie', 'Alpha', 2017.0, 35);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (4.0, 'David', 'Alpha', 2018.0, 40);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (5.0, 'Eve', 'Alpha', 2019.0, 25);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (6.0, 'Frank', 'Beta', 2020.0, 22);
+
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (101, 2010, 'A', 'Beta', 'S1', 10.5, 1);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (102, 2011, 'B', 'Beta', 'S2', 20.0, 2);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (103, 2012, 'C', 'Gamma', 'S3', 15.0, 3);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (104, 2013, 'D', 'Gamma', 'S4', 25.0, 4);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY and COUNT(*) vs COUNT(column) mutations.
+-- Two technicians have NULL Team (so NULL group has n=2), and another team has NULLs in other columns.
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, 'Alice', NULL, 2015.0, 30);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'Bob', NULL, 2016.0, 28);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (3.0, NULL, 'Delta', NULL, NULL);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (4.0, NULL, 'Delta', NULL, NULL);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (5.0, 'Eve', 'Epsilon', 2019.0, 25);
+```
+
+```sql
+-- DATASET 3
+-- Tests mutations that use COUNT(DISTINCT Name/Age/Starting_Year) instead of COUNT(*),
+-- and mutations that inappropriately INNER JOIN or NATURAL JOIN with repair_assignment or machine.
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (1, 'Fix1', '2021-01-01', 'Note1');
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (2, 'Fix2', '2021-01-02', 'Note2');
+
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (1, 2015, 'X', 'SoloTeam', 'M1', 50.0, 1);
+
+-- Team 'DupAttrTeam' has 2 technicians with identical Name, Starting_Year, and Age, and NO repair assignments.
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (10.0, 'John', 'DupAttrTeam', 2020.0, 30);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (11.0, 'John', 'DupAttrTeam', 2020.0, 30);
+
+-- Team 'SoloTeam' has only 1 technician, but this technician has 2 repair assignments (would inflate count to 2 if joined with repair_assignment).
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (20.0, 'Sarah', 'SoloTeam', 2018.0, 29);
+
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (20, 1, 1);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (20, 2, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when no team has >= 2 technicians (kills mutants without WHERE/HAVING or with n >= 1).
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, 'Tech1', 'TeamA', 2010.0, 45);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'Tech2', 'TeamB', 2012.0, 38);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (3.0, 'Tech3', NULL, 2014.0, 29);
+```
+
+```sql
+-- DATASET 5
+-- Tests sorting and grouping sensitivity (case sensitivity, leading/trailing spaces, tie-breaking in counts).
+-- All qualifying teams have exact same count (n=2) or different counts (n=4, n=2, n=3) to kill ORDER BY n vs ORDER BY team mutants.
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, 'T1', 'MidTeam', 2010.0, 20);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'T2', 'MidTeam', 2010.0, 21);
+
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (3.0, 'T3', 'FirstTeam', 2010.0, 22);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (4.0, 'T4', 'FirstTeam', 2010.0, 23);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (5.0, 'T5', 'FirstTeam', 2010.0, 24);
+
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (6.0, 'T6', 'LastTeam', 2010.0, 25);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (7.0, 'T7', 'LastTeam', 2010.0, 26);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (8.0, 'T8', 'LastTeam', 2010.0, 27);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (9.0, 'T9', 'LastTeam', 2010.0, 28);
+```

@@ -1,0 +1,134 @@
+-- Schema DDL
+CREATE TABLE "cards" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, artist TEXT, asciiName TEXT, availability TEXT, borderColor TEXT, cardKingdomFoilId TEXT, cardKingdomId TEXT, colorIdentity TEXT, colorIndicator TEXT, colors TEXT, convertedManaCost REAL, duelDeck TEXT, edhrecRank INTEGER, faceConvertedManaCost REAL, faceName TEXT, flavorName TEXT, flavorText TEXT, frameEffects TEXT, frameVersion TEXT, hand TEXT, hasAlternativeDeckLimit INTEGER DEFAULT 0 NOT NULL, hasContentWarning INTEGER DEFAULT 0 NOT NULL, hasFoil INTEGER DEFAULT 0 NOT NULL, hasNonFoil INTEGER DEFAULT 0 NOT NULL, isAlternative INTEGER DEFAULT 0 NOT NULL, isFullArt INTEGER DEFAULT 0 NOT NULL, isOnlineOnly INTEGER DEFAULT 0 NOT NULL, isOversized INTEGER DEFAULT 0 NOT NULL, isPromo INTEGER DEFAULT 0 NOT NULL, isReprint INTEGER DEFAULT 0 NOT NULL, isReserved INTEGER DEFAULT 0 NOT NULL, isStarter INTEGER DEFAULT 0 NOT NULL, isStorySpotlight INTEGER DEFAULT 0 NOT NULL, isTextless INTEGER DEFAULT 0 NOT NULL, isTimeshifted INTEGER DEFAULT 0 NOT NULL, keywords TEXT, layout TEXT, leadershipSkills TEXT, life TEXT, loyalty TEXT, manaCost TEXT, mcmId TEXT, mcmMetaId TEXT, mtgArenaId TEXT, mtgjsonV4Id TEXT, mtgoFoilId TEXT, mtgoId TEXT, multiverseId TEXT, name TEXT, number TEXT, originalReleaseDate TEXT, originalText TEXT, originalType TEXT, otherFaceIds TEXT, power TEXT, printings TEXT, promoTypes TEXT, purchaseUrls TEXT, rarity TEXT, scryfallId TEXT, scryfallIllustrationId TEXT, scryfallOracleId TEXT, setCode TEXT, side TEXT, subtypes TEXT, supertypes TEXT, tcgplayerProductId TEXT, text TEXT, toughness TEXT, type TEXT, types TEXT, uuid TEXT NOT NULL UNIQUE, variations TEXT, watermark TEXT);
+
+CREATE TABLE "foreign_data" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, flavorText TEXT, language TEXT, multiverseid INTEGER, name TEXT, text TEXT, type TEXT, uuid TEXT REFERENCES cards (uuid));
+
+CREATE TABLE "legalities" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, format TEXT, status TEXT, uuid TEXT REFERENCES cards (uuid) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE "sets" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, baseSetSize INTEGER, block TEXT, booster TEXT, code TEXT NOT NULL UNIQUE, isFoilOnly INTEGER DEFAULT 0 NOT NULL, isForeignOnly INTEGER DEFAULT 0 NOT NULL, isNonFoilOnly INTEGER DEFAULT 0 NOT NULL, isOnlineOnly INTEGER DEFAULT 0 NOT NULL, isPartialPreview INTEGER DEFAULT 0 NOT NULL, keyruneCode TEXT, mcmId INTEGER, mcmIdExtras INTEGER, mcmName TEXT, mtgoCode TEXT, name TEXT, parentCode TEXT, releaseDate DATE, tcgplayerGroupId INTEGER, totalSetSize INTEGER, type TEXT);
+
+CREATE TABLE "set_translations" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, language TEXT, setCode TEXT REFERENCES sets (code) ON update CASCADE ON delete CASCADE, translation TEXT);
+
+CREATE TABLE "rulings" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, date DATE, text TEXT, uuid TEXT REFERENCES cards (uuid) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: cards --
+INSERT INTO "cards" ("id", "artist", "asciiname", "availability", "bordercolor", "cardkingdomfoilid", "cardkingdomid", "coloridentity", "colorindicator", "colors", "convertedmanacost", "dueldeck", "edhrecrank", "faceconvertedmanacost", "facename", "flavorname", "flavortext", "frameeffects", "frameversion", "hand", "hasalternativedecklimit", "hascontentwarning", "hasfoil", "hasnonfoil", "isalternative", "isfullart", "isonlineonly", "isoversized", "ispromo", "isreprint", "isreserved", "isstarter", "isstoryspotlight", "istextless", "istimeshifted", "keywords", "layout", "leadershipskills", "life", "loyalty", "manacost", "mcmid", "mcmmetaid", "mtgarenaid", "mtgjsonv4id", "mtgofoilid", "mtgoid", "multiverseid", "name", "number", "originalreleasedate", "originaltext", "originaltype", "otherfaceids", "power", "printings", "promotypes", "purchaseurls", "rarity", "scryfallid", "scryfallillustrationid", "scryfalloracleid", "setcode", "side", "subtypes", "supertypes", "tcgplayerproductid", "text", "toughness", "type", "types", "uuid", "variations", "watermark") VALUES (-2147483648, '5k5swwqcgs', '9n8', '4', 'gu7v', 'e4', 'hria2ypuzhs', 'rwbbp6luhvd', 'tti', 'bnp', 787.938887, 'dpos', -1576219117, 75.403642, 'nw6klf', 'a9000t5c4eci', 'gce376nium52', 'zbuo4nrqrof', 'qyp5s5bbp0', '2eutliqa11r', 2137741668, -525979501, 1898504886, 624571013, 1644911394, -1666765085, 1178636309, -1390245819, 1055976837, 1775126557, -74849714, 105869088, -2081315180, 1909986641, 1485335077, 'yrq13pyu78d9', 'rljsl0b4y', 'p5qi2rkf9v', 'x58pz', 'f8jegd2', 'vy9uxj4', 'wb', 'v', 'ph2', 'nd', 'wnqcx', '5hncprjtu0d', '79fjgq8', 't1__1c2828', 'n2f3dqv0gcb9', 'ozk3zbily', 'kn6vc', '6ah', 'f8jswwl', '7xb72', 'xa', '7ryfdrz16n', 'jja', '5dh', 'ogrgjd8y', 't1afgog', 'itsj3', 't1__38ffe4', 'y', 'p1q430', 'jh3den8', 'c68x8vacx7', 'f', '5w1of7', 'pzo72ctdc', 'mfg62', 't1__d81ef3', '0v', 'q8qdjpe1');
+
+INSERT INTO "cards" ("id", "artist", "asciiname", "availability", "bordercolor", "cardkingdomfoilid", "cardkingdomid", "coloridentity", "colorindicator", "colors", "convertedmanacost", "dueldeck", "edhrecrank", "faceconvertedmanacost", "facename", "flavorname", "flavortext", "frameeffects", "frameversion", "hand", "hasalternativedecklimit", "hascontentwarning", "hasfoil", "hasnonfoil", "isalternative", "isfullart", "isonlineonly", "isoversized", "ispromo", "isreprint", "isreserved", "isstarter", "isstoryspotlight", "istextless", "istimeshifted", "keywords", "layout", "leadershipskills", "life", "loyalty", "manacost", "mcmid", "mcmmetaid", "mtgarenaid", "mtgjsonv4id", "mtgofoilid", "mtgoid", "multiverseid", "name", "number", "originalreleasedate", "originaltext", "originaltype", "otherfaceids", "power", "printings", "promotypes", "purchaseurls", "rarity", "scryfallid", "scryfallillustrationid", "scryfalloracleid", "setcode", "side", "subtypes", "supertypes", "tcgplayerproductid", "text", "toughness", "type", "types", "uuid", "variations", "watermark") VALUES (2, 'k58qs27p', 'r94gth2m', 'ajjl', '3', 'okv8uttmu2', 'e578', 'fvy', '7zzbe8y', 'kv42q7', 282.68858, '58b4pm', 1849819405, 693.650436, 's3auvm', 'rpd', 'wzw', 'chn9mo70', 'a9n0jxfo', 'ws', 1719800120, -210159774, 270415200, -2071531094, -397848196, -366775518, 575038073, -1161141730, -613916489, 2061558815, 895277769, 364043263, -1177989415, -1352968577, -519515742, 'gc1dj9erhi', 'zgk1yoeyo6l0', 'dt', 'fuqyxuzkb', '521gwnlas6e', 'lboeowii1z5', 'xih6', '2q2xlyoto', '9oaawg', '6aqb0tbin', 'z', '9tajz9td', 'n5wcgumbc', 't1__1c2828', '3tdu6bd0w960', 'vzxw1rxe', '9yfk7qk162n', '55', '3dohvu0', 'dza35rmki', '18ri', 'hy08ftp6', 'wt', 'xxnja', 'bymzn2mfx7h3', 'p6sto1cj', 'sh5knzys7', 't1__38ffe4', 'y', 'yd1jmgjach8', 'qta8y3a17v4y', 'ma', 'q3qdpua', '96rn', 'dqrhm', 'wlic7dn2', 'O', 'p490', 'dmsqtg');
+
+INSERT INTO "cards" ("id", "artist", "asciiname", "availability", "bordercolor", "cardkingdomfoilid", "cardkingdomid", "coloridentity", "colorindicator", "colors", "convertedmanacost", "dueldeck", "edhrecrank", "faceconvertedmanacost", "facename", "flavorname", "flavortext", "frameeffects", "frameversion", "hand", "hasalternativedecklimit", "hascontentwarning", "hasfoil", "hasnonfoil", "isalternative", "isfullart", "isonlineonly", "isoversized", "ispromo", "isreprint", "isreserved", "isstarter", "isstoryspotlight", "istextless", "istimeshifted", "keywords", "layout", "leadershipskills", "life", "loyalty", "manacost", "mcmid", "mcmmetaid", "mtgarenaid", "mtgjsonv4id", "mtgofoilid", "mtgoid", "multiverseid", "name", "number", "originalreleasedate", "originaltext", "originaltype", "otherfaceids", "power", "printings", "promotypes", "purchaseurls", "rarity", "scryfallid", "scryfallillustrationid", "scryfalloracleid", "setcode", "side", "subtypes", "supertypes", "tcgplayerproductid", "text", "toughness", "type", "types", "uuid", "variations", "watermark") VALUES (3, 'lc', 'qb9i9f', 'ccukjq1q', 'ik1yhb', '8hlst1p', 'qomiztvb6m', 'iz78aqql', 'd8ftb8', '9114q', 19.495363, '6b', -1537647691, 584.815773, 'wsj8kj', '85', 'pxlvri', 'surz0kaqtncg', 'c8s3b7v88k', 'dmdbdh', 313797011, 1946419004, -1215810104, -982188592, 1981548099, -913430713, -1652411404, -553121210, 1720208360, -1243923337, 1231129324, -1782325492, -544173163, -958321297, 2015039199, 'k014r5', 'dqtsmg97aqz2', '20pj', 'ddlysu6ip', 'dk', 'u2gir31vwq5', 'oa2sb3u', 'i1pa', 'cvwnyq', 'ouirl', 'rpouit63xyf', 'mjwpp2', 'mb3aj0ju0', 't1__1c2828', '3r', '133ir1axyy', 'hpl2i9esap', 'pgckqwtsr', '54o6qjektb1', '2', 'zg3r', 'jkwns47j2j', '8', 'c', 'y', 'vjwq49yr', 'nxs6dvdxdo2v', 't1__db8b94', '7t3gvplj9f', 'vuu', '7k10', 'z2my1ogyv1r', 'ez', 'x', '1', 'l', 'A', 'upgly78oit', 'xeilpe019cy');
+
+INSERT INTO "cards" ("id", "artist", "asciiname", "availability", "bordercolor", "cardkingdomfoilid", "cardkingdomid", "coloridentity", "colorindicator", "colors", "convertedmanacost", "dueldeck", "edhrecrank", "faceconvertedmanacost", "facename", "flavorname", "flavortext", "frameeffects", "frameversion", "hand", "hasalternativedecklimit", "hascontentwarning", "hasfoil", "hasnonfoil", "isalternative", "isfullart", "isonlineonly", "isoversized", "ispromo", "isreprint", "isreserved", "isstarter", "isstoryspotlight", "istextless", "istimeshifted", "keywords", "layout", "leadershipskills", "life", "loyalty", "manacost", "mcmid", "mcmmetaid", "mtgarenaid", "mtgjsonv4id", "mtgofoilid", "mtgoid", "multiverseid", "name", "number", "originalreleasedate", "originaltext", "originaltype", "otherfaceids", "power", "printings", "promotypes", "purchaseurls", "rarity", "scryfallid", "scryfallillustrationid", "scryfalloracleid", "setcode", "side", "subtypes", "supertypes", "tcgplayerproductid", "text", "toughness", "type", "types", "uuid", "variations", "watermark") VALUES (-2147483645, 'ev', 'zxlu49', 'ubo', '8c', 'e', 'uekhllbw', 'dpu5v0', 'du', 'y9v2z12983', 728.526405, 'xoepacxd', -2062902911, 78.664895, '2', '6xiyet8xj', 'hcf46cfperxa', '1sjv8nv3d', 'r', 'kuez', 1795932554, -831032281, 2006256976, 660144343, -169414942, 806158445, -682353894, -1077762203, -1798310553, -1174073066, -1853296452, 2056318381, 1749319777, -213453775, -1721445347, 'huij7f8', 'qhi', 'u5gm8gxb5qj', 'saw', 'p4kwi', 'hl7j43y7', '5ybv83kr3', 'w4jn2z19xgj', 'jacgmukfb5', 'f41', '80terbfokvee', 'sltut6lu2', 'cel8mhfcim', 't1__1c2828', 'n5enii0fmbgz', 'oqxs27xh', '88y1k253s', '5', 'ls1ehn1md', 'aqqhyyzsnp64', 'mn', 'w4m0', 'rwbjk', 'bph6gdw', '7', 'jjplwtlzh42n', 'j5yrji5', 't1__38ffe4', 'qkna', '38gfxswb2d0', 'mxwdb7o', 'p5qo1', '4c6', 'gwnkd4kc3ii', 'axz', '90nhs', '?', '9gob', '6');
+
+INSERT INTO "cards" ("id", "artist", "asciiname", "availability", "bordercolor", "cardkingdomfoilid", "cardkingdomid", "coloridentity", "colorindicator", "colors", "convertedmanacost", "dueldeck", "edhrecrank", "faceconvertedmanacost", "facename", "flavorname", "flavortext", "frameeffects", "frameversion", "hand", "hasalternativedecklimit", "hascontentwarning", "hasfoil", "hasnonfoil", "isalternative", "isfullart", "isonlineonly", "isoversized", "ispromo", "isreprint", "isreserved", "isstarter", "isstoryspotlight", "istextless", "istimeshifted", "keywords", "layout", "leadershipskills", "life", "loyalty", "manacost", "mcmid", "mcmmetaid", "mtgarenaid", "mtgjsonv4id", "mtgofoilid", "mtgoid", "multiverseid", "name", "number", "originalreleasedate", "originaltext", "originaltype", "otherfaceids", "power", "printings", "promotypes", "purchaseurls", "rarity", "scryfallid", "scryfallillustrationid", "scryfalloracleid", "setcode", "side", "subtypes", "supertypes", "tcgplayerproductid", "text", "toughness", "type", "types", "uuid", "variations", "watermark") VALUES (-2147483644, '4s2ajdu26xuj', '90tefx3u5u77', '9qf9lx8', 'qzabivuumwu', 'alj0jwk6h', '2o', '79', '50fzrv1l', '930', 366.752363, 'vkviql6n0r', 641545472, 655.290837, 'ei', 'mbci', '5ojsme', 'v3r3u', 'doxa0o', 'l1zmjrssbh', 133794777, -85207801, -73867879, 1086562671, -1092779922, -139065717, -160446958, -273692516, -1737380600, -745290521, 898805626, -77974859, -619092341, -1908406235, 2142421496, 'zpd', 'yxk0a0cql1c8', 'w', 'adbp07', '0ugk2hjzx', 'g1lc', '9a', 'gkjog8dw', '6f5tqhj', 'd5mabmkr2tzd', 'b6i', '22tew5c2', '9dwt1havc2c4', 't1__1c2828', 'pw8672f', 've0jf4i5t99k', 'nbhvi6', 'p3tfn', 'dtw89qy6sru4', 'uf', 'of8', 'f6bp', 'qgjradfhj', '8zr6k53p8e5o', 'f0y', '1u', 'r8kzi0g50j5', 't1__38ffe4', '7fznqcuex', '1faxc1je', '48u5lvdb', '3ceh', 'e3oylci', 'if0ly46upl', 'eoh3m3q0pq97', '534', 't2__543dad', '5xb', '11y');
+
+-- Inserting into table: sets --
+INSERT INTO "sets" ("id", "basesetsize", "block", "booster", "code", "isfoilonly", "isforeignonly", "isnonfoilonly", "isonlineonly", "ispartialpreview", "keyrunecode", "mcmid", "mcmidextras", "mcmname", "mtgocode", "name", "parentcode", "releasedate", "tcgplayergroupid", "totalsetsize", "type") VALUES (-2147483648, -1180042408, '78507cvt', 'ptt', 't1__38ffe4', 1467355421, -1171104889, -29242208, 1691780814, 1944978593, 'bfkfoacd', 2115816682, 76987628, 'zezjo7wg', 'd5ysxc', 'Hour of Devastation', 'r0oz', '2023-05-02', -1935752926, -20116244, 'lq5lnpim');
+
+INSERT INTO "sets" ("id", "basesetsize", "block", "booster", "code", "isfoilonly", "isforeignonly", "isnonfoilonly", "isonlineonly", "ispartialpreview", "keyrunecode", "mcmid", "mcmidextras", "mcmname", "mtgocode", "name", "parentcode", "releasedate", "tcgplayergroupid", "totalsetsize", "type") VALUES (-2147483647, 72217086, '0', '3dlhdsvn', 'code_2', -1640621748, 253464886, 764443911, -159572656, 1991810359, 'xpw3', -349181074, -1725714389, 'xgi', 'nlj6idmp61', 'Hour of Devastation', '2o3', '2020-02-08', 1128058273, 1562909425, 'cagj');
+
+INSERT INTO "sets" ("id", "basesetsize", "block", "booster", "code", "isfoilonly", "isforeignonly", "isnonfoilonly", "isonlineonly", "ispartialpreview", "keyrunecode", "mcmid", "mcmidextras", "mcmname", "mtgocode", "name", "parentcode", "releasedate", "tcgplayergroupid", "totalsetsize", "type") VALUES (-2147483646, -976193147, 'ujphybna', 'y', 'O', 2017526622, -693920036, 195093192, -1957842577, -366834342, '3qn0b', -1500616, -1001218462, 'crwfx0', '3rzgz84lqm', 'Hour of Devastation', '2w', '2020-03-13', -322010175, 1154760301, 'un66e0');
+
+INSERT INTO "sets" ("id", "basesetsize", "block", "booster", "code", "isfoilonly", "isforeignonly", "isnonfoilonly", "isonlineonly", "ispartialpreview", "keyrunecode", "mcmid", "mcmidextras", "mcmname", "mtgocode", "name", "parentcode", "releasedate", "tcgplayergroupid", "totalsetsize", "type") VALUES (-2147483645, -1576807806, 'olt070zi90o5', 'q833g86', 'Q', 608918735, -415895023, 1636393410, 1939546744, 1290157948, '092p40', 2074088791, 1571723723, 'il21xs', 'd', 'Hour of Devastation', '6q5ziqoauy0', '2025-01-16', -135032120, 1236313039, '99');
+
+INSERT INTO "sets" ("id", "basesetsize", "block", "booster", "code", "isfoilonly", "isforeignonly", "isnonfoilonly", "isonlineonly", "ispartialpreview", "keyrunecode", "mcmid", "mcmidextras", "mcmname", "mtgocode", "name", "parentcode", "releasedate", "tcgplayergroupid", "totalsetsize", "type") VALUES (-2147483644, -2006209112, '9gr8', 'jqblox', 'I', 1887949884, -928434146, 1083095660, 343349384, 1293700593, 'gwakmwg', -151666814, -487579632, 'k', 'i', 'Hour of Devastation', 'txfb', '2021-12-30', -296531894, -1043691767, 'j6d4fc75m');
+
+INSERT INTO "sets" ("id", "basesetsize", "block", "booster", "code", "isfoilonly", "isforeignonly", "isnonfoilonly", "isonlineonly", "ispartialpreview", "keyrunecode", "mcmid", "mcmidextras", "mcmname", "mtgocode", "name", "parentcode", "releasedate", "tcgplayergroupid", "totalsetsize", "type") VALUES (-2147483643, 1685354754, 'zc7x', 'v4pmp', 't3__b77dec', -1502776895, -2011163283, -656237101, -1721897132, -898823195, '45j', 1847668366, 1652097981, 'wo', 'nhh', '6va3tdx5hn7', 'b733o58z', '2020-04-06', -1714719754, 1946934142, '0twou');
+
+INSERT INTO "sets" ("id", "basesetsize", "block", "booster", "code", "isfoilonly", "isforeignonly", "isnonfoilonly", "isonlineonly", "ispartialpreview", "keyrunecode", "mcmid", "mcmidextras", "mcmname", "mtgocode", "name", "parentcode", "releasedate", "tcgplayergroupid", "totalsetsize", "type") VALUES (2, 247012447, '8c4pgu7vfe', 'hria2ypu', 't1__ff6935', 1644814318, 1465859724, -1349201381, 1019800248, -1910425938, 'tilbn', 462974032, -1137908826, 'siie5unw6k', 'fa9', 'Hour of Devastation', '00t5c4e', '2020-06-23', -1683203397, 528680845, '76nium52');
+
+-- Inserting into table: legalities --
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483648, 't2__d30619', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (2, 't2__d30619', 'Legal', 'O');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (3, 't2__d30619', 'Legal', 'O');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483645, 't2__d30619', 'Legal', 'A');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483644, 't2__d30619', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483643, 't2__d30619', 'Legal', 'A');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483642, 't2__d30619', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483641, 't2__d30619', 'Legal', 'A');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483640, 't2__d30619', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483639, 't2__d30619', 'Legal', 'A');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483638, 't2__d30619', 'Legal', 'A');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483637, 't2__d30619', 'Legal', 'A');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483636, 't2__d30619', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483635, 't2__d30619', 't2__66d7ff', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483634, 't2__d30619', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (-2147483633, NULL, 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (4, '5k5swwqcgs', NULL, 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (5, 'zbuo4nrqrof', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (6, 'qyp5s5bbp0', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (7, '2eutliqa11r', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (8, 'ytoo3o9', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (9, 'l7', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (10, 'klex14ji', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (11, '7zwau2dwyr', 'Legal', 't1__d81ef3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (12, '13pyu', 'Legal', 't1__d81ef3');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT T2.name, CASE WHEN T1.status = 'Legal' THEN T1.format ELSE NULL END FROM legalities AS T1 INNER JOIN cards AS T2 ON T2.uuid = T1.uuid WHERE T2.setCode IN (SELECT code FROM sets WHERE name = 'Hour of Devastation');
+
+/*
+Gold Result:
+('t1__1c2828', 't2__d30619')
+('t1__1c2828', None)
+('t1__1c2828', 'zbuo4nrqrof')
+('t1__1c2828', 'qyp5s5bbp0')
+('t1__1c2828', '2eutliqa11r')
+('t1__1c2828', 'ytoo3o9')
+('t1__1c2828', 'l7')
+('t1__1c2828', 'klex14ji')
+('t1__1c2828', '7zwau2dwyr')
+('t1__1c2828', '13pyu')
+*/
+
+-- Prediction Query
+SELECT T1.name, T2.format FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid INNER JOIN sets AS T3 ON T1.setCode = T3.code WHERE T3.name = 'Hour of Devastation' AND T2.status = 'Legal';
+
+/*
+Prediction Result:
+('t1__1c2828', 't2__d30619')
+('t1__1c2828', 't2__d30619')
+('t1__1c2828', 't2__d30619')
+('t1__1c2828', 't2__d30619')
+('t1__1c2828', 't2__d30619')
+('t1__1c2828', 't2__d30619')
+('t1__1c2828', None)
+('t1__1c2828', 't2__d30619')
+('t1__1c2828', 't2__d30619')
+('t1__1c2828', 'zbuo4nrqrof')
+('t1__1c2828', 'qyp5s5bbp0')
+('t1__1c2828', '2eutliqa11r')
+('t1__1c2828', 'ytoo3o9')
+('t1__1c2828', 'l7')
+('t1__1c2828', 'klex14ji')
+('t1__1c2828', '7zwau2dwyr')
+('t1__1c2828', '13pyu')
+*/

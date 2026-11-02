@@ -1,0 +1,111 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (Segment = 'SME', Date = '201206'), ASC vs DESC ordering, and LIMIT 1.
+-- C1: Valid, higher consumption (50.0)
+-- C2: Valid, lower consumption (20.0) -> Expected winner
+-- C3: Wrong segment ('LAM') with lowest consumption (5.0)
+-- C4: Wrong date ('201207') with lowest consumption (1.0)
+-- C5: Valid segment, but no records in yearmonth (tests INNER JOIN vs LEFT JOIN)
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201206', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 20.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201206', 5.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201207', 1.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on CustomerID ASC, and tests date filtering when a customer has multiple dates.
+-- C10 and C20 tie on '201206' consumption (100.0). C10 should win due to CustomerID ASC.
+-- C10 also has a '201205' record with huge consumption (900.0); if Date filter is omitted or applied after aggregation, C10 loses.
+-- C30 has a '201206' record (150.0) and a '201205' negative record (-200.0); if Date filter is omitted, C30 would have -50.0 and win.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (30, 'SME', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201206', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201206', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201205', 900.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (30, '201206', 150.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (30, '201205', -200.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests numerical ordering vs lexicographical (string) ordering of Consumption, and negative/zero values.
+-- Lexicographical order of '100.0', '20.0', '9.5' would pick '100.0' first. Numerical picks 9.5.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (101, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (102, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (103, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (101, '201206', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (102, '201206', 20.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (103, '201206', 9.5);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in Consumption, Segment, and Currency.
+-- In SQLite, SUM(NULL) is NULL, and NULLs sort first in ASC order.
+-- C1 has NULL Consumption -> SUM is NULL (sorts before 10.0 in SQLite).
+-- Distinguishes SUM(Consumption) from COUNT(Consumption) or COALESCE(SUM(Consumption), ...).
+-- Also tests that Currency IS NULL does not filter out valid SME customers.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', NULL);
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, NULL, 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201206', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201206', -100.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests missing GROUP BY or incorrect GROUP BY (e.g., GROUP BY Segment) and table confusion (using transactions_1k instead of yearmonth).
+-- In SQLite, SELECT T1.CustomerID ... ORDER BY SUM(T2.Consumption) without GROUP BY aggregates the whole table into 1 row and picks an arbitrary/last CustomerID.
+-- Also populates transactions_1k with conflicting data to kill mutants that join transactions_1k instead of yearmonth.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201206', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201206', 800.0);
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'SME');
+INSERT INTO products (ProductID, Description) VALUES (1, 'Diesel');
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-06-15', '12:00', 1, 1, 1, 1, 1, 1.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-06-15', '12:00', 2, 1, 1, 1, 999, 999.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set when conditions are only partially met (e.g. OR vs AND).
+-- C1 is 'SME' but Date is '201205'.
+-- C2 is 'KAM' and Date is '201206'.
+-- Gold query returns empty set. A mutant using OR instead of AND will return rows.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201205', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 20.0);
+```
+
+```sql
+-- DATASET 7
+-- Tests exact string matching on Segment ('SME' vs 'sme' or 'SME ') and Date ('201206' vs '2012%').
+-- Kills mutants using LIKE '2012%' or case-insensitive comparisons if not appropriate.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'sme', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201206', 1.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 2.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201206', 50.0);
+```

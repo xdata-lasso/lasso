@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(type) vs COUNT(*): row with artist = 'Aaron Boyd' and type = NULL.
+-- 2. COUNT(type) vs COUNT(DISTINCT type): multiple rows with artist = 'Aaron Boyd' and identical type ('Creature').
+-- 3. COUNT(type) vs COUNT(types) / COUNT(originalType) / COUNT(subtypes) / COUNT(supertypes): those columns are NULL or different when type is NOT NULL.
+-- 4. WHERE artist = 'Aaron Boyd' vs LIKE '%Aaron Boyd%' / case sensitivity / other artists / NULL artist.
+INSERT INTO cards (id, uuid, artist, type, types, originalType, subtypes, supertypes, name) VALUES (1, 'uuid-1', 'Aaron Boyd', 'Creature', NULL, NULL, NULL, NULL, 'Card 1');
+INSERT INTO cards (id, uuid, artist, type, types, originalType, subtypes, supertypes, name) VALUES (2, 'uuid-2', 'Aaron Boyd', 'Creature', 'Creature', 'Summon', 'Human', 'Basic', 'Card 2');
+INSERT INTO cards (id, uuid, artist, type, types, originalType, subtypes, supertypes, name) VALUES (3, 'uuid-3', 'Aaron Boyd', 'Instant', NULL, 'Interrupt', NULL, NULL, 'Card 3');
+INSERT INTO cards (id, uuid, artist, type, types, originalType, subtypes, supertypes, name) VALUES (4, 'uuid-4', 'Aaron Boyd', NULL, 'Sorcery', 'Sorcery', 'Arcane', 'Legendary', 'Card 4');
+INSERT INTO cards (id, uuid, artist, type, types, originalType, subtypes, supertypes, name) VALUES (5, 'uuid-5', 'aaron boyd', 'Enchantment', 'Enchantment', 'Enchantment', NULL, NULL, 'Card 5');
+INSERT INTO cards (id, uuid, artist, type, types, originalType, subtypes, supertypes, name) VALUES (6, 'uuid-6', 'Aaron Boyd Jr.', 'Artifact', 'Artifact', 'Artifact', NULL, NULL, 'Card 6');
+INSERT INTO cards (id, uuid, artist, type, types, originalType, subtypes, supertypes, name) VALUES (7, 'uuid-7', 'John Avon', 'Land', 'Land', 'Land', NULL, NULL, 'Card 7');
+INSERT INTO cards (id, uuid, artist, type, types, originalType, subtypes, supertypes, name) VALUES (8, 'uuid-8', NULL, 'Planeswalker', 'Planeswalker', 'Planeswalker', NULL, NULL, 'Card 8');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Unnecessary INNER JOINs with child/related tables (foreign_data, legalities, rulings, sets):
+--    Card 1 has NO related rows in any other table.
+--    Card 2 has MULTIPLE related rows in foreign_data, legalities, and rulings (tests join fan-out without DISTINCT).
+INSERT INTO sets (id, code, name, type) VALUES (1, 'SET1', 'Set One', 'expansion');
+INSERT INTO cards (id, uuid, artist, type, setCode) VALUES (1, 'uuid-1', 'Aaron Boyd', 'Creature — Beast', NULL);
+INSERT INTO cards (id, uuid, artist, type, setCode) VALUES (2, 'uuid-2', 'Aaron Boyd', 'Sorcery', 'SET1');
+
+INSERT INTO foreign_data (id, uuid, language, name, type) VALUES (1, 'uuid-2', 'German', 'Hexerei 1', 'Hexerei');
+INSERT INTO foreign_data (id, uuid, language, name, type) VALUES (2, 'uuid-2', 'French', 'Rituel 1', 'Rituel');
+
+INSERT INTO legalities (id, uuid, format, status) VALUES (1, 'uuid-2', 'Standard', 'Legal');
+INSERT INTO legalities (id, uuid, format, status) VALUES (2, 'uuid-2', 'Modern', 'Legal');
+
+INSERT INTO rulings (id, uuid, date, text) VALUES (1, 'uuid-2', '2020-01-01', 'Ruling 1');
+INSERT INTO rulings (id, uuid, date, text) VALUES (2, 'uuid-2', '2020-01-02', 'Ruling 2');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Zero matching rows (COUNT returns 0, whereas queries without aggregates or with wrong aggregates like SUM/MAX return NULL or empty set).
+-- 2. Artist name stored in wrong columns (name, asciiName, faceName, flavorName, text, flavorText).
+-- 3. Type stored in sets.type or foreign_data.type when cards.artist != 'Aaron Boyd'.
+INSERT INTO sets (id, code, name, type) VALUES (1, 'AB1', 'Aaron Boyd', 'Aaron Boyd');
+INSERT INTO cards (id, uuid, artist, name, asciiName, faceName, flavorName, text, flavorText, type, setCode) VALUES (1, 'uuid-1', 'Other Artist', 'Aaron Boyd', 'Aaron Boyd', 'Aaron Boyd', 'Aaron Boyd', 'Aaron Boyd', 'Aaron Boyd', 'Creature', 'AB1');
+INSERT INTO foreign_data (id, uuid, language, name, type) VALUES (1, 'uuid-1', 'Spanish', 'Aaron Boyd', 'Creature');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Single matching row with non-numeric `type` and `id` != 1 (refutes SELECT type, SELECT id, SUM(type), AVG(type), COUNT(id) when type is NULL).
+-- 2. Extra boolean flags (isReprint, isPromo, isOnlineOnly, isFullArt, etc.) set to 1 to kill mutants adding extra WHERE predicates on default-0 flags.
+INSERT INTO cards (
+    id, uuid, artist, type,
+    hasAlternativeDeckLimit, hasContentWarning, hasFoil, hasNonFoil,
+    isAlternative, isFullArt, isOnlineOnly, isOversized,
+    isPromo, isReprint, isReserved, isStarter,
+    isStorySpotlight, isTextless, isTimeshifted
+) VALUES (
+    10, 'uuid-10', 'Aaron Boyd', 'Legendary Artifact',
+    1, 1, 1, 1,
+    1, 1, 1, 1,
+    1, 1, 1, 1,
+    1, 1, 1
+);
+INSERT INTO cards (
+    id, uuid, artist, type,
+    hasAlternativeDeckLimit, hasContentWarning, hasFoil, hasNonFoil,
+    isAlternative, isFullArt, isOnlineOnly, isOversized,
+    isPromo, isReprint, isReserved, isStarter,
+    isStorySpotlight, isTextless, isTimeshifted
+) VALUES (
+    20, 'uuid-20', 'Aaron Boyd', 'Enchantment',
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 0, 0
+);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Boundary conditions where artist = 'Aaron Boyd' exists, but ALL matching rows have type IS NULL.
+--    Reference query returns 0, whereas COUNT(*) or COUNT(id) or COUNT(uuid) or COUNT(artist) returns 2.
+INSERT INTO cards (id, uuid, artist, type, types) VALUES (1, 'uuid-1', 'Aaron Boyd', NULL, 'Creature');
+INSERT INTO cards (id, uuid, artist, type, types) VALUES (2, 'uuid-2', 'Aaron Boyd', NULL, 'Instant');
+INSERT INTO cards (id, uuid, artist, type, types) VALUES (3, 'uuid-3', 'Rebecca Guay', 'Sorcery', 'Sorcery');
+```

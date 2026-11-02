@@ -1,0 +1,143 @@
+```sql
+-- DATASET 1
+-- Tests standard valid group (D1), COUNT(DISTINCT) vs COUNT(*) (D2), and boundary conditions on HAVING clauses (D3, D4, D5)
+INSERT INTO department (dept_name, building, budget) VALUES ('D1', 1, 1000);
+INSERT INTO department (dept_name, building, budget) VALUES ('D2', 2, 2000);
+INSERT INTO department (dept_name, building, budget) VALUES ('D3', 3, 3000);
+INSERT INTO department (dept_name, building, budget) VALUES ('D4', 4, 4000);
+INSERT INTO department (dept_name, building, budget) VALUES ('D5', 5, 5000);
+
+-- D1: Valid (6 distinct credits: 1,2,3,4,5,6; SUM = 21 > 10)
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (101, 'C1', 'D1', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (102, 'C2', 'D1', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (103, 'C3', 'D1', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (104, 'C4', 'D1', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (105, 'C5', 'D1', 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (106, 'C6', 'D1', 6);
+
+-- D2: Fails COUNT(DISTINCT C.CREDITS) > 5 (6 courses, but only 5 distinct credits: 1,2,3,4,5; SUM = 20 > 10). Catches missing DISTINCT in COUNT.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (201, 'C1', 'D2', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (202, 'C2', 'D2', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (203, 'C3', 'D2', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (204, 'C4', 'D2', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (205, 'C5', 'D2', 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (206, 'C6', 'D2', 5);
+
+-- D3: Fails SUM(C.CREDITS) > 10 boundary (6 distinct credits: -5,1,2,3,4,5; SUM = 10). Catches >= 10 vs > 10 and OR vs AND.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (301, 'C1', 'D3', -5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (302, 'C2', 'D3', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (303, 'C3', 'D3', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (304, 'C4', 'D3', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (305, 'C5', 'D3', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (306, 'C6', 'D3', 5);
+
+-- D4: Passes SUM(C.CREDITS) > 10 boundary (6 distinct credits: -4,1,2,3,4,5; SUM = 11 > 10).
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (401, 'C1', 'D4', -4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (402, 'C2', 'D4', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (403, 'C3', 'D4', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (404, 'C4', 'D4', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (405, 'C5', 'D4', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (406, 'C6', 'D4', 5);
+
+-- D5: Fails COUNT(DISTINCT) > 5 boundary (5 distinct credits: 1,2,3,4,5; SUM = 15 > 10). Catches >= 5 vs > 5 and OR vs AND.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (501, 'C1', 'D5', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (502, 'C2', 'D5', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (503, 'C3', 'D5', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (504, 'C4', 'D5', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (505, 'C5', 'D5', 5);
+```
+
+```sql
+-- DATASET 2
+-- Tests SUM(C.CREDITS) vs SUM(DISTINCT C.CREDITS), INNER JOIN vs OUTER JOIN / missing JOIN, and NULL credit handling
+INSERT INTO department (dept_name, building, budget) VALUES ('D_DUP', 1, 1000);
+INSERT INTO department (dept_name, building, budget) VALUES ('D_EMPTY', 2, 2000);
+INSERT INTO department (dept_name, building, budget) VALUES ('D_NULLS', 3, 3000);
+
+-- D_DUP: Has duplicate credit values (6 distinct: -3,0,1,2,3,6; plus another 6).
+-- SUM(CREDITS) = 15 (> 10, valid), whereas SUM(DISTINCT CREDITS) = 9 (<= 10, invalid).
+-- Also even if valid, projection SUM(CREDITS)=15 vs SUM(DISTINCT)=9 differentiates mutants.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (1, 'C1', 'D_DUP', -3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (2, 'C2', 'D_DUP', 0);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (3, 'C3', 'D_DUP', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (4, 'C4', 'D_DUP', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (5, 'C5', 'D_DUP', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (6, 'C6', 'D_DUP', 6);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (7, 'C7', 'D_DUP', 6);
+
+-- D_ORPHAN: Exists in course but NOT in department. Catches missing JOIN or LEFT JOIN from course to department.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (11, 'C1', 'D_ORPHAN', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (12, 'C2', 'D_ORPHAN', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (13, 'C3', 'D_ORPHAN', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (14, 'C4', 'D_ORPHAN', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (15, 'C5', 'D_ORPHAN', 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (16, 'C6', 'D_ORPHAN', 6);
+
+-- D_NULLS: 5 distinct non-null credits (1,2,3,4,5) + 2 NULL credit rows.
+-- COUNT(DISTINCT credits) is 5 (fails > 5), whereas COUNT(*) is 7 and COUNT(DISTINCT course_id) is 7.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (21, 'C1', 'D_NULLS', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (22, 'C2', 'D_NULLS', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (23, 'C3', 'D_NULLS', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (24, 'C4', 'D_NULLS', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (25, 'C5', 'D_NULLS', 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (26, 'C6', 'D_NULLS', NULL);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (27, 'C7', 'D_NULLS', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests missing GROUP BY, grouping by wrong column (e.g., D.BUILDING), or joining on wrong attributes
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 100, 50000);
+INSERT INTO department (dept_name, building, budget) VALUES ('EE', 100, 60000);
+INSERT INTO department (dept_name, building, budget) VALUES ('MATH', 200, 70000);
+
+-- CS and EE share building 100. Individually neither has > 5 distinct credits (each has 4),
+-- but combined by building they have 7 distinct credits and SUM > 10. Catches GROUP BY D.BUILDING.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (1, 'CS1', 'CS', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (2, 'CS2', 'CS', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (3, 'CS3', 'CS', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (4, 'CS4', 'CS', 4);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (5, 'EE1', 'EE', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (6, 'EE2', 'EE', 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (7, 'EE3', 'EE', 6);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (8, 'EE4', 'EE', 7);
+
+-- MATH: Valid group, shares course titles with CS/EE to catch grouping by C.TITLE.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (9, 'CS1', 'MATH', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (10, 'CS1', 'MATH', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (11, 'CS1', 'MATH', 6);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (12, 'CS1', 'MATH', 8);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (13, 'CS1', 'MATH', 10);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (14, 'CS1', 'MATH', 12);
+```
+
+```sql
+-- DATASET 4
+-- Tests WHERE C.CREDITS > 10 vs HAVING SUM(C.CREDITS) > 10, and duplicate department rows (1-to-N join)
+INSERT INTO department (dept_name, building, budget) VALUES ('BIO', 10, 1000);
+INSERT INTO department (dept_name, building, budget) VALUES ('CHEM', 20, 1000);
+INSERT INTO department (dept_name, building, budget) VALUES ('CHEM', 21, 2000);
+
+-- BIO: All individual credits are <= 10 (11, 12, 13, 14, 15, 16 in one group vs 1..6 in another).
+-- Here credits are 1,2,3,4,5,6 (each <= 10, sum = 21 > 10) plus one course with credit 15.
+-- If mutant has WHERE C.CREDITS > 10, BIO only keeps 1 course and fails COUNT(DISTINCT) > 5.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (1, 'B1', 'BIO', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (2, 'B2', 'BIO', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (3, 'B3', 'BIO', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (4, 'B4', 'BIO', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (5, 'B5', 'BIO', 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (6, 'B6', 'BIO', 15);
+
+-- CHEM: Has 2 rows in department.
+-- In Course, CHEM has 6 distinct credits: -5, 0, 1, 2, 3, 5 (SUM = 6, which fails > 10).
+-- With INNER JOIN against 2 CHEM rows in department, each course is doubled:
+-- SUM(C.CREDITS) becomes 12 (> 10), while COUNT(DISTINCT C.CREDITS) remains 6 (> 5)!
+-- Catches mutants that omit the join or use `WHERE dept_name IN (SELECT dept_name FROM department)` instead of INNER JOIN.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (7, 'CH1', 'CHEM', -5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (8, 'CH2', 'CHEM', 0);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (9, 'CH3', 'CHEM', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (10, 'CH4', 'CHEM', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (11, 'CH5', 'CHEM', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (12, 'CH6', 'CHEM', 5);
+```

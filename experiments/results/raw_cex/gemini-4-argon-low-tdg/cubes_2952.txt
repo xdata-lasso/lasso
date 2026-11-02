@@ -1,0 +1,109 @@
+```sql
+-- DATASET 1
+-- Tests basic INNER JOIN, GROUP BY on (cmi_cross_ref_id, master_customer_id), COUNT(*), and NULL handling in master_customer_id.
+-- Also tests multiple cmi_cross_ref_id sharing the same master_customer_id, and outer join vs inner join mutations.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (10, 'Customer A');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (20, 'Customer B');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (30, 'Unreferenced Customer');
+
+-- Multiple cross references for master_customer_id = 10 to kill GROUP BY master_customer_id only
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (101, 10, 'SYS1');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (102, 10, 'SYS2');
+-- Cross reference with NULL master_customer_id to kill COUNT(master_customer_id) vs COUNT(*) and test NULLS LAST ordering
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (103, NULL, 'SYS3');
+-- Cross reference with NULL source_system_code to kill COUNT(source_system_code)
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (104, 20, NULL);
+-- Unreferenced cross reference to kill RIGHT/FULL OUTER JOIN mutations
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (105, 20, 'SYS4');
+
+-- Business_Rates entries with varying counts (1, 2, 3) to test COUNT(*) and HAVING mutations
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (1, 101);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (2, 101);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (3, 101);
+
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (4, 102);
+
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (5, 103);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (6, 103);
+
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (7, 104);
+
+-- Business_Rates with NULL cmi_cross_ref_id to kill LEFT OUTER JOIN mutations
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (8, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests incorrect JOIN conditions (e.g., joining on business_rates_id = cmi_cross_ref_id or business_rates_id = master_customer_id)
+-- and tests table substitution mutations (e.g., querying Council_Tax, Parking_Fines, etc. instead of Business_Rates).
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (1, 'Cust 1');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (2, 'Cust 2');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (1, 2, 'BR');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (2, 1, 'CT');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (3, 1, 'OTH');
+
+-- IDs intentionally overlap with cmi_cross_ref_id and master_customer_id of different rows to catch wrong join predicates
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (2, 1);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (3, 1);
+
+-- Populate sibling tables with different cmi_cross_ref_id distributions to kill table name mutations
+INSERT INTO "Council_Tax" ("council_tax_id", "cmi_cross_ref_id") VALUES (10, 2);
+INSERT INTO "Benefits_Overpayments" ("council_tax_id", "cmi_cross_ref_id") VALUES (20, 2);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (30, 3);
+INSERT INTO "Rent_Arrears" ("council_tax_id", "cmi_cross_ref_id") VALUES (40, 3);
+INSERT INTO "Electoral_Register" ("electoral_register_id", "cmi_cross_ref_id") VALUES (50, 2);
+```
+
+```sql
+-- DATASET 3
+-- Tests ORDER BY direction (ASC vs DESC) and column priority (ordering by cmi_cross_ref_id vs master_customer_id vs count___).
+-- Inversely correlates cmi_cross_ref_id, master_customer_id, and count___.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (100, 'Cust 100');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (200, 'Cust 200');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (300, 'Cust 300');
+
+-- cmi_cross_ref_id: 10 (lowest) -> master_customer_id: 300 (highest) -> count: 2 (middle)
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (10, 300, 'S1');
+-- cmi_cross_ref_id: 20 (middle) -> master_customer_id: 200 (middle) -> count: 3 (highest)
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (20, 200, 'S2');
+-- cmi_cross_ref_id: 30 (highest) -> master_customer_id: 100 (lowest) -> count: 1 (lowest)
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (30, 100, 'S3');
+
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (1, 10);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (2, 10);
+
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (3, 20);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (4, 20);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (5, 20);
+
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (6, 30);
+```
+
+```sql
+-- DATASET 4
+-- Tests edge cases: negative IDs, zero IDs, and DISTINCT mutations before or after aggregation.
+-- Two different cmi_cross_ref_id have identical (master_customer_id, count___) to kill SELECT DISTINCT(master_customer_id, count___).
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (-5, 'Negative ID');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (0, 'Zero ID');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (-10, 0, 'SYS_ZERO');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (0, -5, 'SYS_NEG');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (10, -5, 'SYS_NEG');
+
+-- Both cmi_cross_ref_id 0 and 10 map to master_customer_id -5 and have count 1
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (-1, -10);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (0, 0);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (1, 10);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when tables have data but no matching join keys exist.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (1, 'Cust 1');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (50, 1, 'S1');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (60, NULL, 'S2');
+
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (100, NULL);
+```

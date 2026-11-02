@@ -1,0 +1,61 @@
+-- Schema DDL
+CREATE TABLE "FLIGHT" (
+    "FLNO" FLOAT,
+    "AID" FLOAT,
+    "ORIGIN" TEXT,
+    "DESTINATION" TEXT,
+    "DISTANCE" FLOAT,
+    "DEPARTURE_DATE" DATE,
+    "ARRIVAL_DATE" DATE,
+    "PRICE" FLOAT,
+    PRIMARY KEY ("FLNO"),
+    FOREIGN KEY ("AID") REFERENCES "AIRCRAFT"("AID")
+);
+CREATE TABLE "AIRCRAFT" (
+    "AID" FLOAT,
+    "NAME" TEXT,
+    "DISTANCE" FLOAT,
+    PRIMARY KEY ("AID")
+);
+CREATE TABLE "EMPLOYEE" (
+    "EID" FLOAT,
+    "NAME" TEXT,
+    "SALARY" FLOAT,
+    PRIMARY KEY ("EID")
+);
+CREATE TABLE "CERTIFICATE" (
+    "EID" FLOAT,
+    "AID" FLOAT,
+    PRIMARY KEY ("EID", "AID"),
+    FOREIGN KEY ("AID") REFERENCES "AIRCRAFT"("AID"),
+    FOREIGN KEY ("EID") REFERENCES "EMPLOYEE"("EID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO FLIGHT VALUES (2, 4, 0, 0, 0, '0001-01-01', '0001-01-01', 0);
+INSERT INTO FLIGHT VALUES (3, 10, 0, 0, 0, '0001-01-01', '0001-01-01', 0);
+INSERT INTO AIRCRAFT VALUES (10, 11, 0);
+INSERT INTO AIRCRAFT VALUES (4, 9, NULL);
+INSERT INTO EMPLOYEE VALUES (5, 0, 0);
+INSERT INTO EMPLOYEE VALUES (6, 0, 0);
+INSERT INTO CERTIFICATE VALUES (6, 4);
+INSERT INTO CERTIFICATE VALUES (5, 10);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT * FROM (SELECT * FROM (SELECT aid, name, AVG(distance) AS meandistance FROM aircraft GROUP BY aid, name) ORDER BY meandistance DESC) LIMIT 7);
+
+/*
+Gold Result:
+('11',)
+('9',)
+*/
+
+-- Prediction Query
+SELECT name FROM Aircraft WHERE distance > (SELECT AVG(distance) FROM Aircraft);
+
+/*
+Prediction Result:
+*/

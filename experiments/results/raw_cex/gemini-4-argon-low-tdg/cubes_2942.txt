@@ -1,0 +1,71 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, WHERE filtering, Ordering by CRS_CREDIT vs CRS_CODE, and spurious INNER JOINs with DEPARTMENT or CLASS.
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (101, 'Smith', 'John', 'A', 'PROF', '2010-08-15', '1975-04-20');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "SCHOOL_CODE", "DEPT_ADDRESS", "DEPT_EXTENSION") VALUES ('CIS', 101, 'Computer Info Systems', 'BUS', 'Bldg A', '1234');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "SCHOOL_CODE", "DEPT_ADDRESS", "DEPT_EXTENSION") VALUES ('ACCT', 101, 'Accounting', 'BUS', 'Bldg B', '5678');
+
+-- Target course (has NULL DEPT_CODE and no CLASS rows to catch unnecessary INNER JOINs with DEPARTMENT or CLASS)
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('QM-261', NULL, 'Intro to Statistics', 3.0);
+
+-- Non-matching courses with various CRS_CODEs and CRS_CREDITs to catch WHERE and ORDER BY mutations
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('QM-260', 'CIS', 'Pre-Statistics', 4.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('QM-262', 'CIS', 'Adv Statistics', 2.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('CIS-220', 'CIS', 'Intro to Databases', 3.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('QM-2610', 'ACCT', 'Extended Stats', 1.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('qm-261', 'ACCT', 'Lowercase Stats', 5.0);
+
+-- Classes for non-target courses
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('1001', 101, 'QM-260', '1', 'MWF 9:00', 'R101');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('1002', 101, 'QM-262', '1', 'MWF 10:00', 'R102');
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple classes per course (catches un-deduplicated JOINs with CLASS), string-to-column confusion, and NULLS LAST in ORDER BY.
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (201, 'Doe', 'Jane', 'B', 'PROF', '2012-01-10', '1980-09-12');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "SCHOOL_CODE", "DEPT_ADDRESS", "DEPT_EXTENSION") VALUES ('MATH', 201, 'Mathematics', 'SCI', 'Sci Bldg', '9999');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "SCHOOL_CODE", "DEPT_ADDRESS", "DEPT_EXTENSION") VALUES ('QM-261', 201, 'Quant Methods Dept', 'BUS', 'Bus Bldg', '0000');
+
+-- Target course has valid DEPT_CODE and multiple associated CLASS rows (to kill mutants that JOIN CLASS without DISTINCT)
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('QM-261', 'MATH', 'Quantitative Methods', 4.0);
+
+-- Decoy course where DEPT_CODE and CRS_DESCRIPTION equal 'QM-261' (to kill mutants filtering on the wrong column)
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('MATH-101', 'QM-261', 'QM-261', 3.0);
+
+-- Course with NULL primary key (allowed in SQLite for non-INTEGER PK) and NULL credit to test NULL handling and NULLS LAST
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES (NULL, 'MATH', 'Unknown Course', NULL);
+
+-- Multiple classes for QM-261
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('2001', 201, 'QM-261', '1', 'TTh 1:00', 'M101');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('2002', 201, 'QM-261', '2', 'TTh 2:30', 'M102');
+```
+
+```sql
+-- DATASET 3
+-- Tests when 'QM-261' is present with NULL attributes (catches IS NOT NULL assumptions or INNER JOINs on nullable attributes), and tests tie-breaking in ORDER BY crs_credit, crs_code.
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('QM-261', NULL, NULL, NULL);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('ACCT-211', NULL, 'Financial Accounting', 3.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('BA-101', NULL, 'Intro to Business', 3.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('ZZ-999', NULL, 'Special Topics', 3.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set for target 'QM-261' while table is populated (catches mutants with overly broad WHERE conditions like OR, !=, LIKE '%', or missing WHERE).
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME", "EMP_INITIAL", "EMP_JOBCODE", "EMP_HIREDATE", "EMP_DOB") VALUES (401, 'Brown', 'Charlie', 'C', 'PROF', '2015-05-20', '1985-11-30');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "SCHOOL_CODE", "DEPT_ADDRESS", "DEPT_EXTENSION") VALUES ('ENG', 401, 'Engineering', 'ENG', 'Eng Bldg', '4321');
+
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('ENG-101', 'ENG', 'Intro to Engineering', 3.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('QM-262', 'ENG', 'Quantitative Methods II', 3.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('QM-260', 'ENG', 'Quantitative Methods I', 3.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests fractional/decimal credits, identical descriptions across different courses, and exact string matching edge cases (leading/trailing spaces).
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('QM-261', NULL, 'Same Description', 3.5);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('QM-261 ', NULL, 'Same Description', 3.5);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES (' QM-261', NULL, 'Same Description', 1.5);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('HIST-101', NULL, 'Same Description', 0.0);
+```

@@ -1,0 +1,110 @@
+```sql
+-- DATASET 1
+-- Tests date boundaries (exact lower, exact upper, just outside boundaries) and SUBSTRING extraction with timestamps
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Science', 'CS', 'Engineering');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('EVT1', 'Fall Meet', '2019-09-01', 'Meeting', 'None', 'Room 101', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('BDG1', 'Food', 100.0, 50.0, 150, 'Closed', 'EVT1');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Alice', 'Smith', 'alice@example.com', 'Member', 'M', '111-111-1111', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', 'Bob', 'Jones', 'bob@example.com', 'Member', 'L', '222-222-2222', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M3', 'Charlie', 'Brown', 'charlie@example.com', 'Member', 'S', '333-333-3333', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M4', 'Diana', 'Prince', 'diana@example.com', 'Member', 'M', '444-444-4444', 10001, 'MAJ1');
+
+-- Exact lower boundary with time component (requires SUBSTRING to work properly in string/date comparison)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Snacks', '2019-09-10 14:30:00', 25.0, 'true', 'M1', 'BDG1');
+-- Exact upper boundary with time component (if SUBSTRING is omitted, '2019-11-19 23:59:59' > '2019-11-19' in string comparison)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Drinks', '2019-11-19 23:59:59', 30.0, 'true', 'M2', 'BDG1');
+-- Just before lower boundary
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Plates', '2019-09-09 23:59:59', 50.0, 'true', 'M3', 'BDG1');
+-- Just after upper boundary
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Cups', '2019-11-20 00:00:00', 50.0, 'true', 'M4', 'BDG1');
+```
+
+```sql
+-- DATASET 2
+-- Tests cost boundaries (> 20 vs >= 20, < 20, NULL cost) and logical AND vs OR conditions
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Science', 'CS', 'Engineering');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('EVT1', 'Fall Meet', '2019-09-01', 'Meeting', 'None', 'Room 101', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('BDG1', 'Supplies', 200.0, 100.0, 300, 'Closed', 'EVT1');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Eve', 'Adams', 'eve@example.com', 'Member', 'M', '555-555-5551', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', 'Frank', 'Castle', 'frank@example.com', 'Member', 'L', '555-555-5552', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M3', 'Grace', 'Hopper', 'grace@example.com', 'Member', 'S', '555-555-5553', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M4', 'Hank', 'Pym', 'hank@example.com', 'Member', 'XL', '555-555-5554', 10001, 'MAJ1');
+
+-- Cost exactly 20 (should be excluded)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Paper', '2019-10-15', 20.0, 'true', 'M1', 'BDG1');
+-- Cost slightly above 20 (should be included)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Ink', '2019-10-15', 20.01, 'true', 'M2', 'BDG1');
+-- Cost below 20 (should be excluded)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Pens', '2019-10-15', 19.99, 'true', 'M3', 'BDG1');
+-- Cost is NULL (should be excluded)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Unknown', '2019-10-15', NULL, 'true', 'M4', 'BDG1');
+```
+
+```sql
+-- DATASET 3
+-- Tests DISTINCT keyword, INNER JOIN vs LEFT/RIGHT JOIN, and unapproved expenses (which should still be included as there is no filter on approved)
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Science', 'CS', 'Engineering');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('EVT1', 'Fall Meet', '2019-10-01', 'Meeting', 'None', 'Room 101', 'Open');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('BDG1', 'General', 500.0, 500.0, 1000, 'Open', 'EVT1');
+
+-- Member with multiple qualifying expenses (tests DISTINCT on email)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Ivy', 'League', 'ivy@example.com', 'President', 'S', '666-666-6661', 10001, 'MAJ1');
+-- Two different members sharing the same email (tests DISTINCT on email vs DISTINCT on member_id)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', 'Jack', 'Twin', 'shared@example.com', 'Member', 'M', '666-666-6662', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M3', 'Jill', 'Twin', 'shared@example.com', 'Member', 'M', '666-666-6663', 10001, 'MAJ1');
+-- Member with no expenses (tests INNER JOIN vs LEFT JOIN)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M4', 'Lonely', 'Member', 'lonely@example.com', 'Member', 'L', '666-666-6664', 10001, 'MAJ1');
+-- Member with an unapproved expense that meets date and cost criteria (tests if mutant erroneously filters on approved = 'true')
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M5', 'Rebel', 'Member', 'rebel@example.com', 'Member', 'XL', '666-666-6665', 10001, 'MAJ1');
+
+-- Multiple qualifying expenses for M1
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Banner', '2019-10-01', 45.0, 'true', 'M1', 'BDG1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Flyers', '2019-10-05', 35.0, 'true', 'M1', 'BDG1');
+
+-- Qualifying expenses for M2 and M3 (same email)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Tickets', '2019-10-10', 25.0, 'true', 'M2', 'BDG1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Posters', '2019-10-12', 30.0, 'true', 'M3', 'BDG1');
+
+-- Qualifying expense for M5, but approved is 'false'
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP5', 'Party', '2019-10-20', 100.0, 'false', 'M5', 'BDG1');
+
+-- Expense with NULL link_to_member (tests INNER JOIN vs RIGHT JOIN)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP6', 'Orphan Expense', '2019-10-15', 50.0, 'true', NULL, 'BDG1');
+```
+
+```sql
+-- DATASET 4
+-- Tests interaction of multiple expenses per member where individual expenses fail different criteria (kills mutants that group by member and check HAVING MAX(cost) > 20 AND MIN(date) ... or similar)
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Science', 'CS', 'Engineering');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('EVT1', 'Fall Meet', '2019-10-10', 'Meeting', 'None', 'Room 101', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('BDG1', 'Catering', 300.0, 0.0, 300, 'Closed', 'EVT1');
+
+-- Member with one valid date (low cost) and one valid cost (wrong date)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Split', 'Criteria', 'split@example.com', 'Treasurer', 'M', '777-777-7771', 10001, 'MAJ1');
+-- Member with two low-cost expenses on valid dates that sum to > 20 (kills mutants using SUM(cost) > 20)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', 'Sum', 'Trap', 'sumtrap@example.com', 'Secretary', 'S', '777-777-7772', 10001, 'MAJ1');
+-- Member with a valid expense, but the associated event_date is outside the range (kills mutants filtering on event_date or income.date_received instead of expense_date)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M3', 'Valid', 'Member', 'valid@example.com', 'Member', 'L', '777-777-7773', 10001, 'MAJ1');
+
+-- M1 expenses: EXP1 has valid date, invalid cost. EXP2 has invalid date, valid cost. (M1 should NOT be returned)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Coffee', '2019-10-10', 10.0, 'true', 'M1', 'BDG1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Catering', '2019-12-01', 100.0, 'true', 'M1', 'BDG1');
+
+-- M2 expenses: Both on valid dates, costs 12 and 15 (sum = 27 > 20, but individual costs <= 20). (M2 should NOT be returned)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Bagels', '2019-10-11', 12.0, 'true', 'M2', 'BDG1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Cream Cheese', '2019-10-11', 15.0, 'true', 'M2', 'BDG1');
+
+-- M3 expense: Valid date and cost, linked to an event with an out-of-range date
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('EVT2', 'Old Event', '2018-01-01', 'Social', 'None', 'Hall', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('BDG2', 'Food', 50.0, 50.0, 100, 'Closed', 'EVT2');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP5', 'Pizza', '2019-10-15', 40.0, 'true', 'M3', 'BDG2');
+
+-- Income record for M1 with valid date and amount > 20 (kills mutants joining income instead of expense)
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2019-10-15', 50, 'Dues', 'None', 'M1');
+```

@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests COUNT vs SUM with ELSE 0 when Diagnosis does NOT match '%SLE%' or is NULL.
+-- Gold query returns 1 (since COUNT(0) counts the row). Mutants using SUM or ELSE NULL will return 0.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'RA');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, NULL);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2023-01-01', 65);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (2, '2023-01-02', 70);
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition GOT = 60 and GOT < 60.
+-- If mutant uses GOT > 60, the only matching row is excluded, resulting in 0/0 (NULL) instead of 1/1 (1).
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'SLE');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'SLE');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2023-01-01', 60);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (2, '2023-01-02', 59);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (2, '2023-01-03', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests LIKE '%SLE%' pattern matching (prefix, suffix, substring) vs exact match '='.
+-- Also tests ID > 1 to kill mutants using SUM(CASE ... THEN T1.ID ...) instead of COUNT.
+INSERT INTO Patient (ID, Diagnosis) VALUES (10, 'Severe SLE case');
+INSERT INTO Patient (ID, Diagnosis) VALUES (20, 'SLE, nephritis');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (10, '2023-01-01', 80);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (20, '2023-01-02', 90);
+```
+
+```sql
+-- DATASET 4
+-- Tests 1-to-many join multiplicity (same patient with multiple Laboratory records having GOT >= 60)
+-- and patients with no Laboratory records (INNER JOIN vs LEFT JOIN).
+-- Kills mutants using COUNT(DISTINCT T1.ID) in either numerator or denominator.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'SLE');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'SLE');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2023-01-01', 60);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2023-01-02', 100);
+```
+
+```sql
+-- DATASET 5
+-- Tests table confusion (Patient.Diagnosis vs Examination.Diagnosis or Laboratory.GPT vs GOT).
+-- Gold query returns 1. Mutants joining Examination or checking GPT instead of GOT will fail.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'SLE');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'Normal');
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (1, '2023-01-01', 70, 20);
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (2, '2023-01-01', 30, 80);
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (2, '2023-01-01', 'SLE');
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set after WHERE filter (division by zero handling in SQLite).
+-- Gold query returns NULL (0 / 0). Mutants without the WHERE clause will return 1.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'SLE');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2023-01-01', 40);
+```
+
+```sql
+-- DATASET 7
+-- Tests mixed SLE and non-SLE patients with GOT >= 60 to catch integer division vs floating point division,
+-- and CASE WHEN with ELSE NULL vs ELSE 0.
+-- With 1 SLE and 2 non-SLE, Gold returns 3/3 = 1. A mutant with ELSE NULL returns 1/3 = 0 (or 0.333).
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'SLE');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'PSS');
+INSERT INTO Patient (ID, Diagnosis) VALUES (3, 'Behcet');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2023-01-01', 60);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (2, '2023-01-01', 65);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (3, '2023-01-01', 75);
+```

@@ -1,0 +1,56 @@
+```sql
+-- DATASET 1
+-- Tests behavior when NO rows match the 'Russia' filter.
+-- Reference Query returns 0 rows (due to GROUP BY on empty filtered set).
+-- Mutants omitting GROUP BY will return 1 row with count 0.
+-- Mutants querying 'airports' instead of 'airlines' will return a count of 2.
+-- Mutants with wrong WHERE operators (!=, IS NULL, LIKE '%Russia%', case-insensitivity) will return non-empty results.
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (1, 'Delta', 'DL', 'DAL', 'DELTA', 'United States', 'Y');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (2, 'Unknown Air', NULL, NULL, NULL, NULL, 'N');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (3, 'Lower Russia', 'LR', 'LRS', 'LOWRUS', 'russia', 'Y');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (4, 'Belavia', 'B2', 'BRU', 'BELAVIA', 'Belarus and Russia', 'Y');
+
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (101, 'Sheremetyevo', 'Moscow', 'Russia', 37.4146, 55.9726, 622, 'SVO', 'UUEE');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (102, 'Domodedovo', 'Moscow', 'Russia', 37.9061, 55.4086, 588, 'DME', 'UUDD');
+
+INSERT INTO "routes" ("rid", "alid", "src_apid", "dst_apid", "dst_ap", "src_ap", "airline", "codeshare") VALUES (1001, 1, 101, 102, 'DME', 'SVO', 'DL', 'N');
+```
+
+```sql
+-- DATASET 2
+-- Tests behavior when multiple rows match 'Russia', with various NULLs, duplicates, and active statuses.
+-- Reference Query returns 1 row with count 3.
+-- Mutants using COUNT(iata), COUNT(icao), COUNT(callsign), or COUNT(name) will return < 3 due to NULLs.
+-- Mutants using COUNT(DISTINCT name) or COUNT(DISTINCT active) will return < 3 due to duplicates.
+-- Mutants adding an unrequested filter (e.g., active = 'Y') will return 1 instead of 3.
+-- Mutants joining with 'routes' without proper grouping/distinct will inflate the count (e.g., to 4) or drop airlines without routes (e.g., to 1 or 2).
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (1, 'Aeroflot', 'SU', 'AFL', 'AEROFLOT', 'Russia', 'Y');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (2, 'Aeroflot', NULL, 'SDM', NULL, 'Russia', 'N');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (3, NULL, 'S7', NULL, 'SIBERIAN', 'Russia', NULL);
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (4, 'Lufthansa', 'LH', 'DLH', 'LUFTHANSA', 'Germany', 'Y');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (5, 'Russia', 'RU', 'RUS', 'RUSSIA', 'France', 'Y');
+
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (101, 'Pulkovo', 'St. Petersburg', 'Russia', 30.2625, 59.8003, 78, 'LED', 'ULLI');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (102, 'Frankfurt', 'Frankfurt', 'Germany', 8.5705, 50.0333, 364, 'FRA', 'EDDF');
+
+INSERT INTO "routes" ("rid", "alid", "src_apid", "dst_apid", "dst_ap", "src_ap", "airline", "codeshare") VALUES (1001, 1, 101, 102, 'FRA', 'LED', 'SU', '');
+INSERT INTO "routes" ("rid", "alid", "src_apid", "dst_apid", "dst_ap", "src_ap", "airline", "codeshare") VALUES (1002, 1, 102, 101, 'LED', 'FRA', 'SU', '');
+INSERT INTO "routes" ("rid", "alid", "src_apid", "dst_apid", "dst_ap", "src_ap", "airline", "codeshare") VALUES (1003, 1, 101, 101, 'LED', 'LED', 'SU', 'Y');
+INSERT INTO "routes" ("rid", "alid", "src_apid", "dst_apid", "dst_ap", "src_ap", "airline", "codeshare") VALUES (1004, 2, 101, 102, 'FRA', 'LED', 'SDM', '');
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY and WHERE clause interactions, as well as ORDER BY direction when multiple groups exist (if WHERE is omitted/mutated).
+-- Reference Query returns 1 row with count 2.
+-- Mutants omitting the WHERE clause will return 3 rows (counts 1, 2, 3).
+-- Mutants with ORDER BY DESC (when WHERE is omitted/mutated) will return (3, 2, 1) instead of (1, 2, 3).
+-- Mutants grouping by 'active' or 'name' instead of 'country' will split the 2 Russian airlines into two separate rows of count 1.
+-- Mutants selecting 'alid' instead of COUNT(*) will return 10 and 20 instead of 2.
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (10, 'Pobeda', 'DP', 'PBD', 'POBEDA', 'Russia', 'Y');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (20, 'UTair', 'UT', 'UTA', 'UTAIR', 'Russia', 'N');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (30, 'Air France', 'AF', 'AFR', 'AIRFRANS', 'France', 'Y');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (40, 'American', 'AA', 'AAL', 'AMERICAN', 'United States', 'Y');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (50, 'United', 'UA', 'UAL', 'UNITED', 'United States', 'Y');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (60, 'Southwest', 'WN', 'SWA', 'SOUTHWEST', 'United States', 'Y');
+```

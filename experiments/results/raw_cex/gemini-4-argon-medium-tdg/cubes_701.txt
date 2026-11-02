@@ -1,0 +1,91 @@
+```sql
+-- DATASET 1
+-- Tests standard ordering vs count ordering: smallest student_course_id (10) has an intermediate count (2),
+-- whereas larger student_course_id (20) has the minimum count (1) and (30) has the maximum count (3).
+-- Also includes unreferenced rows in parent tables to kill INNER JOIN vs LEFT JOIN mutants.
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'CS101');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (2, 'CS102');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'CS');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BS');
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '123 Main St');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (1, 1, 1, 'Alice');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (5, 1, 1);
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (10, 1, 1);
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (20, 1, 2);
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (30, 1, 1);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (1, '2023-01-01');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (2, '2023-01-02');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (3, '2023-01-03');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (3, 30);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 30);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 30);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 20);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 10);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate rows and NULLs in transcript_id for the minimum student_course_id.
+-- Kills mutants using COUNT(DISTINCT transcript_id), COUNT(transcript_id), or grouping by transcript_id.
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (10, NULL, NULL);
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (20, NULL, NULL);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (100, '2023-01-01');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (200, '2023-01-02');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (100, 10);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (100, 10);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (NULL, 10);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (200, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in the GROUP BY and ORDER BY column (student_course_id).
+-- In SQLite, NULLs are grouped together and ordered first in ASC order.
+-- Kills mutants that add WHERE student_course_id IS NOT NULL, INNER JOIN to Student_Enrolment_Courses, or use COUNT(student_course_id).
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, NULL, NULL);
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (1, '2023-01-01');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (2, '2023-01-02');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, NULL);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, NULL);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests the case where the smallest student_course_id has the strictly minimum count (1),
+-- while a larger student_course_id has a larger count (4).
+-- Kills mutants that order by COUNT(*) DESC or student_course_id DESC.
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (2, NULL, NULL);
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (9, NULL, NULL);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (1, '2023-01-01');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (2, '2023-01-02');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (3, '2023-01-03');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (4, '2023-01-04');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (4, 9);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (3, 9);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 9);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 9);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (3, 2);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty Transcript_Contents table with populated parent tables.
+-- Gold query returns 0 rows; kills mutants without GROUP BY (which return 1 row with count 0 and NULL) or mutants querying parent tables directly.
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'CS101');
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, NULL, 1);
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date") VALUES (1, '2023-01-01');
+```

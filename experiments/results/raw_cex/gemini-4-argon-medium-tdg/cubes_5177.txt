@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (total < 10.0), boundary condition (total = 10.0), grouping by bronze, and ordering by count where bronze order != count order.
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (1, 'Club A', 'North', '1990');
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (2, 'Club B', 'South', '1995');
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (3, 'Club C', 'East', '2000');
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (4, 'Club D', 'West', '2005');
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (5, 'Club E', 'Central', '2010');
+
+-- Bronze = 1.0 has 3 rows (Total < 10.0)
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (1.0, 1, 2.0, 2.0, 1.0, 5.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (2.0, 2, 3.0, 2.0, 1.0, 6.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (3.0, 3, 4.0, 4.0, 1.0, 9.9);
+
+-- Bronze = 5.0 has 1 row (Total < 10.0) -> ensures ORDER BY count (1, 3) differs from ORDER BY bronze (3, 1)
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (4.0, 4, 1.0, 2.0, 5.0, 8.0);
+
+-- Filtered out rows: boundary Total = 10.0 and Total > 10.0
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (5.0, 5, 2.0, 3.0, 5.0, 10.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (6.0, 1, 5.0, 5.0, 2.0, 12.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Bronze (COUNT(*) vs COUNT(bronze)), NULL in Total, and duplicate counts (DISTINCT vs ALL in outer SELECT).
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (1, 'Alpha', 'R1', '2001');
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (2, 'Beta', 'R2', '2002');
+
+-- Two rows with Bronze = NULL (COUNT(*) = 2, whereas COUNT(bronze) = 0)
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (1.0, 1, 1.0, 1.0, NULL, 2.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (2.0, 2, 2.0, 1.0, NULL, 3.0);
+
+-- Two rows with Bronze = 2.0 (also gives count = 2, testing that outer SELECT does not deduplicate identical counts)
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (3.0, 1, 1.0, 1.0, 2.0, 4.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (4.0, 2, 0.0, 2.0, 2.0, 4.0);
+
+-- One row with Bronze = 0.0 (gives count = 1)
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (5.0, 1, 0.0, 0.0, 0.0, 0.0);
+
+-- Row with Total = NULL (should be excluded by WHERE total < 10.0)
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (6.0, 2, 1.0, 1.0, 0.0, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests column confusion (GROUP BY Gold/Silver/Rank/Club_ID instead of Bronze, or WHERE Bronze/Gold/Rank < 10.0 instead of Total < 10.0) and unnecessary JOINs with club.
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (1, 'One', 'North', '1980');
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (2, 'Two', 'South', '1985');
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (3, 'Three', 'East', '1990');
+
+-- Club 3 has no club_rank rows (tests INNER vs LEFT JOIN if a mutant joins club)
+-- All rows here have Total < 10.0, but Rank >= 10.0 and Gold/Silver/Bronze have distinct distributions.
+-- Bronze values: 4.0 (x1), 2.0 (x2), 0.0 (x3) -> counts: 1, 2, 3
+-- Gold values: 1.0 (x6) -> count: 6
+-- Silver values: all distinct (1.0, 2.0, 3.0, 4.0, 5.0, 6.0) -> counts: 1, 1, 1, 1, 1, 1
+-- Club_ID values: 1 (x3), 2 (x3) -> counts: 3, 3
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (10.0, 1, 1.0, 1.0, 4.0, 6.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (11.0, 1, 1.0, 2.0, 2.0, 5.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (12.0, 2, 1.0, 3.0, 2.0, 6.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (13.0, 1, 1.0, 4.0, 0.0, 5.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (14.0, 2, 1.0, 5.0, 0.0, 6.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (15.0, 2, 1.0, 6.0, 0.0, 7.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when all rows fail the WHERE condition (total < 10.0).
+-- Catches mutants without GROUP BY (which return 0 instead of empty set) or wrong comparison operators (>, >=, <=).
+INSERT INTO club (Club_ID, name, Region, Start_year) VALUES (1, 'High Scorer', 'West', '2000');
+
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (1.0, 1, 5.0, 3.0, 2.0, 10.0);
+INSERT INTO club_rank (Rank, Club_ID, Gold, Silver, Bronze, Total) VALUES (2.0, 1, 6.0, 4.0, 5.0, 15.0);
+```

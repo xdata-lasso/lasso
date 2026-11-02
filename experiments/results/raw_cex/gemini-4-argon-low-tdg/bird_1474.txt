@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests SUM vs MAX/AVG/COUNT, Currency filter ('CZK'), Date range filter, and ORDER BY DESC vs ASC.
+-- Customer 1 has highest SUM (300) for CZK in 2011, Customer 2 has highest MAX (250) and AVG (250), Customer 3 has highest SUM (1000) but wrong currency, Customer 4 has highest SUM (2000) but outside date range, Customer 5 has lowest SUM (50) to kill ASC sorting.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'SME', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201102', 120.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201105', 180.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201103', 250.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201104', 1000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201012', 2000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201201', 2000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (5, '201106', 50.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests inclusive boundaries of BETWEEN 201101 AND 201112 (e.g., > vs >=, < vs <=).
+-- Customer 10 wins only if both '201101' and '201112' are included (200 + 200 = 400).
+-- Customer 20 has 350 strictly inside the boundary ('201106').
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'LAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'LAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201101', 200.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201112', 200.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201106', 350.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T1.CustomerID ASC and SUM vs SUM(DISTINCT).
+-- Customer 1 and Customer 2 tie with a total consumption of 500.0.
+-- Customer 1 has duplicate consumption values (250.0 + 250.0) to catch DISTINCT mutations.
+-- Customer 3 has 400.0.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201101', 250.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201102', 250.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201103', 300.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201104', 200.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201105', 400.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in Consumption and negative Consumption values, as well as LEFT JOIN vs INNER JOIN.
+-- Customer 1 has no yearmonth records (tests INNER JOIN vs LEFT JOIN if NULL sorts first).
+-- Customer 2 has only NULL consumption in 2011 (SUM is NULL).
+-- Customer 3 has negative consumption (-50.0).
+-- Customer 4 has less negative consumption (-10.0) and should win over Customer 3 (-10 > -50) and Customer 2 (NULLs are smaller than numbers in SQLite).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201105', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201105', -50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201105', -10.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests GROUP BY T1.CustomerID vs GROUP BY T1.Segment or missing GROUP BY.
+-- Customers 1 and 2 are in 'SME' with 100 each (Segment sum = 200).
+-- Customer 3 is in 'KAM' with 150 (Highest individual customer sum, though 'SME' has higher segment sum).
+-- Also includes a customer with many small transactions to beat COUNT(*) mutants.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'LAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201102', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201103', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201104', 150.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201101', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201102', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201103', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201104', 10.0);
+```

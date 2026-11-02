@@ -1,0 +1,35 @@
+-- Schema DDL
+CREATE TABLE "cards" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, artist TEXT, asciiName TEXT, availability TEXT, borderColor TEXT, cardKingdomFoilId TEXT, cardKingdomId TEXT, colorIdentity TEXT, colorIndicator TEXT, colors TEXT, convertedManaCost REAL, duelDeck TEXT, edhrecRank INTEGER, faceConvertedManaCost REAL, faceName TEXT, flavorName TEXT, flavorText TEXT, frameEffects TEXT, frameVersion TEXT, hand TEXT, hasAlternativeDeckLimit INTEGER DEFAULT 0 NOT NULL, hasContentWarning INTEGER DEFAULT 0 NOT NULL, hasFoil INTEGER DEFAULT 0 NOT NULL, hasNonFoil INTEGER DEFAULT 0 NOT NULL, isAlternative INTEGER DEFAULT 0 NOT NULL, isFullArt INTEGER DEFAULT 0 NOT NULL, isOnlineOnly INTEGER DEFAULT 0 NOT NULL, isOversized INTEGER DEFAULT 0 NOT NULL, isPromo INTEGER DEFAULT 0 NOT NULL, isReprint INTEGER DEFAULT 0 NOT NULL, isReserved INTEGER DEFAULT 0 NOT NULL, isStarter INTEGER DEFAULT 0 NOT NULL, isStorySpotlight INTEGER DEFAULT 0 NOT NULL, isTextless INTEGER DEFAULT 0 NOT NULL, isTimeshifted INTEGER DEFAULT 0 NOT NULL, keywords TEXT, layout TEXT, leadershipSkills TEXT, life TEXT, loyalty TEXT, manaCost TEXT, mcmId TEXT, mcmMetaId TEXT, mtgArenaId TEXT, mtgjsonV4Id TEXT, mtgoFoilId TEXT, mtgoId TEXT, multiverseId TEXT, name TEXT, number TEXT, originalReleaseDate TEXT, originalText TEXT, originalType TEXT, otherFaceIds TEXT, power TEXT, printings TEXT, promoTypes TEXT, purchaseUrls TEXT, rarity TEXT, scryfallId TEXT, scryfallIllustrationId TEXT, scryfallOracleId TEXT, setCode TEXT, side TEXT, subtypes TEXT, supertypes TEXT, tcgplayerProductId TEXT, text TEXT, toughness TEXT, type TEXT, types TEXT, uuid TEXT NOT NULL UNIQUE, variations TEXT, watermark TEXT);
+
+CREATE TABLE "foreign_data" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, flavorText TEXT, language TEXT, multiverseid INTEGER, name TEXT, text TEXT, type TEXT, uuid TEXT REFERENCES cards (uuid));
+
+CREATE TABLE "legalities" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, format TEXT, status TEXT, uuid TEXT REFERENCES cards (uuid) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE "sets" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, baseSetSize INTEGER, block TEXT, booster TEXT, code TEXT NOT NULL UNIQUE, isFoilOnly INTEGER DEFAULT 0 NOT NULL, isForeignOnly INTEGER DEFAULT 0 NOT NULL, isNonFoilOnly INTEGER DEFAULT 0 NOT NULL, isOnlineOnly INTEGER DEFAULT 0 NOT NULL, isPartialPreview INTEGER DEFAULT 0 NOT NULL, keyruneCode TEXT, mcmId INTEGER, mcmIdExtras INTEGER, mcmName TEXT, mtgoCode TEXT, name TEXT, parentCode TEXT, releaseDate DATE, tcgplayerGroupId INTEGER, totalSetSize INTEGER, type TEXT);
+
+CREATE TABLE "set_translations" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, language TEXT, setCode TEXT REFERENCES sets (code) ON update CASCADE ON delete CASCADE, translation TEXT);
+
+CREATE TABLE "rulings" (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, date DATE, text TEXT, uuid TEXT REFERENCES cards (uuid) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO sets (id, basesetsize, block, booster, code, isfoilonly, isforeignonly, isnonfoilonly, isonlineonly, ispartialpreview, keyrunecode, mcmid, mcmidextras, mcmname, mtgocode, name, parentcode, releasedate, tcgplayergroupid, totalsetsize, type) VALUES (0, 0, 'Italian', 'default2', 'default1', 1, 2, 3, 0, 3, 'default1', 2, 3, 'default2', 'default2', 'default1', 'Shadowmoor', '2023-01-02', 2, 2, 'Shadowmoor'), (3, 1, 'default1', 'default1', 'default2', 1, 3, 0, 1, 1, 'Italian', 1, 0, 'default2', NULL, 'default2', 'Italian', NULL, NULL, 2, 'default2'), (2, 3, 'default2', NULL, 'Shadowmoor', 2, 1, 1, 2, 2, 'Italian', 0, 1, 'Shadowmoor', NULL, 'Italian', 'default1', '2023-01-02', 0, 1, NULL), (1, 3, 'default2', 'default2', 'Italian', 2, 0, 2, 2, 2, 'default1', 1, 2, NULL, 'default2', NULL, 'Shadowmoor', '2023-01-01', 2, 1, 'Italian'), (4, 2, 'default2', 'Shadowmoor', 'unique_4', 3, 3, 0, 1, 3, NULL, 2, 2, 'default1', 'default1', NULL, 'Shadowmoor', '2023-01-01', 0, 0, NULL), (5, 3, 'Italian', 'Italian', 'unique_5', 0, 1, 2, 0, 2, 'Shadowmoor', NULL, 2, 'Italian', 'default1', NULL, NULL, '2023-01-01', NULL, NULL, 'default1'), (6, NULL, NULL, NULL, 'unique_6', 0, 2, 0, 1, 2, 'Italian', NULL, 3, 'Italian', NULL, NULL, NULL, '2023-01-02', NULL, 3, 'default2'), (7, 2, 'default1', 'default1', 'unique_7', 2, 1, 1, 3, 3, 'Shadowmoor', 1, NULL, 'Shadowmoor', 'Italian', 'default1', 'Shadowmoor', '2023-01-02', 0, NULL, 'Shadowmoor'), (8, 3, NULL, NULL, 'unique_8', 3, 2, 3, 3, 3, 'default1', 0, 0, 'default1', 'Italian', 'Shadowmoor', 'Shadowmoor', '2023-01-01', NULL, 2, 'Italian'), (9, 0, 'default2', NULL, 'unique_9', 2, 1, 1, 2, 2, 'default1', 1, 0, 'Italian', 'default2', 'Italian', 'Italian', '2023-01-02', 3, 3, NULL), (10, 1, 'default2', NULL, 'unique_10', 2, 3, 0, 0, 1, 'Shadowmoor', NULL, 2, 'default2', 'default2', 'default1', NULL, NULL, 1, 2, 'Shadowmoor'), (11, 1, 'Shadowmoor', 'Italian', 'unique_11', 0, 3, 2, 3, 0, 'default1', 2, 2, 'default2', 'default2', 'default2', 'default2', NULL, 2, 0, 'Shadowmoor'), (12, NULL, 'Italian', 'default1', 'unique_12', 1, 1, 2, 2, 2, 'Italian', 2, 1, 'Shadowmoor', 'default1', 'default2', NULL, '2023-01-01', 2, 2, 'default1');
+INSERT INTO set_translations (id, setcode, language, translation) VALUES (3, 'unique_12', NULL, 'default2'), (2, 'unique_8', 'Shadowmoor', 'Italian'), (1, 'Shadowmoor', 'default2', 'Shadowmoor'), (0, 'unique_11', 'Shadowmoor', 'default2'), (4, 'unique_12', 'default2', 'default1'), (5, 'unique_7', 'Italian', 'Shadowmoor'), (6, 'default1', 'default2', 'Italian'), (7, 'default2', NULL, NULL), (8, 'Shadowmoor', 'Italian', 'Shadowmoor'), (9, 'default1', 'Italian', NULL), (10, 'unique_8', 'default2', 'Italian'), (11, 'default1', 'Shadowmoor', 'Italian'), (12, 'default2', 'default2', NULL), (13, 'unique_11', 'Italian', 'default2'), (14, 'unique_6', 'default2', NULL), (15, 'Shadowmoor', 'default1', 'default2'), (16, 'unique_12', 'default2', 'Shadowmoor'), (17, 'unique_4', 'default2', NULL), (18, 'unique_5', 'default2', 'Shadowmoor'), (19, 'unique_10', 'default2', NULL), (20, 'unique_7', 'default2', NULL), (21, 'default1', 'Italian', 'default2');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1.name, T1.id FROM sets AS T1 INNER JOIN set_translations AS T2 ON T1.code = T2.setCode WHERE T1.block = 'Shadowmoor' AND T2.language = 'Italian' ORDER BY T1.id, T2.id NULLS LAST LIMIT 2;
+
+/*
+Gold Result:
+('default2', 11)
+*/
+
+-- Prediction Query
+SELECT "sets"."id", "sets"."name" FROM "sets" INNER JOIN "set_translations" ON "sets"."code" = "set_translations"."setcode" WHERE "set_translations"."language" = 'Italian' AND "sets"."block" = 'Shadowmoor' ORDER BY "sets"."name" ASC, sets.id NULLS LAST, set_translations.id NULLS LAST LIMIT 2;
+
+/*
+Prediction Result:
+(11, 'default2')
+*/

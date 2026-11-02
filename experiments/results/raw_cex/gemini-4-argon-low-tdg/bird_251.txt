@@ -1,0 +1,112 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT molecule_id) vs COUNT(*) or COUNT(atom_id), and ASC vs DESC ordering.
+-- 'c' appears in 1 molecule (m1) but has 3 atoms (COUNT DISTINCT = 1, COUNT = 3).
+-- 'h' appears in 2 molecules (m1, m2) with 1 atom each (COUNT DISTINCT = 2, COUNT = 2).
+-- 'o' appears in 3 molecules (m1, m2, m3) with 1 atom each (COUNT DISTINCT = 3, COUNT = 3).
+-- Expected result: 'c' (if DISTINCT is dropped, 'h' wins; if DESC is used, 'o' wins).
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm2', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a6', 'm1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a7', 'm2', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a8', 'm3', 'o');
+```
+
+```sql
+-- DATASET 2
+-- Tests the WHERE T1.label = '+' filter.
+-- 'n' appears in 1 '-' molecule and 0 '+' molecules.
+-- 's' appears in 1 '+' molecule and 2 '-' molecules (total 3, '+' count 1).
+-- 'p' appears in 2 '+' molecules (total 2, '+' count 2).
+-- Expected result: 's' (if filter is omitted, 'n' wins with count 1 or 'p' wins with count 2; if '-' is used, 'n' wins).
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m4', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m5', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm3', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 's');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm3', 's');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm4', 's');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm1', 'p');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a6', 'm2', 'p');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a7', 'm5', 'f');
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T2.element ASC and NULLS LAST.
+-- 'b', 'a', and NULL all have COUNT(DISTINCT molecule_id) = 1.
+-- Without NULLS LAST in SQLite, NULL sorts first in ASC order.
+-- With T2.element ASC NULLS LAST, 'a' must win over 'b' and NULL.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'b');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'a');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT JOIN (from molecule to atom or atom to molecule).
+-- m1 is '+' but has NO atoms (if LEFT JOIN molecule->atom is used, element is NULL with count 0 or 1).
+-- a1 has molecule_id = NULL and element = 'z' (if RIGHT JOIN / LEFT JOIN atom->molecule without proper filter).
+-- m2 is '+' and has 2 molecules for element 'cl' (m2, m3).
+-- Expected result: 'cl'.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', NULL, 'z');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm2', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm3', 'cl');
+```
+
+```sql
+-- DATASET 5
+-- Tests primary sort priority: COUNT(DISTINCT T2.molecule_id) over T2.element.
+-- 'a' has count 2 (alphabetically first, but higher count).
+-- 'z' has count 1 (alphabetically last, but lower count).
+-- Expected result: 'z'.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'a');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm2', 'a');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'z');
+```
+
+```sql
+-- DATASET 6
+-- Tests queries that mistakenly join with 'bond' or 'connected' tables.
+-- Element 'he' is in a '+' molecule (m1) that has NO bonds or connected atoms (count = 1).
+-- Element 'ne' is in '+' molecules (m2, m3) that DO have bonds and connected atoms (count = 2).
+-- Expected result: 'he' (if joined with bond/connected, 'he' is eliminated and 'ne' wins).
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'he');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm2', 'ne');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm2', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm3', 'ne');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm3', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm2', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm3', '1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a3', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a2', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a4', 'a5', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a5', 'a4', 'b2');
+```
+
+```sql
+-- DATASET 7
+-- Tests edge case where no molecules have label = '+'.
+-- Expected result: empty set.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm2', 'h');
+```

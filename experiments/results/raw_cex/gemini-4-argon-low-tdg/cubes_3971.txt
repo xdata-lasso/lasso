@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests basic aggregation (MAX vs MIN), grouping by other_details vs other columns (role_code, project_id),
+-- ordering by maxdate_to ASC vs DESC vs ordering by other_details, and duplicate maxdate_to values across groups (DISTINCT vs ALL).
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('UNI', 'University');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'UNI', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (10, 1, 'Project Alpha');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (20, 1, 'Project Beta');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R1', 'Researcher');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('R2', 'Manager');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, 'R1', 10, '2020-01-01', '2022-01-01', 'Group_Z');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, 'R2', 20, '2021-01-01', '2021-06-01', 'Group_Z');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (3.0, 'R1', 10, '2019-01-01', '2023-01-01', 'Group_A');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (4.0, 'R1', 10, '2022-05-01', '2020-01-01', 'Group_A');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (5.0, 'R2', 20, '2018-01-01', '2022-01-01', 'Group_M');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY (other_details IS NULL), NULL handling in MAX(date_to), 
+-- and inner vs left join mutations when foreign keys (role_code, project_id) are NULL.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('GOV', 'Government');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'GOV', 'Gov Agency');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (100, 1, 'Proj 100');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('ADMIN', 'Administrator');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, NULL, NULL, '2020-01-01', '2021-05-01', NULL);
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, 'ADMIN', 100, '2020-02-01', '2021-08-01', NULL);
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (3.0, 'ADMIN', 100, '2019-01-01', NULL, 'Null_Date_Group');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (4.0, 'ADMIN', 100, '2019-01-01', '2020-12-31', 'Partial_Null_Date_Group');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (5.0, 'ADMIN', 100, '2020-01-01', NULL, 'Partial_Null_Date_Group');
+```
+
+```sql
+-- DATASET 3
+-- Tests table/column confusion: populates Grants, Documents, and Research_Staff which also have "other_details", 
+-- date columns, or "staff_id", ensuring queries joining or selecting from wrong tables fail.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('CORP', 'Corporation');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (10, 'CORP', 'Corp Inc');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 10, 'Main Project');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('DEV', 'Developer');
+
+INSERT INTO "Grants" ("grant_id", "organisation_id", "grant_amount", "grant_start_date", "grant_end_date", "other_details") VALUES (50, 10, 50000.0, '2020-01-01', '2025-12-31', 'Same_Detail');
+INSERT INTO "Document_Types" ("document_type_code", "document_description") VALUES ('REP', 'Report');
+INSERT INTO "Documents" ("document_id", "grant_id", "document_type_code", "sent_date", "response_received_date", "other_details") VALUES (500, 50, 'REP', '2024-01-01', '2024-06-01', 'Same_Detail');
+
+INSERT INTO "Research_Staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (999, 10, 'Unrelated Research Staff');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (10.0, 'DEV', 1, '2023-01-01', '2021-01-01', 'Same_Detail');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (20.0, 'DEV', 1, '2022-01-01', '2020-05-05', 'Unique_Staff_Detail');
+```
+
+```sql
+-- DATASET 4
+-- Tests fine-grained timestamp differences (same day, different times; adjacent days) and single-row groups vs multi-row groups.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('NON', 'Non-Profit');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (5, 'NON', 'Charity');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (5, 5, 'Charity Proj');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('VOL', 'Volunteer');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, 'VOL', 5, '2023-03-15 08:00:00', '2023-03-15 09:30:00', 'Time_Test');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, 'VOL', 5, '2023-03-15 08:00:00', '2023-03-15 17:45:00', 'Time_Test');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (3.0, 'VOL', 5, '2023-03-15 08:00:00', '2023-03-15 12:00:00', 'Time_Test');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (4.0, 'VOL', 5, '2023-01-01 00:00:00', '2023-03-15 08:00:00', 'Early_Bird');
+```

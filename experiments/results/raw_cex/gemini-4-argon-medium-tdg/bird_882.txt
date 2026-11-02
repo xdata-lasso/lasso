@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (WHERE name = 'Singapore Grand Prix'), ORDER BY year ASC vs DESC, LIMIT 1, and ORDER BY date vs year.
+-- Also tests joins against circuits where circuit.name or location is 'Singapore' or 'Singapore Grand Prix' in an earlier year.
+INSERT INTO seasons (year, url) VALUES (2005, 'http://example.com/2005');
+INSERT INTO seasons (year, url) VALUES (2008, 'http://example.com/2008');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://example.com/2010');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'marina_bay', 'Marina Bay Street Circuit', 'Singapore', 'Singapore', 'http://example.com/c1');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'sg_circuit', 'Singapore Grand Prix', 'Marina Bay', 'Singapore', 'http://example.com/c2');
+
+-- A decoy race at a Singapore circuit in an earlier year (2005), testing mutants that filter by circuit name/country instead of race name.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2005, 1, 2, 'Asian Grand Prix', '2005-05-01', 'http://example.com/r1');
+
+-- Later Singapore Grand Prix (2010) inserted with a smaller raceId and an anomalously early date to catch ORDER BY raceId or ORDER BY date mutants.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2010, 15, 1, 'Singapore Grand Prix', '2001-09-26', 'http://example.com/r2');
+
+-- Earliest Singapore Grand Prix (2008) with a larger raceId.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2008, 15, 1, 'Singapore Grand Prix', '2008-09-28', 'http://example.com/r3');
+```
+
+```sql
+-- DATASET 2
+-- Tests string matching precision (exact match vs LIKE '%Singapore%') and unnecessary INNER JOINs to child tables (results, qualifying, etc.).
+INSERT INTO seasons (year, url) VALUES (2007, 'http://example.com/2007');
+INSERT INTO seasons (year, url) VALUES (2008, 'http://example.com/2008');
+INSERT INTO seasons (year, url) VALUES (2009, 'http://example.com/2009');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'marina_bay', 'Marina Bay Street Circuit', 'Singapore', 'Singapore', 'http://example.com/c1');
+
+-- Decoy race in 2007 that matches LIKE '%Singapore Grand Prix%' or LIKE '%Singapore%' but not exact equality.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2007, 10, 1, 'Old Singapore Grand Prix', '2007-09-20', 'http://example.com/r1');
+
+-- True earliest Singapore Grand Prix (2008), intentionally left WITHOUT any rows in results/qualifying/lapTimes to kill mutants that do INNER JOINs.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2008, 15, 1, 'Singapore Grand Prix', '2008-09-28', 'http://example.com/r2');
+
+-- Second Singapore Grand Prix (2009), populated with child records (results, qualifying) so an INNER JOIN mutant would erroneously return 2009 instead of 2008.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2009, 14, 1, 'Singapore Grand Prix', '2009-09-27', 'http://example.com/r3');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://example.com/d1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mclaren', 'McLaren', 'http://example.com/con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionOrder, points, laps, statusId) VALUES (1, 3, 1, 1, 1, 1, 10.0, 61, 1);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position) VALUES (1, 3, 1, 1, 1, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests queries that omit LIMIT 1 when multiple races exist in the same earliest year, or use SUM/COUNT/AVG instead of MIN/LIMIT 1.
+INSERT INTO seasons (year, url) VALUES (2008, 'http://example.com/2008');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'marina_bay', 'Marina Bay Street Circuit', 'Singapore', 'Singapore', 'http://example.com/c1');
+
+-- Two instances of 'Singapore Grand Prix' in the exact same minimum year (2008).
+-- Without LIMIT 1 (or DISTINCT / MIN), a mutant query will return two rows of 2008 instead of one.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2008, 15, 1, 'Singapore Grand Prix', '2008-09-28', 'http://example.com/r10');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (20, 2008, 16, 1, 'Singapore Grand Prix', '2008-10-05', 'http://example.com/r20');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set handling (e.g., MIN(year) returns 1 row with NULL when no rows match, whereas ORDER BY ... LIMIT 1 returns 0 rows).
+INSERT INTO seasons (year, url) VALUES (2020, 'http://example.com/2020');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'monza', 'Autodromo Nazionale di Monza', 'Monza', 'Italy', 'http://example.com/c1');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Italian Grand Prix', '2020-09-06', 'http://example.com/r1');
+```

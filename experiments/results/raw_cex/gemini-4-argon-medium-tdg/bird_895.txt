@@ -1,0 +1,135 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, AVG calculation with duplicate values (kills AVG(DISTINCT)), fractional average, and NULL milliseconds handling.
+-- Also includes decoy rows in other tables (results, pitStops, circuits) to kill mutants joining wrong tables or filtering on circuit.name instead of races.name.
+INSERT INTO seasons (year, url) VALUES (2009, 'http://en.wikipedia.org/wiki/2009_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'shanghai', 'Shanghai International Circuit', 'http://en.wikipedia.org/wiki/Shanghai_International_Circuit');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (2, 'decoy_circuit', 'Chinese GrAND Prix', 'http://en.wikipedia.org/wiki/Decoy_Circuit');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'red_bull', 'Red Bull', 'http://en.wikipedia.org/wiki/Red_Bull_Racing');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'vettel', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Sebastian_Vettel');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2009, 3, 1, 'Chinese GrAND Prix', '2009-04-19', 'http://en.wikipedia.org/wiki/2009_Chinese_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2009, 4, 2, 'Bahrain Grand Prix', '2009-04-26', 'http://en.wikipedia.org/wiki/2009_Bahrain_Grand_Prix');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '1:52.000', 100000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 2, 1, '1:52.000', 100000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 3, 1, '1:53.000', 100501);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 4, 1, NULL, NULL);
+
+-- Decoy lapTime in race 2 where circuit.name is 'Chinese GrAND Prix'
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (2, 1, 1, 1, '1:30.000', 500000);
+
+-- Decoy rows in pitStops and results to kill table substitution mutants (e.g. querying pitStops.milliseconds or results.milliseconds)
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 1, 15, '14:30:00', '25.000', 25000);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, milliseconds, statusId) VALUES (1, 1, 1, 1, 1, '1', 1, 10.0, 56, 5400000, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests partial predicate matches on drivers (forename vs surname) and races (year vs name) to kill mutants dropping WHERE conjuncts or using OR instead of AND.
+INSERT INTO seasons (year, url) VALUES (2009, 'http://en.wikipedia.org/wiki/2009_F1');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://en.wikipedia.org/wiki/2010_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'shanghai', 'Shanghai', 'http://en.wikipedia.org/wiki/Shanghai');
+
+-- Target driver
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'vettel', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Sebastian_Vettel');
+-- Same forename, different surname
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'bourdais', 'Sebastian', 'Bourdais', 'http://en.wikipedia.org/wiki/Sebastien_Bourdais');
+-- Different forename, same surname
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'f_vettel', 'Fabian', 'Vettel', 'http://en.wikipedia.org/wiki/Fabian_Vettel');
+-- Swapped forename and surname
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'swapped', 'Vettel', 'Sebastian', 'http://en.wikipedia.org/wiki/Swapped');
+
+-- Target race: 2009 AND 'Chinese GrAND Prix'
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2009, 3, 1, 'Chinese GrAND Prix', '2009-04-19', 'http://en.wikipedia.org/wiki/2009_Chinese_GP');
+-- Same year (2009), different name
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2009, 1, 1, 'Australian Grand Prix', '2009-03-29', 'http://en.wikipedia.org/wiki/2009_Australian_GP');
+-- Different year (2010), same name ('Chinese GrAND Prix')
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2010, 4, 1, 'Chinese GrAND Prix', '2010-04-18', 'http://en.wikipedia.org/wiki/2010_Chinese_GP');
+
+-- Target match
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '1:30.000', 90000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 2, 1, '1:32.000', 92000);
+
+-- Non-matching driver laps in target race
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 2, '2:00.000', 200000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 3, 1, 3, '3:00.000', 300000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 4, 1, 4, '4:00.000', 400000);
+
+-- Target driver laps in non-matching races
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (2, 1, 1, 1, '5:00.000', 500000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (3, 1, 1, 1, '6:00.000', 600000);
+```
+
+```sql
+-- DATASET 3
+-- Tests case sensitivity and exact string matching (e.g. 'Chinese Grand Prix' vs 'Chinese GrAND Prix') and boundary years (2008, 2010).
+-- Also tests when the target query returns NULL (empty result set) while relaxed/mutated queries return a numeric average.
+INSERT INTO seasons (year, url) VALUES (2008, 'http://en.wikipedia.org/wiki/2008_F1');
+INSERT INTO seasons (year, url) VALUES (2009, 'http://en.wikipedia.org/wiki/2009_F1');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://en.wikipedia.org/wiki/2010_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'shanghai', 'Shanghai', 'http://en.wikipedia.org/wiki/Shanghai');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'vettel', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Sebastian_Vettel');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'vettel_lower', 'sebastian', 'vettel', 'http://en.wikipedia.org/wiki/sebastian_vettel');
+
+-- Case difference in race name ('Chinese Grand Prix' instead of 'Chinese GrAND Prix')
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2009, 3, 1, 'Chinese Grand Prix', '2009-04-19', 'http://en.wikipedia.org/wiki/2009_Chinese_GP_1');
+-- Exact race name match, but Vettel only has laps with lowercase name driver or in boundary years
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2009, 4, 1, 'Chinese GrAND Prix', '2009-04-20', 'http://en.wikipedia.org/wiki/2009_Chinese_GP_2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2008, 17, 1, 'Chinese GrAND Prix', '2008-10-19', 'http://en.wikipedia.org/wiki/2008_Chinese_GP');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '1:35.000', 95000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (2, 2, 1, 1, '1:36.000', 96000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (3, 1, 1, 1, '1:37.000', 97000);
+```
+
+```sql
+-- DATASET 4
+-- Tests join condition mutations (e.g., joining on raceId = driverId, or lap = driverId, or omitting join predicates) and INNER JOIN vs LEFT JOIN.
+-- Uses non-overlapping IDs (raceId=10, driverId=20) alongside deceptive overlapping IDs (raceId=10, driverId=10; raceId=20, driverId=20).
+INSERT INTO seasons (year, url) VALUES (2009, 'http://en.wikipedia.org/wiki/2009_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (5, 'shanghai', 'Shanghai', 'http://en.wikipedia.org/wiki/Shanghai');
+
+-- Decoy driver with ID = 10 (matches target raceId = 10)
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'webber', 'Mark', 'Webber', 'http://en.wikipedia.org/wiki/Mark_Webber');
+-- Target driver with ID = 20
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'vettel', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Sebastian_Vettel');
+
+-- Target race with ID = 10
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2009, 3, 5, 'Chinese GrAND Prix', '2009-04-19', 'http://en.wikipedia.org/wiki/2009_Chinese_GP');
+-- Another matching race with ID = 30 that has NO lapTimes (tests INNER JOIN vs LEFT JOIN if combined with COALESCE/COUNT)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (30, 2009, 4, 5, 'Chinese GrAND Prix', '2009-04-20', 'http://en.wikipedia.org/wiki/2009_Chinese_GP_2');
+-- Decoy race with ID = 20 (matches target driverId = 20)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (20, 2009, 5, 5, 'Monaco Grand Prix', '2009-05-24', 'http://en.wikipedia.org/wiki/2009_Monaco_GP');
+
+-- Target lapTime (raceId=10, driverId=20) - asymmetric values so AVG (110000) != MIN (80000) != MAX (170000) != SUM (330000) != MEDIAN (80000)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 20, 1, 5, '1:20.000', 80000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 20, 2, 5, '1:20.000', 80000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 20, 3, 5, '2:50.000', 170000);
+
+-- Decoy lapTimes where raceId = driverId
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 10, 1, 1, '1:10.000', 70000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (20, 20, 1, 1, '1:00.000', 60000);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple drivers with the same name ('Sebastian' 'Vettel') and multiple races matching (year=2009, name='Chinese GrAND Prix').
+-- Kills mutants that use Subqueries with `= (SELECT ... LIMIT 1)` instead of proper INNER JOINs, or GROUP BY raceId/driverId without re-aggregating.
+INSERT INTO seasons (year, url) VALUES (2009, 'http://en.wikipedia.org/wiki/2009_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'shanghai', 'Shanghai', 'http://en.wikipedia.org/wiki/Shanghai');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'vettel1', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Sebastian_Vettel_1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'vettel2', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Sebastian_Vettel_2');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2009, 3, 1, 'Chinese GrAND Prix', '2009-04-19', 'http://en.wikipedia.org/wiki/2009_Chinese_GP_A');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2009, 4, 1, 'Chinese GrAND Prix', '2009-04-20', 'http://en.wikipedia.org/wiki/2009_Chinese_GP_B');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '1:40.000', 100000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 2, '1:50.000', 110000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (2, 1, 1, 1, '2:00.000', 120000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (2, 2, 1, 2, '2:20.000', 140000);
+```

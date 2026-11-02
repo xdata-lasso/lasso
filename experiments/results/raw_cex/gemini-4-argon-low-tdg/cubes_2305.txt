@@ -1,0 +1,91 @@
+```sql
+-- DATASET 1
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T1', 'Type1', 'Desc1');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T2', 'Type2', 'Desc2');
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('B1', 'Budget1');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (1, 'Proj1');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (2, 'Proj2');
+
+-- Desc_A: 3 documents without expenses, 1 with expenses -> count = 3
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, 1, 'T1', '2023-01-01', 'Doc1', 'Desc_A', 'O1');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, 1, 'T2', '2023-01-02', 'Doc2', 'Desc_A', 'O2');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (3, 2, 'T1', '2023-01-03', 'Doc3', 'Desc_A', 'O3');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (4, 1, 'T1', '2023-01-04', 'Doc4', 'Desc_A', 'O4');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (4, 'B1', 'Exp4');
+
+-- Desc_B: 1 document without expenses -> count = 1
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (5, 2, 'T2', '2023-01-05', 'Doc5', 'Desc_B', 'O5');
+
+-- Desc_C: 2 documents without expenses (same name, testing COUNT(document_id) vs COUNT(DISTINCT document_name)) -> count = 2
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (6, 1, 'T1', '2023-01-06', 'SameName', 'Desc_C', 'O6');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (7, 1, 'T1', '2023-01-06', 'SameName', 'Desc_C', 'O6');
+
+-- Desc_D: 1 document, and it has expenses -> should be completely excluded (not count = 0)
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (8, 1, 'T1', '2023-01-07', 'Doc8', 'Desc_D', 'O8');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (8, 'B1', 'Exp8');
+
+-- Statements for some documents (testing confusion between Statements and Documents_with_Expenses)
+INSERT INTO Statements (Statement_ID, Statement_Details) VALUES (1, 'Stat1');
+INSERT INTO Statements (Statement_ID, Statement_Details) VALUES (5, 'Stat5');
+INSERT INTO Accounts (Account_ID, Statement_ID, Account_Details) VALUES (101, 1, 'Acc1');
+```
+
+```sql
+-- DATASET 2
+-- Testing NULLs in Document_Description and other columns, plus duplicate counts across groups
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T1', 'Type1', 'Desc1');
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('B1', 'Budget1');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (1, 'Proj1');
+
+-- Group 1: NULL Document_Description (2 docs without expenses) -> count = 2
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (10, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (20, 1, 'T1', '2023-02-01', 'Doc20', NULL, 'O20');
+
+-- Group 2: 'Valid_Desc_1' (1 doc without expenses) -> count = 1
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (30, NULL, NULL, '2023-02-02', 'Doc30', 'Valid_Desc_1', NULL);
+
+-- Group 3: 'Valid_Desc_2' (1 doc without expenses, testing duplicate count values in output: two groups with count 1) -> count = 1
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (40, 1, 'T1', '2023-02-03', 'Doc40', 'Valid_Desc_2', 'O40');
+
+-- Doc with expenses and NULL Budget_Type_Code
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (50, 1, 'T1', '2023-02-04', 'Doc50', 'Valid_Desc_1', 'O50');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (50, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Testing boundary condition where Documents_with_Expenses is completely empty, and ordering of counts (10 vs 2)
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, NULL, NULL, NULL, 'D1', 'Group_Two', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, NULL, NULL, NULL, 'D2', 'Group_Two', NULL);
+
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (3, NULL, NULL, NULL, 'D3', 'Group_Ten', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (4, NULL, NULL, NULL, 'D4', 'Group_Ten', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (5, NULL, NULL, NULL, 'D5', 'Group_Ten', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (6, NULL, NULL, NULL, 'D6', 'Group_Ten', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (7, NULL, NULL, NULL, 'D7', 'Group_Ten', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (8, NULL, NULL, NULL, 'D8', 'Group_Ten', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (9, NULL, NULL, NULL, 'D9', 'Group_Ten', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (10, NULL, NULL, NULL, 'D10', 'Group_Ten', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (11, NULL, NULL, NULL, 'D11', 'Group_Ten', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (12, NULL, NULL, NULL, 'D12', 'Group_Ten', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Testing boundary condition where ALL documents have expenses (expected result: empty set)
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, NULL, NULL, NULL, 'D1', 'Desc1', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, NULL, NULL, NULL, 'D2', 'Desc2', NULL);
+
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (1, NULL, 'Exp1');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (2, NULL, 'Exp2');
+```
+
+```sql
+-- DATASET 5
+-- Testing inverse correlation between alphabetical order of document_description and count___
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, NULL, NULL, NULL, 'N1', 'A_Desc', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, NULL, NULL, NULL, 'N2', 'A_Desc', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (3, NULL, NULL, NULL, 'N3', 'A_Desc', NULL);
+
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (4, NULL, NULL, NULL, 'N4', 'Z_Desc', NULL);
+```

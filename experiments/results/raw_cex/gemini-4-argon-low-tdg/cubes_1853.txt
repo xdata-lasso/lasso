@@ -1,0 +1,139 @@
+```sql
+-- DATASET 1
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (1, 'MIT', 'USA');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (2, 'Tohoku', 'Japan');
+
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (1, 'Tanaka', 'Atsushi');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (2, 'Ohori', 'Atsushi');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (3, 'Ohori', 'Ken');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (4, 'Smith', 'John');
+
+INSERT INTO "Papers" ("paperID", "title") VALUES (101, 'Paper A');
+INSERT INTO "Papers" ("paperID", "title") VALUES (102, 'Paper B');
+INSERT INTO "Papers" ("paperID", "title") VALUES (103, 'Paper C');
+INSERT INTO "Papers" ("paperID", "title") VALUES (104, 'Paper D');
+
+-- Author 1 (Tanaka, Atsushi) -> Should be EXCLUDED by WHERE (fname <> 'Atsushi' OR lname = 'Ohori'). Give count = 1.
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 1, 101, 1);
+
+-- Author 2 (Ohori, Atsushi) -> Should be INCLUDED. Give count = 2.
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (2, 1, 101, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (2, 2, 102, 1);
+
+-- Author 3 (Ohori, Ken) -> Should be INCLUDED. Give count = 3.
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (3, 1, 101, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (3, 1, 102, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (3, 1, 103, 1);
+
+-- Author 4 (Smith, John) -> Should be INCLUDED. Give count = 4.
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (4, 1, 101, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (4, 1, 102, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (4, 1, 103, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (4, 1, 104, 1);
+```
+
+```sql
+-- DATASET 2
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (1, 'Stanford', 'USA');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (2, 'Berkeley', 'USA');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (3, 'CMU', 'USA');
+
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (10, 'Doe', 'Jane');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (20, 'Roe', 'Richard');
+
+INSERT INTO "Papers" ("paperID", "title") VALUES (1, 'Same Title');
+INSERT INTO "Papers" ("paperID", "title") VALUES (2, 'Same Title');
+
+-- Tests GROUP BY (authID, authOrder), COUNT(*) vs COUNT(DISTINCT paperID / instID / title), and DISTINCT on outer query
+-- Group (10, 1): 2 rows (same paper, different instID) -> count = 2
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (10, 1, 1, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (10, 2, 1, 1);
+
+-- Group (10, 2): 1 row (same author, different authOrder) -> count = 1
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (10, 1, 2, 2);
+
+-- Group (20, 1): 2 rows (different author, same authOrder as (10,1), produces duplicate count = 2 to test DISTINCT)
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (20, 1, 1, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (20, 3, 2, 1);
+```
+
+```sql
+-- DATASET 3
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (1, 'Oxford', 'UK');
+
+-- Tests NULL handling in WHERE ("fname" <> 'Atsushi' OR "lname" = 'Ohori') and outer/inner join mutations
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (1, NULL, 'Atsushi');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (2, 'Ohori', NULL);
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (3, 'Smith', NULL);
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (4, NULL, 'John');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (5, 'Unpublished', 'Author');
+
+INSERT INTO "Papers" ("paperID", "title") VALUES (10, 'Paper 1');
+INSERT INTO "Papers" ("paperID", "title") VALUES (20, 'Paper 2');
+INSERT INTO "Papers" ("paperID", "title") VALUES (30, 'Paper 3');
+INSERT INTO "Papers" ("paperID", "title") VALUES (40, 'Unauthored Paper');
+
+-- Author 1 (NULL, 'Atsushi'): fname <> 'Atsushi' is False, lname = 'Ohori' is UNKNOWN -> Excluded (count 1 if included)
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 1, 10, 1);
+
+-- Author 2 ('Ohori', NULL): fname <> 'Atsushi' is UNKNOWN, lname = 'Ohori' is True -> Included (count = 2)
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (2, 1, 10, 2);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (2, 1, 20, 2);
+
+-- Author 3 ('Smith', NULL): fname <> 'Atsushi' is UNKNOWN, lname = 'Ohori' is False -> Excluded (count 3 if included)
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (3, 1, 10, 3);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (3, 1, 20, 3);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (3, 1, 30, 3);
+
+-- Author 4 (NULL, 'John'): fname <> 'Atsushi' is True, lname = 'Ohori' is UNKNOWN -> Included with NULL authOrder (count = 1)
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (4, 1, 10, NULL);
+```
+
+```sql
+-- DATASET 4
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (1, 'ETH', 'Switzerland');
+
+-- Tests identical lname across different authIDs (kills GROUP BY lname instead of authID) and ORDER BY order
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (1, 'Lee', 'Alice');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (2, 'Lee', 'Bob');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (3, 'Kim', 'Alice');
+
+INSERT INTO "Papers" ("paperID", "title") VALUES (1, 'P1');
+INSERT INTO "Papers" ("paperID", "title") VALUES (2, 'P2');
+INSERT INTO "Papers" ("paperID", "title") VALUES (3, 'P3');
+INSERT INTO "Papers" ("paperID", "title") VALUES (4, 'P4');
+
+-- Author 3 inserted first with 4 papers -> count = 4
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (3, 1, 1, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (3, 1, 2, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (3, 1, 3, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (3, 1, 4, 1);
+
+-- Author 1 (Lee, Alice) with 1 paper -> count = 1
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 1, 1, 2);
+
+-- Author 2 (Lee, Bob) with 1 paper -> count = 1 (if grouped by lname 'Lee' and authOrder 2, count would be 2)
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (2, 1, 2, 2);
+```
+
+```sql
+-- DATASET 5
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (100, 'Inst1', 'Country1');
+
+-- Tests accidental cross-column join mutations (e.g., paperID = authID or instID = authID or authOrder = authID)
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (1, 'Atsushi', 'Ohori');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (2, 'Brown', 'Charlie');
+
+INSERT INTO "Papers" ("paperID", "title") VALUES (1, 'Paper One');
+INSERT INTO "Papers" ("paperID", "title") VALUES (2, 'Paper Two');
+INSERT INTO "Papers" ("paperID", "title") VALUES (50, 'Paper Fifty');
+
+-- Note Author 1 has lname='Atsushi' and fname='Ohori' (swapped! fname <> 'Atsushi' is True, so INCLUDED)
+-- Give Author 1 three papers with IDs 50, 2, 1 and authOrder 10
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 100, 50, 10);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 100, 2, 10);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 100, 1, 10);
+
+-- Give Author 2 one paper (ID 50) and authOrder 20
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (2, 100, 50, 20);
+```

@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(admfname1) vs COUNT(*): NULL admfname1 has 4 rows, which would be #1 under COUNT(*) but is 0 under COUNT(admfname1).
+-- 2. Tie-breaking in ORDER BY: 'Bob' (count 2) vs 'Charlie' (count 2). 'Bob' wins alphabetically (ASC) to take the 2nd slot alongside 'Alice' (count 3).
+-- 3. DISTINCT in outer query: 'Alice' has two schools in 'Dist1' (should deduplicate) and one in 'Dist2'.
+-- 4. Unmatched tables: 'Charlie' has schools in satscores/frpm, whereas 'Alice' and 'Bob' do not (tests unnecessary INNER JOINs to other tables).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('1', 'Active', 'C1', 'Dist1', '00', 'Doc', 'Alice', 'Zack', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('2', 'Active', 'C1', 'Dist1', '00', 'Doc', 'Alice', 'Zack', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('3', 'Active', 'C1', 'Dist2', '00', 'Doc', 'Alice', 'Zack', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('4', 'Active', 'C1', 'Dist3', '00', 'Doc', 'Bob', 'Yuri', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('5', 'Active', 'C1', 'Dist4', '00', 'Doc', 'Bob', 'Xena', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('6', 'Active', 'C1', 'Dist5', '00', 'Doc', 'Charlie', 'Zack', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('7', 'Active', 'C1', 'Dist6', '00', 'Doc', 'Charlie', 'Yuri', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('8', 'Active', 'C1', 'Dist7', '00', 'Doc', NULL, 'Zack', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('9', 'Active', 'C1', 'Dist8', '00', 'Doc', NULL, 'Zack', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('10', 'Active', 'C1', 'Dist9', '00', 'Doc', NULL, 'Yuri', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmFName2, LastUpdate) VALUES ('11', 'Active', 'C1', 'Dist10', '00', 'Doc', NULL, 'Xena', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "District Name") VALUES ('6', 'Dist5');
+INSERT INTO satscores (cds, rtype, dname, enroll12, NumTstTakr) VALUES ('6', 'S', 'Dist5', 100, 50);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULLS LAST and INNER JOIN NULL filtering when fewer than 2 non-NULL groups exist.
+-- 'Aaron' has count 1; NULL has count 2.
+-- Subquery returns 'Aaron' (count 1) and NULL (count 0).
+-- Under NULLS FIRST (default SQLite ASC), NULL would beat other count-0 groups if any existed, and if a mutant uses IS NOT DISTINCT FROM or LEFT JOIN, NULL would be included in final output.
+-- Standard INNER JOIN on T1.AdmFName1 = T2.admfname1 filters out the NULL group.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, LastUpdate) VALUES ('1', 'Active', 'C1', 'DistA', '00', 'Doc', 'Aaron', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, LastUpdate) VALUES ('2', 'Active', 'C1', 'DistB', '00', 'Doc', NULL, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, LastUpdate) VALUES ('3', 'Active', 'C1', 'DistC', '00', 'Doc', NULL, '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "District Name") VALUES ('1', 'WrongDistA');
+INSERT INTO satscores (cds, rtype, dname, enroll12, NumTstTakr) VALUES ('1', 'S', 'WrongDistA', 100, 50);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Subquery GROUP BY admfname1 vs GROUP BY admfname1, District.
+-- 'David' has 3 schools across 3 different districts (count 3 total, count 1 per district).
+-- 'Eve' has 2 schools in the same district (count 2 total, count 2 in that district).
+-- 'Frank' has 2 schools in the same district (count 2 total, count 2 in that district).
+-- In Gold Query: Top 2 AdmFName1 are 'David' (3) and 'Eve' (2, beats 'Frank' on tie-breaker).
+-- If a mutant skips the subquery and does GROUP BY AdmFName1, District ORDER BY COUNT(*) DESC LIMIT 2:
+-- ('Eve', 'DistE') has count 2 and ('Frank', 'DistF') has count 2, completely missing 'David'!
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, LastUpdate) VALUES ('1', 'Active', 'C1', 'DistD1', '00', 'Doc', 'David', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, LastUpdate) VALUES ('2', 'Active', 'C1', 'DistD2', '00', 'Doc', 'David', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, LastUpdate) VALUES ('3', 'Active', 'C1', 'DistD3', '00', 'Doc', 'David', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, LastUpdate) VALUES ('4', 'Active', 'C1', 'DistE', '00', 'Doc', 'Eve', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, LastUpdate) VALUES ('5', 'Active', 'C1', 'DistE', '00', 'Doc', 'Eve', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, LastUpdate) VALUES ('6', 'Active', 'C1', 'DistF', '00', 'Doc', 'Frank', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, LastUpdate) VALUES ('7', 'Active', 'C1', 'DistF', '00', 'Doc', 'Frank', '2020-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Strict separation between primary ranking (COUNT DESC) and tie-breaker (admfname1 ASC).
+-- 'Zoe' has count 4 (alphabetically last, highest count).
+-- 'Yara' has count 3 (alphabetically second-to-last, 2nd highest count).
+-- 'Adam' has count 2 (alphabetically first, 3rd highest count).
+-- Ensures mutants that sort by admfname1 ASC first or COUNT ASC are caught, and mutants using LIMIT 1 or LIMIT 3 are caught.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmLName1, LastUpdate) VALUES ('1', 'Active', 'C1', 'D_Zoe_1', '00', 'Doc', 'Zoe', 'Smith', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmLName1, LastUpdate) VALUES ('2', 'Active', 'C1', 'D_Zoe_2', '00', 'Doc', 'Zoe', 'Jones', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmLName1, LastUpdate) VALUES ('3', 'Active', 'C1', 'D_Zoe_3', '00', 'Doc', 'Zoe', 'Taylor', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmLName1, LastUpdate) VALUES ('4', 'Active', 'C1', 'D_Zoe_4', '00', 'Doc', 'Zoe', 'Brown', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmLName1, LastUpdate) VALUES ('5', 'Active', 'C1', 'D_Yara_1', '00', 'Doc', 'Yara', 'Smith', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmLName1, LastUpdate) VALUES ('6', 'Active', 'C1', 'D_Yara_2', '00', 'Doc', 'Yara', 'Smith', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmLName1, LastUpdate) VALUES ('7', 'Active', 'C1', 'D_Yara_3', '00', 'Doc', 'Yara', 'Smith', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmLName1, LastUpdate) VALUES ('8', 'Active', 'C1', 'D_Adam_1', '00', 'Doc', 'Adam', 'Smith', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmFName1, AdmLName1, LastUpdate) VALUES ('9', 'Active', 'C1', 'D_Adam_2', '00', 'Doc', 'Adam', 'Smith', '2020-01-01');
+```

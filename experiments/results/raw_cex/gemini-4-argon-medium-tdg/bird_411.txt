@@ -1,0 +1,53 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. LIKE with prefix and suffix vs '=' or 'LIKE prefix%' or 'LIKE %suffix'
+-- 2. DISTINCT requirement (multiple cards with the same artist, or one card with multiple matching foreign_data rows)
+-- 3. Correct column source for flavorText (foreign_data.flavorText vs cards.flavorText)
+-- 4. Join condition correctness (cards.uuid = foreign_data.uuid vs cards.id = foreign_data.id or cross join)
+INSERT INTO "cards" ("id", "artist", "flavorText", "uuid") VALUES (1, 'Artist_Substring_Match', 'Irrelevant', 'uuid-1');
+INSERT INTO "cards" ("id", "artist", "flavorText", "uuid") VALUES (2, 'Artist_Substring_Match', 'Irrelevant', 'uuid-2');
+INSERT INTO "cards" ("id", "artist", "flavorText", "uuid") VALUES (3, 'Artist_Wrong_Table_Col', 'Prefix DAS perfekte Gegenmittel zu einer dichten Formation Suffix', 'uuid-3');
+INSERT INTO "cards" ("id", "artist", "flavorText", "uuid") VALUES (4, 'Artist_Unmatched_FD', 'Irrelevant', 'uuid-4');
+
+INSERT INTO "foreign_data" ("id", "flavorText", "uuid") VALUES (10, 'Prefix DAS perfekte Gegenmittel zu einer dichten Formation Suffix', 'uuid-1');
+INSERT INTO "foreign_data" ("id", "flavorText", "uuid") VALUES (11, 'Another DAS perfekte Gegenmittel zu einer dichten Formation Text', 'uuid-1');
+INSERT INTO "foreign_data" ("id", "flavorText", "uuid") VALUES (12, 'DAS perfekte Gegenmittel zu einer dichten Formation', 'uuid-2');
+INSERT INTO "foreign_data" ("id", "flavorText", "uuid") VALUES (3, 'No match here', 'uuid-3');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Prefix-only match vs exact match (kills LIKE '%...')
+-- 2. Suffix-only match vs exact match (kills LIKE '...%')
+-- 3. Partial/corrupted target string (kills partial string matches)
+-- 4. Foreign data with NULL uuid or NULL flavorText (kills improper NULL handling or OUTER JOIN mutations)
+INSERT INTO "cards" ("id", "artist", "uuid") VALUES (1, 'Artist_Prefix_Only', 'uuid-1');
+INSERT INTO "cards" ("id", "artist", "uuid") VALUES (2, 'Artist_Suffix_Only', 'uuid-2');
+INSERT INTO "cards" ("id", "artist", "uuid") VALUES (3, 'Artist_Partial_Mismatch', 'uuid-3');
+INSERT INTO "cards" ("id", "artist", "uuid") VALUES (4, 'Artist_Null_Flavor', 'uuid-4');
+
+INSERT INTO "foreign_data" ("id", "flavorText", "uuid") VALUES (1, 'Prefix DAS perfekte Gegenmittel zu einer dichten Formation', 'uuid-1');
+INSERT INTO "foreign_data" ("id", "flavorText", "uuid") VALUES (2, 'DAS perfekte Gegenmittel zu einer dichten Formation Suffix', 'uuid-2');
+INSERT INTO "foreign_data" ("id", "flavorText", "uuid") VALUES (3, 'DAS perfekte Gegenmittel zu einer Formation', 'uuid-3');
+INSERT INTO "foreign_data" ("id", "flavorText", "uuid") VALUES (4, NULL, 'uuid-4');
+INSERT INTO "foreign_data" ("id", "flavorText", "uuid") VALUES (5, 'DAS perfekte Gegenmittel zu einer dichten Formation', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Wrong column projection or wrong column predicate (e.g., querying T2.text or T2.name instead of T2.flavorText, or projecting T1.name / T1.asciiName instead of T1.artist)
+-- 2. Accidental join on id = id when uuid does not match
+-- 3. Handling of NULL artist when condition matches
+INSERT INTO "cards" ("id", "artist", "name", "asciiName", "uuid") VALUES (1, 'Correct_Artist', 'Wrong_Card_Name', 'Wrong_Ascii', 'uuid-match');
+INSERT INTO "cards" ("id", "artist", "name", "asciiName", "uuid") VALUES (2, 'Wrong_Artist_Text_Col', 'Card_2', 'Ascii_2', 'uuid-text-col');
+INSERT INTO "cards" ("id", "artist", "name", "asciiName", "uuid") VALUES (3, 'Wrong_Artist_ID_Join', 'Card_3', 'Ascii_3', 'uuid-no-match');
+INSERT INTO "cards" ("id", "artist", "name", "asciiName", "uuid") VALUES (4, NULL, 'Card_Null_Artist', 'Ascii_4', 'uuid-null-artist');
+
+INSERT INTO "foreign_data" ("id", "flavorText", "text", "name", "uuid") VALUES (10, '---DAS perfekte Gegenmittel zu einer dichten Formation---', 'Other text', 'Other name', 'uuid-match');
+INSERT INTO "foreign_data" ("id", "flavorText", "text", "name", "uuid") VALUES (20, 'Unrelated flavor', 'DAS perfekte Gegenmittel zu einer dichten Formation', 'DAS perfekte Gegenmittel zu einer dichten Formation', 'uuid-text-col');
+INSERT INTO "foreign_data" ("id", "flavorText", "text", "name", "uuid") VALUES (3, 'DAS perfekte Gegenmittel zu einer dichten Formation', 'Other text', 'Other name', 'uuid-match');
+INSERT INTO "foreign_data" ("id", "flavorText", "text", "name", "uuid") VALUES (40, 'DAS perfekte Gegenmittel zu einer dichten Formation', 'Other text', 'Other name', 'uuid-null-artist');
+```

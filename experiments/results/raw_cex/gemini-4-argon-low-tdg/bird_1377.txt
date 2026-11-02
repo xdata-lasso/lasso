@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+-- Tests basic counting of multiple 'President' rows, filtering out other positions, NULL positions, and case/substring variations (e.g., 'president', 'Vice President').
+-- Also tests mutants that incorrectly join with major, zip_code, attendance, income, or expense (via missing FKs or 1-to-many fan-out).
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Science', 'CS', 'Engineering');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Annual Gala', '2023-01-01', 'Social', 'None', 'Hall A', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Tech Talk', '2023-02-01', 'Academic', 'None', 'Room 101', 'Open');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 50.0, 50.0, 100, 'Closed', 'E1');
+
+-- M1: Exact match 'President', has valid foreign keys and multiple child records in attendance/income/expense (tests join fan-out)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Alice', 'Smith', 'alice@example.com', 'President', 'M', '555-0001', 10001, 'MAJ1');
+-- M2: Exact match 'President', but NULL foreign keys and NULL other attributes (tests INNER JOIN mutants and COUNT(other_column) mutants)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', NULL, NULL, NULL, 'President', NULL, NULL, NULL, NULL);
+-- M3: Substring match 'Vice President' (tests LIKE '%President%' mutants)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M3', 'Charlie', 'Brown', 'charlie@example.com', 'Vice President', 'L', '555-0003', 10001, 'MAJ1');
+-- M4: Case variation 'president' (tests case-insensitive mutants)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M4', 'David', 'Jones', 'david@example.com', 'president', 'S', '555-0004', 10001, 'MAJ1');
+-- M5: Different position 'Member' (tests missing WHERE clause or != mutants)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M5', 'Eve', 'Adams', 'eve@example.com', 'Member', 'XL', '555-0005', 10001, 'MAJ1');
+-- M6: NULL position (tests IS NULL / IS NOT NULL handling)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M6', 'Frank', 'Wright', 'frank@example.com', NULL, 'M', '555-0006', 10001, 'MAJ1');
+-- M7: 'President' in wrong column (last_name) (tests wrong column in WHERE predicate)
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M7', 'Grace', 'President', 'grace@example.com', 'Secretary', 'S', '555-0007', 10001, 'MAJ1');
+
+-- Child table records for M1 to cause row multiplication if unnecessary joins are performed
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'M1');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E2', 'M1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('I1', '2023-01-05', 20, 'Dues', 'None', 'M1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('I2', '2023-01-06', 30, 'Donation', 'None', 'M1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX1', 'Pizza', '2023-01-01', 25.0, 'true', 'M1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX2', 'Drinks', '2023-01-01', 25.0, 'true', 'M1', 'B1');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition where COUNT is 0 (no 'President' exists in the table).
+-- Distinguishes COUNT (which returns 0) from queries without aggregation or with GROUP BY (which return empty set) or SUM/AVG/MAX/MIN (which return NULL).
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Mathematics', 'Math', 'Science');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (20001, 'Standard', 'Washington', 'DC', 'DC', 'DC');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Bob', 'Builder', 'bob@example.com', 'Treasurer', 'L', '555-1111', 20001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', 'Wendy', 'Worker', 'wendy@example.com', 'Secretary', 'M', '555-2222', 20001, 'MAJ1');
+```
+
+```sql
+-- DATASET 3
+-- Tests COUNT(member_id) vs COUNT(*) when member_id is NULL (valid in SQLite for TEXT PRIMARY KEY), and vs SUM(member_id)/MAX(member_id) using numeric-string member_ids.
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES (NULL, 'NullID', 'User', 'null@example.com', 'President', 'M', '555-0000', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('10', 'Ten', 'User', 'ten@example.com', 'President', 'L', '555-0010', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('20', 'Twenty', 'User', 'twenty@example.com', 'President', 'S', '555-0020', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('30', 'Thirty', 'User', 'thirty@example.com', 'Member', 'M', '555-0030', NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests single matching row where all rows in the table have position = 'President' and Identical non-PK attributes.
+-- Catches mutants doing COUNT(DISTINCT position) vs COUNT(member_id) when only 'President' is present, or filtering out rows based on arbitrary column predicates.
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('1', 'Same', 'Person', 'same@example.com', 'President', 'M', '555-9999', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('2', 'Same', 'Person', 'same@example.com', 'President', 'M', '555-9999', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('3', 'Same', 'Person', 'same@example.com', 'President', 'M', '555-9999', NULL, NULL);
+```

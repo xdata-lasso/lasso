@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests standard match, boundary conditions around 6347 (6346, 6348), and column confusion (T1.Id=6347, T2.UserId=6347, T2.PostId=6347, T2.VoteTypeId=6347, T2.BountyAmount=6347, T1.Reputation=6347, T1.AccountId=6347).
+INSERT INTO users (Id, DisplayName, Reputation, AccountId, Views) VALUES (10, 'TargetUser', 100, 200, 300);
+INSERT INTO users (Id, DisplayName, Reputation, AccountId, Views) VALUES (6347, 'WrongUserById', 100, 200, 300);
+INSERT INTO users (Id, DisplayName, Reputation, AccountId, Views) VALUES (20, 'WrongUserByRep', 6347, 6347, 6347);
+INSERT INTO users (Id, DisplayName, Reputation, AccountId, Views) VALUES (30, 'UnvotedUser', 50, 50, 50);
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (100, 10, 'Sample Post');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (6347, 20, 'Post 6347');
+
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (6347, 100, 1, 10, 50);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (6346, 6347, 6347, 20, 6347);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (6348, 100, 2, 6347, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN when the target vote (Id = 6347) has a NULL UserId, and other users have no votes.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'UserWithOtherVote');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'UserWithNoVotes');
+INSERT INTO users (Id, DisplayName) VALUES (6347, 'User6347WithNoVotes');
+
+INSERT INTO posts (Id, OwnerUserId) VALUES (50, 1);
+
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (6347, 50, NULL, 2);
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (1000, 50, 1, 2);
+```
+
+```sql
+-- DATASET 3
+-- Tests wrong table mutations (e.g., querying comments, badges, postHistory, or posts instead of votes) and tests NULL DisplayName handling on the target user.
+INSERT INTO users (Id, DisplayName, Location, AboutMe) VALUES (5, NULL, 'LocationText', 'AboutMeText');
+INSERT INTO users (Id, DisplayName, Location, AboutMe) VALUES (6, 'DecoyUser', 'DecoyLoc', 'DecoyAbout');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title, OwnerDisplayName) VALUES (6347, 6, 6, 'DecoyPost', 'DecoyOwnerDisplay');
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (6347, 6347, 5);
+
+INSERT INTO badges (Id, UserId, Name) VALUES (6347, 6, 'DecoyBadge');
+INSERT INTO comments (Id, PostId, UserId, UserDisplayName, Text) VALUES (6347, 6347, 6, 'DecoyCommentUser', 'CommentText');
+INSERT INTO postHistory (Id, PostId, UserId, UserDisplayName, Text) VALUES (6347, 6347, 6, 'DecoyHistoryUser', 'HistoryText');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when Vote 6347 does not exist, ensuring queries without WHERE or with weak predicates (e.g., OR instead of AND, != instead of =) are killed.
+INSERT INTO users (Id, DisplayName) VALUES (101, 'ActiveUser1');
+INSERT INTO users (Id, DisplayName) VALUES (102, 'ActiveUser2');
+
+INSERT INTO posts (Id, OwnerUserId) VALUES (201, 101);
+
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (1, 201, 101, 2);
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (2, 201, 102, 3);
+```
+
+```sql
+-- DATASET 5
+-- Tests join condition mutations (e.g., T1.Id != T2.UserId, T1.Id < T2.UserId, T1.Id = T2.PostId) and DISTINCT/GROUP BY side effects when multiple users share the same DisplayName.
+INSERT INTO users (Id, DisplayName) VALUES (50, 'DuplicateName');
+INSERT INTO users (Id, DisplayName) VALUES (51, 'DuplicateName');
+INSERT INTO users (Id, DisplayName) VALUES (52, 'OtherName');
+
+INSERT INTO posts (Id, OwnerUserId) VALUES (50, 52);
+INSERT INTO posts (Id, OwnerUserId) VALUES (51, 52);
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (6347, 52, 50);
+INSERT INTO votes (Id, PostId, UserId) VALUES (6348, 50, 51);
+```

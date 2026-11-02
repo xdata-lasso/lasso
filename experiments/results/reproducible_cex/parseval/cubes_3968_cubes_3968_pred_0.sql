@@ -1,0 +1,104 @@
+-- Schema DDL
+CREATE TABLE "Document_Types" ("document_type_code" TEXT(10) PRIMARY KEY, "document_description" TEXT(255));
+
+CREATE TABLE "Documents" ("document_id" INTEGER PRIMARY KEY, "grant_id" INTEGER, "document_type_code" TEXT(10), "sent_date" DATETIME, "response_received_date" DATETIME, "other_details" TEXT(255), FOREIGN KEY ("grant_id") REFERENCES "Grants" ("grant_id"), FOREIGN KEY ("document_type_code") REFERENCES "Document_Types" ("document_type_code"));
+
+CREATE TABLE "Grants" ("grant_id" INTEGER PRIMARY KEY, "organisation_id" INTEGER, "grant_amount" REAL(19, 4), "grant_start_date" DATETIME, "grant_end_date" DATETIME, "other_details" TEXT(255), FOREIGN KEY ("organisation_id") REFERENCES "Organisations" ("organisation_id"));
+
+CREATE TABLE "Organisation_Types" ("organisation_type" TEXT(10) PRIMARY KEY, "organisation_type_description" TEXT(255));
+
+CREATE TABLE "Organisations" ("organisation_id" INTEGER PRIMARY KEY, "organisation_type" TEXT(10), "organisation_details" TEXT(255), FOREIGN KEY ("organisation_type") REFERENCES "Organisation_Types" ("organisation_type"));
+
+CREATE TABLE "Project_Outcomes" ("outcome_code" TEXT(10), "project_id" INTEGER, "outcome_details" TEXT(255), FOREIGN KEY ("outcome_code") REFERENCES "Research_Outcomes" ("outcome_code"), FOREIGN KEY ("project_id") REFERENCES "Projects" ("project_id"));
+
+CREATE TABLE "Project_Staff" ("staff_id" REAL PRIMARY KEY, "role_code" TEXT(10), "project_id" INTEGER, "date_from" DATETIME, "date_to" DATETIME, "other_details" TEXT(255), FOREIGN KEY ("role_code") REFERENCES "Staff_Roles" ("role_code"), FOREIGN KEY ("project_id") REFERENCES "Projects" ("project_id"));
+
+CREATE TABLE "Projects" ("project_id" INTEGER PRIMARY KEY, "organisation_id" INTEGER, "project_details" TEXT(255), FOREIGN KEY ("organisation_id") REFERENCES "Organisations" ("organisation_id"));
+
+CREATE TABLE "Research_Outcomes" ("outcome_code" TEXT(10) PRIMARY KEY, "outcome_description" TEXT(255));
+
+CREATE TABLE "Research_Staff" ("staff_id" INTEGER PRIMARY KEY, "employer_organisation_id" INTEGER, "staff_details" TEXT(255), FOREIGN KEY ("employer_organisation_id") REFERENCES "Organisations" ("organisation_id"));
+
+CREATE TABLE "Staff_Roles" ("role_code" TEXT(10) PRIMARY KEY, "role_description" TEXT(255));
+
+CREATE TABLE "Tasks" ("task_id" INTEGER PRIMARY KEY, "project_id" INTEGER, "task_details" TEXT(255), "eg Agree Objectives" TEXT(1), FOREIGN KEY ("project_id") REFERENCES "Projects" ("project_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: organisations --
+INSERT INTO "organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 't1__fcdd6f', 'org_fd61f4');
+
+INSERT INTO "organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (-2147483647, 't1__fcdd6f', 'org_fd61f4');
+
+INSERT INTO "organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (-2147483646, 'G', 'org_fd61f4');
+
+INSERT INTO "organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (-2147483645, '/', 'org_fd61f4');
+
+INSERT INTO "organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (-2147483644, 'C', 'org_fd61f4');
+
+INSERT INTO "organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (-2147483643, 'O', 'org_fd61f4');
+
+INSERT INTO "organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (2, '!', 'org_fd61f4');
+
+INSERT INTO "organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (3, '!', 'org_fd61f4');
+
+-- Inserting into table: organisation_types --
+INSERT INTO "organisation_types" ("organisation_type", "organisation_type_description") VALUES ('t1__fcdd6f', 'org_359f94');
+
+INSERT INTO "organisation_types" ("organisation_type", "organisation_type_description") VALUES ('G', 'org_359f94');
+
+INSERT INTO "organisation_types" ("organisation_type", "organisation_type_description") VALUES ('A', 'org_359f94');
+
+INSERT INTO "organisation_types" ("organisation_type", "organisation_type_description") VALUES ('/', 'org_359f94');
+
+INSERT INTO "organisation_types" ("organisation_type", "organisation_type_description") VALUES ('!', 'org_359f94');
+
+INSERT INTO "organisation_types" ("organisation_type", "organisation_type_description") VALUES ('C', 'org_359f94');
+
+INSERT INTO "organisation_types" ("organisation_type", "organisation_type_description") VALUES ('O', 'org_359f94');
+
+-- Inserting into table: research_staff --
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (-2147483648, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (-2147483647, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (-2147483646, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (2, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (3, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (-2147483643, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (-2147483642, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (-2147483641, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (-2147483640, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (-2147483639, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (-2147483638, 1, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (5, 2, 'res_68e0be');
+
+INSERT INTO "research_staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (4, 3, 'res_68e0be');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT organisation_type FROM (SELECT LHS.organisation_id AS organisation_id, LHS.organisation_type AS organisation_type, LHS.organisation_details AS organisation_details, LHS.staff_id AS staff_id, LHS.employer_organisation_id AS employer_organisation_id, LHS.staff_details AS staff_details, LHS.n AS n FROM (SELECT LHS.organisation_id AS organisation_id, LHS.organisation_type AS organisation_type, LHS.organisation_details AS organisation_details, LHS.staff_id AS staff_id, LHS.employer_organisation_id AS employer_organisation_id, LHS.staff_details AS staff_details, RHS.n AS n FROM (SELECT LHS.organisation_id AS organisation_id, LHS.organisation_type AS organisation_type, LHS.organisation_details AS organisation_details, RHS.staff_id AS staff_id, RHS.employer_organisation_id AS employer_organisation_id, RHS.staff_details AS staff_details FROM organisations AS LHS CROSS JOIN research_staff AS RHS) AS LHS INNER JOIN (SELECT organisation_type, COUNT(*) AS n FROM organisations GROUP BY organisation_type) AS RHS ON (LHS.organisation_type = RHS.organisation_type)) AS LHS INNER JOIN (SELECT organisation_type, MAX(n) OVER () AS n FROM (SELECT organisation_type, COUNT(*) AS n FROM organisations GROUP BY organisation_type)) AS RHS ON (LHS.organisation_type = RHS.organisation_type AND LHS.n = RHS.n)) ORDER BY organisation_type;
+
+/*
+Gold Result:
+('!',)
+('t1__fcdd6f',)
+*/
+
+-- Prediction Query
+SELECT T1.organisation_type FROM Organisations AS T1 JOIN Research_Staff AS T2 ON T1.organisation_id = T2.employer_organisation_id GROUP BY T1.organisation_type ORDER BY COUNT(*) DESC, T1.organisation_type NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('t1__fcdd6f',)
+*/

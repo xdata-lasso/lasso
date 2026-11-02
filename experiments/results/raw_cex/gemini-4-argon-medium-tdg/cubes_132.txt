@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests DISTINCT behavior (duplicate pairs vs distinct pairs), basic multi-column ordering, and unreferenced parent rows in Breeds and Sizes (kills mutants that query parent tables or use outer joins without filtering to Dogs).
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B1', 'Beagle');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B2', 'Bulldog');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B3', 'Unused Breed');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('L', 'Large');
+INSERT INTO Sizes (size_code, size_description) VALUES ('M', 'Medium');
+INSERT INTO Sizes (size_code, size_description) VALUES ('S', 'Small');
+INSERT INTO Sizes (size_code, size_description) VALUES ('XL', 'Unused Size');
+
+INSERT INTO Owners (owner_id, first_name, last_name) VALUES (1, 'Alice', 'Smith');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (1, 1, 'M', 'B2', 'Rex');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (2, 1, 'S', 'B1', 'Bella');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (3, 1, 'L', 'B1', 'Max');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (4, 1, 'S', 'B1', 'Lucy');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (5, 1, 'S', 'B2', 'Charlie');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in breed_code and size_code, specifically targeting INNER JOIN mutations (which drop NULLs), ORDER BY NULLS LAST on size_code vs default NULLS FIRST on breed_code, and duplicate NULL pairs.
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B1', 'Poodle');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B2', 'Terrier');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('S1', 'Small');
+INSERT INTO Sizes (size_code, size_description) VALUES ('S2', 'Large');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (1, NULL, 'S2', 'B1', 'Dog1');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (2, NULL, NULL, 'B1', 'Dog2');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (3, NULL, 'S1', 'B1', 'Dog3');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (4, NULL, NULL, 'B1', 'Dog4');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (5, NULL, 'S1', NULL, 'Dog5');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (6, NULL, NULL, NULL, 'Dog6');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (7, NULL, NULL, NULL, 'Dog7');
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, name) VALUES (8, NULL, 'S1', 'B2', 'Dog8');
+```
+
+```sql
+-- DATASET 3
+-- Tests unintended WHERE filters (e.g., filtering by abandoned_yn, gender, or null dates) and unintended JOINs with Treatments or Owners (dogs with 0, 1, or multiple treatments; dogs with and without owners).
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('A', 'Akita');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B', 'Boxer');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('C', 'Collie');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('1', 'Toy');
+INSERT INTO Sizes (size_code, size_description) VALUES ('2', 'Standard');
+
+INSERT INTO Owners (owner_id, first_name, last_name) VALUES (10, 'John', 'Doe');
+
+INSERT INTO Professionals (professional_id, first_name, last_name) VALUES (100, 'Dr.', 'Vet');
+
+INSERT INTO Treatment_Types (treatment_type_code, treatment_type_description) VALUES ('T1', 'Checkup');
+
+-- Dog with owner, abandoned = '0', male, has 2 treatments
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, gender, date_adopted, date_departed) 
+VALUES (1, 10, '2', 'B', '0', 'Buddy', 'M', '2023-01-01', NULL);
+
+-- Dog without owner, abandoned = '1', female, has 0 treatments
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, gender, date_adopted, date_departed) 
+VALUES (2, NULL, '1', 'A', '1', 'Molly', 'F', NULL, '2023-05-01');
+
+-- Dog with owner, abandoned = NULL, gender = NULL, has 1 treatment
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, gender, date_adopted, date_departed) 
+VALUES (3, 10, '1', 'C', NULL, 'Shadow', NULL, NULL, NULL);
+
+INSERT INTO Treatments (treatment_id, dog_id, professional_id, treatment_type_code, cost_of_treatment) VALUES (1000, 1, 100, 'T1', 50.0);
+INSERT INTO Treatments (treatment_id, dog_id, professional_id, treatment_type_code, cost_of_treatment) VALUES (1001, 1, 100, 'T1', 75.0);
+INSERT INTO Treatments (treatment_id, dog_id, professional_id, treatment_type_code, cost_of_treatment) VALUES (1002, 3, 100, 'T1', 30.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests sorting on breed_code vs breed_name and size_code vs size_description (where code order is inverse of name/description order), and kills single-column GROUP BY mutants (GROUP BY breed_code alone or GROUP BY size_code alone).
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B_A', 'Zebra Hound');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B_Z', 'Affenpinscher');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('S_A', 'Z_Giant');
+INSERT INTO Sizes (size_code, size_description) VALUES ('S_Z', 'A_Tiny');
+
+INSERT INTO Dogs (dog_id, size_code, breed_code, name) VALUES (1, 'S_Z', 'B_Z', 'D1');
+INSERT INTO Dogs (dog_id, size_code, breed_code, name) VALUES (2, 'S_A', 'B_Z', 'D2');
+INSERT INTO Dogs (dog_id, size_code, breed_code, name) VALUES (3, 'S_Z', 'B_A', 'D3');
+INSERT INTO Dogs (dog_id, size_code, breed_code, name) VALUES (4, 'S_A', 'B_A', 'D4');
+```

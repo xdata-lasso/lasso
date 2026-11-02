@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests basic join conditions, asymmetric matches (LHS vs RHS), partial matches (only ID or only capacity/height), and ORDER BY.
+INSERT INTO Catalogs (catalog_id, catalog_name) VALUES (1, 'Cat 1');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (1, 1, 'L1');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (2, 1, 'L2');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (3, 1, 'L3');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (4, 1, 'L4');
+
+-- LHS (1) matches RHS (10): entry_id 1 = level 1, capacity 'C1' = height 'C1'
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (1, 2, 'Zebra_LHS', 'C1', 'H_DIFF1');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (10, 1, 'Alpha_RHS', 'C_DIFF1', 'C1');
+
+-- LHS (2) matches RHS (20): entry_id 2 = level 2, capacity 'C2' = height 'C2'
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (2, 3, 'Beta_LHS', 'C2', 'H_DIFF2');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (20, 2, 'Omega_RHS', 'C_DIFF2', 'C2');
+
+-- Partial match 1: entry_id 3 = level 3, but capacity ('C3') != height ('NOT_C3')
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (3, 1, 'NoMatch_Cap', 'C3', 'C3');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (30, 3, 'NoMatch_Cap_RHS', 'C3', 'NOT_C3');
+
+-- Partial match 2: capacity ('C4') = height ('C4'), but entry_id 4 != level (1)
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (4, 4, 'NoMatch_ID', 'C4', 'H4');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (40, 1, 'NoMatch_ID_RHS', 'C_OTHER', 'C4');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate elimination (DISTINCT vs ALL) when one LHS row matches multiple RHS rows, and when two different LHS rows have the same name.
+INSERT INTO Catalogs (catalog_id, catalog_name) VALUES (1, 'Cat 1');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (1, 1, 'L1');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (2, 1, 'L2');
+
+-- LHS 1 matches both RHS 10 and RHS 11 (should produce 'Item_Multi' twice)
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (1, 2, 'Item_Multi', '100', '200');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (10, 1, 'RHS_A', '999', '100');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (11, 1, 'RHS_B', '888', '100');
+
+-- LHS 2 also has the name 'Item_SameName' and matches RHS 20
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (2, 1, 'Item_SameName', '50', '100');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (20, 2, 'Item_SameName', '0', '50');
+```
+
+```sql
+-- DATASET 3
+-- Tests self-joining rows, swapped column confusion (e.g., LHS.height = RHS.capacity or LHS.catalog_level_number = RHS.catalog_entry_id), and NULL handling.
+INSERT INTO Catalogs (catalog_id, catalog_name) VALUES (1, 'Cat 1');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (1, 1, 'L1');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (2, 1, 'L2');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (3, 1, 'L3');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (5, 1, 'L5');
+
+-- Row 1: Matches itself (entry_id 1 = level 1, capacity 'Self' = height 'Self')
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (1, 1, 'Self_Match', 'Self', 'Self');
+
+-- Row 2 & 3: Trap for LHS.height = RHS.capacity instead of LHS.capacity = RHS.height
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (2, 5, 'Trap_LHS', 'Cap2', 'Hgt2');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (3, 2, 'Trap_RHS', 'Hgt2', 'Cap_Wrong');
+
+-- Row 5: NULL values in join columns (should not match even though entry_id 5 = level 5)
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (5, 1, 'Null_LHS', NULL, NULL);
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, height) VALUES (6, 5, 'Null_RHS', NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion with other dimension columns (length, width) and numeric vs string comparison on TEXT columns.
+INSERT INTO Catalogs (catalog_id, catalog_name) VALUES (1, 'Cat 1');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (1, 1, 'L1');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (2, 1, 'L2');
+
+-- Row 1 & 10: Matches if capacity is confused with length or width
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, length, height, width) VALUES (1, 2, 'Dim_Trap_LHS', 'CAP', 'LEN', 'HGT', 'WID');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, length, height, width) VALUES (10, 1, 'Dim_Trap_RHS', 'CAP', 'CAP', 'LEN', 'CAP');
+
+-- Row 2 & 20: Exact valid match amongst traps
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, length, height, width) VALUES (2, 1, 'Valid_Match_LHS', 'MATCH_VAL', 'L2', 'H2', 'W2');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, catalog_entry_name, capacity, length, height, width) VALUES (20, 2, 'Valid_Match_RHS', 'C20', 'L20', 'MATCH_VAL', 'W20');
+```

@@ -1,0 +1,54 @@
+```sql
+-- DATASET 1
+-- Core test: Duplicate bedroom_count values, non-integer average, distinct values in other columns (bathroom_count, room_count), and orphaned/multiple foreign key relationships to catch unnecessary JOINs or AVG(DISTINCT) mutations.
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name", "building_full_name", "building_description", "building_address", "building_manager", "building_phone") VALUES (1, 'B1', 'Building One', 'Desc 1', '123 Main St', 'Alice', '555-0001');
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name", "building_full_name", "building_description", "building_address", "building_manager", "building_phone") VALUES (2, 'B2', 'Building Two', 'Desc 2', '456 Oak St', 'Bob', '555-0002');
+
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (101, 1, 'Studio', '1A', 1, 2, '3');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (102, 1, 'Standard', '1B', 2, 2, '4');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (103, 2, 'Deluxe', '2A', 3, 5, '7');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (104, NULL, 'Penthouse', 'PH1', 4, 2, '6');
+
+INSERT INTO "Apartment_Facilities" ("apt_id", "facility_code") VALUES (101, 'WIFI');
+INSERT INTO "Apartment_Facilities" ("apt_id", "facility_code") VALUES (101, 'POOL');
+
+INSERT INTO "Guests" ("guest_id", "gender_code", "guest_first_name", "guest_last_name", "date_of_birth") VALUES (1, 'M', 'John', 'Doe', '1980-01-01 00:00:00');
+
+INSERT INTO "Apartment_Bookings" ("apt_booking_id", "guest_id", "apt_id", "booking_status_code", "booking_start_date", "booking_end_date") VALUES (1001, 1, 101, 'CONFIRMED', '2023-01-01 00:00:00', '2023-01-05 00:00:00');
+INSERT INTO "Apartment_Bookings" ("apt_booking_id", "guest_id", "apt_id", "booking_status_code", "booking_start_date", "booking_end_date") VALUES (1002, 1, 101, 'CANCELLED', '2023-02-01 00:00:00', '2023-02-05 00:00:00');
+
+INSERT INTO "View_Unit_Status" ("status_date", "apt_booking_id", "apt_id", "available_yn") VALUES ('2023-01-01 00:00:00', 1001, 101, 0);
+```
+
+```sql
+-- DATASET 2
+-- Edge case: NULL values and 0 in bedroom_count. Tests if mutant incorrectly treats NULL as 0 (e.g., SUM(bedroom_count)/COUNT(*)) or filters out 0s (e.g., WHERE bedroom_count > 0).
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name", "building_full_name", "building_description", "building_address", "building_manager", "building_phone") VALUES (10, 'B10', 'Building Ten', 'Desc 10', '789 Pine St', 'Charlie', '555-0010');
+
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (201, 10, 'Studio', '101', 1, 0, '1');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (202, 10, 'Loft', '102', 1, NULL, '2');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (203, 10, 'Suite', '103', 2, 3, '5');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (204, 10, 'Duplex', '104', 2, 4, '6');
+```
+
+```sql
+-- DATASET 3
+-- Edge case: Empty Apartments table (with other tables populated). AVG(bedroom_count) should return a single row with NULL, catching mutants that use GROUP BY (returning 0 rows) or COALESCE to 0.
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name", "building_full_name", "building_description", "building_address", "building_manager", "building_phone") VALUES (99, 'EmptyBldg', 'Empty Building', 'No Apts', '000 Nowhere', 'Nobody', '000-0000');
+INSERT INTO "Guests" ("guest_id", "gender_code", "guest_first_name", "guest_last_name", "date_of_birth") VALUES (99, 'F', 'Jane', 'Smith', '1990-05-15 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Edge case: Single row where bedroom_count is 1. Specifically catches mutations replacing AVG(bedroom_count) with COUNT(*) or SUM() when values are > 1 vs = 1, and tests exact boundary.
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name", "building_full_name", "building_description", "building_address", "building_manager", "building_phone") VALUES (5, 'Single', 'Single Apt Bldg', 'One Apt', '111 First Ave', 'Dave', '555-1111');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (501, 5, '1BHK', '1A', 2, 3, '4');
+```
+
+```sql
+-- DATASET 5
+-- Edge case: All rows have NULL bedroom_count. AVG should evaluate to NULL while COUNT(*) is 2.
+INSERT INTO "Apartment_Buildings" ("building_id", "building_short_name", "building_full_name", "building_description", "building_address", "building_manager", "building_phone") VALUES (6, 'NullBldg', 'Null Apt Bldg', 'Null Beds', '222 Second Ave', 'Eve', '555-2222');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (601, 6, 'Unknown', 'U1', 1, NULL, '2');
+INSERT INTO "Apartments" ("apt_id", "building_id", "apt_type_code", "apt_number", "bathroom_count", "bedroom_count", "room_count") VALUES (602, 6, 'Unknown', 'U2', 2, NULL, '3');
+```

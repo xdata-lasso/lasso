@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- Tests DISTINCT vs ALL, < vs <=, < vs >, LHS.customer_id vs RHS.customer_id_other, and customers without events.
+-- Customers: 1, 2, 3, 4.
+-- Customer_Events for customers: 2 (twice), 3 (once), 4 (once), and NULL.
+-- Max customer_id is 4. Only events with customer_id < 4 qualify (i.e. 2 and 3).
+-- Expected Reference Output: 2
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (1, 'Cust 1 - No Events');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (2, 'Cust 2 - Multiple Events');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (3, 'Cust 3 - Single Event');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (4, 'Cust 4 - Max ID With Event');
+
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (10, 'APT', '123 Main St', 'Details');
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (100, 10, '2020-01-01 00:00:00', '2021-01-01 00:00:00', 'Resident 1');
+INSERT INTO "Organizations" ("organization_id", "parent_organization_id", "organization_details") VALUES (1000, NULL, 'Org 1');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (10000, 1000, 'TYPE1', 'SRV1', 'Thing 1');
+
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (1, 100, 10, '2020-01-01 00:00:00', 2, 10000);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (2, 100, 10, '2020-01-01 00:00:00', 2, 10000);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (3, 100, 10, '2020-01-01 00:00:00', 3, 10000);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (4, 100, 10, '2020-01-01 00:00:00', 4, 10000);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (5, NULL, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Boundary condition: Only 1 customer exists, and they have events.
+-- Tests < vs <=, < vs =, and WHERE clause omission.
+-- Since only customer 10 exists, 10 < 10 is FALSE.
+-- Expected Reference Output: 0
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (10, 'Only Customer');
+
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (1, NULL, NULL, NULL, 10, NULL);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (2, NULL, NULL, NULL, 10, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Asymmetry test: Multiple customers exist, but ONLY the customer with the MAXIMUM customer_id has an event.
+-- Tests < vs > (if flipped to >, 50 > 10 is TRUE, returning 1 instead of 0), < vs !=, and counting from Customers table directly.
+-- Expected Reference Output: 0
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (10, 'Smaller Customer 1');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (20, 'Smaller Customer 2');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (50, 'Max Customer');
+
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (1, NULL, NULL, NULL, 50, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Counting target & multiplication test:
+-- Only 1 customer (ID 5) has an event, while 3 other customers (IDs 10, 20, 30) have higher IDs and no events.
+-- In the cross join, LHS.customer_id = 5 pairs with RHS.customer_id_other IN (10, 20, 30).
+-- Ref query counts DISTINCT LHS.customer_id (which is just {5} -> count 1).
+-- If mutant counts DISTINCT RHS.customer_id_other, it gets {10, 20, 30} -> count 3.
+-- If mutant omits DISTINCT, it gets 3 rows -> count 3.
+-- Expected Reference Output: 1
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (5, 'Event Customer');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (10, 'Higher Customer 1');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (20, 'Higher Customer 2');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (30, 'Higher Customer 3');
+
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (101, NULL, NULL, NULL, 5, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Empty Customer_Events table with populated Customers table.
+-- Tests queries that mistakenly query Customers (e.g. self-join on Customers) instead of joining Customer_Events.
+-- Expected Reference Output: 0
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (1, 'Cust 1');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (2, 'Cust 2');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (3, 'Cust 3');
+```
+
+```sql
+-- DATASET 6
+-- Negative and zero IDs, plus non-matching foreign keys (NULLs in optional columns of Customer_Events)
+-- to kill mutants that inner-join Customer_Events with Residents, Properties, or Things.
+-- Also tests signed integer comparison (-10 < -5 < 0).
+-- Expected Reference Output: 2 (Customers -10 and -5 are < 0)
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (-10, 'Negative 10');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (-5, 'Negative 5');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (0, 'Zero');
+
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (1, NULL, NULL, NULL, -10, NULL);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (2, NULL, NULL, NULL, -5, NULL);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (3, NULL, NULL, NULL, 0, NULL);
+```

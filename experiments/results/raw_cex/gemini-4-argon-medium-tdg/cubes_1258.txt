@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. 'Unsatisfied' filter exclusion (having count=4, which should not appear in output).
+-- 2. Join condition with Timed_Locations_of_Things (things with no locations vs things with multiple locations).
+-- 3. Difference between COUNT(*) on Things vs COUNT(*) on the joined table vs COUNT(DISTINCT Location_Code).
+-- 4. DISTINCT on final output ("n") and ORDER BY sorting (inserting larger group before smaller group).
+INSERT INTO "Organizations" ("organization_id", "parent_organization_id", "organization_details") VALUES (1, NULL, 'Org 1');
+
+-- Group 'Unsatisfied': 4 things in Things, has locations, should be filtered out by <> 'Unsatisfied'
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (1, 1, 'T1', 'S1', 'Unsatisfied');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (2, 1, 'T1', 'S1', 'Unsatisfied');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (3, 1, 'T1', 'S1', 'Unsatisfied');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (4, 1, 'T1', 'S1', 'Unsatisfied');
+INSERT INTO "Timed_Locations_of_Things" ("thing_id", "Date_and_Time", "Location_Code") VALUES (1, '2023-01-01 10:00:00', 'LOC1');
+
+-- Group 'Satisfied': 3 things in Things, only 1 thing has a location (tests COUNT(*) from Things vs COUNT from joined table)
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (5, 1, 'T1', 'S1', 'Satisfied');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (6, 1, 'T2', 'S2', 'Satisfied');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (7, 1, 'T3', 'S3', 'Satisfied');
+INSERT INTO "Timed_Locations_of_Things" ("thing_id", "Date_and_Time", "Location_Code") VALUES (5, '2023-01-01 11:00:00', 'LOC2');
+INSERT INTO "Timed_Locations_of_Things" ("thing_id", "Date_and_Time", "Location_Code") VALUES (5, '2023-01-01 12:00:00', 'LOC3');
+
+-- Group 'Pending': 1 thing in Things, 2 location entries with same Location_Code (tests DISTINCT n and location count differences)
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (8, 1, 'T1', 'S1', 'Pending');
+INSERT INTO "Timed_Locations_of_Things" ("thing_id", "Date_and_Time", "Location_Code") VALUES (8, '2023-01-02 10:00:00', 'LOC4');
+INSERT INTO "Timed_Locations_of_Things" ("thing_id", "Date_and_Time", "Location_Code") VALUES (8, '2023-01-03 10:00:00', 'LOC4');
+
+-- Group 'NoLocation': 2 things in Things, 0 in Timed_Locations_of_Things (should be eliminated by INNER JOIN)
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (9, 1, 'T1', 'S1', 'NoLocation');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (10, 1, 'T1', 'S1', 'NoLocation');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL values in service_details (NULL = NULL is unknown in SQL join, and NULL <> 'Unsatisfied' is unknown).
+-- 2. Two distinct service_details groups having the exact same count 'n' (tests DISTINCT on outer projection vs GROUP BY service_details).
+-- 3. Decoy data in Services and Timed_Status_of_Things to catch queries joining wrong tables.
+INSERT INTO "Organizations" ("organization_id", "parent_organization_id", "organization_details") VALUES (10, NULL, 'Org 10');
+
+INSERT INTO "Services" ("service_id", "organization_id", "service_type_code", "service_details") VALUES (1, 10, 'S1', 'GroupA');
+INSERT INTO "Services" ("service_id", "organization_id", "service_type_code", "service_details") VALUES (2, 10, 'S1', 'GroupA');
+INSERT INTO "Services" ("service_id", "organization_id", "service_type_code", "service_details") VALUES (3, 10, 'S1', 'GroupA');
+INSERT INTO "Services" ("service_id", "organization_id", "service_type_code", "service_details") VALUES (4, 10, 'S1', 'GroupA');
+INSERT INTO "Services" ("service_id", "organization_id", "service_type_code", "service_details") VALUES (5, 10, 'S1', 'GroupA');
+
+-- Group NULL: 3 things with NULL service_details
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (1, 10, 'T1', 'S1', NULL);
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (2, 10, 'T1', 'S1', NULL);
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (3, 10, 'T1', 'S1', NULL);
+INSERT INTO "Timed_Locations_of_Things" ("thing_id", "Date_and_Time", "Location_Code") VALUES (1, '2023-05-01 00:00:00', 'L1');
+
+-- Group 'GroupA': 2 things
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (4, 10, 'T1', 'S1', 'GroupA');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (5, 10, 'T1', 'S1', 'GroupA');
+INSERT INTO "Timed_Locations_of_Things" ("thing_id", "Date_and_Time", "Location_Code") VALUES (4, '2023-05-01 00:00:00', 'L2');
+
+-- Group 'GroupB': 2 things (same count n=2 as GroupA, tests outer DISTINCT)
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (6, 10, 'T2', 'S2', 'GroupB');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (7, 10, 'T2', 'S2', 'GroupB');
+INSERT INTO "Timed_Locations_of_Things" ("thing_id", "Date_and_Time", "Location_Code") VALUES (6, '2023-05-01 00:00:00', 'L3');
+
+-- Decoy status rows (for things without locations or with different counts)
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (8, 10, 'T3', 'S3', 'StatusOnly');
+INSERT INTO "Timed_Status_of_Things" ("thing_id", "Date_and_Date", "Status_of_Thing_Code") VALUES (8, '2023-05-01 00:00:00', 'STAT1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Case sensitivity and boundary strings around 'Unsatisfied' (e.g., 'unsatisfied', 'Unsatisfied').
+-- 2. Grouping by wrong column in Things (e.g., grouping by service_type_code or Type_of_Thing_Code or organization_id instead of service_details).
+INSERT INTO "Organizations" ("organization_id", "parent_organization_id", "organization_details") VALUES (1, NULL, 'Org 1');
+INSERT INTO "Organizations" ("organization_id", "parent_organization_id", "organization_details") VALUES (2, 1, 'Org 2');
+
+-- 'Unsatisfied' exact match (count = 1) -> excluded
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (1, 1, 'TYPE_A', 'SVC_A', 'Unsatisfied');
+INSERT INTO "Timed_Locations_of_Things" ("thing_id", "Date_and_Time", "Location_Code") VALUES (1, '2023-01-01 00:00:00', 'LOC_A');
+
+-- 'unsatisfied' lowercase (count = 2) -> included, shares service_type_code 'SVC_A' and Type_of_Thing_Code 'TYPE_A' with thing 1
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (2, 1, 'TYPE_A', 'SVC_A', 'unsatisfied');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (3, 2, 'TYPE_A', 'SVC_A', 'unsatisfied');
+INSERT INTO "Timed_Locations_of_Things" ("thing_id", "Date_and_Time", "Location_Code") VALUES (2, '2023-01-02 00:00:00', 'LOC_A');
+```

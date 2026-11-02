@@ -1,0 +1,91 @@
+```sql
+-- DATASET 1
+-- Tests composite DISTINCT vs single-column GROUP BY, duplicate elimination, ordering, and unused lookup values in Breeds and Sizes.
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B1', 'Breed 1');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B2', 'Breed 2');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B3', 'Unused Breed');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('S1', 'Size 1');
+INSERT INTO Sizes (size_code, size_description) VALUES ('S2', 'Size 2');
+INSERT INTO Sizes (size_code, size_description) VALUES ('S3', 'Unused Size');
+
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (1, 'B2', 'S2', 'Dog 1');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (2, 'B1', 'S2', 'Dog 2');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (3, 'B1', 'S1', 'Dog 3');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (4, 'B1', 'S1', 'Dog 4');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (5, 'B2', 'S1', 'Dog 5');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in DISTINCT and ORDER BY (specifically NULLS LAST on size_code vs default NULLS FIRST on breed_code), as well as INNER JOIN mutations.
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B1', 'Breed 1');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B2', 'Breed 2');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('S1', 'Size 1');
+INSERT INTO Sizes (size_code, size_description) VALUES ('S2', 'Size 2');
+
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (1, 'B1', NULL, 'Null Size 1');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (2, 'B1', NULL, 'Null Size 2');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (3, 'B1', 'S2', 'Normal 1');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (4, 'B1', 'S1', 'Normal 2');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (5, NULL, 'S2', 'Null Breed 1');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (6, NULL, 'S1', 'Null Breed 2');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (7, NULL, NULL, 'Both Null 1');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (8, NULL, NULL, 'Both Null 2');
+```
+
+```sql
+-- DATASET 3
+-- Tests mutations that introduce unnecessary joins (Owners, Treatments) or filter predicates on other Dogs columns (abandoned_yn, gender, dates).
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('BUL', 'Bulldog');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('ESK', 'Eskimo');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('HUS', 'Husky');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('LGE', 'Large');
+INSERT INTO Sizes (size_code, size_description) VALUES ('MED', 'Medium');
+INSERT INTO Sizes (size_code, size_description) VALUES ('SML', 'Small');
+
+INSERT INTO Owners (owner_id, first_name, last_name) VALUES (1, 'John', 'Doe');
+
+INSERT INTO Professionals (professional_id, first_name, last_name) VALUES (1, 'Jane', 'Smith');
+
+INSERT INTO Treatment_Types (treatment_type_code, treatment_type_description) VALUES ('VAC', 'Vaccination');
+
+-- Dog 1: Has Owner, Has Multiple Treatments, abandoned = '0', gender = '1'
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (1, 1, 'SML', 'ESK', '0', 'Buddy', '2', '2020-01-01', '1', '15', '2021-01-01', '2021-02-01', '2021-02-02');
+
+-- Dog 2: No Owner (NULL), No Treatments, abandoned = '1', gender = '0', NULL dates
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (2, NULL, 'MED', 'BUL', '1', 'Max', '5', '2018-05-05', '0', '40', '2021-03-01', NULL, NULL);
+
+-- Dog 3: Has Owner, No Treatments, NULL flags
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (3, 1, 'LGE', 'HUS', NULL, 'Bella', '3', NULL, NULL, '60', NULL, NULL, NULL);
+
+INSERT INTO Treatments (treatment_id, dog_id, professional_id, treatment_type_code, date_of_treatment, cost_of_treatment) VALUES (1, 1, 1, 'VAC', '2021-01-10', 50.0);
+INSERT INTO Treatments (treatment_id, dog_id, professional_id, treatment_type_code, date_of_treatment, cost_of_treatment) VALUES (2, 1, 1, 'VAC', '2021-01-15', 75.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests mutations that confuse breed_code/size_code with breed_name/size_description, or where alphabetical order of names differs from codes.
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('A_CODE', 'Zebra Hound');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('Z_CODE', 'Affenpinscher');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('1_SZ', 'Zero Size');
+INSERT INTO Sizes (size_code, size_description) VALUES ('9_SZ', 'Alpha Size');
+
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (1, 'Z_CODE', '9_SZ', 'D1');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (2, 'Z_CODE', '1_SZ', 'D2');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (3, 'A_CODE', '9_SZ', 'D3');
+INSERT INTO Dogs (dog_id, breed_code, size_code, name) VALUES (4, 'A_CODE', '1_SZ', 'D4');
+```
+
+```sql
+-- DATASET 5
+-- Edge Case: Empty Dogs table with populated lookup tables (catches mutations reading directly from Breeds/Sizes without Dogs).
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B1', 'Breed 1');
+INSERT INTO Sizes (size_code, size_description) VALUES ('S1', 'Size 1');
+```

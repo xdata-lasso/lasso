@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests boundary values around 7 and 9 (6, 7, 8, 9, 10) with single employees per department.
+-- Catches off-by-one mutations (e.g. >= 7, >= 9, > 8, > 10), OR vs AND mutations, and predicate pushdown errors.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (6, 'D6');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (7, 'D7');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (8, 'D8');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (9, 'D9');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'D10');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 6, 'E1', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 7, 'E2', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 8, 'E3', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 9, 'E4', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 10, 'E5', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests self-join cardinality (N^2 rows) when multiple employees share the same valid DEPTNO.
+-- Catches DISTINCT mutations, missing join mutations, and incorrect join condition mutations (e.g., EMP.EMPNO = EMP0.EMPNO).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'D10');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'D20');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'E1', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 10, 'E2', 'J2', 1, '2020-01-02', 2000, 100, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 20, 'E3', 'J1', NULL, '2020-01-03', 1500, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 20, 'E4', 'J2', 3, '2020-01-04', 2500, 200, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 20, 'E5', 'J3', 3, '2020-01-05', 3000, 300, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests when EMP.DEPTNO > 7 is satisfied (8, 9), but EMP0.DEPTNO > 9 is NOT satisfied (Gold returns 0 rows).
+-- Catches mutations where EMP0.DEPTNO > 9 is pushed into the LEFT JOIN ON clause (which would preserve rows with NULL EMP0 and return 1s if WHERE only checks EMP.DEPTNO > 7) or dropped entirely.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (8, 'D8');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (9, 'D9');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 8, 'E1', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 8, 'E2', 'J2', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 9, 'E3', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between DEPTNO and other integer columns (EMPNO, MGR, SAL, COMM, SLACKER).
+-- Here DEPTNO is <= 7 (so Gold returns 0 rows), while EMPNO, MGR, SAL, COMM, SLACKER are > 9.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (5, 'D5');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (15, 5, 'E15', 'J1', 15, '2020-01-01', 20, 30, 10);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (16, 5, 'E16', 'J1', 15, '2020-01-01', 20, 30, 10);
+```
+
+```sql
+-- DATASET 5
+-- Tests the inverse column confusion: DEPTNO is > 9 (12), while EMPNO, MGR, SAL, COMM, SLACKER are <= 7.
+-- Gold returns 1 row, whereas mutants filtering or joining on other integer columns will fail or produce different counts.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (12, 'D12');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 12, 'E1', 'J1', 1, '2020-01-01', 5, 2, 0);
+```
+
+```sql
+-- DATASET 6
+-- Tests table confusion mutants (e.g. querying DEPT, EMPNULLABLES, EMPNULLABLES_20, or EMP_B instead of EMP).
+-- EMP is empty (Gold returns 0 rows), while other tables have rows with DEPTNO > 9.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'D10');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'D20');
+
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'EN1', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMPNULLABLES_20" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 20, 'EN20', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (1, 10, 'EB1', 'J1', NULL, '2020-01-01', 1000, 0, 0, '1990-01-01');
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('B1', 'J1', 1000, 100);
+```
+
+```sql
+-- DATASET 7
+-- Tests negative and zero DEPTNO values alongside a valid DEPTNO, testing < vs > mutations and sign handling.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (-10, 'DM10');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (0, 'D0');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (8, 'D8');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'D10');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, -10, 'E1', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 0, 'E2', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 8, 'E3', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 8, 'E4', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 10, 'E5', 'J1', NULL, '2020-01-01', 1000, 0, 0);
+```

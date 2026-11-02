@@ -1,0 +1,2 @@
+INSERT INTO "security_groups" ("created_at", "updated_at", "deleted_at", "id", "name", "description", "user_id", "project_id", "deleted") VALUES ('1970-01-01', '1970-01-01', '1970-01-01', 1001, 'Allison Hill', 'Cause bill scientist nation opportunity.', 'Brandon Hall', 'play', 1002);
+INSERT INTO "security_group_rules" ("created_at", "updated_at", "deleted_at", "id", "parent_group_id", "protocol", "from_port", "to_port", "cidr", "group_id", "deleted") VALUES ('1970-01-01', '1970-01-01', '1970-01-01', 1003, 1001, 'agreement', 1004, 1005, 'option', 1006, 1007);

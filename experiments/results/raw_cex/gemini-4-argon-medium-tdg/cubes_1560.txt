@@ -1,0 +1,115 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- Tests filtering by 'Physics' vs other departments ('Comp. Sci.', 'History', 'Biology').
+-- Tests counting course_id vs counting title or credits (Physics has 3 courses, 2 distinct titles, 2 distinct credit values).
+-- Tests joining with section/teaches/takes (only 1 Physics course has a section, instructor, and student).
+-- Tests NULL dept_name in course.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Physics', 'Watson', 70000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('History', 'Painter', 50000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Biology', 'Watson', 90000.00);
+
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHY-101', 'Physics', 'Physical Principles', 4);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHY-102', 'Physics', 'Physical Principles', 4);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHY-301', 'Physics', 'Quantum Mechanics', 3);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('CS-101', 'Comp. Sci.', 'Intro to CS', 4);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('CS-102', 'Comp. Sci.', 'Data Structures', 4);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('HIS-101', 'History', 'World History', 3);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('UNK-101', NULL, 'Unknown Course', 3);
+
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('Watson', '100', 50);
+
+INSERT INTO "section" ("course_id", "sec_id", "semester", "year", "building", "room_number", "time_slot_id") VALUES ('PHY-101', '1', 'Fall', 2023, 'Watson', '100', 'A');
+
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('10101', 'Physics', 'Einstein', 95000.00);
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('10102', 'Physics', 'Feynman', 90000.00);
+
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "semester", "year") VALUES ('10101', 'PHY-101', '1', 'Fall', 2023);
+
+INSERT INTO "student" ("ID", "dept_name", "name", "tot_cred") VALUES ('00128', 'Physics', 'Zhang', 102);
+
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "semester", "year", "grade") VALUES ('00128', 'PHY-101', '1', 'Fall', 2023, 'A');
+```
+
+```sql
+-- DATASET 2
+-- Boundary condition: 'Physics' exists in the department table, has instructors and students, but has 0 courses in the course table.
+-- Gold query returns empty set (0 rows), whereas a query without GROUP BY (e.g. SELECT COUNT(DISTINCT course_id) FROM course WHERE dept_name = 'Physics') or a LEFT JOIN from department would return 1 row with value 0.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Physics', 'Watson', 70000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('CS-101', 'Comp. Sci.', 'Intro to CS', 4);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('CS-102', 'Comp. Sci.', 'Algorithms', 4);
+
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('10101', 'Physics', 'Einstein', 95000.00);
+INSERT INTO "student" ("ID", "dept_name", "name", "tot_cred") VALUES ('00128', 'Physics', 'Zhang', 102);
+```
+
+```sql
+-- DATASET 3
+-- String matching and case sensitivity test:
+-- Tests exact match 'Physics' against 'physics', 'PHYSICS', 'Physics Engineering', and 'Applied Physics'.
+-- Also tests when 'Physics' has exactly 1 course while similar names have different counts.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Physics', 'Watson', 70000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('physics', 'Watson', 60000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Physics Dept', 'Watson', 50000.00);
+
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHY-101', 'Physics', 'Mechanics', 4);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHY-201', 'physics', 'Optics', 4);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHY-202', 'physics', 'Thermodynamics', 4);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHD-101', 'Physics Dept', 'Relativity', 3);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHD-102', 'Physics Dept', 'Astrophysics', 3);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHD-103', 'Physics Dept', 'Electromagnetism', 3);
+```
+
+```sql
+-- DATASET 4
+-- Join fan-out / duplicate course_id test:
+-- If a mutant query joins 'course' with 'prereq' or 'takes' or 'teaches' and uses COUNT(*) or COUNT(course_id) instead of COUNT(DISTINCT course_id), the count will be inflated.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Physics', 'Watson', 70000.00);
+
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHY-101', 'Physics', 'Intro Physics I', 4);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHY-102', 'Physics', 'Intro Physics II', 4);
+
+INSERT INTO "prereq" ("course_id", "prereq_id") VALUES ('PHY-102', 'PHY-101');
+INSERT INTO "prereq" ("course_id", "prereq_id") VALUES ('PHY-101', 'PHY-101');
+
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('Watson', '100', 50);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('Watson', '101', 50);
+
+INSERT INTO "section" ("course_id", "sec_id", "semester", "year", "building", "room_number", "time_slot_id") VALUES ('PHY-101', '1', 'Fall', 2022, 'Watson', '100', 'A');
+INSERT INTO "section" ("course_id", "sec_id", "semester", "year", "building", "room_number", "time_slot_id") VALUES ('PHY-102', '2', 'Spring', 2023, 'Watson', '101', 'B');
+
+INSERT INTO "student" ("ID", "dept_name", "name", "tot_cred") VALUES ('S1', 'Physics', 'Alice', 30);
+INSERT INTO "student" ("ID", "dept_name", "name", "tot_cred") VALUES ('S2', 'Physics', 'Bob', 30);
+INSERT INTO "student" ("ID", "dept_name", "name", "tot_cred") VALUES ('S3', 'Physics', 'Charlie', 30);
+
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "semester", "year", "grade") VALUES ('S1', 'PHY-101', '1', 'Fall', 2022, 'A');
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "semester", "year", "grade") VALUES ('S2', 'PHY-101', '1', 'Fall', 2022, 'B');
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "semester", "year", "grade") VALUES ('S3', 'PHY-101', '1', 'Fall', 2022, 'A');
+```
+
+```sql
+-- DATASET 5
+-- Cross-department trap:
+-- A course in 'Comp. Sci.' has title 'Physics' and is taught by an instructor from 'Physics' and taken by a student from 'Physics'.
+-- Meanwhile, 'Physics' department has 2 courses with non-Physics titles and NULL credits/titles.
+-- Kills mutants that filter on title = 'Physics', instructor.dept_name = 'Physics', student.dept_name = 'Physics', or COUNT(title)/COUNT(credits).
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Physics', 'Watson', 70000.00);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Comp. Sci.', 'Taylor', 100000.00);
+
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHY-101', 'Physics', NULL, NULL);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('PHY-102', 'Physics', NULL, NULL);
+INSERT INTO "course" ("course_id", "dept_name", "title", "credits") VALUES ('CS-101', 'Comp. Sci.', 'Physics', 4);
+
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('Taylor', '3128', 70);
+
+INSERT INTO "section" ("course_id", "sec_id", "semester", "year", "building", "room_number", "time_slot_id") VALUES ('CS-101', '1', 'Fall', 2023, 'Taylor', '3128', 'A');
+
+INSERT INTO "instructor" ("ID", "dept_name", "name", "salary") VALUES ('I1', 'Physics', 'Newton', 85000.00);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "semester", "year") VALUES ('I1', 'CS-101', '1', 'Fall', 2023);
+
+INSERT INTO "student" ("ID", "dept_name", "name", "tot_cred") VALUES ('S1', 'Physics', 'Curie', 120);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "semester", "year", "grade") VALUES ('S1', 'CS-101', '1', 'Fall', 2023, 'A');
+```

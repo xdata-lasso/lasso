@@ -1,0 +1,25 @@
+-- Schema DDL
+CREATE TABLE "Activity" ("player_id" INTEGER, "event_date" DATE, "device_id" INTEGER, "games_played" INTEGER, PRIMARY KEY ("player_id", "event_date"), CHECK ("games_played" >= 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, '2023-01-01', 1, 5);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, '2023-01-02', 1, 6);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ROUND((CAST(SUM(CASE WHEN (temp.min_date + 1) = a.event_date THEN 1 ELSE 0 END) AS REAL) / COUNT(DISTINCT temp.player_id)), 2) AS fraction FROM (SELECT player_id, MIN(event_date) AS min_date FROM activity GROUP BY player_id) AS temp JOIN activity AS a ON temp.player_id = a.player_id;
+
+/*
+Gold Result:
+(0.0,)
+*/
+
+-- Prediction Query
+WITH CTE_FIRST_DATE AS (SELECT PLAYER_ID, EVENT_DATE FROM (SELECT PLAYER_ID, EVENT_DATE, ROW_NUMBER() OVER (PARTITION BY PLAYER_ID ORDER BY EVENT_DATE ASC) AS EVENT_DATE_RANK FROM ACTIVITY) AS R WHERE EVENT_DATE_RANK = 1) SELECT ROUND(CAST(RELOGIN_COUNT AS REAL) / TOTAL_COUNT, 2) AS FRACTION FROM (SELECT COUNT(DISTINCT F.PLAYER_ID) AS RELOGIN_COUNT FROM CTE_FIRST_DATE AS F INNER JOIN ACTIVITY AS A ON F.PLAYER_ID = A.PLAYER_ID AND CAST((JULIANDAY(A.EVENT_DATE) - JULIANDAY(F.EVENT_DATE)) AS INTEGER) = 1) AS R INNER JOIN (SELECT COUNT(DISTINCT PLAYER_ID) AS TOTAL_COUNT FROM ACTIVITY) AS T ON 1 = 1;
+
+/*
+Prediction Result:
+(1.0,)
+*/

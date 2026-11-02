@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Comprehensive dataset:
+-- Tests OR vs AND, omission of 'Banking' or 'Conglomerate' (asymmetric counts: 1 Banking, 2 Conglomerates),
+-- omission of DISTINCT (3 matching rows -> 3 rows without DISTINCT vs 1 with DISTINCT),
+-- GROUP BY Industry instead of OVER () (would return 1 and 2 instead of 3),
+-- COUNT(column) with NULLs vs COUNT(*),
+-- unrequested joins with Office_locations (0 locations for company 2, 2 locations for company 1),
+-- and filtering out other industries ('Retail', NULL, and lowercase 'banking').
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (1, 'Tower A', 'NY', 300, 60, 'Completed');
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (2, 'Tower B', 'LA', 200, 40, 'Completed');
+
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Bank Corp', 'NY', 'Banking', 10.5, 2.1, 100.0, '50.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Conglom One', NULL, 'Conglomerate', NULL, NULL, NULL, NULL);
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Conglom Two', 'Chicago', 'Conglomerate', 20.0, 3.0, 150.0, '70.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (4, 'Retail Co', 'SF', 'Retail', 5.0, 0.5, 20.0, '10.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (5, 'Mystery Inc', 'Boston', NULL, 1.0, 0.1, 5.0, '2.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (6, 'Small Bank', 'Miami', 'banking', 2.0, 0.2, 10.0, '5.0');
+
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (1, 1, 2010);
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (2, 1, 2015);
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (1, 3, 2020);
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (2, 4, 2018);
+```
+
+```sql
+-- DATASET 2
+-- Zero matching rows dataset:
+-- Crucial for distinguishing Window Function `COUNT(*) OVER ()` (which returns 0 rows when WHERE matches nothing)
+-- from standard Aggregate `SELECT COUNT(*)` without GROUP BY (which returns 1 row with value 0).
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (1, 'Tech Plaza', 'Austin', 150, 30, 'Completed');
+
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Tech Corp', 'Austin', 'Technology', 50.0, 10.0, 200.0, '500.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Health Inc', 'Boston', 'Healthcare', 30.0, 4.0, 80.0, '120.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Null Ind', 'Seattle', NULL, 15.0, 1.5, 40.0, '35.0');
+
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (1, 1, 2019);
+```
+
+```sql
+-- DATASET 3
+-- Only 'Banking' present (no 'Conglomerate' rows):
+-- Specifically catches mutants that replace 'Banking' with another string or drop the 'Banking' branch,
+-- or use INNER JOIN / EXISTS across both industries.
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Alpha Bank', 'London', 'Banking', 45.0, 8.0, 900.0, '110.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Beta Bank', 'London', 'Banking', 25.0, 4.5, 400.0, '60.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Auto Makers', 'Detroit', 'Automotive', 80.0, 5.0, 120.0, '45.0');
+```
+
+```sql
+-- DATASET 4
+-- Only 'Conglomerate' present (no 'Banking' rows) + Duplicate attribute values:
+-- Specifically catches mutants that drop the 'Conglomerate' branch or use COUNT(DISTINCT col) on non-PK columns.
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Global Corp', 'Tokyo', 'Conglomerate', 100.0, 10.0, 300.0, '200.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Global Corp', 'Tokyo', 'Conglomerate', 100.0, 10.0, 300.0, '200.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Energy Plus', 'Houston', 'Energy', 60.0, 7.0, 180.0, '90.0');
+```
+
+```sql
+-- DATASET 5
+-- Substring / LIKE / Prefix boundary test:
+-- Tests mutants that replace `=` with `LIKE '%Banking%'` or `LIKE 'Conglomerate%'`.
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Investment Co', 'NY', 'Investment Banking', 30.0, 6.0, 500.0, '85.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Multi Group', 'Paris', 'Conglomerates', 40.0, 5.0, 250.0, '75.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'True Bank', 'Zurich', 'Banking', 55.0, 9.0, 850.0, '130.0');
+```

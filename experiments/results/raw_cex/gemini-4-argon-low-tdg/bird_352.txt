@@ -1,0 +1,59 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN (card 'u3' has no foreign_data).
+-- 2. COUNT(T1.id) vs COUNT(DISTINCT T1.id) / COUNT(DISTINCT T1.uuid) (card 'u1' has multiple foreign_data entries).
+-- 3. CAST(... AS REAL) vs integer division (1 out of 3 is 33.3333... vs 33 or 0).
+-- 4. String matching predicates: 'Chinese Simplified' vs 'Chinese Traditional', LIKE '%Chinese%', or NULL.
+INSERT INTO cards (id, uuid, name) VALUES (1, 'u1', 'Card A');
+INSERT INTO cards (id, uuid, name) VALUES (2, 'u2', 'Card B');
+INSERT INTO cards (id, uuid, name) VALUES (3, 'u3', 'Card C');
+
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (10, 'Chinese Simplified', 'Card A CS', 'u1');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (11, 'Chinese Traditional', 'Card A CT', 'u1');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (12, NULL, 'Card B Unknown', 'u2');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Zero matches for 'Chinese Simplified': SUM(CASE ... ELSE 0 END) returns 0, whereas SUM(CASE ... END) without ELSE 0 or COUNT with WHERE filter might return NULL or behave differently.
+-- 2. Join on T1.uuid = T2.uuid vs erroneous join on T1.id = T2.id (IDs intentionally match across tables for unrelated uuids).
+-- 3. Unreferenced table (set_translations) containing 'Chinese Simplified' to catch mutants querying the wrong table.
+INSERT INTO sets (id, code, name) VALUES (1, 'S1', 'Set 1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Chinese Simplified', 'S1', 'Set 1 CS');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Card 1', 'S1');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (2, 'uuid-2', 'Card 2', 'S1');
+
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (1, 'French', 'Card 2 FR', 'uuid-2');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (2, 'German', 'Card 2 DE', 'uuid-2');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple 'Chinese Simplified' entries for the same card uuid (tests COUNT(DISTINCT T1.uuid) inside a filtered numerator vs SUM of rows).
+-- 2. Orphaned foreign_data row with NULL uuid (tests INNER JOIN vs RIGHT/FULL JOIN or querying foreign_data directly without joining cards).
+-- 3. Non-integer percentage calculation (2 / 3 * 100 = 66.6666...; if NULL uuid row is included: 3 / 4 * 100 = 75.0).
+INSERT INTO cards (id, uuid, name) VALUES (10, 'c1', 'Alpha');
+INSERT INTO cards (id, uuid, name) VALUES (20, 'c2', 'Beta');
+
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (1, 'Chinese Simplified', 'Alpha CS 1', 'c1');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (2, 'Chinese Simplified', 'Alpha CS 2', 'c1');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (3, 'Japanese', 'Beta JP', 'c2');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (4, 'Chinese Simplified', 'Orphan CS', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. 100% match rate (all joined rows are 'Chinese Simplified') while having unjoined cards in `cards` table.
+-- 2. Case sensitivity and exact string match ('chinese simplified' in lowercase vs 'Chinese Simplified').
+INSERT INTO cards (id, uuid, name) VALUES (1, 'u-100', 'One');
+INSERT INTO cards (id, uuid, name) VALUES (2, 'u-200', 'Two');
+INSERT INTO cards (id, uuid, name) VALUES (3, 'u-300', 'Three');
+
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (1, 'Chinese Simplified', 'One CS', 'u-100');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (2, 'chinese simplified', 'Two lower', 'u-200');
+```

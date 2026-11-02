@@ -1,0 +1,103 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- Tests DISTINCT (multiple rows generated in cross join), AVG calculation over ALL procedures (including untrained ones),
+-- and filtering of 'John Wen' vs other physicians.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Wen', 'Surgical Attending Physician', 111111111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Elliot Reid', 'Attending Physician', 222222222);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (3, 'Christopher Turk', 'Surgical Attending Physician', 333333333);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Reverse Rhinopodoplasty', 1500.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'Obtuse Pyloric Recombobulation', 3500.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (30, 'Folded Demiophtalmectomy', 4000.0);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 10, '2008-01-01 00:00:00', '2018-01-01 00:00:00');
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (2, 20, '2009-05-01 00:00:00', '2019-05-01 00:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Boundary condition: The ONLY physician in the database is 'John Wen', and he is in Trained_In.
+-- Tests the WHERE ("name" <> 'John Wen') filter and CROSS JOIN with an empty RHS relation (should return 0 rows, whereas a LEFT JOIN or missing WHERE filter would return 1 row).
+-- Also tests whether a mutant wrongly filters Trained_In by physician name instead of CROSS JOINing.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Wen', 'Staff Internist', 111111111);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (1, 'General Checkup', 250.5);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 1, '2020-01-01 00:00:00', '2025-01-01 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Cross-join decoupling test:
+-- 'John Wen' is the ONLY physician in Trained_In, while 'Alice Smith' is in Physician (not in Trained_In).
+-- Because the query does a CROSS JOIN between Trained_In and Physician (rather than joining on LHS.physician = RHS.employeeid),
+-- this dataset MUST return 1 row (the avg cost). Mutants that inner-join Trained_In and Physician on Physician=EmployeeID will return 0 rows.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Wen', 'Attending', 100000001);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Alice Smith', 'Resident', 100000002);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (100, 'Appendectomy', 1200.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (200, 'Tonsillectomy', 800.0);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 100, '2015-03-15 00:00:00', '2025-03-15 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Empty Trained_In test:
+-- Procedures and non-'John Wen' Physicians exist, but Trained_In is completely empty.
+-- Because Trained_In is CROSS JOINed, an empty Trained_In must result in 0 rows output.
+-- Mutants that drop Trained_In from the query (optimizing it away erroneously) will return 1 row instead of 0.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Gregory House', 'Diagnostician', 999999999);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (5, 'MRI Scan', 2200.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (6, 'CT Scan', 1400.0);
+```
+
+```sql
+-- DATASET 5
+-- Aggregation edge cases & NULL handling:
+-- Tests AVG(cost) vs SUM(cost)/COUNT(*), COUNT(cost), MIN, MAX, and duplicate cost values.
+-- Also tests a Physician with NULL Name (in SQL, NULL <> 'John Wen' evaluates to UNKNOWN/falsy, excluding that row).
+-- Since the only two physicians are 'John Wen' and NULL, the filtered Physician subquery is empty, yielding 0 rows.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'John Wen', 'Chief of Medicine', 123456789);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, NULL, 'Visiting Physician', 987654321);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (1, 'Proc A', 100.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (2, 'Proc B', NULL);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 1, '2010-01-01 00:00:00', '2020-01-01 00:00:00');
+```
+
+```sql
+-- DATASET 6
+-- Aggregation & Join multiplicity test:
+-- Multiple physicians trained in the same procedure, plus untrained procedures, plus NULL cost procedure.
+-- If a mutant joins Trained_In with Procedures before computing AVG(cost), the average will be skewed by training frequency or exclude untrained procedures.
+-- True AVG(cost) over Procedures: (100.0 + 100.0 + 700.0 + NULL) / 3 = 300.0.
+-- If AVG(DISTINCT cost): (100.0 + 700.0) / 2 = 400.0.
+-- If divided by COUNT(*): 900.0 / 4 = 225.0.
+-- If joined with Trained_In: (100.0 + 100.0) / 2 = 100.0.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Perry Cox', 'Senior Attending', 555555551);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Bob Kelso', 'Chief of Medicine', 555555552);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (1, 'Basic Stitch', 100.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (2, 'Bandage', 100.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (3, 'Bypass Surgery', 700.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (4, 'Experimental Therapy', NULL);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 1, '2012-01-01 00:00:00', '2022-01-01 00:00:00');
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (2, 1, '2013-01-01 00:00:00', '2023-01-01 00:00:00');
+```
+
+```sql
+-- DATASET 7
+-- NULL average output test:
+-- All procedures have NULL cost, while Trained_In and valid Physician rows exist.
+-- AVG("cost") evaluates to NULL, and the query must return 1 row containing NULL (since CROSS JOIN of 1 row containing NULL with non-empty tables yields a row with NULL).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, ' Carla Espinosa', 'Nurse Practitioner', 444444444);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (99, 'Pro Bono Consultation', NULL);
+
+INSERT INTO "Trained_In" ("Physician", "Treatment", "CertificationDate", "CertificationExpires") VALUES (1, 99, NULL, NULL);
+```

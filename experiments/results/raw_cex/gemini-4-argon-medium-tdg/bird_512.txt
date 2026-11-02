@@ -1,0 +1,86 @@
+```sql
+-- DATASET 1
+-- Comprehensive dataset testing WHERE clause boundaries, CASE conditions, wildcards, NULLs, and joins
+INSERT INTO sets (id, code, name) VALUES (1, 'SET1', 'Set One');
+
+-- Matches WHERE (hasFoil=0, duelDeck='a') and CASE via power = '*' (exact)
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (1, 'u1', 'SET1', 0, 'a', '*');
+
+-- Matches WHERE (hasFoil=0, duelDeck='a') and CASE via power = '1+*' (suffix wildcard)
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (2, 'u2', 'SET1', 0, 'a', '1+*');
+
+-- Matches WHERE (hasFoil=0, duelDeck='a') and CASE via power = '*2' (prefix wildcard)
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (3, 'u3', 'SET1', 0, 'a', '*2');
+
+-- Matches WHERE (hasFoil=0, duelDeck='a') and CASE via power = '2*3' (infix wildcard)
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (4, 'u4', 'SET1', 0, 'a', '2*3');
+
+-- Matches WHERE (hasFoil=0, duelDeck='a') and CASE via power IS NULL
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (5, 'u5', 'SET1', 0, 'a', NULL);
+
+-- Matches WHERE (hasFoil=0, duelDeck='a'), fails CASE (numeric string power)
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (6, 'u6', 'SET1', 0, 'a', '4');
+
+-- Matches WHERE (hasFoil=0, duelDeck='a'), fails CASE (empty string vs NULL)
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (7, 'u7', 'SET1', 0, 'a', '');
+
+-- Fails WHERE (hasFoil=1), would match CASE
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (8, 'u8', 'SET1', 1, 'a', '*');
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (9, 'u9', 'SET1', 1, 'a', NULL);
+
+-- Fails WHERE (duelDeck='b'), would match CASE
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (10, 'u10', 'SET1', 0, 'b', '1+*');
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (11, 'u11', 'SET1', 0, 'b', NULL);
+
+-- Fails WHERE (duelDeck='A' case sensitivity), would match CASE
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (12, 'u12', 'SET1', 0, 'A', '*');
+
+-- Fails WHERE (duelDeck IS NULL), would match CASE
+INSERT INTO cards (id, uuid, setCode, hasFoil, duelDeck, power) VALUES (13, 'u13', 'SET1', 0, NULL, '*');
+
+-- Child rows with multiple entries per card to kill unnecessary JOINs that multiply rows
+INSERT INTO rulings (id, date, text, uuid) VALUES (1, '2020-01-01', 'Ruling 1', 'u1');
+INSERT INTO rulings (id, date, text, uuid) VALUES (2, '2020-01-02', 'Ruling 2', 'u1');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (1, 'German', 'Name 1', 'u1');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (2, 'French', 'Name 2', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Standard', 'Legal', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Modern', 'Legal', 'u1');
+```
+
+```sql
+-- DATASET 2
+-- Tests when rows match the WHERE clause, but NO rows match the CASE condition.
+-- Expected result: 0 (Kills mutants using COUNT or SUM(CASE ... ELSE NULL END) which return NULL or wrong counts)
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power) VALUES (1, 'u1', 0, 'a', '2');
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power) VALUES (2, 'u2', 0, 'a', '0');
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power) VALUES (3, 'u3', 0, 'a', '-1');
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power) VALUES (4, 'u4', 1, 'a', '*');
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power) VALUES (5, 'u5', 0, 'b', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests when NO rows match the WHERE clause.
+-- Expected result: NULL (Kills mutants using COUNT(*) which returns 0, or missing WHERE filters)
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power) VALUES (1, 'u1', 1, 'a', '*');
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power) VALUES (2, 'u2', 0, 'b', NULL);
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power) VALUES (3, 'u3', 1, 'b', '1+*');
+```
+
+```sql
+-- DATASET 4
+-- Tests distinguishing power LIKE '%*%' from power IS NULL in isolation (Only NULL matches)
+-- Also tests orphan card without setCode/foreign_data/legalities/rulings to kill INNER JOIN mutants
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power, toughness) VALUES (1, 'u1', 0, 'a', NULL, '*');
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power, toughness) VALUES (2, 'u2', 0, 'a', '3', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests distinguishing power LIKE '%*%' from power IS NULL in isolation (Only LIKE '%*%' matches)
+-- Also includes toughness with NULL and '*' to kill column swap mutants (power vs toughness)
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power, toughness) VALUES (1, 'u1', 0, 'a', '1+*', '5');
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power, toughness) VALUES (2, 'u2', 0, 'a', '*+1', '2');
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power, toughness) VALUES (3, 'u3', 0, 'a', '2', '*');
+INSERT INTO cards (id, uuid, hasFoil, duelDeck, power, toughness) VALUES (4, 'u4', 0, 'a', '3', NULL);
+```

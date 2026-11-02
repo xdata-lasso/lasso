@@ -1,0 +1,59 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering where the minimum Market_Rate is NOT the first row inserted,
+-- and ensures the values of Name, Num_of_Component, and Market_Rate are anti-correlated 
+-- to catch mutants that order by the wrong column or wrong direction (DESC vs ASC).
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (1, 1990.0, 'Alpha Corp', 5, 10);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Sofa', 10, 50.5);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Zebra_Chair', 100, 10.2);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (3, 'Armchair', 5, 99.9);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (1, 1, 200.0);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (1, 3, 150.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests ties for the minimum Market_Rate.
+-- The Reference Query uses LIMIT 1, whereas a mutant using WHERE market_rate = minmarket_rate 
+-- without LIMIT 1 would return 2 rows. Identical Name and Num_of_Component ensures deterministic output for LIMIT 1.
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Table', 4, 15.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Table', 4, 15.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (3, 'Desk', 8, 25.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Market_Rate.
+-- In SQLite, NULLs are considered smaller than any non-NULL value in ORDER BY ASC.
+-- Thus, ORDER BY market_rate LIMIT 1 returns the NULL row, whereas MIN(market_rate) ignores NULLs.
+-- This kills mutants that rewrite the query to: WHERE market_rate = (SELECT MIN(market_rate) FROM furniture).
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Mystery_Box', 1, NULL);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Standard_Chair', 6, 12.5);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (3, 'Luxury_Bed', 20, 85.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests negative and zero values for Market_Rate, and checks if mutants erroneously join with furniture_manufacte.
+-- Furniture_ID 3 has the lowest Market_Rate (-5.5) but is NOT present in furniture_manufacte.
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (10, 2005.0, 'Beta LLC', 2, 4);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Stool', 3, 0.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Bench', 7, 5.5);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (3, 'Clearance_Rack', 12, -5.5);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (10, 1, 20.0);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (10, 2, 45.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty table edge case.
+-- Ensures queries with aggregation vs window functions behave properly when no rows exist in furniture.
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (1, 2020.0, 'Ghost_Maker', 0, 0);
+```
+
+```sql
+-- DATASET 6
+-- Tests single row edge case with NULL in projected columns (Name, Num_of_Component).
+-- Kills mutants that inadvertently filter out NULLs in the target columns (e.g., via IS NOT NULL constraints).
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (100, NULL, NULL, 42.0);
+```

@@ -1,0 +1,53 @@
+-- Schema DDL
+CREATE TABLE "GRAPES" (
+    "ID" INT,
+    "GRAPE" TEXT,
+    "COLOR" TEXT,
+    PRIMARY KEY ("ID"),
+    UNIQUE ("GRAPE")
+);
+CREATE TABLE "APPELLATIONS" (
+    "NO" INT,
+    "APPELATION" TEXT,
+    "COUNTY" TEXT,
+    "STATE" TEXT,
+    "AREA" TEXT,
+    "ISAVA" TEXT,
+    PRIMARY KEY ("NO"),
+    UNIQUE ("APPELATION")
+);
+CREATE TABLE "WINE" (
+    "APPELATION" TEXT,
+    "GRAPE" TEXT,
+    "NO" INT,
+    "WINERY" TEXT,
+    "STATE" TEXT,
+    "NAME" TEXT,
+    "YEAR" INT,
+    "PRICE" INT,
+    "SCORE" INT,
+    "CASES" INT,
+    "DRINK" TEXT,
+    FOREIGN KEY ("APPELATION") REFERENCES "APPELLATIONS"("APPELATION"),
+    FOREIGN KEY ("GRAPE") REFERENCES "GRAPES"("GRAPE")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO GRAPES VALUES (0, 0, 0);
+INSERT INTO GRAPES VALUES (1, 0, 0);
+INSERT INTO APPELLATIONS VALUES (-1, -1, 0, 0, 0, 0);
+INSERT INTO APPELLATIONS VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO WINE VALUES (0, 0, 0, 0, 0, 0, 2000, 0, 0, 0, 0);
+INSERT INTO WINE VALUES (-1, 0, 0, 0, 0, 1, 2010, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM wine WHERE (YEAR <= 2000 OR YEAR >= 2010) ORDER BY name, wine.appelation NULLS LAST, wine.grape NULLS LAST, wine.no NULLS LAST, wine.winery NULLS LAST, wine.state NULLS LAST, wine.year NULLS LAST, wine.price NULLS LAST, wine.score NULLS LAST, wine.cases NULLS LAST, wine.drink NULLS LAST;
+
+-- Prediction Query
+SELECT DISTINCT Name FROM WINE WHERE YEAR < 2000 OR YEAR > 2010;
+
+-- Execution Error:
+-- DATASET_ERROR: UNIQUE constraint failed: GRAPES.GRAPE

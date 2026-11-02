@@ -1,0 +1,92 @@
+```sql
+-- DATASET 1
+-- Tests core anti-join logic:
+-- 1. Student with no allergies at all (StuID 1) -> Should be included.
+-- 2. Student with 'Soy' allergy only (StuID 2) -> Should be excluded.
+-- 3. Student with both 'Soy' and another allergy (StuID 3) -> Should be excluded (kills WHERE Allergy != 'Soy' join mutants).
+-- 4. Student with multiple non-'Soy' allergies (StuID 4) -> Should be included exactly once (kills non-distinct JOIN mutants).
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Soy', 'Food');
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Nuts', 'Food');
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Pollen', 'Environmental');
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Smith', 'Alice', 20, 'F', 101, 1001, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Jones', 'Bob', 21, 'M', 102, 1002, 'LAX');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (3, 'Taylor', 'Charlie', 22, 'M', 103, 1003, 'CHI');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (4, 'Brown', 'David', 19, 'M', 104, 1004, 'BOS');
+
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Soy', 2);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Soy', 3);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Nuts', 3);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Nuts', 4);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Pollen', 4);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in NOT EXISTS vs NOT IN:
+-- If a row in Has_Allergy has Allergy = 'Soy' and StuID IS NULL,
+-- NOT EXISTS will ignore it for existing students, whereas NOT IN (SELECT StuID FROM Has_Allergy WHERE Allergy = 'Soy') will evaluate to UNKNOWN and return 0 rows.
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Soy', 'Food');
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Dust', 'Environmental');
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (10, 'White', 'Eve', 20, 'F', 201, 2001, 'SEA');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (20, 'Black', 'Frank', 22, 'M', 202, 2002, 'MIA');
+
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Soy', NULL);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES (NULL, 10);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Dust', 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests duplicate output rows (bag semantics vs set semantics / DISTINCT mutants) and sorting / NULL ordering:
+-- 1. Two distinct students with identical Fname and Major (StuID 1 and 2) -> Both must appear (kills SELECT DISTINCT mutants).
+-- 2. Students with same Fname but different Majors, including NULL Major -> Tests secondary sort and NULLS LAST.
+-- 3. Students with NULL Fname -> Tests primary sort NULLS LAST vs standard SQLite ASC (which puts NULLs first).
+-- 4. Confusing column values (LName vs Fname, Age/Advisor/StuID vs Major) -> Kills column projection mutants.
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Soy', 'Food');
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Zeta', 'Grace', 18, 'F', 300, 999, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Alpha', 'Grace', 19, 'F', 300, 888, 'LAX');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (3, 'Beta', 'Grace', 20, 'F', 100, 777, 'CHI');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (4, 'Gamma', 'Grace', 21, 'F', NULL, 666, 'HOU');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (5, 'Delta', NULL, 22, 'M', 50, 555, 'PHX');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (6, 'Epsilon', NULL, 23, 'M', NULL, 444, 'PHI');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (7, 'Omega', 'Aaron', 24, 'M', 400, 333, 'SAN');
+```
+
+```sql
+-- DATASET 4
+-- Tests string literal sensitivity, case sensitivity, and Allergy vs AllergyType confusion:
+-- 1. 'soy' (lowercase) and 'Soybean' -> Should NOT be treated as 'Soy'.
+-- 2. AllergyType = 'Soy' where Allergy = 'Tofu' -> Kills mutants that filter on AllergyType = 'Soy'.
+-- 3. Student with multiple 'Soy' entries in Has_Allergy -> Tests robustness of exclusion.
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Soy', 'Food');
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('soy', 'Food');
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Soybean', 'Food');
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Tofu', 'Soy');
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (101, 'One', 'Hannah', 20, 'F', 10, 1, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (102, 'Two', 'Ian', 21, 'M', 20, 2, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (103, 'Three', 'Jack', 22, 'M', 30, 3, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (104, 'Four', 'Kelly', 23, 'F', 40, 4, 'NYC');
+
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('soy', 101);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Soybean', 102);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Tofu', 103);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Soy', 104);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Soy', 104);
+```
+
+```sql
+-- DATASET 5
+-- Boundary test: All students have 'Soy' allergy (Expected output: empty result set).
+-- Kills mutants that use EXISTS instead of NOT EXISTS, or LEFT JOIN without IS NULL check.
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Soy', 'Food');
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Solo', 'Han', 30, 'M', 500, 50, 'COR');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Organa', 'Leia', 30, 'F', 600, 60, 'ALD');
+
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Soy', 1);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Soy', 2);
+```

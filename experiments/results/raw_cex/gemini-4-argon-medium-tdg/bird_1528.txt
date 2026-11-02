@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset: Tests integer vs float division (100/3 = 33.3333 vs 33),
+-- Country filtering vs total row count, NULL handling, and unreferenced tables with different counts.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO products (ProductID, Description) VALUES (10, 'Diesel');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 10, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 10, 'SVK', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 11, 'SVK', NULL);
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 12, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (5, 12, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (6, 13, NULL, 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (7, NULL, NULL, NULL);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (100, '2022-01-01', '12:00:00', 1, 1001, 1, 10, 50, 75.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (101, '2022-01-02', '13:00:00', 1, 1001, 1, 10, 40, 60.0);
+INSERT INTO "yearmonth" (CustomerID, Date, Consumption) VALUES (1, '202201', 90.0);
+```
+
+```sql
+-- DATASET 2
+-- Boundary condition: 0% 'Premium' in 'SVK' (Numerator is 0, Denominator > 0).
+-- Kills mutants using COUNT(CASE WHEN ... THEN 1 ELSE 0 END) without NULL, or OR instead of AND.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 1, 'SVK', 'Other');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 2, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 2, 'POL', 'Premium');
+```
+
+```sql
+-- DATASET 3
+-- Boundary condition: 100% 'Premium' in 'SVK' (Numerator == Denominator).
+-- Kills mutants that divide by total table count when non-SVK rows exist, or fail when all target rows match.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 2, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 1, 'CZE', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 3, 'HUN', 'Premium');
+```
+
+```sql
+-- DATASET 4
+-- Boundary condition: No 'SVK' gas stations at all (0 / 0 -> NULL in SQLite).
+-- Kills mutants that use COALESCE(..., 1), or divide by COUNT(*) of the whole table.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 2, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 3, NULL, 'Premium');
+```
+
+```sql
+-- DATASET 5
+-- String matching edge cases: Case sensitivity, leading/trailing spaces, substrings, and ChainID duplicates.
+-- Kills mutants using LIKE '%SVK%', LIKE '%Premium%', UPPER/LOWER, or COUNT(DISTINCT ChainID).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 5, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 5, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 5, 'SVK', 'premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 5, 'SVK', 'Premium ');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (5, 6, 'svk', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (6, 6, 'SVK ', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (7, 7, 'SVK', 'Non-Premium');
+```
+
+```sql
+-- DATASET 6
+-- Join trap and Integer Division < 1 trap:
+-- 1 out of 7 SVK stations is Premium (1/7 * 100 = 14.2857; if * 100 is done after integer division 1/7 = 0, result becomes 0).
+-- Also leaves transactions_1k empty so any mutant doing an INNER JOIN with transactions_1k will return NULL/0.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 1, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 1, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 2, 'SVK', 'Other');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (5, 2, 'SVK', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (6, 3, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (7, 3, 'SVK', 'Other');
+```

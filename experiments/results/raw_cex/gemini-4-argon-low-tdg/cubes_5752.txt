@@ -1,0 +1,55 @@
+```sql
+-- DATASET 1
+-- Scenario: Smaller gender value (0) has the majority count (3 vs 1), while larger gender value (1) has the minority count.
+-- Kills mutants that find the most common gender (GROUP BY gender ORDER BY COUNT(*) DESC) instead of the maximum gender value (ORDER BY gender DESC).
+-- Also kills mutants that join Staff with Fault_Log or Engineer_Visits without matching foreign keys.
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Alice', 0, 'Senior');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (2, 'Bob', 0, 'Junior');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (3, 'Charlie', 0, 'Intern');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (4, 'Diana', 1, 'Manager');
+```
+
+```sql
+-- DATASET 2
+-- Scenario: Larger gender value (2) has the majority count (3 vs 1), while smaller gender value (1) has the minority count.
+-- Kills mutants that find the least common gender (GROUP BY gender ORDER BY COUNT(*) ASC) or minimum gender (ORDER BY gender ASC).
+-- Also sets up partial foreign key references in Fault_Log and Engineer_Visits to kill mutants that inadvertently join those tables.
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Eve', 1, 'Tech');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (2, 'Frank', 2, 'Lead');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (3, 'Grace', 2, 'Admin');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (4, 'Hank', 2, 'Support');
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'Maint', 'FixIt', '123 St', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2023-01-01', '2023-12-31', 'Standard');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Server', 'Dell', 'R740', '2022-01-01', '2025-01-01', 'Rack 1');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (1, 1, 1, '2023-05-01 10:00:00', 'Overheating', 'Urgent');
+INSERT INTO "Maintenance_Engineers" ("engineer_id", "company_id", "first_name", "last_name", "other_details") VALUES (1, 1, 'Ian', 'Smith', 'Expert');
+INSERT INTO "Engineer_Visits" ("engineer_visit_id", "contact_staff_id", "engineer_id", "fault_log_entry_id", "fault_status", "visit_start_datetime", "visit_end_datetime", "other_visit_details") VALUES (1, 1, 1, 1, 'Fixed', '2023-05-02 09:00:00', '2023-05-02 11:00:00', 'Replaced fan');
+```
+
+```sql
+-- DATASET 3
+-- Scenario: Anti-correlated column values (when gender is highest, staff_id, staff_name, and other_staff_details are lowest).
+-- Kills mutants that sort by staff_id DESC, staff_name DESC, or other_staff_details DESC, or omit the LIMIT 1 clause.
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (10, 'Aaron', 5, 'AAA');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (20, 'Mid', 3, 'MMM');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (30, 'Zack', 1, 'ZZZ');
+```
+
+```sql
+-- DATASET 4
+-- Scenario: Presence of NULL in gender alongside positive and negative integers.
+-- In SQLite, NULL is considered smaller than any non-NULL value, so ORDER BY gender DESC places -5 above NULL.
+-- Kills mutants that mishandle NULL ordering, filter for IS NULL, or assume positive-only gender codes.
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'NullGender1', NULL, 'Detail 1');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (2, 'NullGender2', NULL, 'Detail 2');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (3, 'NegGender', -5, 'Detail 3');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (4, 'LowerNegGender', -10, 'Detail 4');
+```
+
+```sql
+-- DATASET 5
+-- Scenario: Empty Staff table (while other tables are populated).
+-- Reference query returns 0 rows. Kills mutants that use scalar aggregate MAX(gender) without GROUP BY (which returns 1 row with NULL on an empty table).
+INSERT INTO "Skills" ("skill_id", "skill_code", "skill_description") VALUES (1, 'ELEC', 'Electrical');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Power Supply', 1, 150, '500W');
+```

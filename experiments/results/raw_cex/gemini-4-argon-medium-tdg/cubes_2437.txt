@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests basic anti-join, ordering of results, duplicate customer names (kills DISTINCT / EXCEPT / GROUP BY customer_name), and multiple orders per customer (kills INNER JOIN).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Zoe', '2023-01-01 10:00:00', 'Details 1');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', 'Alice', '2023-01-02 10:00:00', 'Details 2');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Card', 'Alice', '2023-01-03 10:00:00', 'Details 3');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (4, 'PayPal', 'Bob', '2023-01-04 10:00:00', 'Details 4');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (5, 'Wire', 'Charlie', '2023-01-05 10:00:00', 'Details 5');
+
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (101, 4, 'Shipped', '2023-02-01 12:00:00', 'Order 1');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (102, 4, 'Delivered', '2023-02-02 12:00:00', 'Order 2');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (103, 5, 'Cancelled', '2023-02-03 12:00:00', 'Order 3');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL customer_id in Customer_Orders (kills NOT IN subquery mutants due to 3-valued logic) and NULL customer_name handling.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'David', '2023-01-01 00:00:00', 'Has order');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', 'Eve', '2023-01-02 00:00:00', 'No order');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'PayPal', NULL, '2023-01-03 00:00:00', 'Null name, no order');
+
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (1, 1, 'Completed', '2023-03-01 00:00:00', 'Valid customer order');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (2, NULL, 'Pending', '2023-03-02 00:00:00', 'Orphaned order with NULL customer_id');
+```
+
+```sql
+-- DATASET 3
+-- Tests incorrect join key mutations (e.g., LHS.customer_id = RHS.order_id) and wrong table checks (e.g., checking Customer_Addresses or Customer_Contact_Channels instead of Customer_Orders).
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (1, '123 Main St', 'Metropolis', '10001', 'NY', 'USA', NULL);
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (10, 'Card', 'Frank', '2023-01-01 00:00:00', 'Has address and contact, no order, ID matches an order_id');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (20, 'Cash', 'Grace', '2023-01-02 00:00:00', 'Has order, no address or contact');
+
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (10, 1, '2023-01-01 00:00:00', 'Billing', '2024-01-01 00:00:00');
+
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (10, 'Email', '2023-01-01 00:00:00', '2024-01-01 00:00:00', 'frank@example.com');
+
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (10, 20, 'Shipped', '2023-04-01 00:00:00', 'Order ID is 10, but belongs to Customer 20');
+```
+
+```sql
+-- DATASET 4
+-- Tests LEFT JOIN ... WHERE RHS.order_details IS NULL (or other nullable columns in Customer_Orders) vs RHS.order_id IS NULL, and tests duplicate names where one has an order and the other does not (kills EXCEPT / NOT IN customer_name).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Hannah', '2023-01-01 00:00:00', 'Hannah with order');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', 'Hannah', '2023-01-02 00:00:00', 'Hannah without order');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Card', 'Ian', '2023-01-03 00:00:00', 'Ian with order having NULL attributes');
+
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (50, 1, 'Delivered', '2023-05-01 00:00:00', 'Standard order');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (51, 3, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Boundary condition: All customers have orders (empty result set) and one customer has an order without Order_Items (kills mutants joining Order_Items).
+INSERT INTO "Products" ("product_id", "product_details") VALUES (1, 'Laptop');
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Jack', '2023-01-01 00:00:00', 'Order with items');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', 'Kelly', '2023-01-02 00:00:00', 'Order without items');
+
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (1, 1, 'Paid', '2023-06-01 00:00:00', 'Has items');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (2, 2, 'New', '2023-06-02 00:00:00', 'No items');
+
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (1, 1, '2');
+```
+
+```sql
+-- DATASET 6
+-- Boundary condition: Customer_Orders table is completely empty, and customer_id order inversely correlates with customer_name alphabetical order (kills ORDER BY customer_id or missing ORDER BY).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Zack', '2023-01-03 00:00:00', 'First ID, Last Name');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', 'Mia', '2023-01-02 00:00:00', 'Middle ID, Middle Name');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'PayPal', 'Aaron', '2023-01-01 00:00:00', 'Last ID, First Name');
+```

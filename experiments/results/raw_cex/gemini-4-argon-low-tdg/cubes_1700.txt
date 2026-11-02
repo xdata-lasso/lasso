@@ -1,0 +1,107 @@
+```sql
+-- DATASET 1
+-- Tests basic scenarios:
+-- 1. Movie with no ratings at all (should be returned; kills INNER JOIN mutants).
+-- 2. Movie rated only by 'Chris Jackson' (should NOT be returned; kills EXISTS vs NOT EXISTS mutants).
+-- 3. Movie rated only by someone else (should be returned; kills name filter omission mutants).
+-- 4. Movie rated by BOTH 'Chris Jackson' and someone else (should NOT be returned; kills naive WHERE name != 'Chris Jackson' join mutants).
+-- 5. Reviewer 'Chris Jackson' exists alongside another reviewer.
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (1, 'Unrated Movie', 2000, 'Dir A');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (2, 'Only Chris', 2001, 'Dir B');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (3, 'Only Sarah', 2002, 'Dir C');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (4, 'Chris and Sarah', 2003, 'Dir D');
+
+INSERT INTO "Reviewer" ("rID", "name") VALUES (101, 'Chris Jackson');
+INSERT INTO "Reviewer" ("rID", "name") VALUES (102, 'Sarah Martinez');
+
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (101, 2, 4, '2020-01-01');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (102, 3, 5, '2020-01-02');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (101, 4, 3, '2020-01-03');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (102, 4, 2, '2020-01-04');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling, duplicates, and ordering:
+-- 1. Multiple movies with the exact same title (kills SELECT DISTINCT or GROUP BY title mutants).
+-- 2. Movie with a NULL title (kills ORDER BY NULLS FIRST vs NULLS LAST mutants and tests NULL projection).
+-- 3. Rating with NULL mID or NULL rID (kills NOT IN (SELECT mID ...) mutants if NULLs are introduced in subqueries).
+-- 4. Reviewer with NULL name.
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (1, 'Duplicate Title', 1995, 'Dir X');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (2, 'Duplicate Title', 2010, 'Dir Y');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (3, NULL, 2015, 'Dir Z');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (4, 'Alpha', 2020, 'Dir W');
+
+INSERT INTO "Reviewer" ("rID", "name") VALUES (201, 'Chris Jackson');
+INSERT INTO "Reviewer" ("rID", "name") VALUES (202, NULL);
+
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (201, NULL, 3, '2021-01-01');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (NULL, 1, 4, '2021-01-02');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (202, 2, 5, '2021-01-03');
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple reviewers with the same name 'Chris Jackson', string case/pattern matching, and multi-ratings:
+-- 1. Two distinct reviewers both named 'Chris Jackson' rating different movies (kills '= (SELECT rID FROM Reviewer WHERE name = ...)' scalar subquery mutants).
+-- 2. Reviewers with similar names ('chris jackson', 'Chris Jackson Jr.') to kill LIKE / case-insensitive mutants.
+-- 3. A movie rated multiple times by a non-Chris reviewer (kills JOIN without DISTINCT mutants that duplicate movie rows).
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (10, 'Movie Rated By First Chris', 1990, 'Dir 1');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (20, 'Movie Rated By Second Chris', 1991, 'Dir 2');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (30, 'Movie Rated Twice By Bob', 1992, 'Dir 3');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (40, 'Movie Rated By Lowercase chris', 1993, 'Dir 4');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (50, 'Movie Rated By Chris Jr', 1994, 'Dir 5');
+
+INSERT INTO "Reviewer" ("rID", "name") VALUES (1, 'Chris Jackson');
+INSERT INTO "Reviewer" ("rID", "name") VALUES (2, 'Chris Jackson');
+INSERT INTO "Reviewer" ("rID", "name") VALUES (3, 'Bob');
+INSERT INTO "Reviewer" ("rID", "name") VALUES (4, 'chris jackson');
+INSERT INTO "Reviewer" ("rID", "name") VALUES (5, 'Chris Jackson Jr.');
+
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (1, 10, 5, '2022-01-01');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (2, 20, 4, '2022-01-02');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (3, 30, 2, '2022-01-03');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (3, 30, 5, '2022-01-04');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (4, 40, 3, '2022-01-05');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (5, 50, 1, '2022-01-06');
+```
+
+```sql
+-- DATASET 4
+-- Tests ID collision and wrong join key mutants (e.g., joining Movie.mID = Reviewer.rID or Movie.mID = Rating.rID):
+-- Also tests when 'Chris Jackson' is in the database but has rated NO movies.
+-- Also tests ordering of titles (Zebra vs Apple) when mID order is opposite to alphabetical title order.
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (100, 'Zebra', 2005, 'Chris Jackson');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (200, 'Apple', 2006, 'Someone Else');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (300, 'Mango', 2007, 'Another Director');
+
+INSERT INTO "Reviewer" ("rID", "name") VALUES (100, 'Chris Jackson');
+INSERT INTO "Reviewer" ("rID", "name") VALUES (200, 'Alice');
+
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (200, 100, 5, '2023-05-01');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (100, 300, 1, '2023-05-02');
+```
+
+```sql
+-- DATASET 5
+-- Edge case: All movies are rated by 'Chris Jackson' (Output should be empty).
+-- Tests mutants that fail to return an empty set or have broken correlation in NOT EXISTS (e.g., missing LHS.mid = RHS.mid).
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (1, 'Only Movie 1', 2010, 'Dir A');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (2, 'Only Movie 2', 2012, 'Dir B');
+
+INSERT INTO "Reviewer" ("rID", "name") VALUES (10, 'Chris Jackson');
+
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (10, 1, 3, '2020-10-10');
+INSERT INTO "Rating" ("rID", "mID", "stars", "ratingDate") VALUES (10, 2, 4, '2020-10-11');
+```
+
+```sql
+-- DATASET 6
+-- Edge case: 'Chris Jackson' does not exist in Reviewer table at all, and Rating table is empty.
+-- Also tests when one movie has a title that is an empty string vs NULL vs normal titles.
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (1, 'Normal Title', 1999, 'Dir 1');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (2, '', 1998, 'Dir 2');
+INSERT INTO "Movie" ("mID", "title", "year", "director") VALUES (3, NULL, 1997, 'Dir 3');
+
+INSERT INTO "Reviewer" ("rID", "name") VALUES (1, 'Not Chris');
+```

@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests semi-join vs inner join (1 template with multiple 'Data base' documents)
+-- Tests DISTINCT vs non-DISTINCT (2 different templates with the same Template_Type_Code)
+-- Tests ORDER BY and NULLS LAST (multiple codes and NULL Template_Type_Code)
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('AD', 'Advertisement');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('BK', 'Book');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('CV', 'Curriculum Vitae');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'BK', 1, '2020-01-01', '2025-01-01', 'Detail 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'BK', 2, '2020-01-01', '2025-01-01', 'Detail 2');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (3, 'AD', 1, '2020-01-01', '2025-01-01', 'Detail 3');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (4, NULL, 1, '2020-01-01', '2025-01-01', 'Detail 4');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (5, 'CV', 1, '2020-01-01', '2025-01-01', 'Detail 5');
+
+-- Template 1 has TWO 'Data base' documents (kills INNER JOIN without DISTINCT)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (101, 1, 'Data base', 'Desc 1', 'Other 1');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (102, 1, 'Data base', 'Desc 2', 'Other 2');
+
+-- Template 2 also has 'BK' and ONE 'Data base' document (kills SELECT DISTINCT template_type_code)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (103, 2, 'Data base', 'Desc 3', 'Other 3');
+
+-- Template 3 has 'AD' and ONE 'Data base' document (tests ordering: 'AD' before 'BK')
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (104, 3, 'Data base', 'Desc 4', 'Other 4');
+
+-- Template 4 has NULL Template_Type_Code and ONE 'Data base' document (tests NULLS LAST)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (105, 4, 'Data base', 'Desc 5', 'Other 5');
+
+-- Template 5 has a non-matching document (tests WHERE predicate)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (106, 5, 'Other Doc', 'Desc 6', 'Other 6');
+```
+
+```sql
+-- DATASET 2
+-- Tests string literal exact matching (case sensitivity, spacing) and NULLs in foreign keys / predicates
+-- Tests orphaned Ref_Template_Types and Templates without Documents
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('PP', 'Paper');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('PR', 'Presentation');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('ORPHAN', 'Unused Type');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'PP', 1, '2021-01-01', '2022-01-01', 'Data base');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (20, 'PR', 1, '2021-01-01', '2022-01-01', 'Details');
+
+-- Exact match for Template 20
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (201, 20, 'Data base', 'Valid', NULL);
+
+-- Near misses for Template 10 (case differences, missing space, matching description instead of name)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (202, 10, 'data base', 'Lower case', NULL);
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (203, 10, 'Database', 'No space', NULL);
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (204, 10, 'Wrong Name', 'Data base', 'Data base');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (205, 10, NULL, 'Null name', NULL);
+
+-- Document with 'Data base' but NULL Template_ID (tests join condition)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (206, NULL, 'Data base', 'Null FK', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests potential confusion between Template_ID and Document_ID in join condition (e.g., LHS.Template_ID = RHS.Document_ID)
+-- Tests unnecessary joins with Paragraphs table
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T2', 'Type 2');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, NULL, NULL, NULL);
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'T2', 1, NULL, NULL, NULL);
+
+-- Document_ID is 1 (matches Template 1's ID), but its Template_ID is 2.
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 2, 'Data base', 'Doc 1', NULL);
+-- Document for Template 1 has a different name
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 1, 'Not DB', 'Doc 2', NULL);
+
+-- Notice Template 2's Document (Document_ID 1) has NO paragraphs, while Document 2 has paragraphs.
+-- Kills mutants that inner join Paragraphs.
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (10, 2, 'Data base', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when documents exist but none match 'Data base'
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('X1', 'Type X1');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'X1', 1, '2020-01-01', '2020-12-31', 'T1');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 1, 'Spreadsheet', 'Desc', 'Details');
+```

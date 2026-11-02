@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, equality vs inequality, case sensitivity, and NULL handling in the WHERE clause.
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, 'Charlie', 'BOS', 2015.0, 30);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'Alice', 'NYY', 2018.0, 28);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (3.0, 'Bob', 'nyy', 2019.0, 25);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (4.0, 'David', 'NYY ', 2020.0, 35);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (5.0, 'Eve', NULL, 2021.0, 40);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (6.0, 'Frank', '', 2022.0, 22);
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT vs ALL (duplicate names), ORDER BY ASC vs DESC, and NULLS LAST vs NULLS FIRST on Name.
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (10.0, 'Zack', 'LAD', 2010.0, 45);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'Aaron', 'BOS', 2012.0, 38);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (5.0, 'Aaron', 'CHC', 2014.0, 33);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, NULL, 'SEA', 2016.0, 29);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (9.0, NULL, 'MIA', 2017.0, 27);
+```
+
+```sql
+-- DATASET 3
+-- Tests secondary sort on technician_id (including negative and fractional REALs) and NULLS LAST on technician_id.
+-- Note: technician_id is a REAL PRIMARY KEY (not INTEGER PRIMARY KEY), so SQLite permits a single NULL value.
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (10.5, 'SameName', 'BOS', 2015.0, 30);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (-5.5, 'SameName', 'BOS', 2010.0, 40);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'SameName', 'BOS', 2020.0, 25);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (NULL, 'SameName', 'BOS', 2018.0, 20);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, 'OtherName', 'ATL', 2012.0, 50);
+```
+
+```sql
+-- DATASET 4
+-- Tests mutants that erroneously JOIN with repair_assignment, machine, or repair, or filter by machine.Team instead of technician.Team.
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (100, 'Overhaul', '2023-01-01', 'Urgent');
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (200, 'TuneUp', '2023-02-01', 'Routine');
+
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (10, 2015, 'A', 'NYY', 'X1', 50.0, 1);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (20, 2018, 'B', 'BOS', 'X2', 75.0, 2);
+
+-- Tech 1: Valid team ('BOS'), unassigned to any repair (kills INNER JOIN mutants)
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1, 'UnassignedTech', 'BOS', 2015.0, 30);
+
+-- Tech 2: Valid team ('BOS'), assigned to multiple repairs on a machine with Team = 'NYY' (kills un-deduplicated JOINs and wrong-table Team filters)
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2, 'MultiAssignedTech', 'BOS', 2016.0, 32);
+
+-- Tech 3: Invalid team ('NYY'), assigned to a machine with Team = 'BOS' (kills wrong-table Team filters)
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (3, 'NYYTechWithBOSMachine', 'NYY', 2017.0, 28);
+
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (2, 100, 10);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (2, 200, 10);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (3, 100, 20);
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary condition where all rows are filtered out (empty result set) vs mutants using = 'NYY' or IS NULL.
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, 'OnlyNYY1', 'NYY', 2015.0, 30);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'OnlyNYY2', 'NYY', 2016.0, 31);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (3.0, 'NullTeamTech', NULL, 2017.0, 32);
+```
+
+```sql
+-- DATASET 6
+-- Tests lexicographical operator mutations (e.g., Team > 'NYY' or Team < 'NYY' instead of Team <> 'NYY') and column swap mutations (Name vs Team).
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, 'NYY', 'AAA', 2010.0, 25);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'NormalName', 'ZZZ', 2020.0, 35);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (3.0, 'AnotherName', 'NYY', 2015.0, 30);
+```

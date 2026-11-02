@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE "Chests" ("chest_id" INTEGER, "apple_count" INTEGER, "orange_count" INTEGER, UNIQUE ("chest_id"), CHECK ("apple_count" >= 0), CHECK ("orange_count" >= 0));
+
+CREATE TABLE "Boxes" ("chest_id" INTEGER, "box_id" INTEGER, "apple_count" INTEGER, "orange_count" INTEGER, FOREIGN KEY ("chest_id") REFERENCES "Chests" ("chest_id"), UNIQUE ("box_id"), CHECK ("apple_count" >= 0), CHECK ("orange_count" >= 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO chests (chest_id, apple_count, orange_count) VALUES (NULL, 0, NULL), (0, NULL, 1), (1, 1, 1), (2, NULL, 0), (3, 1, 1), (4, NULL, NULL), (5, NULL, NULL), (6, 0, 0), (7, 1, NULL);
+INSERT INTO boxes (chest_id, box_id, apple_count, orange_count) VALUES (0, NULL, 0, NULL), (5, 1, 1, 1), (6, 0, 1, NULL), (4, 2, 0, NULL), (1, 3, 0, 1), (2, 4, NULL, NULL), (1, 5, NULL, 0), (1, 6, 0, NULL), (6, 7, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT SUM(APPLE_COUNT) AS APPLE_COUNT, SUM(ORANGE_COUNT) AS ORANGE_COUNT FROM (SELECT SUM(B.APPLE_COUNT) AS APPLE_COUNT, SUM(B.ORANGE_COUNT) AS ORANGE_COUNT FROM BOXES AS B UNION ALL SELECT SUM(C.APPLE_COUNT) AS APPLE_COUNT, SUM(C.ORANGE_COUNT) AS ORANGE_COUNT FROM CHESTS AS C INNER JOIN BOXES AS B ON B.CHEST_ID = C.CHEST_ID) AS X;
+
+/*
+Gold Result:
+(5, 6)
+*/
+
+-- Prediction Query
+SELECT SUM(B.APPLE_COUNT) AS APPLE_COUNT, SUM(B.ORANGE_COUNT) AS ORANGE_COUNT FROM (SELECT BOX_ID, (CASE WHEN CHESTS.APPLE_COUNT IS NULL THEN BOXES.APPLE_COUNT ELSE BOXES.APPLE_COUNT + CHESTS.APPLE_COUNT END) AS APPLE_COUNT, (CASE WHEN CHESTS.ORANGE_COUNT IS NULL THEN BOXES.ORANGE_COUNT ELSE BOXES.ORANGE_COUNT + CHESTS.ORANGE_COUNT END) AS ORANGE_COUNT FROM BOXES LEFT JOIN CHESTS ON BOXES.CHEST_ID = CHESTS.CHEST_ID) AS B;
+
+/*
+Prediction Result:
+(4, 4)
+*/

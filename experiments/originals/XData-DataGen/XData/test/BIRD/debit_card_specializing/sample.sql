@@ -1,0 +1,54 @@
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (6, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (7, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (9, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (35, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (37, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (38, 'SME', 'EUR');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (44, 13, 'CZE', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (45, 6, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (46, 23, 'CZE', 'Other');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (47, 33, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (48, 4, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (49, 13, 'CZE', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (50, 10, 'CZE', 'Other');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (51, 10, 'CZE', 'Other');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (52, 10, 'CZE', 'Other');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (53, 10, 'CZE', 'Other');
+
+INSERT INTO products (ProductID, Description) VALUES (1, 'Rucní zadání');
+INSERT INTO products (ProductID, Description) VALUES (2, 'Nafta');
+INSERT INTO products (ProductID, Description) VALUES (3, 'Special');
+INSERT INTO products (ProductID, Description) VALUES (4, 'Super');
+INSERT INTO products (ProductID, Description) VALUES (5, 'Natural');
+INSERT INTO products (ProductID, Description) VALUES (6, 'Mix');
+INSERT INTO products (ProductID, Description) VALUES (7, 'Oleje,tuky');
+INSERT INTO products (ProductID, Description) VALUES (8, 'Natural +');
+INSERT INTO products (ProductID, Description) VALUES (9, 'Diesel +');
+INSERT INTO products (ProductID, Description) VALUES (10, 'Mazadla/Tuky');
+
+INSERT INTO transactions (TransactionID, txn_date, txn_time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-24', '09:41:00', 31543, 486621, 3704, 2, 28, 672.64);
+INSERT INTO transactions (TransactionID, txn_date, txn_time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-24', '10:03:00', 46707, 550134, 3704, 2, 18, 430.72);
+INSERT INTO transactions (TransactionID, txn_date, txn_time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-24', '10:03:00', 46707, 550134, 3704, 23, 1, 121.99);
+INSERT INTO transactions (TransactionID, txn_date, txn_time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-24', '13:53:00', 7654, 684220, 656, 5, 5, 120.74);
+INSERT INTO transactions (TransactionID, txn_date, txn_time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-24', '08:49:00', 17373, 536109, 741, 2, 28, 645.05);
+INSERT INTO transactions (TransactionID, txn_date, txn_time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (6, '2012-08-24', '08:53:00', 7881, 99745, 741, 5, 4, 96.84);
+INSERT INTO transactions (TransactionID, txn_date, txn_time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (7, '2012-08-24', '14:20:00', 17241, 571420, 1152, 5, 4, 81.94);
+INSERT INTO transactions (TransactionID, txn_date, txn_time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (8, '2012-08-24', '14:01:00', 17320, 729387, 636, 11, 0, 21.75);
+INSERT INTO transactions (TransactionID, txn_date, txn_time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (9, '2012-08-24', '14:01:00', 17320, 729387, 636, 2, 34, 771.06);
+INSERT INTO transactions (TransactionID, txn_date, txn_time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (10, '2012-08-24', '14:38:00', 19111, 726672, 636, 2, 21, 477.68);
+
+INSERT INTO yearmonth_new (CustomerID, yrmnt, Consumption) VALUES (5, '201207', 528.3);
+INSERT INTO yearmonth_new (CustomerID, yrmnt, Consumption) VALUES (5, '201302', 1598.28);
+INSERT INTO yearmonth_new (CustomerID, yrmnt, Consumption) VALUES (5, '201303', 1931.36);
+INSERT INTO yearmonth_new (CustomerID, yrmnt, Consumption) VALUES (5, '201304', 1497.14);
+INSERT INTO yearmonth_new (CustomerID, yrmnt, Consumption) VALUES (6, '201203', 51.06);
+INSERT INTO yearmonth_new (CustomerID, yrmnt, Consumption) VALUES (6, '201205', 49.34);
+INSERT INTO yearmonth_new (CustomerID, yrmnt, Consumption) VALUES (6, '201207', 43.67);
+INSERT INTO yearmonth_new (CustomerID, yrmnt, Consumption) VALUES (6, '201302', 294.38);
+INSERT INTO yearmonth_new (CustomerID, yrmnt, Consumption) VALUES (6, '201303', 439.49);
+INSERT INTO yearmonth_new (CustomerID, yrmnt, Consumption) VALUES (6, '201304', 509.39);

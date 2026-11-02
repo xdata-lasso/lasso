@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- General baseline test: Tests basic filtering by DisplayName, ordering by ViewCount DESC, LIMIT 1, and join condition (OwnerUserId vs LastEditorUserId / Id).
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, DisplayName) VALUES (1, 100, 1000, 50, 5, 'csgillespie');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, DisplayName) VALUES (2, 9999, 9999, 999, 0, 'other_user');
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, DisplayName) VALUES (3, 500, 500, 10, 1, 'CSGILLESPIE');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title, ViewCount, Score, AnswerCount, CommentCount, FavoriteCount, OwnerDisplayName) VALUES (10, 1, 2, 'Low Views Post', 50, 1000, 50, 50, 50, 'wrong_name');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title, ViewCount, Score, AnswerCount, CommentCount, FavoriteCount, OwnerDisplayName) VALUES (20, 1, 2, 'High Views Post', 500, 10, 1, 1, 1, 'wrong_name');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title, ViewCount, Score, AnswerCount, CommentCount, FavoriteCount, OwnerDisplayName) VALUES (30, 2, 1, 'Other User Post Edited By csgillespie', 99999, 9999, 99, 99, 99, 'csgillespie');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title, ViewCount, Score, AnswerCount, CommentCount, FavoriteCount, OwnerDisplayName) VALUES (1, 2, 2, 'Post With Id Matching User Id', 88888, 888, 88, 88, 88, 'other_user');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title, ViewCount, Score, AnswerCount, CommentCount, FavoriteCount, OwnerDisplayName) VALUES (40, 3, 3, 'Uppercase User Post', 77777, 777, 77, 77, 77, 'CSGILLESPIE');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in ViewCount (in SQLite, DESC puts NULLs last by default), plus zero and negative ViewCounts.
+INSERT INTO users (Id, DisplayName, Views) VALUES (10, 'csgillespie', 50);
+
+INSERT INTO posts (Id, OwnerUserId, Title, ViewCount, Score) VALUES (1, 10, 'Null Views Post', NULL, 500);
+INSERT INTO posts (Id, OwnerUserId, Title, ViewCount, Score) VALUES (2, 10, 'Negative Views Post', -10, 400);
+INSERT INTO posts (Id, OwnerUserId, Title, ViewCount, Score) VALUES (3, 10, 'Zero Views Post', 0, 100);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T1.Id ASC when T1.ViewCount is equal, and ensures DISTINCT is not improperly changing order or needed when Titles differ.
+INSERT INTO users (Id, DisplayName) VALUES (5, 'csgillespie');
+
+INSERT INTO posts (Id, OwnerUserId, Title, ViewCount, Score) VALUES (105, 5, 'Tied Views Higher Id', 250, 999);
+INSERT INTO posts (Id, OwnerUserId, Title, ViewCount, Score) VALUES (102, 5, 'Tied Views Lower Id', 250, 10);
+INSERT INTO posts (Id, OwnerUserId, Title, ViewCount, Score) VALUES (101, 5, 'Lower Views Lowest Id', 200, 1000);
+```
+
+```sql
+-- DATASET 4
+-- Tests second tie-breaker: T2.Id ASC when both T1.ViewCount and T1.Id are somehow equal or when multiple users have DisplayName = 'csgillespie' with identical ViewCount.
+-- Also tests INNER JOIN vs LEFT JOIN when a post has NULL OwnerUserId and high ViewCount.
+INSERT INTO users (Id, DisplayName) VALUES (10, 'csgillespie');
+INSERT INTO users (Id, DisplayName) VALUES (20, 'csgillespie');
+
+INSERT INTO posts (Id, OwnerUserId, Title, ViewCount) VALUES (1, NULL, 'Orphan Post With Max Views', 99999);
+INSERT INTO posts (Id, OwnerUserId, Title, ViewCount) VALUES (50, 20, 'Post By Second csgillespie', 1000);
+INSERT INTO posts (Id, OwnerUserId, Title, ViewCount) VALUES (51, 10, 'Post By First csgillespie', 1000);
+```
+
+```sql
+-- DATASET 5
+-- Tests LEFT JOIN from users to posts (user 'csgillespie' exists with no posts, while another 'csgillespie' has a post with negative ViewCount, or testing empty result vs NULL row).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'csgillespie');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'other');
+
+INSERT INTO posts (Id, OwnerUserId, Title, ViewCount) VALUES (10, 2, 'Other Post', 100);
+```
+
+```sql
+-- DATASET 6
+-- Tests string matching mutations (LIKE '%csgillespie%', prefix/suffix spaces) and column confusion (Title vs Body vs Tags).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'csgillespie ');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'prefix_csgillespie');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'csgillespie');
+
+INSERT INTO posts (Id, OwnerUserId, Title, Body, Tags, ViewCount) VALUES (1, 1, 'Trailing Space User Post', 'Body 1', '<tag1>', 5000);
+INSERT INTO posts (Id, OwnerUserId, Title, Body, Tags, ViewCount) VALUES (2, 2, 'Prefix User Post', 'Body 2', '<tag2>', 4000);
+INSERT INTO posts (Id, OwnerUserId, Title, Body, Tags, ViewCount) VALUES (3, 3, 'Exact Match User Post', 'Exact Match Body', '<exact>', 100);
+```

@@ -1,0 +1,39 @@
+-- Schema DDL
+CREATE TABLE badges (Id INTEGER NOT NULL PRIMARY KEY, UserId INTEGER NULL, Name TEXT NULL, Date DATETIME NULL, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE comments (Id INTEGER NOT NULL PRIMARY KEY, PostId INTEGER NULL, Score INTEGER NULL, Text TEXT NULL, CreationDate DATETIME NULL, UserId INTEGER NULL, UserDisplayName TEXT NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE postHistory (Id INTEGER NOT NULL UNIQUE PRIMARY KEY, PostHistoryTypeId INTEGER NULL, PostId INTEGER NULL, RevisionGUID TEXT NULL, CreationDate DATETIME NULL, UserId INTEGER NULL, Text TEXT NULL, Comment TEXT NULL, UserDisplayName TEXT NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE postLinks (Id INTEGER NOT NULL PRIMARY KEY, CreationDate DATETIME NULL, PostId INTEGER NULL, RelatedPostId INTEGER NULL, LinkTypeId INTEGER NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (RelatedPostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE posts (Id INTEGER NOT NULL UNIQUE PRIMARY KEY, PostTypeId INTEGER NULL, AcceptedAnswerId INTEGER NULL, CreaionDate DATETIME NULL, Score INTEGER NULL, ViewCount INTEGER NULL, Body TEXT NULL, OwnerUserId INTEGER NULL, LasActivityDate DATETIME NULL, Title TEXT NULL, Tags TEXT NULL, AnswerCount INTEGER NULL, CommentCount INTEGER NULL, FavoriteCount INTEGER NULL, LastEditorUserId INTEGER NULL, LastEditDate DATETIME NULL, CommunityOwnedDate DATETIME NULL, ParentId INTEGER NULL, ClosedDate DATETIME NULL, OwnerDisplayName TEXT NULL, LastEditorDisplayName TEXT NULL, FOREIGN KEY (LastEditorUserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (OwnerUserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE tags (Id INTEGER NOT NULL PRIMARY KEY, TagName TEXT NULL, Count INTEGER NULL, ExcerptPostId INTEGER NULL, WikiPostId INTEGER NULL, FOREIGN KEY (ExcerptPostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE users (Id INTEGER NOT NULL UNIQUE PRIMARY KEY, Reputation INTEGER NULL, CreationDate DATETIME NULL, DisplayName TEXT NULL, LastAccessDate DATETIME NULL, WebsiteUrl TEXT NULL, Location TEXT NULL, AboutMe TEXT NULL, Views INTEGER NULL, UpVotes INTEGER NULL, DownVotes INTEGER NULL, AccountId INTEGER NULL, Age INTEGER NULL, ProfileImageUrl TEXT NULL);
+
+CREATE TABLE votes (Id INTEGER NOT NULL PRIMARY KEY, PostId INTEGER NULL, VoteTypeId INTEGER NULL, CreationDate DATE NULL, UserId INTEGER NULL, BountyAmount INTEGER NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO users (id, reputation, creationdate, displayname, lastaccessdate, websiteurl, location, aboutme, views, upvotes, downvotes, accountid, age, profileimageurl) VALUES (5, 3, NULL, 'default2', NULL, NULL, 'United Kingdom', 'default1', 3, 5, 5, 3, 0, 'default1'), (4, 0, NULL, NULL, '2023-01-01 01:00:00.000000', 'default1', 'United Kingdom', 'United Kingdom', 5, 1, 1, 0, 4, 'default1'), (0, NULL, '2023-01-01 00:00:00.000000', 'default2', '2023-01-01 01:00:00.000000', 'default2', 'United Kingdom', 'United Kingdom', 0, 0, NULL, NULL, 3, 'United Kingdom'), (3, 3, '2023-01-01 01:00:00.000000', 'default1', '2023-01-01 01:00:00.000000', NULL, 'default1', NULL, 5, 3, 5, 3, 3, NULL), (1, 1, '2023-01-01 01:00:00.000000', NULL, '2023-01-01 00:00:00.000000', NULL, 'United Kingdom', 'default1', 4, 4, NULL, 5, 1, 'default1'), (2, 4, '2023-01-01 00:00:00.000000', NULL, NULL, 'default1', NULL, NULL, NULL, 5, NULL, 3, 0, 'default1');
+INSERT INTO posts (id, lasteditoruserid, owneruserid, posttypeid, acceptedanswerid, creaiondate, score, viewcount, body, lasactivitydate, title, tags, answercount, commentcount, favoritecount, lasteditdate, communityowneddate, parentid, closeddate, ownerdisplayname, lasteditordisplayname) VALUES (0, 5, 5, 4, 4, '2023-01-01 01:00:00.000000', 4, 0, NULL, '2023-01-01 00:00:00.000000', NULL, 'default1', 3, 4, NULL, '2023-01-01 00:00:00.000000', '2023-01-01 01:00:00.000000', 1, '2023-01-01 00:00:00.000000', 'United Kingdom', 'default2'), (3, 5, 0, 5, 3, '2023-01-01 00:00:00.000000', 5, 3, 'default1', '2023-01-01 01:00:00.000000', 'default2', NULL, 0, 5, 5, NULL, '2023-01-01 00:00:00.000000', 4, '2023-01-01 01:00:00.000000', 'default1', NULL), (4, NULL, NULL, 5, NULL, '2023-01-01 01:00:00.000000', 0, 4, 'default2', '2023-01-01 01:00:00.000000', 'default1', 'default1', 4, 0, 0, NULL, NULL, 4, NULL, 'default1', 'default1'), (5, 5, 1, NULL, 5, '2023-01-01 01:00:00.000000', NULL, 4, 'default1', '2023-01-01 01:00:00.000000', 'default1', NULL, NULL, 3, 3, NULL, '2023-01-01 00:00:00.000000', 5, '2023-01-01 00:00:00.000000', 'United Kingdom', 'default2'), (1, 4, 3, 4, 5, '2023-01-01 01:00:00.000000', 3, 0, 'United Kingdom', NULL, 'default1', NULL, NULL, 5, 0, NULL, '2023-01-01 01:00:00.000000', 1, NULL, 'default1', 'United Kingdom'), (2, NULL, 3, 3, 4, '2023-01-01 00:00:00.000000', 5, 0, NULL, '2023-01-01 00:00:00.000000', 'default1', 'United Kingdom', 4, 3, 1, '2023-01-01 01:00:00.000000', '2023-01-01 01:00:00.000000', 0, '2023-01-01 01:00:00.000000', 'default2', 'default1'), (6, 2, 3, 3, 1, NULL, NULL, NULL, NULL, '2023-01-01 00:00:00.000000', 'default2', 'default2', 4, 1, 5, NULL, '2023-01-01 00:00:00.000000', 5, NULL, 'default2', 'default2'), (7, 1, 1, 4, 4, '2023-01-01 00:00:00.000000', 3, NULL, 'default1', NULL, 'default1', 'default1', 3, 3, 3, '2023-01-01 00:00:00.000000', NULL, 1, '2023-01-01 01:00:00.000000', NULL, NULL), (8, 1, 5, 4, 3, NULL, 1, 0, NULL, '2023-01-01 01:00:00.000000', 'United Kingdom', NULL, 5, 5, 1, NULL, '2023-01-01 01:00:00.000000', 0, '2023-01-01 01:00:00.000000', NULL, 'default2'), (9, 5, 2, NULL, 4, NULL, 0, 5, NULL, NULL, NULL, 'default2', 4, 4, 5, '2023-01-01 01:00:00.000000', '2023-01-01 00:00:00.000000', 0, '2023-01-01 00:00:00.000000', 'United Kingdom', 'default2'), (10, 3, 1, NULL, 1, NULL, 4, 1, NULL, '2023-01-01 00:00:00.000000', 'default2', 'default2', 3, 4, 0, '2023-01-01 01:00:00.000000', '2023-01-01 00:00:00.000000', 1, '2023-01-01 00:00:00.000000', 'United Kingdom', 'default1'), (11, 3, 5, 4, NULL, NULL, 3, 5, 'default2', NULL, 'default1', 'default2', 1, 0, 4, '2023-01-01 00:00:00.000000', '2023-01-01 01:00:00.000000', NULL, '2023-01-01 00:00:00.000000', 'default2', NULL), (12, 3, 3, 5, 4, NULL, 5, NULL, 'United Kingdom', '2023-01-01 00:00:00.000000', 'United Kingdom', 'default2', 5, NULL, NULL, '2023-01-01 00:00:00.000000', '2023-01-01 01:00:00.000000', 4, NULL, 'default1', 'default2'), (13, 1, 1, 0, 3, '2023-01-01 00:00:00.000000', 5, 1, 'default2', NULL, 'default1', 'United Kingdom', 5, 0, 3, '2023-01-01 01:00:00.000000', '2023-01-01 01:00:00.000000', 1, '2023-01-01 01:00:00.000000', 'default2', 'default2'), (14, 1, 5, NULL, 0, '2023-01-01 01:00:00.000000', NULL, NULL, 'United Kingdom', '2023-01-01 00:00:00.000000', NULL, 'default1', NULL, 5, 5, '2023-01-01 00:00:00.000000', '2023-01-01 00:00:00.000000', 0, '2023-01-01 01:00:00.000000', NULL, 'default1');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT COUNT(T1.Id) FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId WHERE T1.Location = 'United Kingdom' AND T2.FavoriteCount >= 4;
+
+/*
+Gold Result:
+(3,)
+*/
+
+-- Prediction Query
+SELECT COUNT(DISTINCT users.Id) FROM posts AS posts INNER JOIN users AS users ON posts.OwnerUserId = users.Id WHERE users.Location = 'United Kingdom' AND posts.FavoriteCount >= 4;
+
+/*
+Prediction Result:
+(2,)
+*/

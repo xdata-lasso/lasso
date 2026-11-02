@@ -1,0 +1,52 @@
+-- Schema DDL
+CREATE TABLE "EVENT" (
+    "EVENT_ID" INT,
+    "DATE" TEXT,
+    "VENUE" TEXT,
+    "NAME" TEXT,
+    "EVENT_ATTENDANCE" INT,
+    PRIMARY KEY ("EVENT_ID")
+);
+CREATE TABLE "JOURNALIST" (
+    "JOURNALIST_ID" INT,
+    "NAME" TEXT,
+    "NATIONALITY" TEXT,
+    "AGE" TEXT,
+    "YEARS_WORKING" INT,
+    PRIMARY KEY ("JOURNALIST_ID")
+);
+CREATE TABLE "NEWS_REPORT" (
+    "JOURNALIST_ID" INT,
+    "EVENT_ID" INT,
+    "WORK_TYPE" TEXT,
+    PRIMARY KEY ("JOURNALIST_ID", "EVENT_ID"),
+    FOREIGN KEY ("EVENT_ID") REFERENCES "EVENT"("EVENT_ID"),
+    FOREIGN KEY ("JOURNALIST_ID") REFERENCES "JOURNALIST"("JOURNALIST_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO EVENT VALUES (0, 0, 0, 0, 0);
+INSERT INTO EVENT VALUES (1, 0, 0, 0, 0);
+INSERT INTO JOURNALIST VALUES (-1, 0, 0, 0, 0);
+INSERT INTO JOURNALIST VALUES (0, -1, 0, 0, 0);
+INSERT INTO NEWS_REPORT VALUES (0, 1, 0);
+INSERT INTO NEWS_REPORT VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT * FROM journalist AS LHS WHERE NOT EXISTS(SELECT 1 FROM news_report AS RHS WHERE (LHS.journalist_id = RHS.journalist_id))) ORDER BY name;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT Name FROM journalist WHERE NOT journalist_ID IN (SELECT journalist_ID FROM news_report);
+
+/*
+Prediction Result:
+('0',)
+*/

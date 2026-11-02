@@ -1,0 +1,31 @@
+-- Schema DDL
+CREATE TABLE "Activity" ("player_id" INTEGER, "event_date" DATE, "device_id" INTEGER, "games_played" INTEGER, PRIMARY KEY ("player_id", "event_date"), CHECK ("games_played" >= 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 2
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, 100, 1, 5);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, 101, 1, 2);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, 102, 1, 3);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (2, 200, 2, 0);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (2, 202, 2, 4);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (2, 203, 2, 8);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (3, 300, 3, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ROUND((CAST(SUM(CASE WHEN (temp.min_date + 1) = a.event_date THEN 1 ELSE 0 END) AS REAL) / COUNT(DISTINCT temp.player_id)), 2) AS fraction FROM (SELECT player_id, MIN(event_date) AS min_date FROM activity GROUP BY player_id) AS temp JOIN activity AS a ON temp.player_id = a.player_id;
+
+/*
+Gold Result:
+(0.33,)
+*/
+
+-- Prediction Query
+WITH CTE AS (SELECT PLAYER_ID, EVENT_DATE, ROW_NUMBER() OVER (PARTITION BY PLAYER_ID ORDER BY EVENT_DATE) AS RANKINGS, LEAD(EVENT_DATE, 1, NULL) OVER (PARTITION BY PLAYER_ID ORDER BY EVENT_DATE) AS NEXT_LOGIN_DATE FROM ACTIVITY) SELECT ROUND(CAST(COUNT(DISTINCT CASE WHEN RANKINGS = 1 AND DATE(EVENT_DATE + 1) = NEXT_LOGIN_DATE THEN PLAYER_ID ELSE NULL END) * 1.0 AS REAL) / COUNT(DISTINCT PLAYER_ID), 2) AS FRACTION FROM CTE;
+
+/*
+Prediction Result:
+(0.0,)
+*/

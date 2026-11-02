@@ -1,0 +1,71 @@
+```sql
+-- DATASET 1
+-- Tests basic WHERE filtering ('Cash' vs other values, case sensitivity, substrings, NULLs) 
+-- and basic ORDER BY customer_name (where insertion/PK order conflicts with alphabetical order).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Cash', 'Zack', '2022-01-10 10:00:00', 'Detail 1');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Credit Card', 'Aaron', '2021-05-15 08:30:00', 'Detail 2');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'cash', 'Bella', '2020-03-20 12:00:00', 'Detail 3');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (4, 'Cashier Check', 'Charlie', '2023-07-01 09:15:00', 'Detail 4');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (5, NULL, 'David', '2019-11-11 14:45:00', 'Detail 5');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (6, 'Cash', 'Alice', '2023-02-28 16:20:00', 'Detail 6');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (7, 'Cash', 'Bob', '2018-08-08 11:10:00', 'Detail 7');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate customer_name values (kills DISTINCT / GROUP BY mutants),
+-- NULL handling in customer_name (tests NULLS FIRST vs NULLS LAST on primary sort key),
+-- and secondary sort tie-breaking on customer_id.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (10, 'Cash', 'John Smith', '2021-01-01 00:00:00', 'First John');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (5, 'Cash', 'John Smith', '2022-01-01 00:00:00', 'Second John with lower ID');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (8, 'Cash', NULL, '2020-06-15 00:00:00', 'Null Name 1');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', NULL, '2023-06-15 00:00:00', 'Null Name 2');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (15, 'Cash', 'Alice Cooper', '2019-01-01 00:00:00', 'Alice');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (20, 'Debit', 'John Smith', '2021-05-05 00:00:00', 'Non-cash John');
+```
+
+```sql
+-- DATASET 3
+-- Tests mutants that unnecessarily INNER JOIN child tables (Customer_Orders, Customer_Addresses, Customer_Contact_Channels)
+-- either losing customers without child records or multiplying customers with multiple child records.
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (100, '123 Main St', 'Metropolis', '10001', 'NY', 'USA', NULL);
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (101, '456 Oak Ave', 'Gotham', '20002', 'NJ', 'USA', NULL);
+
+INSERT INTO "Products" ("product_id", "product_details") VALUES (500, 'Laptop');
+
+-- Customer 1: Matches 'Cash', but has NO orders, NO addresses, NO contact channels (killed by INNER JOIN mutants)
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Cash', 'Lonely Customer', '2022-01-01 10:00:00', 'No child records');
+
+-- Customer 2: Matches 'Cash', and has MULTIPLE orders, addresses, and contact channels (multiplied by un-grouped JOIN mutants)
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', 'Active Customer', '2021-01-01 10:00:00', 'Multiple child records');
+
+-- Customer 3: Does not match 'Cash', has child records
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Check', 'Non-Cash Active', '2020-01-01 10:00:00', 'Other');
+
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (2, 100, '2021-01-01 00:00:00', 'Home', '2022-01-01 00:00:00');
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (2, 101, '2022-01-02 00:00:00', 'Work', NULL);
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (3, 100, '2020-01-01 00:00:00', 'Home', NULL);
+
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (2, 'Email', '2021-01-01 00:00:00', NULL, 'active1@example.com');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (2, 'Mobile', '2021-01-01 00:00:00', NULL, '555-0199');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (3, 'Mobile', '2020-01-01 00:00:00', NULL, '555-0100');
+
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (1000, 2, 'Completed', '2021-06-01 12:00:00', 'First Order');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (1001, 2, 'Pending', '2021-07-01 12:00:00', 'Second Order');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (1002, 3, 'Completed', '2020-06-01 12:00:00', 'Third Order');
+
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (1000, 500, '1');
+INSERT INTO "Order_Items" ("order_id", "product_id", "order_quantity") VALUES (1001, 500, '2');
+```
+
+```sql
+-- DATASET 4
+-- Tests edge cases where column values cross-contaminate (e.g., customer_name is 'Cash' while payment_method is not,
+-- or other_customer_details is 'Cash') to kill mutants filtering or projecting the wrong columns.
+-- Also tests empty result sets for 'Cash' if filtered wrongly, and NULL primary key in SQLite INTEGER PRIMARY KEY.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Cash', '2022-05-01 00:00:00', 'Cash');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Wire', 'Johnny Cash', '2022-05-02 00:00:00', 'Cash');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Cash', 'Card', '2022-05-03 00:00:00', 'Wire');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (4, 'Cash ', 'Trailing Space', '2022-05-04 00:00:00', 'Cash');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (5, ' Cash', 'Leading Space', '2022-05-05 00:00:00', 'Cash');
+```

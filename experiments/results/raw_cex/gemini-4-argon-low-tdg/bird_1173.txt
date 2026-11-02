@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Patient.Diagnosis vs Examination.Diagnosis (wrong table column selected/grouped)
+-- 2. WHERE date filter omitting rows outside 1985-1995 (missing WHERE clause or wrong date column like Patient.Birthday / First Date)
+-- 3. COUNT(T2.Diagnosis) vs COUNT(DISTINCT T1.ID) (one patient with multiple exams vs multiple patients with one exam)
+-- 4. ORDER BY DESC vs ASC and LIMIT 1
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1990-05-05', '1990-05-05', '1990-05-05', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', '1970-01-01', '1970-01-01', '1970-01-01', '+', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'F', '1970-01-01', '1970-01-01', '1970-01-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (4, 'M', '1990-01-01', '1990-01-01', '1990-01-01', '+', 'SJS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (5, 'F', '1988-01-01', '1988-01-01', '1988-01-01', '+', 'PSS');
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1988-03-15', 'MCTD');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1991-07-20', 'MCTD');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1994-11-10', 'MCTD');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (2, '1989-02-01', 'MCTD');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (3, '1992-06-12', 'MCTD');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (4, '1984-12-31', 'SJS');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (4, '1980-01-01', 'SJS');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (4, '1996-01-01', 'SJS');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (4, '1999-05-05', 'SJS');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (5, '1990-10-10', 'PSS');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Inclusive lower boundary '1985-01-01' (catches > '1985-01-01' instead of >= / BETWEEN)
+-- 2. Tie-breaker ORDER BY T2.Diagnosis ASC vs DESC when counts are equal
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'Behcet');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'APS');
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1985-01-01', 'Other');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1990-01-01', 'Other');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (2, '1990-06-01', 'Other');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (2, '1991-06-01', 'Other');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Inclusive upper boundary '1995-12-31' (catches < '1995-12-31' instead of <= / BETWEEN)
+-- 2. Tie-breaker verification (if '1995-12-31' is excluded, 'Z_Diag' loses tie and 'A_Diag' wins)
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'Z_Diag');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'A_Diag');
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1995-12-31', 'X');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1990-05-05', 'X');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (2, '1990-05-05', 'X');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. COUNT(T2.Diagnosis) vs COUNT(*) or COUNT(T1.ID) when T2.Diagnosis IS NULL
+-- 2. NULLS LAST behavior in ORDER BY
+-- (Patient 1 has NULL Diagnosis and 3 exams -> COUNT(T2.Diagnosis) is 0, COUNT(*) is 3.
+--  Patient 2 has 'Lupus' and 1 exam -> COUNT(T2.Diagnosis) is 1, so 'Lupus' must win)
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, NULL);
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'Lupus');
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1987-04-04', 'ExamDiag');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1988-04-04', 'ExamDiag');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1989-04-04', 'ExamDiag');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (2, '1990-04-04', 'ExamDiag');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. INNER JOIN vs RIGHT/FULL JOIN or querying Patient without joining Examination
+-- 2. Joining Laboratory instead of Examination (Laboratory has dates in 1985-1995 for Patient 1, Examination does not)
+-- 3. Orphan Examination rows with NULL ID (catches LEFT JOIN from Examination if grouping by Exam Diagnosis)
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'Unexamined_Diag');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'Unexamined_Diag');
+INSERT INTO Patient (ID, Diagnosis) VALUES (3, 'Unexamined_Diag');
+INSERT INTO Patient (ID, Diagnosis) VALUES (4, 'Valid_Diag');
+
+INSERT INTO Laboratory (ID, Date) VALUES (1, '1988-01-01');
+INSERT INTO Laboratory (ID, Date) VALUES (2, '1989-01-01');
+INSERT INTO Laboratory (ID, Date) VALUES (3, '1990-01-01');
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (4, '1991-03-03', 'Other');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (NULL, '1991-03-03', 'Orphan_Diag');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (NULL, '1992-03-03', 'Orphan_Diag');
+```
+
+```sql
+-- DATASET 6
+-- Tests:
+-- 1. Missing JOIN condition (Cartesian product) or wrong JOIN key
+-- 2. HAVING clause mutations (e.g., HAVING COUNT(...) > 1 when max count is 1)
+-- 3. Tie-breaker with count = 1 (alphabetical 'ASC_Winner' vs 'DESC_Winner')
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'ASC_Winner');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'DESC_Winner');
+INSERT INTO Patient (ID, Diagnosis) VALUES (3, 'DESC_Winner');
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1986-06-06', 'D1');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (2, '1987-07-07', 'D2');
+```

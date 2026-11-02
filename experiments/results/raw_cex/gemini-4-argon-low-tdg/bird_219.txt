@@ -1,0 +1,112 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN with atom (M1 has no atoms -> excluded, kills mutants missing atom join or using LEFT JOIN).
+-- 2. WHERE bond_type = '#' vs other bond types (M4 only has '=' -> excluded; M2 has both '#' and '-' -> included).
+-- 3. COUNT(DISTINCT) vs COUNT() when molecules have unequal numbers of atoms and '#' bonds (M2 has 3 atoms, 2 '#' bonds = 6 rows; M3 has 1 atom, 1 '#' bond = 1 row. Distinct ratio is 1/2 = 50.0, non-distinct is 6/7 = 85.71).
+-- 4. CAST(... AS REAL) * 100 / ... vs integer division before * 100.
+-- 5. NULL label handling (M5 has NULL label).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M3', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M4', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M5', NULL);
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M2', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M2', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M2', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M3', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', 'M4', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A6', 'M5', 'n');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'M2', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'M3', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B6', 'M4', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B7', 'M5', '#');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Floating-point division precision (1 out of 3 molecules = 33.3333... vs integer division 33).
+-- 2. Disconnected atoms and bonds (valid in molecule/atom/bond tables, absent in connected table -> kills mutants that erroneously join the 'connected' table).
+-- 3. Atoms and bonds with NULL molecule_id.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M3', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M2', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M3', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', NULL, 'c');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M3', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', NULL, '#');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Boundary condition where numerator is 0 (0 '+' molecules with '#' bond, while '+' molecules exist with other bonds).
+-- 2. Kills mutants using ELSE 0 or ELSE '' inside CASE WHEN (since COUNT(DISTINCT 0) would evaluate to 1 instead of 0).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M3', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M2', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M3', 'o');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M3', '-');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Inverse multiplication difference: '-' molecule has many atoms/bonds (4x3=12 rows), '+' molecule has 1x1=1 row.
+-- 2. Tests mutants that count distinct atom_id or bond_id instead of molecule_id.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M2', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M2', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M2', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', 'M2', 'n');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'M2', '#');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Boundary condition where 100% of matching molecules have label = '+', while non-matching '-' molecules exist.
+-- 2. Kills mutants that put T2.label = '+' in the WHERE clause (if they also fail on denominator, here denominator would be same, whereas in Dataset 1 & 2 WHERE label='+' gives 100% instead of 50%/33.3%).
+-- 3. Molecule with atoms but no bonds at all (M3).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M3', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M4', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M2', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M3', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M4', 'c');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M4', '=');
+```

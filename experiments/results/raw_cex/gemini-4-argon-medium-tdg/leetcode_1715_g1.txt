@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. UNION vs UNION ALL (Branch 1 and Branch 2 evaluate to identical sums: 10, 20).
+-- 2. Unreferenced Chests (chest_id = 2 has no boxes, testing if Chests is summed directly without JOIN).
+-- 3. Box with NULL chest_id (box_id = 102 is included in Boxes sum, excluded from Join sum).
+INSERT INTO "Chests" ("chest_id", "apple_count", "orange_count") VALUES (1, 10, 20);
+INSERT INTO "Chests" ("chest_id", "apple_count", "orange_count") VALUES (2, 100, 200);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (1, 101, 6, 12);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (NULL, 102, 4, 8);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Multiple Boxes referencing the same Chest (Join multiplicity: Chest 1 counts are multiplied by 2).
+-- 2. Distinct non-zero values across all columns to catch column swaps (apple vs orange, B vs C).
+INSERT INTO "Chests" ("chest_id", "apple_count", "orange_count") VALUES (1, 3, 7);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (1, 101, 11, 13);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (1, 102, 17, 19);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Boxes exist ONLY with NULL chest_id (Branch 1 yields non-null, Branch 2 INNER JOIN yields empty/NULL).
+-- 2. Catches mutants that rewrite the query as a single INNER JOIN (SUM(B.apple + C.apple)), which would return NULL here instead of (5, 9).
+-- 3. Catches RIGHT/LEFT JOIN mutations on Chests.
+INSERT INTO "Chests" ("chest_id", "apple_count", "orange_count") VALUES (1, 50, 60);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (NULL, 101, 5, 9);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty Boxes table (Both branches evaluate to NULL; outer SUM evaluates to NULL).
+-- 2. Catches COALESCE/IFNULL differences or queries that scan Chests without joining Boxes.
+INSERT INTO "Chests" ("chest_id", "apple_count", "orange_count") VALUES (1, 15, 25);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Handling of NULLs in apple_count and orange_count, alongside 0 values.
+-- 2. Catches mutants using '+' across columns/tables without COALESCE (e.g., B.apple_count + C.apple_count becomes NULL if one side is NULL, whereas separate SUMs ignore NULLs).
+INSERT INTO "Chests" ("chest_id", "apple_count", "orange_count") VALUES (1, NULL, 5);
+INSERT INTO "Chests" ("chest_id", "apple_count", "orange_count") VALUES (2, 10, NULL);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (1, 101, 8, NULL);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (2, 102, NULL, 12);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (2, 103, 0, 0);
+```
+
+```sql
+-- DATASET 6
+-- Tests:
+-- 1. Partial match in UNION vs UNION ALL (Branch 1 and Branch 2 have the same apple_count sum (10), but different orange_count sums (20 vs 30), ensuring partial row deduplication or column-level DISTINCT is caught).
+-- 2. Multiple Chests and Multiple Boxes with varied fan-out (Chest 1 has 2 boxes, Chest 2 has 1 box, Chest 3 has 0 boxes).
+INSERT INTO "Chests" ("chest_id", "apple_count", "orange_count") VALUES (1, 2, 10);
+INSERT INTO "Chests" ("chest_id", "apple_count", "orange_count") VALUES (2, 6, 10);
+INSERT INTO "Chests" ("chest_id", "apple_count", "orange_count") VALUES (3, 100, 100);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (1, 101, 1, 5);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (1, 102, 3, 5);
+INSERT INTO "Boxes" ("chest_id", "box_id", "apple_count", "orange_count") VALUES (2, 103, 6, 10);
+```

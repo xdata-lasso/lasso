@@ -1,0 +1,134 @@
+-- Schema DDL
+CREATE TABLE customers (CustomerID INTEGER UNIQUE NOT NULL PRIMARY KEY, Segment TEXT NULL, Currency TEXT NULL);
+
+CREATE TABLE gasstations (GasStationID INTEGER UNIQUE NOT NULL PRIMARY KEY, ChainID INTEGER NULL, Country TEXT NULL, Segment TEXT NULL);
+
+CREATE TABLE products (ProductID INTEGER UNIQUE NOT NULL PRIMARY KEY, Description TEXT NULL);
+
+CREATE TABLE "transactions_1k" (TransactionID INTEGER PRIMARY KEY AUTOINCREMENT, Date DATE, Time TEXT, CustomerID INTEGER, CardID INTEGER, GasStationID INTEGER, ProductID INTEGER, Amount INTEGER, Price REAL);
+
+CREATE TABLE "yearmonth" (CustomerID INTEGER NOT NULL REFERENCES customers ON update CASCADE ON delete CASCADE REFERENCES customers, Date TEXT NOT NULL, Consumption REAL, PRIMARY KEY (Date, CustomerID));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: customers --
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (1, 'KAM', '5k5swwqcgs');
+
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (-2147483647, 'KAM', 'c4pgu7vfe');
+
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (2, 'KAM', 'ri');
+
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (0, 'a2ypuzhsrwbb', 'p6luhvdlttil');
+
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (-1, 'nprmdposii', '5u');
+
+-- Inserting into table: yearmonth --
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_1', 171.746906);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_2', 557.512061);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_3', 868.436572);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_4', 483.665643);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_5', 818.685402);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_6', 804.971537);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (0, 'date_7', 0.5);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (0, 'date_8', 0.0);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (0, 'date_9', 22.535764);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (-1, 'date_10', 0.5);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (-1, 'date_11', 0.0);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (-1, 'date_12', 933.422701);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (0, 'date_13', 0.5);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (0, 'date_14', 0.0);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (0, 'date_15', 345.718563);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (0, 'date_16', 0.5);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (0, 'date_17', 0.0);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (0, 'date_18', 510.466242);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (-1, 'date_19', 0.0);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (-1, 'date_20', -1.0);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (-1, 'date_21', 768.216462);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_22', 83.204633);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_23', 5.585347);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_24', 871.191565);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_25', 877.276439);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_26', 627.258639);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_27', 801.414196);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_28', 890.762259);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_29', 720.527846);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_30', 963.351729);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_31', 827.854302);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_32', 983.124993);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_33', 828.555322);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_34', 38.208914);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_35', 470.720385);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_36', 74.576035);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_37', NULL);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_38', NULL);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_39', NULL);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_40', 725.945531);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_41', NULL);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_42', NULL);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_43', NULL);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_44', NULL);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_45', NULL);
+
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (1, 'date_46', NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T2.CustomerID, SUM(T2.Consumption) FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Segment = 'KAM' GROUP BY T2.CustomerID ORDER BY SUM(T2.Consumption) DESC, T2.CustomerID NULLS LAST LIMIT 1;
+
+/*
+Gold Result:
+(1, 13494.576255999998)
+*/
+
+-- Prediction Query
+SELECT CustomerID, MAX(Consumption) AS MaxConsumption FROM yearmonth WHERE CustomerID IN (SELECT CustomerID FROM customers WHERE Segment = 'KAM') GROUP BY CustomerID ORDER BY MaxConsumption DESC, CustomerID NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+(1, 983.124993)
+*/

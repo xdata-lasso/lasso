@@ -1,0 +1,107 @@
+```sql
+-- DATASET 1
+-- Tests basic positive case: Exact match on card name, language = 'Korean', and non-null translation.
+-- Also includes a distractor card and a distractor language to kill mutants missing WHERE or CASE conditions.
+INSERT INTO sets (id, code, name) VALUES (1, '10E', 'Tenth Edition');
+INSERT INTO sets (id, code, name) VALUES (2, 'JUD', 'Judgment');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Ancestor''s Chosen', '10E');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (2, 'uuid-2', 'Other Card', 'JUD');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Korean', '10E', '제10판');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Japanese', '10E', '第10版');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Korean', 'JUD', '심판');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL translation handling: The card has a 'Korean' entry in set_translations, but translation IS NULL.
+-- Kills mutants that omit "NOT T2.translation IS NULL" or use COUNT(*) instead of conditional SUM/COUNT(translation).
+INSERT INTO sets (id, code, name) VALUES (1, '10E', 'Tenth Edition');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Ancestor''s Chosen', '10E');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Korean', '10E', NULL);
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'French', '10E', 'Dixième édition');
+```
+
+```sql
+-- DATASET 3
+-- Tests language filtering: The card's set has non-null translations in other languages, and a valid Korean translation exists on an unrelated set.
+-- Kills mutants that omit "T2.language = 'Korean'", use OR instead of AND, or fail to join properly on setCode.
+INSERT INTO sets (id, code, name) VALUES (1, '10E', 'Tenth Edition');
+INSERT INTO sets (id, code, name) VALUES (2, 'UMA', 'Ultimate Masters');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Ancestor''s Chosen', '10E');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (2, 'uuid-2', 'Snapcaster Mage', 'UMA');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'German', '10E', 'Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Spanish', '10E', 'Décima edición');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Korean', 'UMA', '얼티밋 마스터즈');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty join result (SUM evaluates to NULL): The target card exists, but its set has no translations at all.
+-- Kills mutants that do not handle NULL from SUM() properly (e.g., comparing SUM = 0 without COALESCE, or returning NULL instead of 'NO').
+INSERT INTO sets (id, code, name) VALUES (1, '10E', 'Tenth Edition');
+INSERT INTO sets (id, code, name) VALUES (2, 'JUD', 'Judgment');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Ancestor''s Chosen', '10E');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Korean', 'JUD', '심판');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple matches (SUM > 1): The card is printed in two different sets, both having valid Korean translations.
+-- Kills mutants that check SUM(...) = 1 instead of SUM(...) > 0, or mutants that fail to aggregate into a single row.
+INSERT INTO sets (id, code, name) VALUES (1, '10E', 'Tenth Edition');
+INSERT INTO sets (id, code, name) VALUES (2, 'JUD', 'Judgment');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Ancestor''s Chosen', '10E');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (2, 'uuid-2', 'Ancestor''s Chosen', 'JUD');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Korean', '10E', '제10판');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Korean', 'JUD', '심판');
+```
+
+```sql
+-- DATASET 6
+-- Tests mixed multiple printings: The card is in two sets; one has a NULL Korean translation and non-Korean translation, the other has a valid Korean translation.
+-- Kills mutants that use MIN() instead of SUM()/MAX(), or grouping mutants that return multiple rows per setCode.
+INSERT INTO sets (id, code, name) VALUES (1, '10E', 'Tenth Edition');
+INSERT INTO sets (id, code, name) VALUES (2, 'JUD', 'Judgment');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Ancestor''s Chosen', '10E');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (2, 'uuid-2', 'Ancestor''s Chosen', 'JUD');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Korean', '10E', NULL);
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Chinese Simplified', '10E', '第十版');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Korean', 'JUD', '심판');
+```
+
+```sql
+-- DATASET 7
+-- Tests confusion between foreign_data (card translations) and set_translations.
+-- The card has a Korean translation in foreign_data, but its set does NOT have a Korean translation in set_translations.
+-- Kills mutants that join with foreign_data instead of set_translations.
+INSERT INTO sets (id, code, name) VALUES (1, '10E', 'Tenth Edition');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Ancestor''s Chosen', '10E');
+
+INSERT INTO foreign_data (id, language, name, text, uuid) VALUES (1, 'Korean', '선조의 선택을 받은 자', '첫번째 공세...', 'uuid-1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Japanese', '10E', '第10版');
+```
+
+```sql
+-- DATASET 8
+-- Tests card name predicate accuracy: Includes cards with similar names (prefix/suffix/case variations) that have Korean set translations, while the exact target card does not exist.
+-- Kills mutants with relaxed LIKE predicates or missing card name filters.
+INSERT INTO sets (id, code, name) VALUES (1, '10E', 'Tenth Edition');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Ancestor''s Chosen One', '10E');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (2, 'uuid-2', 'Ancestor', '10E');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Korean', '10E', '제10판');
+```

@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering on Currency = 'EUR', grouping by year (SUBSTRING(Date, 1, 4)) vs full Date, and SUM vs MAX/AVG/COUNT.
+-- Year 2012 has two smaller transactions across different months that sum to 160.0 (beating 2013's single 150.0 transaction).
+-- Non-EUR customer has huge consumption in 2011 to catch missing WHERE filters.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'LAM', NULL);
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 80.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201202', 80.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201301', 150.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201302', -20.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201101', 999.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201001', 888.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on the secondary sort column: ORDER BY SUM(T2.Consumption) DESC, SUBSTRING(T2.Date, 1, 4) ASC.
+-- Also tests SUM(DISTINCT Consumption) vs SUM(Consumption) by using identical consumption amounts in the winning years.
+-- Both 2011 and 2012 sum to 200.0 (via two 100.0 records each). 2011 should win due to ascending secondary sort on year.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201205', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201103', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201104', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201301', 180.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests SUM vs AVG, COUNT, MIN, and handling of NULL Consumption.
+-- 2014 has high SUM (300.0) but low AVG (75.0) due to low-value rows.
+-- 2015 has lower SUM (250.0) but high AVG (250.0) because its second row has NULL Consumption.
+-- 2016 has the highest row count (5 rows) but very small SUM (50.0).
+-- Also includes a customer with Currency 'EUR' and no yearmonth rows to catch LEFT JOIN mutants.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201401', 145.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201402', 145.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201403', 5.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201404', 5.0);
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201501', 250.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201502', NULL);
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201601', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201602', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201603', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201604', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201605', 10.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests missing JOIN condition (Cartesian product) and JOIN on wrong keys.
+-- Customer 1 (EUR) has small consumption in 2012. Customer 2 (EUR) has no consumption in 2012, but high in 2013.
+-- Customer 3 (USD) has massive consumption in 2011.
+-- Also tests SUBSTRING bounds (e.g., SUBSTRING(Date, 1, 4) vs SUBSTRING(Date, 2, 4) or SUBSTRING(Date, 1, 6)).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'USD');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 40.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 40.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201309', 120.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201112', 5000.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests negative consumption values and all-NULL consumption groups.
+-- Year 2011 has all NULL consumptions (SUM is NULL). In SQLite, NULL is considered the smallest value, so in DESC order NULL comes last.
+-- Year 2012 has SUM of -10.0, Year 2013 has SUM of -50.0.
+-- 2012 should win (-10.0 > -50.0 > NULL). Catches mutants using COALESCE/IFNULL or wrong NULL ordering.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201101', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', -10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201301', -20.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201302', -30.0);
+```

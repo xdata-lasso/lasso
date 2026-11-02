@@ -1,0 +1,48 @@
+```sql
+-- DATASET 1
+-- Tests standard aggregation with duplicate Amount_Payment values, multiple Settlement_IDs, multiple Payment_Method_Codes, NULL values, and distinct amounts in Settlements/Claims to catch SUM(DISTINCT), GROUP BY, AVG/COUNT/MAX/MIN, or wrong table/column mutations.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Alice');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 1, 'AUTO', '2022-01-01', '2023-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (100, 10, '2022-02-01', '2022-02-15', 5000, 4000);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1000, 100, '2022-02-01', '2022-02-15', 5000, 4000, 10);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1001, 100, '2022-03-01', '2022-03-15', 3000, 2500, 10);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (1, 1000, 'CREDIT', '2022-02-20', 250);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (2, 1000, 'CASH', '2022-02-21', 250);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (3, 1001, 'CHECK', '2022-03-20', 400);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (4, 1001, 'WIRE', '2022-03-25', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests Payments with NULL Foreign Keys (Settlement_ID IS NULL) and unmatched Settlements to catch unnecessary INNER JOINs between Payments and Settlements/Claims.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Bob');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'HOME', '2021-01-01', '2022-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (1, 1, '2021-06-01', '2021-06-10', 1000, 800);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1, 1, '2021-06-01', '2021-06-10', 1000, 800, 1);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (2, 1, '2021-07-01', '2021-07-10', 500, 500, 1);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (10, 1, 'CASH', '2021-06-12', 300);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (20, NULL, 'CHECK', '2021-06-15', 700);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty Payments table (while parent tables are populated) to ensure SUM returns a single row with NULL rather than 0 or an empty result set.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Charlie');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'LIFE', '2020-01-01', '2030-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (1, 1, '2021-01-01', '2021-01-10', 2000, 2000);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1, 1, '2021-01-01', '2021-01-10', 2000, 2000, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests negative, zero, and positive Amount_Payment values to catch WHERE filters (e.g., Amount_Payment > 0) or ABS() / MAX() / MIN() mutations.
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (1, NULL, 'CREDIT', '2022-01-01', -150);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (2, NULL, 'CREDIT', '2022-01-02', 0);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (3, NULL, 'CREDIT', '2022-01-03', 500);
+```
+
+```sql
+-- DATASET 5
+-- Tests single row in Payments where Amount_Payment is NULL to distinguish SUM(Amount_Payment) from COUNT(*) or COALESCE(SUM(Amount_Payment), 0).
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (99, NULL, 'WIRE', '2023-05-05', NULL);
+```

@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT/RIGHT/FULL OUTER JOIN (unassigned technicians, unassigned machines, unused repairs).
+-- 2. Join condition on technician_id and machine_id vs team (natural join / wrong join key).
+-- 3. Column disambiguation: technician.Name vs repair.name.
+-- 4. Duplicate output rows (SELECT vs SELECT DISTINCT when a technician repairs the same machine across multiple repairs).
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (10, 'Repair_Ten', '2023-01-01', 'Note A');
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (20, 'Repair_Twenty', '2023-02-01', 'Note B');
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (30, 'Unassigned_Repair', '2023-03-01', 'Note C');
+
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (100, 2015, 'A', 'Team_M1', 'Series_X', 50.5, 1);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (200, 2018, 'B', 'Team_Shared', 'Series_Y', 75.0, 2);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (300, 2020, 'C', 'Team_M3', 'Series_Unassigned', 90.0, 3);
+
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, 'Tech_Alpha', 'Team_T1', 2010.0, 35);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'Tech_Beta', 'Team_Shared', 2012.0, 28);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (3.0, 'Tech_Unassigned', 'Team_Shared', 2019.0, 42);
+
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (1, 10, 100);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (1, 20, 100);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (2, 10, 200);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. ORDER BY name ASC, machine_series ASC NULLS LAST.
+-- 2. Handling of NULLs in both name and machine_series (verifying NULLS FIRST vs NULLS LAST on both sort keys).
+-- 3. Tie-breaking on identical technician names with different machine_series (and vice versa).
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (1, 'R1', '2022-01-01', 'N1');
+
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (1, 2020, 'C1', 'T1', 'Series_B', 10.0, 1);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (2, 2020, 'C1', 'T1', 'Series_A', 20.0, 2);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (3, 2020, 'C1', 'T1', NULL, 30.0, 3);
+
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (10.0, 'Charlie', 'T1', 2015.0, 30);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (20.0, 'Alice', 'T1', 2016.0, 25);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (30.0, NULL, 'T1', 2017.0, 40);
+
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (10, 1, 1);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (10, 1, 2);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (20, 1, 3);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (20, 1, 1);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (20, 1, 2);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (30, 1, 2);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (30, 1, 3);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Mis-joined IDs (e.g., joining technician_id = machine_id, technician_id = repair_id, or repair_id = machine_id).
+-- 2. Overlapping numeric IDs across different entity tables (1, 2, 3 used in all tables with distinct semantics).
+-- 3. Ensuring repair table is not required in the join unless joined via repair_assignment (and checking that repair columns do not leak).
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (1, 'Repair_Name_1', '2021-05-05', 'Notes 1');
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (2, 'Repair_Name_2', '2021-06-06', 'Notes 2');
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (3, 'Repair_Name_3', '2021-07-07', 'Notes 3');
+
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (1, 2001, 'Class_1', 'Team_A', 'Mach_Series_1', 100.0, 5);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (2, 2002, 'Class_2', 'Team_B', 'Mach_Series_2', 200.0, 4);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (3, 2003, 'Class_3', 'Team_C', 'Mach_Series_3', 300.0, 3);
+
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (1.0, 'Tech_1', 'Team_C', 2001.0, 50);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (2.0, 'Tech_2', 'Team_A', 2002.0, 45);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (3.0, 'Tech_3', 'Team_B', 2003.0, 20);
+
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (1, 2, 3);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (2, 3, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Spurious filtering mutants (e.g., WHERE Age > X, WHERE value_points > 0, WHERE Making_Year >= Starting_Year, WHERE quality_rank = 1).
+-- 2. Boundary values (0, negative numbers, NULLs in non-projected columns) to kill mutants that add arbitrary predicates or INNER JOINs on nullable attributes.
+INSERT INTO "repair" ("repair_ID", "name", "Launch_Date", "Notes") VALUES (100, NULL, NULL, NULL);
+
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (10, NULL, NULL, NULL, 'Zero_Val_Series', 0.0, 0);
+INSERT INTO "machine" ("Machine_ID", "Making_Year", "Class", "Team", "Machine_series", "value_points", "quality_rank") VALUES (20, 1990, '', 'Team_Z', 'Neg_Val_Series', -15.5, 99);
+
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (5.0, 'Young_Tech', NULL, 2023.0, 18);
+INSERT INTO "technician" ("technician_id", "Name", "Team", "Starting_Year", "Age") VALUES (6.0, 'Null_Attr_Tech', '', NULL, NULL);
+
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (5, 100, 20);
+INSERT INTO "repair_assignment" ("technician_id", "repair_ID", "Machine_ID") VALUES (6, 100, 10);
+```

@@ -1,0 +1,46 @@
+-- Schema DDL
+CREATE TABLE "ELECTION" (
+    "ELECTION_ID" INT,
+    "REPRESENTATIVE_ID" INT,
+    "DATE" TEXT,
+    "VOTES" FLOAT,
+    "VOTE_PERCENT" FLOAT,
+    "SEATS" FLOAT,
+    "PLACE" FLOAT,
+    PRIMARY KEY ("ELECTION_ID"),
+    FOREIGN KEY ("REPRESENTATIVE_ID") REFERENCES "REPRESENTATIVE"("REPRESENTATIVE_ID")
+);
+CREATE TABLE "REPRESENTATIVE" (
+    "REPRESENTATIVE_ID" INT,
+    "NAME" TEXT,
+    "STATE" TEXT,
+    "PARTY" TEXT,
+    "LIFESPAN" TEXT,
+    PRIMARY KEY ("REPRESENTATIVE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ELECTION VALUES (-1, 0, 8, 10001, 9, 10, 11);
+INSERT INTO ELECTION VALUES (0, 0, 16, 10001, 17, 18, 19);
+INSERT INTO REPRESENTATIVE VALUES (1, 12, 13, 14, 15);
+INSERT INTO REPRESENTATIVE VALUES (0, 20, 21, 22, 23);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT * FROM representative AS LHS WHERE EXISTS(SELECT 1 FROM (SELECT * FROM election WHERE (votes >= 10000.0)) AS RHS WHERE (LHS.representative_id = RHS.representative_id))) ORDER BY name;
+
+/*
+Gold Result:
+('20',)
+*/
+
+-- Prediction Query
+SELECT T2.Name FROM election AS T1 JOIN representative AS T2 ON T1.Representative_ID = T2.Representative_ID WHERE Votes > 10000;
+
+/*
+Prediction Result:
+('20',)
+('20',)
+*/

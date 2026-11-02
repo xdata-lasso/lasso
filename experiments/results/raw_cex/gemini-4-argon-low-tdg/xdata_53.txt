@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests behavior when `instructor` has rows, `section` has rows, but `teaches` is completely empty.
+-- Gold query returns 0 rows. Kills mutants that use LEFT JOIN without checking for NULL, or mutants that query `instructor` directly without checking `teaches`, or mutants that check `section` instead of `teaches`.
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Comp. Sci.', 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('12121', 'Wu', 'Comp. Sci.', 90000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 4);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '1', 'Fall', 2017, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests the un-correlated nature of the outer EXISTS in the Gold Query, and tests duplicate elimination / multiple teaches per instructor.
+-- Here, Instructor 10101 teaches 2 sections, Instructor 12121 teaches 1 section, and Instructor 15151 teaches 0 sections (and has a NULL dept_name).
+-- Because the Gold Query has an uncorrelated EXISTS (checking only if t1.ID = t2.ID exists anywhere in `teaches`), ALL 3 instructors are returned once.
+-- This kills mutants that:
+-- 1. Correlate the subquery with `instructor.ID` (e.g., WHERE instructor.ID = t1.ID), which would exclude 15151.
+-- 2. Use INNER JOIN without DISTINCT, which would duplicate 10101 and exclude 15151.
+-- 3. Require an instructor to teach multiple distinct sections (e.g. t1.sec_id <> t2.sec_id), which would exclude 12121 and 15151.
+-- 4. Inner join with `department`, which would exclude 15151 due to NULL dept_name.
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'Comp. Sci.', 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('12121', 'Wu', 'Comp. Sci.', 90000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('15151', 'Mozart', NULL, 40000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-102', 'Data Structures', 'Comp. Sci.', 4);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '1', 'Fall', 2017, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '2', 'Fall', 2017, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-102', '1', 'Spring', 2018, NULL, NULL, NULL);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-101', '1', 'Fall', 2017);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'CS-101', '2', 'Fall', 2017);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('12121', 'CS-102', '1', 'Spring', 2018);
+```
+
+```sql
+-- DATASET 3
+-- Tests when `teaches` has exactly 1 row (1 instructor teaching 1 section).
+-- Gold query returns all instructors.
+-- Kills mutants that replace `t1.ID = t2.ID` with `t1.ID <> t2.ID` or require at least two different rows in `teaches` (e.g., `t1.course_id <> t2.course_id`), which would return 0 rows on this dataset.
+INSERT INTO department (dept_name, building, budget) VALUES ('Physics', 'Watson', 70000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('22222', 'Einstein', 'Physics', 95000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('33333', 'Gold', 'Physics', 80000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('PHY-101', 'Physical Principles', 'Physics', 4);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('PHY-101', '1', 'Fall', 2017, NULL, NULL, NULL);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('22222', 'PHY-101', '1', 'Fall', 2017);
+```
+
+```sql
+-- DATASET 4
+-- Tests when two instructors teach the exact same course_id, sec_id, semester, year, and another teaches a different section.
+-- Also includes `takes` and `student` with matching IDs to kill mutants that confuse `teaches` with `takes` or `advisor`.
+INSERT INTO department (dept_name, building, budget) VALUES ('History', 'Painter', 50000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('45565', 'Katz', 'History', 75000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('58583', 'Califieri', 'History', 62000);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('45565', 'StudentKatz', 'History', 32);
+INSERT INTO advisor (s_ID, i_ID) VALUES ('45565', '45565');
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('HIS-351', 'World History', 'History', 3);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('HIS-351', '1', 'Spring', 2018, NULL, NULL, NULL);
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('45565', 'HIS-351', '1', 'Spring', 2018, 'A');
+```
+
+```sql
+-- DATASET 5
+-- Tests when `teaches` has rows, `takes` is empty, and two different instructors teach two different courses.
+-- Specifically kills mutants that erroneously join `t1` and `t2` on `t1.course_id = t2.course_id AND t1.ID <> t2.ID`.
+INSERT INTO department (dept_name, building, budget) VALUES ('Biology', 'Watson', 90000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Music', 'Packard', 80000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('76766', 'Crick', 'Biology', 72000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('83821', 'Brandt', 'Music', 92000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('BIO-101', 'Intro to Biology', 'Biology', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('MU-199', 'Music Video Production', 'Music', 3);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('BIO-101', '1', 'Summer', 2017, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('MU-199', '1', 'Fall', 2018, NULL, NULL, NULL);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('76766', 'BIO-101', '1', 'Summer', 2017);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('83821', 'MU-199', '1', 'Fall', 2018);
+```

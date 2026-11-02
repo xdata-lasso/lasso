@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests basic join conditions (closure_authorised_by_staff_id = staff_id AND problem_description = other_staff_details)
+-- vs wrong join key (reported_by_staff_id = staff_id) or missing secondary join condition.
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (10, 'ProdA', 'DetailsA');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (20, 'ProdB', 'DetailsB');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (30, 'ProdC', 'DetailsC');
+
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (1, 'Ashley', 'Smith', 'MatchDesc');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (2, 'John', 'Doe', 'OtherDesc');
+
+-- Valid match on both join conditions
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (100, 2, 10, 1, '2023-01-01', '2023-01-02', 'MatchDesc', 'None');
+-- Fails second join condition (problem_description <> other_staff_details)
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (101, 2, 20, 1, '2023-01-01', '2023-01-02', 'MismatchDesc', 'None');
+-- Wrong FK matched (reported_by_staff_id matches Staff 1, but closure_authorised_by_staff_id is Staff 2)
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (102, 1, 30, 2, '2023-01-01', '2023-01-02', 'MatchDesc', 'None');
+```
+
+```sql
+-- DATASET 2
+-- Tests the boolean logic of the WHERE clauses:
+-- Filter 1: (staff_first_name = 'Ashley' OR staff_last_name = 'Medhurst')
+-- Filter 2: (staff_first_name = 'Christop' OR staff_last_name <> 'Berge')
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (1, 'P1', 'D1');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (2, 'P2', 'D2');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (3, 'P3', 'D3');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (4, 'P4', 'D4');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (5, 'P5', 'D5');
+
+-- 1: 'Ashley', 'Berge' -> Passes Filter 1, Fails Filter 2 (since first_name <> 'Christop' and last_name = 'Berge'). Should be excluded!
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (1, 'Ashley', 'Berge', 'D');
+-- 2: 'Christop', 'Medhurst' -> Passes Filter 1 (Medhurst), Passes Filter 2 (Christop AND <> Berge). Should be included!
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (2, 'Christop', 'Medhurst', 'D');
+-- 3: 'Ashley', 'Medhurst' -> Passes both (helps kill OR vs XOR or AND mutants in Filter 1). Should be included!
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (3, 'Ashley', 'Medhurst', 'D');
+-- 4: 'Bob', 'Medhurst' -> Passes Filter 1 ( only second branch), Passes Filter 2 ( only second branch). Should be included!
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (4, 'Bob', 'Medhurst', 'D');
+-- 5: 'Christop', 'Smith' -> Fails Filter 1, Passes Filter 2. Should be excluded!
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (5, 'Christop', 'Smith', 'D');
+
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (1, 1, 1, 1, '2023-01-01', '2023-01-02', 'D', 'O');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (2, 2, 2, 2, '2023-01-01', '2023-01-02', 'D', 'O');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (3, 3, 3, 3, '2023-01-01', '2023-01-02', 'D', 'O');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (4, 4, 4, 4, '2023-01-01', '2023-01-02', 'D', 'O');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (5, 5, 5, 5, '2023-01-01', '2023-01-02', 'D', 'O');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in WHERE clauses, duplicate product_id (SELECT vs SELECT DISTINCT),
+-- and ORDER BY product_id NULLS LAST.
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (50, 'P50', 'D50');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (10, 'P10', 'D10');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (90, 'P90', 'D90');
+
+-- Staff 1: 'Ashley' with NULL last_name.
+-- In Filter 2: staff_first_name = 'Christop' (False) OR staff_last_name <> 'Berge' (NULL). False OR NULL -> NULL (Falsy).
+-- Mutants that drop Filter 2 or rewrite <> 'Berge' as IS NOT 'Berge' will fail.
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (1, 'Ashley', NULL, 'Desc1');
+
+-- Staff 2: Valid 'Ashley' 'ValidLast'
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (2, 'Ashley', 'ValidLast', 'Desc2');
+
+-- Problem with NULL last_name staff (should be filtered out)
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (1, 1, 90, 1, '2023-01-01', '2023-01-02', 'Desc1', 'O');
+
+-- Multiple problems producing duplicate product_id (50, 50), a smaller product_id (10), and a NULL product_id
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (2, 2, 50, 2, '2023-01-01', '2023-01-02', 'Desc2', 'O');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (3, 2, 50, 2, '2023-01-03', '2023-01-04', 'Desc2', 'O');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (4, 2, NULL, 2, '2023-01-05', '2023-01-06', 'Desc2', 'O');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (5, 2, 10, 2, '2023-01-07', '2023-01-08', 'Desc2', 'O');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN and projection mistakes (e.g., returning problem_id or staff_id instead of product_id).
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (777, 'P777', 'D777');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (888, 'P888', 'D888');
+
+-- Staff 10 matches, Staff 20 has no problems (tests RIGHT JOIN)
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (10, 'NoFirst', 'Medhurst', 'Sync');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (20, 'Ashley', 'Medhurst', 'UnmatchedStaff');
+
+-- Problem 555 matches Staff 10 and has product_id 777 (distinct from problem_id 555 and staff_id 10)
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (555, 10, 777, 10, '2023-01-01', '2023-01-02', 'Sync', 'O');
+-- Problem 666 has NULL closure_authorised_by_staff_id (tests LEFT JOIN)
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (666, 10, 888, NULL, '2023-01-01', '2023-01-02', 'Sync', 'O');
+```

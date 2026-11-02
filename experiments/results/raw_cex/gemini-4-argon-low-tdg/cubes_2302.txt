@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests basic composite grouping (Project_ID, Document_Description), secondary sorting on count___, and duplicate output rows (to kill SELECT DISTINCT mutants).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type1', 'TypeDesc1');
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T2', 'Type2', 'TypeDesc2');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Project Alpha');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (2, 'Project Beta');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (3, 'Project Empty');
+
+-- Project 1: DescA (count 3), DescB (count 1), DescC (count 1). Tests tie in count___ for Project 1 and sorting (1, 1, 3).
+-- Also uses differing Document_Name, Document_Type_Code, and Other_Details to kill mutants grouping by the wrong columns.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (101, 1, 'T1', '2023-01-01', 'Name1', 'DescA', 'Other1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (102, 1, 'T1', '2023-01-02', 'Name2', 'DescA', 'Other2');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (103, 1, 'T2', '2023-01-03', 'Name3', 'DescA', 'Other3');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (104, 1, 'T1', '2023-01-04', 'Name1', 'DescB', 'Other1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (105, 1, 'T2', '2023-01-05', 'Name1', 'DescC', 'Other1');
+
+-- Project 2: DescA (count 2). Tests same Document_Description across different projects.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (201, 2, 'T1', '2023-02-01', 'Name4', 'DescA', 'Other4');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (202, 2, 'T2', '2023-02-02', 'Name5', 'DescA', 'Other5');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in grouping columns (Document_Description and Project_ID), COUNT(*) vs COUNT(column), and NULL ordering in ORDER BY.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type1', 'TypeDesc1');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (10, 'Proj 10');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (20, 'Proj 20');
+
+-- Project 10 with NULL Document_Description (count 2). Kills COUNT(document_description) mutants.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 10, 'T1', '2023-01-01', 'Doc1', NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 10, NULL, NULL, NULL, NULL, NULL);
+
+-- Project 10 with non-NULL Document_Description (count 1).
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 10, 'T1', '2023-01-03', 'Doc3', 'ValidDesc', 'Details');
+
+-- NULL Project_ID with non-NULL Document_Description (count 3). Kills INNER JOIN Projects mutants and tests NULLS FIRST/LAST on project_id.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (4, NULL, 'T1', '2023-01-04', 'Doc4', 'OrphanDesc', 'Details');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (5, NULL, 'T1', '2023-01-05', 'Doc5', 'OrphanDesc', 'Details');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (6, NULL, 'T1', '2023-01-06', 'Doc6', 'OrphanDesc', 'Details');
+
+-- Project 20 with multiple descriptions having different counts (count 2 and count 4) to test ordering.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (7, 20, 'T1', '2023-01-07', 'D7', 'DescX', 'Det');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (8, 20, 'T1', '2023-01-08', 'D8', 'DescX', 'Det');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (9, 20, 'T1', '2023-01-09', 'D9', 'DescX', 'Det');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (10, 20, 'T1', '2023-01-10', 'D10', 'DescX', 'Det');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (11, 20, 'T1', '2023-01-11', 'D11', 'DescY', 'Det');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (12, 20, 'T1', '2023-01-12', 'D12', 'DescY', 'Det');
+```
+
+```sql
+-- DATASET 3
+-- Tests against unnecessary JOINs with child tables (Statements, Documents_with_Expenses, Accounts) and parent tables.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DOC', 'General', 'General Doc');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('B1', 'Budget 1');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (5, 'Project Five');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Project One');
+
+-- Inserted out of order of Project_ID and count to strictly test ORDER BY clauses.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 5, 'DOC', '2023-05-01', 'N1', 'D_Five_A', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 5, 'DOC', '2023-05-02', 'N2', 'D_Five_A', 'O2');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 5, 'DOC', '2023-05-03', 'N3', 'D_Five_B', 'O3');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 1, 'DOC', '2023-01-01', 'N4', 'D_One_A', 'O4');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 1, 'DOC', '2023-01-02', 'N5', 'D_One_B', 'O5');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (6, 1, 'DOC', '2023-01-03', 'N6', 'D_One_B', 'O6');
+
+-- Only a subset of Documents are in Statements or Documents_with_Expenses.
+-- Also, Statement 1 has multiple Accounts, which would fan-out counts if joined with Accounts.
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (1, 'Stmt 1');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (1, 'B1', 'Exp 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (100, 1, 'Acc 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (101, 1, 'Acc 2');
+```

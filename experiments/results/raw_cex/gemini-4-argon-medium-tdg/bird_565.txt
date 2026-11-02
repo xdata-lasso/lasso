@@ -1,0 +1,95 @@
+```sql
+-- DATASET 1
+-- Tests basic positive case where ClosedDate IS NULL (returns 'NOT well-finished').
+-- Also includes decoy comments and posts to kill mutants missing WHERE predicates or JOIN conditions.
+INSERT INTO users (Id, DisplayName) VALUES (23853, 'TargetUser');
+INSERT INTO users (Id, DisplayName) VALUES (99999, 'DecoyUser');
+
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, ClosedDate) VALUES (101, 99999, '2013-07-01 00:00:00.0', NULL);
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, ClosedDate) VALUES (102, 23853, '2013-07-12 09:08:18.0', '2013-08-01 00:00:00.0');
+
+-- Matching row: UserId=23853, CreationDate='2013-07-12 09:08:18.0', PostId=101 (ClosedDate IS NULL)
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (1, 101, 23853, '2013-07-12 09:08:18.0');
+
+-- Decoy 1: Right UserId, wrong CreationDate, linked to Closed post
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (2, 102, 23853, '2013-07-12 09:08:19.0');
+
+-- Decoy 2: Wrong UserId, right CreationDate, linked to Closed post
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (3, 102, 99999, '2013-07-12 09:08:18.0');
+```
+
+```sql
+-- DATASET 2
+-- Tests basic positive case where ClosedDate IS NOT NULL (returns 'well-finished').
+-- Also tests decoy joins (e.g., T1.Id = T2.Id vs T1.PostId = T2.Id, or T1.UserId = T2.OwnerUserId).
+INSERT INTO users (Id, DisplayName) VALUES (23853, 'TargetUser');
+INSERT INTO users (Id, DisplayName) VALUES (88888, 'OtherUser');
+
+-- Post 201 is closed. Post 1 is open (to catch T1.Id = T2.Id join mutants).
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, ClosedDate) VALUES (1, 23853, '2013-07-12 09:08:18.0', NULL);
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, ClosedDate) VALUES (201, 88888, '2013-01-01 00:00:00.0', '2013-07-15 12:00:00.0');
+
+-- Matching comment: Id=1 (differs from PostId=201), UserId=23853, CreationDate matches
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (1, 201, 23853, '2013-07-12 09:08:18.0');
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple matching comments (duplicates in output) to kill DISTINCT mutants,
+-- and tests INNER JOIN vs LEFT JOIN when PostId is NULL.
+INSERT INTO users (Id, DisplayName) VALUES (23853, 'TargetUser');
+
+INSERT INTO posts (Id, OwnerUserId, ClosedDate) VALUES (301, 23853, NULL);
+INSERT INTO posts (Id, OwnerUserId, ClosedDate) VALUES (302, 23853, '2013-07-20 10:00:00.0');
+
+-- Two comments yielding 'NOT well-finished' and one yielding 'well-finished'
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (10, 301, 23853, '2013-07-12 09:08:18.0');
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (11, 301, 23853, '2013-07-12 09:08:18.0');
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (12, 302, 23853, '2013-07-12 09:08:18.0');
+
+-- Comment with NULL PostId but matching WHERE clause (kills LEFT JOIN mutants)
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (13, NULL, 23853, '2013-07-12 09:08:18.0');
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between tables/columns:
+-- 1. T2.OwnerUserId = 23853 vs T1.UserId = 23853
+-- 2. T2.CreaionDate = '2013-07-12 09:08:18.0' vs T1.CreationDate = '2013-07-12 09:08:18.0'
+-- 3. T2.ClosedDate = '2013-07-12 09:08:18.0'
+-- In this dataset, the Gold Query should return an EMPTY result set.
+INSERT INTO users (Id, DisplayName) VALUES (23853, 'TargetUser');
+INSERT INTO users (Id, DisplayName) VALUES (11111, 'AnotherUser');
+
+-- Post has OwnerUserId = 23853 and CreaionDate = '2013-07-12 09:08:18.0', but comment does not match.
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, ClosedDate) VALUES (401, 23853, '2013-07-12 09:08:18.0', '2013-07-12 09:08:18.0');
+
+-- Comment has wrong UserId (11111) and wrong CreationDate
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (20, 401, 11111, '2013-07-10 00:00:00.0');
+
+-- Comment has right UserId (23853) but wrong CreationDate
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (21, 401, 23853, '2013-07-12 00:00:00.0');
+
+-- Comment has wrong UserId (11111) but right CreationDate
+INSERT INTO comments (Id, PostId, UserId, CreationDate) VALUES (22, 401, 11111, '2013-07-12 09:08:18.0');
+```
+
+```sql
+-- DATASET 5
+-- Tests confusion between other nullable columns on posts/comments vs T2.ClosedDate IS NULL.
+-- E.g., if a mutant checks T2.AcceptedAnswerId IS NULL, T2.CommunityOwnedDate IS NULL, or T1.UserDisplayName IS NULL.
+INSERT INTO users (Id, DisplayName) VALUES (23853, 'TargetUser');
+
+-- Post 501: ClosedDate IS NULL, but all other nullable columns are NOT NULL.
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, CreaionDate, Score, ViewCount, Body, OwnerUserId, LasActivityDate, Title, Tags, AnswerCount, CommentCount, FavoriteCount, LastEditorUserId, LastEditDate, CommunityOwnedDate, ParentId, ClosedDate, OwnerDisplayName, LastEditorDisplayName)
+VALUES (501, 1, 999, '2013-01-01 00:00:00.0', 10, 100, 'Body', 23853, '2013-01-02 00:00:00.0', 'Title', '<tag>', 1, 1, 1, 23853, '2013-01-02 00:00:00.0', '2013-01-02 00:00:00.0', 500, NULL, 'Owner', 'Editor');
+
+-- Post 502: ClosedDate IS NOT NULL, but other nullable columns ARE NULL.
+INSERT INTO posts (Id, ClosedDate) VALUES (502, '2013-09-09 09:09:09.0');
+
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName)
+VALUES (30, 501, 5, 'Comment 1', '2013-07-12 09:08:18.0', 23853, 'DispName');
+
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName)
+VALUES (31, 502, NULL, NULL, '2013-07-12 09:08:18.0', 23853, NULL);
+```

@@ -1,0 +1,5 @@
+INSERT INTO "space_detail" ("building_key", "floor_key", "space_unit_key", "space_usage_key", "building_room", "building_room_name", "room_number", "room_square_footage", "room_counter", "building_component", "warehouse_load_date") VALUES ('purpose', 'brother', 'ago', 1001.5, 'site', 'Daniel Doyle', '21E', 1002.5, 1003.5, 'require', '1970-01-01');
+INSERT INTO "space_unit" ("fclt_organization_key", "space_unit_key", "space_unit_code", "space_unit", "dlc_key", "warehouse_load_date") VALUES ('Mcclain, Miller and Henderson', 'all', 'better', 'discover', 'early', '1970-01-01');
+INSERT INTO "space_unit" ("fclt_organization_key", "space_unit_key", "space_unit_code", "space_unit", "dlc_key", "warehouse_load_date") VALUES ('Guzman, Hoffman and Baldwin', 'ago', 'science', 'offer', 'kind', '1970-01-01');
+INSERT INTO "space_usage" ("space_usage_key", "space_usage", "warehouse_load_date") VALUES (1001.5, 'discussion', '1970-01-01');
+INSERT INTO "zpm_rooms_load" ("building_room", "building_component", "floor", "space_usage", "space_unit_code", "hr_org_unit_id", "access_level") VALUES ('list', 'perform', 'fall', 'discussion', 'science', 'Blake and Sons', '1');

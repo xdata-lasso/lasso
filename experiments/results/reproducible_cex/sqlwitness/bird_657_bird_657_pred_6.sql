@@ -1,0 +1,39 @@
+-- Schema DDL
+CREATE TABLE badges (Id INTEGER NOT NULL PRIMARY KEY, UserId INTEGER NULL, Name TEXT NULL, Date DATETIME NULL, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE comments (Id INTEGER NOT NULL PRIMARY KEY, PostId INTEGER NULL, Score INTEGER NULL, Text TEXT NULL, CreationDate DATETIME NULL, UserId INTEGER NULL, UserDisplayName TEXT NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE postHistory (Id INTEGER NOT NULL UNIQUE PRIMARY KEY, PostHistoryTypeId INTEGER NULL, PostId INTEGER NULL, RevisionGUID TEXT NULL, CreationDate DATETIME NULL, UserId INTEGER NULL, Text TEXT NULL, Comment TEXT NULL, UserDisplayName TEXT NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE postLinks (Id INTEGER NOT NULL PRIMARY KEY, CreationDate DATETIME NULL, PostId INTEGER NULL, RelatedPostId INTEGER NULL, LinkTypeId INTEGER NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (RelatedPostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE posts (Id INTEGER NOT NULL UNIQUE PRIMARY KEY, PostTypeId INTEGER NULL, AcceptedAnswerId INTEGER NULL, CreaionDate DATETIME NULL, Score INTEGER NULL, ViewCount INTEGER NULL, Body TEXT NULL, OwnerUserId INTEGER NULL, LasActivityDate DATETIME NULL, Title TEXT NULL, Tags TEXT NULL, AnswerCount INTEGER NULL, CommentCount INTEGER NULL, FavoriteCount INTEGER NULL, LastEditorUserId INTEGER NULL, LastEditDate DATETIME NULL, CommunityOwnedDate DATETIME NULL, ParentId INTEGER NULL, ClosedDate DATETIME NULL, OwnerDisplayName TEXT NULL, LastEditorDisplayName TEXT NULL, FOREIGN KEY (LastEditorUserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (OwnerUserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE tags (Id INTEGER NOT NULL PRIMARY KEY, TagName TEXT NULL, Count INTEGER NULL, ExcerptPostId INTEGER NULL, WikiPostId INTEGER NULL, FOREIGN KEY (ExcerptPostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE users (Id INTEGER NOT NULL UNIQUE PRIMARY KEY, Reputation INTEGER NULL, CreationDate DATETIME NULL, DisplayName TEXT NULL, LastAccessDate DATETIME NULL, WebsiteUrl TEXT NULL, Location TEXT NULL, AboutMe TEXT NULL, Views INTEGER NULL, UpVotes INTEGER NULL, DownVotes INTEGER NULL, AccountId INTEGER NULL, Age INTEGER NULL, ProfileImageUrl TEXT NULL);
+
+CREATE TABLE votes (Id INTEGER NOT NULL PRIMARY KEY, PostId INTEGER NULL, VoteTypeId INTEGER NULL, CreationDate DATE NULL, UserId INTEGER NULL, BountyAmount INTEGER NULL, FOREIGN KEY (PostId) REFERENCES posts (Id) ON update CASCADE ON delete CASCADE, FOREIGN KEY (UserId) REFERENCES users (Id) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO users (id, reputation, creationdate, displayname, lastaccessdate, websiteurl, location, aboutme, views, upvotes, downvotes, accountid, age, profileimageurl) VALUES (9, 9, NULL, 'default2', '2023-01-01 00:00:00.000000', 'default1', NULL, NULL, 9, 8, 0, 0, 1, 'default1'), (2, 8, NULL, 'default2', NULL, 'default1', 'default2', 'default2', 1, 2, NULL, 0, 8, NULL), (1, 0, '2023-01-01 01:00:00.000000', 'default1', '2023-01-01 01:00:00.000000', 'default2', NULL, 'default1', 9, 2, 2, 7, 0, 'default2'), (8, 8, '2023-01-01 01:00:00.000000', 'default1', '2023-01-01 00:00:00.000000', 'default1', NULL, 'default2', 0, 2, 1, 8, 2, NULL), (7, NULL, '2023-01-01 00:00:00.000000', 'default1', '2023-01-01 01:00:00.000000', 'default2', 'default1', NULL, 1, 7, 7, 1, 8, 'default2'), (0, 7, '2023-01-01 00:00:00.000000', 'default1', '2023-01-01 00:00:00.000000', NULL, 'default1', 'default1', 9, 2, 9, 0, 8, NULL), (3, NULL, '2023-01-01 01:00:00.000000', NULL, '2023-01-01 01:00:00.000000', 'default2', 'default2', NULL, 2, 9, 8, 7, 0, 'default1'), (4, 1, NULL, 'default2', '2023-01-01 00:00:00.000000', 'default1', 'default2', 'default2', 1, 1, 7, 0, NULL, 'default1'), (5, 9, '2023-01-01 01:00:00.000000', NULL, '2023-01-01 01:00:00.000000', 'default1', 'default1', NULL, 7, 0, 7, NULL, 9, 'default1'), (6, NULL, '2023-01-01 01:00:00.000000', NULL, NULL, 'default1', 'default2', 'default1', 1, NULL, 0, 8, 9, 'default2'), (10, 2, '2023-01-01 01:00:00.000000', NULL, '2023-01-01 01:00:00.000000', NULL, 'default1', 'default2', 9, 1, 1, NULL, 7, 'default2'), (11, 1, '2023-01-01 01:00:00.000000', NULL, '2023-01-01 01:00:00.000000', 'default1', NULL, 'default1', 7, NULL, 7, 8, 7, 'default1'), (12, 0, NULL, 'default2', NULL, 'default2', 'default2', NULL, 7, 7, 8, 7, 8, 'default1'), (13, 9, '2023-01-01 01:00:00.000000', 'default2', NULL, 'default2', 'default2', 'default2', 0, 1, 7, 2, 9, NULL), (14, 2, NULL, NULL, NULL, 'default1', NULL, 'default2', 7, 8, 0, NULL, 8, 'default2'), (15, 9, NULL, NULL, '2023-01-01 00:00:00.000000', 'default2', 'default1', 'default2', 1, 9, 8, 0, NULL, 'default1'), (16, 1, NULL, 'default1', '2023-01-01 01:00:00.000000', NULL, 'default1', 'default1', 1, NULL, 9, 1, 7, 'default1'), (17, 7, '2023-01-01 00:00:00.000000', NULL, '2023-01-01 00:00:00.000000', 'default1', 'default1', 'default2', 1, 9, 2, 2, 7, NULL), (18, NULL, NULL, 'default1', '2023-01-01 01:00:00.000000', 'default2', NULL, NULL, NULL, 7, 1, 7, 8, 'default1');
+INSERT INTO posts (id, lasteditoruserid, owneruserid, posttypeid, acceptedanswerid, creaiondate, score, viewcount, body, lasactivitydate, title, tags, answercount, commentcount, favoritecount, lasteditdate, communityowneddate, parentid, closeddate, ownerdisplayname, lasteditordisplayname) VALUES (7, 2, 8, NULL, 1, '2023-01-01 01:00:00.000000', 9, 9, 'default2', NULL, 'default1', 'default1', 9, NULL, 9, '2023-01-01 00:00:00.000000', '2023-01-01 01:00:00.000000', 1, NULL, 'default1', 'default1'), (1, 8, 11, 9, 9, '2023-01-01 01:00:00.000000', 7, NULL, 'default1', '2023-01-01 00:00:00.000000', 'default2', NULL, 2, 1, 7, NULL, '2023-01-01 00:00:00.000000', 9, NULL, 'default2', 'default1'), (0, 5, 14, 8, 0, NULL, 2, 2, 'default1', NULL, NULL, 'default1', 1, 7, 8, NULL, '2023-01-01 01:00:00.000000', 0, NULL, 'default1', 'default2');
+INSERT INTO votes (id, postid, userid, votetypeid, creationdate, bountyamount) VALUES (0, NULL, 18, 0, '2023-01-01', 7), (7, 7, 15, 1, '2023-01-02', 0), (1, 7, 7, 9, NULL, 8), (8, 1, 5, 7, '2023-01-01', 2), (9, 1, NULL, 1, '2023-01-01', 8), (2, 1, 14, 0, '2023-01-01', 1), (3, NULL, 9, 0, '2023-01-01', NULL), (4, 7, 12, 1, '2023-01-01', 8), (5, NULL, 7, 8, NULL, 8), (6, 0, 14, 9, '2023-01-02', 8), (10, 1, NULL, 2, '2023-01-01', 8), (11, 0, 8, 9, '2023-01-01', 8), (12, 1, 10, 8, '2023-01-01', 7), (13, 7, 1, 7, NULL, 8), (14, NULL, 1, 7, NULL, 1), (15, 0, 5, 0, '2023-01-02', 0), (16, 0, 17, 7, '2023-01-02', NULL), (17, 0, NULL, 8, NULL, 9), (18, 7, 10, NULL, '2023-01-01', 2), (19, 7, 7, 1, '2023-01-02', NULL), (20, 7, 15, 7, NULL, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DisplayName, WebsiteUrl FROM users WHERE Id = (SELECT UserId FROM votes WHERE VoteTypeId = 8 ORDER BY BountyAmount DESC, votes.id NULLS LAST LIMIT 1);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT users.DisplayName, users.WebsiteUrl FROM votes INNER JOIN users ON votes.UserId = users.Id WHERE votes.VoteTypeId = 8 ORDER BY votes.BountyAmount DESC, votes.id NULLS LAST, users.id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('default1', 'default2')
+*/

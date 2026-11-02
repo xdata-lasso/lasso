@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests multiple parts tied for the minimum chargeable_amount (refutes LIMIT 1 vs all tied minimums), 
+-- out-of-order insertion to test ORDER BY part_id, and chargeable_yn = 0 to refute false predicates on chargeable_yn.
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (30, 'Part C', 0, 10, 'Details C');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (10, 'Part A', 1, 50, 'Details A');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (20, 'Part B', 1, 10, 'Details B');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (40, 'Part D', 0, 100, 'Details D');
+```
+
+```sql
+-- DATASET 2
+-- Tests string vs numeric comparison on chargeable_amount (e.g., 9 vs 10 vs 100), 
+-- NULL handling in chargeable_amount, and ensures only parts referenced or unreferenced by Asset_Parts/Part_Faults are handled identically.
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Bracket', 1, 100, 'Metal');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Screw', 1, 9, 'Steel');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (3, 'Bolt', 0, 20, 'Iron');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (4, 'Washer', 0, NULL, 'Plastic');
+
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'SUPP', 'Acme Corp', '123 Way', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2023-01-01', '2024-01-01', 'Standard');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Server', 'Dell', 'R740', '2023-01-01', '2025-01-01', 'Rack 1');
+
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (1, 1);
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (1, 3, 'RUST', 'Rusted bolt', 'Replace');
+```
+
+```sql
+-- DATASET 3
+-- Tests negative and zero values for chargeable_amount, and where the minimum chargeable_amount does NOT have the minimum part_id.
+-- Also tests parts that are associated with faults/assets vs parts that are not.
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Sensor', 1, 0, 'Optical');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (5, 'Rebate Part', 0, -15, 'Credit');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Cable', 1, 5, 'Copper');
+
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (10, 'MAINT', 'FixIt', '456 Rd', '24/7');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (10, 10, '2022-01-01', '2023-01-01', 'Premium');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (10, 10, 10, 'Generator', 'Cat', 'X1', '2022-02-01', '2026-02-01', 'Main');
+
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (10, 5);
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (10, 5, 'FAIL', 'Failed rebate part', 'None');
+```
+
+```sql
+-- DATASET 4
+-- Tests single unique minimum where min(part_id) != part_id of min(chargeable_amount), 
+-- and includes duplicate part_name / chargeable_yn values to catch wrongful GROUP BY or JOIN conditions.
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (100, 'Filter', 1, 250, 'Same Name');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (200, 'Filter', 1, 75, 'Same Name');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (300, 'Valve', 1, 75, 'Diff Name');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (50, 'Pump', 0, 500, 'High Cost');
+```
+
+```sql
+-- DATASET 5
+-- Edge case: All rows have NULL chargeable_amount except one, or all have identical amounts.
+-- Here all 3 parts have the exact same chargeable_amount to test full tie returns and ordering.
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (3, 'Fuse', 1, 42, 'A');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Relay', 0, 42, 'B');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Switch', NULL, 42, NULL);
+```

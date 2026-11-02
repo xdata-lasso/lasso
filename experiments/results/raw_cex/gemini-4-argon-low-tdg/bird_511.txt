@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(frameEffects) vs COUNT(*) when NULL frameEffects exist, and WHERE clause filtering (IS NOT NULL vs IS NULL, AND vs OR).
+-- Group NULL has 3 valid rows (COUNT(frameEffects) = 0, COUNT(*) = 3).
+-- Group 'legendary' has 2 valid rows (COUNT = 2).
+-- Group 'nyxtouched' has 1 valid row (COUNT = 1) + 3 invalid rows where IDs are NULL.
+-- Gold Query returns 'legendary'.
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u1', 'f1', 'c1', NULL);
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u2', 'f2', 'c2', NULL);
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u3', 'f3', 'c3', NULL);
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u4', 'f4', 'c4', 'legendary');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u5', 'f5', 'c5', 'legendary');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u6', 'f6', 'c6', 'nyxtouched');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u7', NULL, 'c7', 'nyxtouched');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u8', 'f8', NULL, 'nyxtouched');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u9', NULL, NULL, 'nyxtouched');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on frameEffects ASC vs DESC, and LIMIT 1 vs no LIMIT.
+-- Both 'devoid' and 'miracle' have COUNT = 2.
+-- Gold Query returns 'devoid' due to ascending tie-breaker.
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u1', 'f1', 'c1', 'miracle');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u2', 'f2', 'c2', 'miracle');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u3', 'f3', 'c3', 'devoid');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u4', 'f4', 'c4', 'devoid');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u5', 'f5', 'c5', 'z_effect');
+```
+
+```sql
+-- DATASET 3
+-- Tests COUNT(frameEffects) vs COUNT(DISTINCT frameEffects) or missing GROUP BY / wrong ORDER BY direction.
+-- 'extendedart' has COUNT = 3, 'showcase' has COUNT = 1.
+-- If COUNT(DISTINCT frameEffects) is used, both have count 1 and 'extendedart' vs 'showcase' tie-breaks.
+-- So we make 'showcase' alphabetically smaller ('a_showcase') with COUNT = 1, and 'z_extendedart' with COUNT = 2.
+-- Gold Query returns 'z_extendedart'. COUNT(DISTINCT) or ASC count sort returns 'a_showcase'.
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u1', 'f1', 'c1', 'z_extendedart');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u2', 'f2', 'c2', 'z_extendedart');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u3', 'f3', 'c3', 'a_showcase');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULLS LAST vs NULLS FIRST when all groups have COUNT(frameEffects) = 0, or if a mutant sorts by frameEffects first.
+-- Also tests behavior when only NULL frameEffects satisfy the WHERE clause vs non-NULL frameEffects that fail the WHERE clause.
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u1', 'f1', 'c1', NULL);
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u2', NULL, 'c2', 'compasslanddfc');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u3', 'f3', NULL, 'compasslanddfc');
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion in COUNT() (e.g., COUNT(cardKingdomId) or COUNT(DISTINCT cardKingdomFoilId)) and WHERE condition column swaps.
+-- 'inverted' has 2 rows with identical cardKingdomFoilId/cardKingdomId.
+-- 'sunmoondfc' has 1 row.
+-- Gold Query returns 'inverted'.
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u1', 'same_f', 'same_c', 'inverted');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u2', 'same_f', 'same_c', 'inverted');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u3', 'diff_f1', 'diff_c1', 'sunmoondfc');
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set when no rows match both NOT NULL conditions, killing mutants that drop the WHERE clause or use OR instead of AND.
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u1', 'f1', NULL, 'draft');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u2', NULL, 'c2', 'draft');
+INSERT INTO cards (uuid, cardKingdomFoilId, cardKingdomId, frameEffects) VALUES ('u3', NULL, NULL, 'tombstone');
+```

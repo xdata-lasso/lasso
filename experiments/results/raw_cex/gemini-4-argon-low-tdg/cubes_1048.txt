@@ -1,0 +1,134 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary condition (n = 200 vs n = 199), single vs composite GROUP BY, and basic ordering.
+-- Station 10 has 200 total trips, split across two names (100 each). Kills mutants grouping only by start_station_id.
+-- Station 20 has 199 trips (boundary miss).
+-- Station 30 has 200 trips (boundary hit).
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES
+(10, 'Station 10A', 37.7, -122.4, 15, 'SF', '2013-08-01'),
+(20, 'Station 20', 37.7, -122.4, 15, 'SF', '2013-08-01'),
+(30, 'Station 30', 37.7, -122.4, 15, 'SF', '2013-08-01');
+
+WITH RECURSIVE cnt(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM cnt WHERE x < 600)
+INSERT INTO trip (id, duration, start_date, start_station_name, start_station_id, end_date, end_station_name, end_station_id, bike_id, subscription_type, zip_code)
+SELECT 
+    x, 
+    100, 
+    '2014-01-01',
+    CASE 
+        WHEN x <= 100 THEN 'Station 10A'
+        WHEN x <= 200 THEN 'Station 10B'
+        WHEN x <= 399 THEN 'Station 20'
+        ELSE 'Station 30'
+    END,
+    CASE 
+        WHEN x <= 200 THEN 10
+        WHEN x <= 399 THEN 20
+        ELSE 30
+    END,
+    '2014-01-01',
+    'End Station',
+    10,
+    1,
+    'Subscriber',
+    94107
+FROM cnt;
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY, COUNT(*) vs COUNT(col), and ORDER BY ... NULLS LAST.
+-- Group 1: (start_station_id = 1, start_station_name = NULL) -> 201 rows.
+-- Group 2: (start_station_id = 1, start_station_name = 'Alpha') -> 200 rows.
+-- Group 3: (start_station_id = 2, start_station_name = 'Beta') -> 205 rows.
+-- Group 4: (start_station_id = NULL, start_station_name = 'Gamma') -> 200 rows.
+-- Kills mutants using COUNT(start_station_id) or COUNT(start_station_name), mutants dropping NULLS LAST, and mutants reversing ORDER BY.
+WITH RECURSIVE cnt(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM cnt WHERE x < 806)
+INSERT INTO trip (id, duration, start_date, start_station_name, start_station_id, end_date, end_station_name, end_station_id, bike_id, subscription_type, zip_code)
+SELECT 
+    x, 
+    60, 
+    '2015-05-05',
+    CASE 
+        WHEN x <= 201 THEN NULL
+        WHEN x <= 401 THEN 'Alpha'
+        WHEN x <= 606 THEN 'Beta'
+        ELSE 'Gamma'
+    END,
+    CASE 
+        WHEN x <= 401 THEN 1
+        WHEN x <= 606 THEN 2
+        ELSE NULL
+    END,
+    '2015-05-05',
+    'End',
+    99,
+    10,
+    'Customer',
+    94105
+FROM cnt;
+```
+
+```sql
+-- DATASET 3
+-- Tests join mutations (e.g., mutant joining `trip` with `station` on start_station_id = station.id)
+-- and start vs end station confusion (e.g., grouping by end_station_id/name).
+-- `station` table is intentionally left empty (or missing the relevant IDs) while `trip` has 200+ rows.
+-- Also tests same start_station_name ('Central') across two different start_station_ids (100 and 101, 105 rows each) to kill grouping by start_station_name alone.
+INSERT INTO station (id, name, lat, long, dock_count, city, installation_date) VALUES
+(999, 'Unused Station', 37.0, -122.0, 10, 'SJ', '2013-01-01');
+
+WITH RECURSIVE cnt(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM cnt WHERE x < 410)
+INSERT INTO trip (id, duration, start_date, start_station_name, start_station_id, end_date, end_station_name, end_station_id, bike_id, subscription_type, zip_code)
+SELECT 
+    x, 
+    120, 
+    '2016-01-01',
+    CASE 
+        WHEN x <= 210 THEN 'central'
+        ELSE 'Valid Start'
+    END,
+    CASE 
+        WHEN x <= 105 THEN 100
+        WHEN x <= 210 THEN 101
+        ELSE 500
+    END,
+    '2016-01-01',
+    CASE 
+        WHEN x <= 210 THEN 'Frequent End'
+        ELSE 'Rare End'
+    END,
+    CASE 
+        WHEN x <= 210 THEN 888
+        ELSE x
+    END,
+    5,
+    'Subscriber',
+    94000
+FROM cnt;
+```
+
+```sql
+-- DATASET 4
+-- Tests secondary sort order (tie-breaking on start_station_name when start_station_id is identical and non-null)
+-- and tests COUNT(DISTINCT ...) mutants by having identical bike_id / duration / zip_code values.
+WITH RECURSIVE cnt(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM cnt WHERE x < 600)
+INSERT INTO trip (id, duration, start_date, start_station_name, start_station_id, end_date, end_station_name, end_station_id, bike_id, subscription_type, zip_code)
+SELECT 
+    x, 
+    50, 
+    '2017-01-01',
+    CASE 
+        WHEN x <= 200 THEN 'Zebra'
+        WHEN x <= 400 THEN 'Apple'
+        ELSE NULL
+    END,
+    5,
+    '2017-01-01',
+    'Dest',
+    5,
+    1,
+    'Subscriber',
+    11111
+FROM cnt;
+```

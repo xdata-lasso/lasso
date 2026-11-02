@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests basic time parsing (HH:MM:SS.mmm), multiple races in a single year, AVG vs SUM/COUNT/MIN/MAX, and filtering out positionOrder != 1 and NULL times.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://monza.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'ferrari', 'Ferrari', 'http://ferrari.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'lec', 'Charles', 'Leclerc', 'http://lec.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'ver', 'Max', 'Verstappen', 'http://ver.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://2020.com');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (101, 2020, 1, 1, 'Italian GP', '2020-09-06', '13:10:00', 'http://r101.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (102, 2020, 2, 1, 'Tuscan GP', '2020-09-13', '13:10:00', 'http://r102.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (103, 2020, 3, 1, 'Imola GP', '2020-11-01', '12:10:00', 'http://r103.com');
+
+-- Race 101: Winner with full H:MM:SS.mmm format, 2nd place with +SS.mmm format
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, rank, statusId) VALUES (1, 101, 1, 1, 1, 1, '1', 1, 25.0, 53, '1:23:45.678', 5025678, 1, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, rank, statusId) VALUES (2, 101, 2, 1, 2, 2, '2', 2, 18.0, 53, '+12.345', 5038023, 2, 1);
+
+-- Race 102: Winner with different H:MM:SS.mmm to test AVG vs MIN/MAX/SUM
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, rank, statusId) VALUES (3, 102, 2, 1, 1, 1, '1', 1, 25.0, 59, '2:10:05.100', 7805100, 1, 1);
+
+-- Race 103: Winner has NULL time (should be ignored in AVG)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, rank, statusId) VALUES (4, 103, 1, 1, 1, 1, '1', 1, 25.0, 63, NULL, NULL, 1, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple years, grouping by year vs raceId, and edge cases where a year has no valid positionOrder = 1 with non-NULL time.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://spa.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mclaren', 'McLaren', 'http://mclaren.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'nor', 'Lando', 'Norris', 'http://nor.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO seasons (year, url) VALUES (2021, 'http://2021.com');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://2022.com');
+INSERT INTO seasons (year, url) VALUES (2023, 'http://2023.com');
+INSERT INTO seasons (year, url) VALUES (2024, 'http://2024.com');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (201, 2021, 1, 1, 'Race 2021 A', '2021-05-01', 'http://r201.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (202, 2022, 1, 1, 'Race 2022 A', '2022-05-01', 'http://r202.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (203, 2022, 2, 1, 'Race 2022 B', '2022-05-08', 'http://r203.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (204, 2023, 1, 1, 'Race 2023 A', '2023-05-01', 'http://r204.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (205, 2024, 1, 1, 'Race 2024 A', '2024-05-01', 'http://r205.com');
+
+-- 2021: Single valid winner
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (10, 201, 1, 1, 1, 1, '1', 1, 25.0, 44, '1:05:10.500', 1);
+
+-- 2022: Two valid winners with identical times (tests AVG(DISTINCT time_seconds) vs AVG(time_seconds) when combined with a third race)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (11, 202, 1, 1, 1, 1, '1', 1, 25.0, 44, '1:00:00.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (12, 203, 1, 1, 1, 1, '1', 1, 25.0, 44, '1:00:00.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (13, 203, 1, 1, 2, 1, '1', 1, 25.0, 44, '2:00:00.000', 1);
+
+-- 2023: Only positionOrder = 2 has non-NULL time; positionOrder = 1 has NULL time (year 2023 should be excluded)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (14, 204, 1, 1, 1, 1, '1', 1, 25.0, 44, NULL, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (15, 204, 1, 1, 2, 2, '2', 2, 18.0, 44, '+5.432', 1);
+
+-- 2024: No results at all (tests INNER JOIN vs LEFT JOIN on races)
+```
+
+```sql
+-- DATASET 3
+-- Tests subtle column confusion mutations: position vs positionOrder vs grid vs rank, T1.time vs T2.time vs T1.fastestLapTime, and milliseconds vs calculated seconds.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://silverstone.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mercedes', 'Mercedes', 'http://mercedes.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'ham', 'Lewis', 'Hamilton', 'http://ham.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'rus', 'George', 'Russell', 'http://rus.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO seasons (year, url) VALUES (2019, 'http://2019.com');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (301, 2019, 1, 1, 'British GP', '2019-07-14', '9:59:59.999', 'http://r301.com');
+
+-- Row 1: positionOrder = 1, but position is NULL (or different), grid = 2, rank = 3.
+-- Also fastestLapTime and races.time are formatted like H:MM:SS.mmm to catch wrong column references.
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (21, 301, 1, 1, 44, 2, 99, '1', 1, 25.0, 52, '1:34:56.789', 9999999, 45, 2, '1:11:11.111', '230.5', 1);
+
+-- Row 2: position = 1, grid = 1, rank = 1, number = 1, but positionOrder = 2.
+-- Time is formatted such that both CASE branches can parse it without error, yielding different numbers.
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (22, 301, 2, 1, 1, 1, 1, '2', 2, 18.0, 52, '+25.600', 5722389, 50, 1, '1:22:22.222', '231.0', 1);
+
+-- Row 3: positionOrder = 0 (tests boundary condition positionOrder <= 1 vs positionOrder = 1)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (23, 301, 2, 1, 63, 3, 3, '3', 0, 15.0, 52, '3:45:12.300', 13512300, 10, 3, '1:33:33.333', '220.0', 1);
+```

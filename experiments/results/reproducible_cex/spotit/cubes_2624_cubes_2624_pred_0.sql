@@ -1,0 +1,56 @@
+-- Schema DDL
+CREATE TABLE "SERVICES" (
+    "SERVICE_ID" INT,
+    "SERVICE_TYPE_CODE" TEXT,
+    PRIMARY KEY ("SERVICE_ID")
+);
+CREATE TABLE "PARTICIPANTS" (
+    "PARTICIPANT_ID" INT,
+    "PARTICIPANT_TYPE_CODE" TEXT,
+    "PARTICIPANT_DETAILS" TEXT,
+    PRIMARY KEY ("PARTICIPANT_ID")
+);
+CREATE TABLE "EVENTS" (
+    "EVENT_ID" INT,
+    "SERVICE_ID" INT,
+    "EVENT_DETAILS" TEXT,
+    PRIMARY KEY ("EVENT_ID"),
+    FOREIGN KEY ("SERVICE_ID") REFERENCES "SERVICES"("SERVICE_ID")
+);
+CREATE TABLE "PARTICIPANTS_IN_EVENTS" (
+    "EVENT_ID" INT,
+    "PARTICIPANT_ID" INT,
+    PRIMARY KEY ("EVENT_ID", "PARTICIPANT_ID"),
+    FOREIGN KEY ("EVENT_ID") REFERENCES "EVENTS"("EVENT_ID"),
+    FOREIGN KEY ("PARTICIPANT_ID") REFERENCES "PARTICIPANTS"("PARTICIPANT_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO SERVICES VALUES (0, 0);
+INSERT INTO SERVICES VALUES (-1, 0);
+INSERT INTO PARTICIPANTS VALUES (0, 0, 0);
+INSERT INTO PARTICIPANTS VALUES (1, 0, 0);
+INSERT INTO EVENTS VALUES (1, 0, 15);
+INSERT INTO EVENTS VALUES (2, 0, 16);
+INSERT INTO PARTICIPANTS_IN_EVENTS VALUES (1, 1);
+INSERT INTO PARTICIPANTS_IN_EVENTS VALUES (2, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT event_id AS count___ FROM (SELECT LHS.event_id AS event_id, LHS.service_id AS service_id, LHS.event_details AS event_details, RHS.participant_id AS participant_id FROM events AS LHS INNER JOIN (SELECT participant_id, COUNT(DISTINCT event_id) AS n_distinct FROM participants_in_events GROUP BY participant_id) AS RHS ON (LHS.event_id = RHS.n_distinct)) ORDER BY count___;
+
+/*
+Gold Result:
+(1,)
+(1,)
+*/
+
+-- Prediction Query
+SELECT COUNT(*) FROM EVENTS WHERE NOT event_id IN (SELECT event_id FROM Participants_in_Events);
+
+/*
+Prediction Result:
+(0,)
+*/

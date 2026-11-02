@@ -1,0 +1,106 @@
+```sql
+-- DATASET 1
+-- Core logic test:
+-- 1. Tests outer DISTINCT: Two different dates ('2023-01-01' and '2023-01-02') both yield a minimum count of 2.
+-- 2. Tests MIN vs MAX/SUM/AVG: '2023-01-01' has job counts of 2 and 3 (MIN=2).
+-- 3. Tests ORDER BY: '2023-01-03' is inserted first with a minimum count of 3, followed by dates with minimum count 2, ensuring unsorted insertion order.
+-- 4. Tests grouping by job_title_code vs department_id/staff_id.
+-- 5. Ensures actual department_id (101, 102) and staff_id (10..20) values are completely disjoint from the computed counts (2, 3) to catch column-name confusion mutants.
+INSERT INTO Department_Store_Chain (dept_store_chain_id, dept_store_chain_name) VALUES (1, 'Chain A');
+INSERT INTO Department_Stores (dept_store_id, dept_store_chain_id, store_name, store_address, store_phone, store_email) VALUES (1, 1, 'Store A', '123 St', '555-0001', 'store@a.com');
+INSERT INTO Departments (department_id, dept_store_id, department_name) VALUES (101, 1, 'Sales');
+INSERT INTO Departments (department_id, dept_store_id, department_name) VALUES (102, 1, 'HR');
+
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (10, 'M', 'Staff 10');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (11, 'F', 'Staff 11');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (12, 'M', 'Staff 12');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (13, 'F', 'Staff 13');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (14, 'M', 'Staff 14');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (15, 'F', 'Staff 15');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (16, 'M', 'Staff 16');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (17, 'F', 'Staff 17');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (18, 'M', 'Staff 18');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (19, 'F', 'Staff 19');
+
+-- Date '2023-01-03': J4 has count 3 -> MIN(n) = 3
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (17, 101, '2023-01-03', 'J4', '2023-12-31');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (18, 101, '2023-01-03', 'J4', '2023-12-31');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (19, 102, '2023-01-03', 'J4', '2023-12-31');
+
+-- Date '2023-01-01': J1 has count 2, J2 has count 3 -> MIN(n) = 2
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (10, 101, '2023-01-01', 'J1', '2023-06-01');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (11, 102, '2023-01-01', 'J1', '2023-06-02');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (12, 101, '2023-01-01', 'J2', '2023-06-03');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (13, 102, '2023-01-01', 'J2', '2023-06-04');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (14, 101, '2023-01-01', 'J2', '2023-06-05');
+
+-- Date '2023-01-02': J3 has count 2 -> MIN(n) = 2 (Duplicates the MIN=2 from '2023-01-01' to test DISTINCT)
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (15, 101, '2023-01-02', 'J3', '2023-07-01');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (16, 102, '2023-01-02', 'J3', '2023-07-02');
+```
+
+```sql
+-- DATASET 2
+-- NULL handling and COUNT(*) vs COUNT(column) test:
+-- 1. Tests COUNT(*) vs COUNT(job_title_code) and COUNT(date_assigned_from) and COUNT(date_assigned_to).
+-- 2. Includes NULL in job_title_code and NULL in date_assigned_from.
+-- 3. Tests global MIN(n) vs GROUP BY date_assigned_from in the middle subquery.
+INSERT INTO Department_Store_Chain (dept_store_chain_id, dept_store_chain_name) VALUES (1, 'Chain B');
+INSERT INTO Department_Stores (dept_store_id, dept_store_chain_id, store_name, store_address, store_phone, store_email) VALUES (1, 1, 'Store B', '456 St', '555-0002', 'store@b.com');
+INSERT INTO Departments (department_id, dept_store_id, department_name) VALUES (201, 1, 'Marketing');
+INSERT INTO Departments (department_id, dept_store_id, department_name) VALUES (202, 1, 'IT');
+
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (21, 'M', 'Staff 21');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (22, 'F', 'Staff 22');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (23, 'M', 'Staff 23');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (24, 'F', 'Staff 24');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (25, 'M', 'Staff 25');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (26, 'F', 'Staff 26');
+
+-- Date '2023-05-01':
+-- Group ('2023-05-01', NULL): 1 row. COUNT(*) = 1, COUNT(job_title_code) = 0.
+-- Group ('2023-05-01', 'MGR'): 2 rows. COUNT(*) = 2, COUNT(date_assigned_to) = 1.
+-- Reference MIN(n) for '2023-05-01' is 1 (if COUNT(job_title_code) used -> 0; if NULLs filtered -> 2).
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (21, 201, '2023-05-01', NULL, '2023-12-31');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (22, 201, '2023-05-01', 'MGR', NULL);
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (23, 202, '2023-05-01', 'MGR', '2023-12-31');
+
+-- Date NULL:
+-- Group (NULL, 'DEV'): 3 rows. COUNT(*) = 3, COUNT(date_assigned_from) = 0.
+-- Reference MIN(n) for NULL date is 3.
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (24, 201, NULL, 'DEV', NULL);
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (25, 202, NULL, 'DEV', '2023-10-10');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (26, 201, NULL, 'DEV', '2023-11-11');
+```
+
+```sql
+-- DATASET 3
+-- Grouping Key Perturbation & Inner DISTINCT Test:
+-- 1. Same job_title_code ('CLK') appears across DIFFERENT date_assigned_from values ('2023-08-01' with count 1, '2023-08-02' with count 3).
+--    If inner query omits date_assigned_from from GROUP BY, 'CLK' combines into count 4.
+--    If middle query groups by job_title_code instead of date_assigned_from, MIN for 'CLK' becomes 1 and '2023-08-02' loses its count of 3.
+-- 2. Same staff_id (31) assigned to multiple departments (301, 302) on the same date ('2023-08-02') with the same job_title_code ('CLK').
+--    Tests COUNT(*) vs COUNT(DISTINCT staff_id) and COUNT(DISTINCT job_title_code).
+-- 3. Includes unreferenced Departments and Staff to kill mutants using outer joins on Staff or Departments.
+INSERT INTO Department_Store_Chain (dept_store_chain_id, dept_store_chain_name) VALUES (1, 'Chain C');
+INSERT INTO Department_Stores (dept_store_id, dept_store_chain_id, store_name, store_address, store_phone, store_email) VALUES (1, 1, 'Store C', '789 St', '555-0003', 'store@c.com');
+INSERT INTO Departments (department_id, dept_store_id, department_name) VALUES (301, 1, 'Logistics');
+INSERT INTO Departments (department_id, dept_store_id, department_name) VALUES (302, 1, 'Security');
+INSERT INTO Departments (department_id, dept_store_id, department_name) VALUES (303, 1, 'Unassigned Dept');
+
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (31, 'M', 'Staff 31');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (32, 'F', 'Staff 32');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (33, 'M', 'Staff 33');
+INSERT INTO Staff (staff_id, staff_gender, staff_name) VALUES (34, 'F', 'Unassigned Staff');
+
+-- Date '2023-08-01': ('2023-08-01', 'CLK') has 1 row, ('2023-08-01', 'SUP') has 2 rows -> MIN(n) = 1
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (31, 301, '2023-08-01', 'CLK', '2023-09-01');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (32, 301, '2023-08-01', 'SUP', '2023-09-01');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (33, 302, '2023-08-01', 'SUP', '2023-09-01');
+
+-- Date '2023-08-02': ('2023-08-02', 'CLK') has 3 rows (Staff 31 in Dept 302, Staff 32 in Dept 302, Staff 33 in Dept 301) -> MIN(n) = 3
+-- Note: Staff 32 has two rows on '2023-08-02' across Dept 301 and 302 to test COUNT(*) vs COUNT(DISTINCT staff_id) and COUNT(DISTINCT department_id).
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (32, 302, '2023-08-02', 'CLK', '2023-10-01');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (33, 301, '2023-08-02', 'CLK', '2023-10-01');
+INSERT INTO Staff_Department_Assignments (staff_id, department_id, date_assigned_from, job_title_code, date_assigned_to) VALUES (31, 302, '2023-08-02', 'CLK', '2023-10-01');
+```

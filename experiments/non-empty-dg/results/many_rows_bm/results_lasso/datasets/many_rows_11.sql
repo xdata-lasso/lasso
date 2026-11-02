@@ -1,0 +1,10 @@
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1001, 'Allison Hill', 'Mayotte', 'BRONZE', 1006.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1002, 'Noah Rhodes', 'Italy', 'BRONZE', 1017.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1003, 'Angie Henderson', 'Cyprus', 'BRONZE', 1028.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1004, 'Daniel Wagner', 'Kiribati', 'BRONZE', 1039.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1005, 'Cristian Santos', 'Namibia', 'BRONZE', 1050.5);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1011, 1001, 'sure', 'PENDING', 100.2);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1012, 1001, 'collection', 'PENDING', 100.2);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1013, 1001, 'save', 'PENDING', 100.2);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1014, 1001, 'knowledge', 'PENDING', 100.2);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1015, 1001, 'grow', 'PENDING', 100.2);

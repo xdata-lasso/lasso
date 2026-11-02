@@ -1,0 +1,54 @@
+-- Schema DDL
+CREATE TABLE "FILM" (
+    "FILM_ID" INT,
+    "TITLE" TEXT,
+    "STUDIO" TEXT,
+    "DIRECTOR" TEXT,
+    "GROSS_IN_DOLLAR" INT,
+    PRIMARY KEY ("FILM_ID")
+);
+CREATE TABLE "MARKET" (
+    "MARKET_ID" INT,
+    "COUNTRY" TEXT,
+    "NUMBER_CITIES" INT,
+    PRIMARY KEY ("MARKET_ID")
+);
+CREATE TABLE "FILM_MARKET_ESTIMATION" (
+    "ESTIMATION_ID" INT,
+    "MARKET_ID" INT,
+    "FILM_ID" INT,
+    "LOW_ESTIMATE" FLOAT,
+    "HIGH_ESTIMATE" FLOAT,
+    "TYPE" TEXT,
+    "YEAR" INT,
+    PRIMARY KEY ("ESTIMATION_ID"),
+    FOREIGN KEY ("MARKET_ID") REFERENCES "MARKET"("MARKET_ID"),
+    FOREIGN KEY ("FILM_ID") REFERENCES "FILM"("FILM_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO FILM VALUES (-1, 0, 0, 0, 0);
+INSERT INTO FILM VALUES (0, -1, 0, 0, 0);
+INSERT INTO MARKET VALUES (0, 0, 0);
+INSERT INTO MARKET VALUES (1, 0, 0);
+INSERT INTO FILM_MARKET_ESTIMATION VALUES (0, 1, 0, 0, 0, 0, 0);
+INSERT INTO FILM_MARKET_ESTIMATION VALUES (1, 1, 0, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT title FROM (SELECT * FROM film AS LHS WHERE NOT EXISTS(SELECT 1 FROM film_market_estimation AS RHS WHERE (LHS.film_id = RHS.film_id))) ORDER BY title;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT Title FROM film WHERE NOT Film_ID IN (SELECT Film_ID FROM film_market_estimation);
+
+/*
+Prediction Result:
+('0',)
+*/

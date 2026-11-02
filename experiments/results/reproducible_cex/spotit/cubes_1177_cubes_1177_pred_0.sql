@@ -1,0 +1,52 @@
+-- Schema DDL
+CREATE TABLE "PARTY" (
+    "PARTY_ID" INT,
+    "PARTY_THEME" TEXT,
+    "LOCATION" TEXT,
+    "FIRST_YEAR" TEXT,
+    "LAST_YEAR" TEXT,
+    "NUMBER_OF_HOSTS" INT,
+    PRIMARY KEY ("PARTY_ID")
+);
+CREATE TABLE "HOST" (
+    "HOST_ID" INT,
+    "NAME" TEXT,
+    "NATIONALITY" TEXT,
+    "AGE" TEXT,
+    PRIMARY KEY ("HOST_ID")
+);
+CREATE TABLE "PARTY_HOST" (
+    "PARTY_ID" INT,
+    "HOST_ID" INT,
+    "IS_MAIN_IN_CHARGE" INT,
+    PRIMARY KEY ("PARTY_ID", "HOST_ID"),
+    FOREIGN KEY ("PARTY_ID") REFERENCES "PARTY"("PARTY_ID"),
+    FOREIGN KEY ("HOST_ID") REFERENCES "HOST"("HOST_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO PARTY VALUES (1, 0, 12, 0, 0, 0);
+INSERT INTO PARTY VALUES (0, 0, 11, 0, 0, 0);
+INSERT INTO HOST VALUES (-1, 0, 0, 0);
+INSERT INTO HOST VALUES (0, 0, 0, 0);
+INSERT INTO PARTY_HOST VALUES (1, 0, 0);
+INSERT INTO PARTY_HOST VALUES (0, -1, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT LOCATION FROM (SELECT * FROM (SELECT * FROM party ORDER BY number_of_hosts DESC, party.party_id NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+('11',)
+*/
+
+-- Prediction Query
+SELECT LOCATION FROM party ORDER BY Number_of_hosts DESC, party.party_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('11',)
+*/

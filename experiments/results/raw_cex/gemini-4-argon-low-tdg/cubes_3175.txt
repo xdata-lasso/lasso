@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT vs non-DISTINCT (multiple LHS rows and multiple groups with the same count)
+-- 2. ORDER BY ASC vs DESC vs no order (insertion order yields counts 2, 3, 1; sorted is 1, 2, 3)
+-- 3. CROSS JOIN vs INNER JOIN on ResID (ResIDs 3, 4, 5 have no entry in Type_Of_Restaurant, yet their group count of 3 must still appear in the output due to CROSS JOIN)
+-- 4. Multi-type restaurants (ResID 1 has two types)
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (1, 'Burger King', '101 Main St', 4);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (2, 'Burger King', '202 Oak Ave', 3);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (3, 'Subway', '303 Pine Rd', 4);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (4, 'Subway', '404 Maple Dr', 5);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (5, 'Subway', '505 Birch Ln', 3);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (6, 'Taco Bell', '606 Cedar Ct', 2);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (7, 'Wendy''s', '707 Walnut St', 4);
+
+INSERT INTO "Restaurant_Type" ("ResTypeID", "ResTypeName", "ResTypeDescription") VALUES (10, 'Fast Food', 'Quick service');
+INSERT INTO "Restaurant_Type" ("ResTypeID", "ResTypeName", "ResTypeDescription") VALUES (20, 'Diner', 'Casual dining');
+INSERT INTO "Restaurant_Type" ("ResTypeID", "ResTypeName", "ResTypeDescription") VALUES (30, 'Unused Type', 'No restaurants');
+
+INSERT INTO "Type_Of_Restaurant" ("ResTypeID", "ResID") VALUES (10, 1);
+INSERT INTO "Type_Of_Restaurant" ("ResTypeID", "ResID") VALUES (20, 1);
+INSERT INTO "Type_Of_Restaurant" ("ResTypeID", "ResID") VALUES (10, 6);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Empty LHS in CROSS JOIN: Restaurant has rows, Restaurant_Type has rows, but Type_Of_Restaurant is empty.
+-- 2. Differentiates CROSS JOIN / INNER JOIN from RIGHT JOIN / FULL OUTER JOIN, and kills mutants that omit the LHS subquery entirely (expected output is 0 rows).
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (1, 'Pizza Hut', '123 Broadway', 3);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (2, 'Pizza Hut', '456 Market St', 4);
+
+INSERT INTO "Restaurant_Type" ("ResTypeID", "ResTypeName", "ResTypeDescription") VALUES (1, 'Italian', 'Pizza and Pasta');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. NULL handling in GROUP BY and COUNT(*) vs COUNT(ResName) vs COUNT(DISTINCT ...).
+-- 2. Two restaurants have NULL ResName (GROUP BY groups NULLs together so COUNT(*) = 2, whereas COUNT(ResName) = 0).
+-- 3. NULLs in non-key columns (Address, Rating, ResTypeName, ResTypeDescription) to kill mutants introducing unnecessary IS NOT NULL filters.
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (1, NULL, NULL, NULL);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (2, NULL, '789 Elm St', 5);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (3, 'KFC', NULL, 4);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (4, 'KFC', '111 1st Ave', NULL);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (5, 'KFC', '222 2nd Ave', 4);
+
+INSERT INTO "Restaurant_Type" ("ResTypeID", "ResTypeName", "ResTypeDescription") VALUES (1, NULL, NULL);
+
+INSERT INTO "Type_Of_Restaurant" ("ResTypeID", "ResID") VALUES (1, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN on Type_Of_Restaurant and Restaurant_Type.
+-- 2. Type_Of_Restaurant has a row with NULL ResTypeID (allowed by SQLite foreign keys). INNER JOIN filters it out resulting in 0 LHS rows and 0 total output rows; LEFT JOIN would keep it and output rows.
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (1, 'Starbucks', '100 Coffee Way', 5);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (2, 'Starbucks', '200 Tea Blvd', 4);
+
+INSERT INTO "Restaurant_Type" ("ResTypeID", "ResTypeName", "ResTypeDescription") VALUES (1, 'Cafe', 'Coffee and snacks');
+
+INSERT INTO "Type_Of_Restaurant" ("ResTypeID", "ResID") VALUES (NULL, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. GROUP BY column mutations (e.g., GROUP BY ResID, Address, or Rating instead of ResName).
+-- 2. Distractor tables populated (Student, Visits_Restaurant) to kill mutants that erroneously join with Visits_Restaurant or Student.
+-- 3. Here, all 4 restaurants share the same ResName ('McDonalds'), so the only valid count is 4. Grouping by Rating gives (2, 2), by Address gives (3, 1), by ResID gives (1).
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1001, 'Smith', 'John', 20, 'M', 600, 1121, 'NYC');
+
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (1, 'McDonalds', 'Same Address', 5);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (2, 'McDonalds', 'Same Address', 5);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (3, 'McDonalds', 'Same Address', 1);
+INSERT INTO "Restaurant" ("ResID", "ResName", "Address", "Rating") VALUES (4, 'McDonalds', 'Diff Address', 1);
+
+INSERT INTO "Restaurant_Type" ("ResTypeID", "ResTypeName", "ResTypeDescription") VALUES (1, 'Burger Joint', 'Burgers and fries');
+
+INSERT INTO "Type_Of_Restaurant" ("ResTypeID", "ResID") VALUES (1, 1);
+
+INSERT INTO "Visits_Restaurant" ("ResID", "StuID", "Time", "Spent") VALUES (1, 1001, '2023-01-01 12:00:00', 15.50);
+INSERT INTO "Visits_Restaurant" ("ResID", "StuID", "Time", "Spent") VALUES (1, 1001, '2023-01-02 13:00:00', 20.00);
+```

@@ -1,0 +1,55 @@
+-- Schema DDL
+CREATE TABLE "PEOPLE" (
+    "PEOPLE_ID" INT,
+    "AGE" INT,
+    "NAME" TEXT,
+    "NATIONALITY" TEXT,
+    "GRADUATION_COLLEGE" TEXT,
+    PRIMARY KEY ("PEOPLE_ID")
+);
+CREATE TABLE "COMPANY" (
+    "COMPANY_ID" FLOAT,
+    "NAME" TEXT,
+    "HEADQUARTERS" TEXT,
+    "INDUSTRY" TEXT,
+    "SALES_IN_BILLION" FLOAT,
+    "PROFITS_IN_BILLION" FLOAT,
+    "ASSETS_IN_BILLION" FLOAT,
+    "MARKET_VALUE_IN_BILLION" FLOAT,
+    PRIMARY KEY ("COMPANY_ID")
+);
+CREATE TABLE "EMPLOYMENT" (
+    "COMPANY_ID" INT,
+    "PEOPLE_ID" INT,
+    "YEAR_WORKING" INT,
+    PRIMARY KEY ("COMPANY_ID", "PEOPLE_ID"),
+    FOREIGN KEY ("PEOPLE_ID") REFERENCES "PEOPLE"("PEOPLE_ID"),
+    FOREIGN KEY ("COMPANY_ID") REFERENCES "COMPANY"("COMPANY_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO PEOPLE VALUES (0, 0, 0, 0, 0);
+INSERT INTO PEOPLE VALUES (1, 0, 0, 0, 0);
+INSERT INTO COMPANY VALUES (0, 0, 10, 0, 0, 0, 0, 0);
+INSERT INTO COMPANY VALUES (-1, 0, 9, 0, 0, 0, 0, 0);
+INSERT INTO EMPLOYMENT VALUES (0, 1, 0);
+INSERT INTO EMPLOYMENT VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT headquarters FROM (SELECT * FROM (SELECT * FROM company ORDER BY sales_in_billion DESC, company.company_id NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+('9',)
+*/
+
+-- Prediction Query
+SELECT Headquarters FROM company ORDER BY Sales_in_Billion DESC, company.company_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('9',)
+*/

@@ -1,0 +1,69 @@
+-- Schema DDL
+CREATE TABLE "GENRE" (
+    "G_NAME" TEXT,
+    "RATING" TEXT,
+    "MOST_POPULAR_IN" TEXT,
+    PRIMARY KEY ("G_NAME")
+);
+CREATE TABLE "ARTIST" (
+    "ARTIST_NAME" TEXT,
+    "PREFERRED_GENRE" TEXT,
+    "COUNTRY" TEXT,
+    "GENDER" TEXT,
+    PRIMARY KEY ("ARTIST_NAME"),
+    FOREIGN KEY ("PREFERRED_GENRE") REFERENCES "GENRE"("G_NAME")
+);
+CREATE TABLE "FILES" (
+    "F_ID" FLOAT,
+    "ARTIST_NAME" TEXT,
+    "FILE_SIZE" TEXT,
+    "DURATION" TEXT,
+    "FORMATS" TEXT,
+    PRIMARY KEY ("F_ID"),
+    FOREIGN KEY ("ARTIST_NAME") REFERENCES "ARTIST"("ARTIST_NAME")
+);
+CREATE TABLE "SONG" (
+    "SONG_NAME" TEXT,
+    "GENRE_IS" TEXT,
+    "F_ID" FLOAT,
+    "ARTIST_NAME" TEXT,
+    "COUNTRY" TEXT,
+    "RATING" FLOAT,
+    "LANGUAGES" TEXT,
+    "RELEASEDATE" DATE,
+    "RESOLUTION" FLOAT,
+    PRIMARY KEY ("SONG_NAME"),
+    FOREIGN KEY ("GENRE_IS") REFERENCES "GENRE"("G_NAME"),
+    FOREIGN KEY ("F_ID") REFERENCES "FILES"("F_ID"),
+    FOREIGN KEY ("ARTIST_NAME") REFERENCES "ARTIST"("ARTIST_NAME")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO GENRE VALUES (7, 0, 0);
+INSERT INTO GENRE VALUES (8, 0, 0);
+INSERT INTO ARTIST VALUES (10, 7, 0, 0);
+INSERT INTO ARTIST VALUES (3, 7, 0, 0);
+INSERT INTO FILES VALUES (9, 10, 0, 0, 0);
+INSERT INTO FILES VALUES (6, 10, 0, 0, 0);
+INSERT INTO SONG VALUES (4, 7, 9, 10, 17, -1, 0, '0001-01-01', 18);
+INSERT INTO SONG VALUES (5, 8, 9, 10, 11, -3, 0, '0001-01-02', 12);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT meanrating AS avg_rating_, languages FROM (SELECT languages, releasedate, AVG(rating) AS meanrating FROM song GROUP BY languages, releasedate) ORDER BY avg_rating_, languages NULLS LAST;
+
+/*
+Gold Result:
+(-3.0, '0')
+(-1.0, '0')
+*/
+
+-- Prediction Query
+SELECT AVG(rating), languages FROM song GROUP BY languages;
+
+/*
+Prediction Result:
+(-2.0, '0')
+*/

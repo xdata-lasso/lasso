@@ -1,0 +1,16 @@
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('dept_name_1', 'dep_f0958c', 0.01);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('id_1', 'ins_243226', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('A', 'ins_243226', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('C', 'ins_243226', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('id_4', 'ins_243226', 'dept_name_1', 29000.01);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('id_5', 'ins_243226', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('@', 'ins_48f70c', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('B', 'ins_48f70c', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('G', 'ins_48f70c', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('#', 'ins_48f70c', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('_', 'ins_48f70c', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('Q', 'ins_48f70c', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('O', 'ins_48f70c', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('"', 'ins_48f70c', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('b', 'ins_48f70c', 'dept_name_1', NULL);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('K', 'ins_48f70c', 'dept_name_1', NULL);

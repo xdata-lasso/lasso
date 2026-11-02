@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests basic percentage calculation (1/3 = 33.3333...), floating-point division vs integer division, and filtering out non-Japanese or untranslated sets.
+INSERT INTO sets (id, code, isNonFoilOnly, isFoilOnly) VALUES (1, 'SET1', 1, 0);
+INSERT INTO sets (id, code, isNonFoilOnly, isFoilOnly) VALUES (2, 'SET2', 0, 1);
+INSERT INTO sets (id, code, isNonFoilOnly, isFoilOnly) VALUES (3, 'SET3', 0, 0);
+INSERT INTO sets (id, code, isNonFoilOnly, isFoilOnly) VALUES (4, 'SET4', 1, 0);
+INSERT INTO sets (id, code, isNonFoilOnly, isFoilOnly) VALUES (5, 'SET5', 1, 0);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Japanese', 'SET1', 'Trans1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Japanese', 'SET2', 'Trans2');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Japanese', 'SET3', 'Trans3');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, 'French', 'SET4', 'Trans4');
+```
+
+```sql
+-- DATASET 2
+-- Tests IN-subquery vs INNER JOIN multiplicity: multiple 'Japanese' translations for the same setCode.
+-- Gold query counts each set once (1/2 = 50.0); an un-deduplicated INNER JOIN would count SET1 three times (3/4 = 75.0).
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (1, 'SET1', 1);
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (2, 'SET2', 0);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Japanese', 'SET1', 'JP_A');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Japanese', 'SET1', 'JP_B');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Japanese', 'SET1', 'JP_C');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, 'Japanese', 'SET2', 'JP_D');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (5, 'German', 'SET2', 'DE_A');
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary condition where all matching sets have isNonFoilOnly = 0 (result should be 0.0, not NULL).
+-- Also tests that non-matching sets with isNonFoilOnly = 1 are excluded.
+INSERT INTO sets (id, code, isNonFoilOnly, isFoilOnly, isForeignOnly, isOnlineOnly) VALUES (1, 'SET1', 0, 1, 1, 1);
+INSERT INTO sets (id, code, isNonFoilOnly, isFoilOnly, isForeignOnly, isOnlineOnly) VALUES (2, 'SET2', 0, 1, 0, 0);
+INSERT INTO sets (id, code, isNonFoilOnly, isFoilOnly, isForeignOnly, isOnlineOnly) VALUES (3, 'SET3', 1, 0, 0, 0);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Japanese', 'SET1', 'JP1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Japanese', 'SET2', 'JP2');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Spanish', 'SET3', 'ES3');
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary condition where all matching sets have isNonFoilOnly = 1 (result should be 100.0).
+-- Also includes NULLs in set_translations columns and non-0/1 integer values in isNonFoilOnly.
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (1, 'SET1', 1);
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (2, 'SET2', 1);
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (3, 'SET3', 2);
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (4, 'SET4', 0);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Japanese', 'SET1', 'JP1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Japanese', 'SET2', NULL);
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Japanese', 'SET3', 'JP3');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, NULL, 'SET4', 'NULL_LANG');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (5, 'Japanese', NULL, 'NULL_CODE');
+```
+
+```sql
+-- DATASET 5
+-- Tests string matching precision on language = 'Japanese' (case sensitivity, substring matching like '%Japanese%') and empty result handling when no exact match exists.
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (1, 'SET1', 1);
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (2, 'SET2', 0);
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (3, 'SET3', 1);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'japanese', 'SET1', 'Lower');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Old Japanese', 'SET2', 'Prefix');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Korean', 'SET3', 'Other');
+```
+
+```sql
+-- DATASET 6
+-- Tests confusion between set_translations.language and foreign_data.language or cards.setCode.
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (1, 'S_TRANS_JP', 1);
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (2, 'S_TRANS_JP2', 0);
+INSERT INTO sets (id, code, isNonFoilOnly) VALUES (3, 'S_CARD_JP', 1);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Japanese', 'S_TRANS_JP', 'T1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Japanese', 'S_TRANS_JP2', 'T2');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Chinese Simplified', 'S_CARD_JP', 'T3');
+
+INSERT INTO cards (id, uuid, setCode, name) VALUES (1, 'uuid-1', 'S_CARD_JP', 'Card 1');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (1, 'Japanese', 'JP Card 1', 'uuid-1');
+```

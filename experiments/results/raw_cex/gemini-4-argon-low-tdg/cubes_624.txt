@@ -1,0 +1,86 @@
+```sql
+-- DATASET 1
+-- Tests basic inequality, DISTINCT elimination, NOT IN ('English') vs <> 'English' trap, and ordering.
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES ('USA', 'United States', 'North America', 'North America', 9363520.0, 1776, 278357000, 77.1, 8510700.0, 8110900.0, 'United States', 'Federal Republic', 'George W. Bush', 3813, 'US');
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES ('GBR', 'United Kingdom', 'Europe', 'British Islands', 242900.0, 1066, 59623400, 77.7, 1378330.0, 1296830.0, 'United Kingdom', 'Constitutional Monarchy', 'Elisabeth II', 456, 'GB');
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES ('FRA', 'France', 'Europe', 'Western Europe', 551500.0, 843, 59225700, 78.8, 1424285.0, 1392448.0, 'France', 'Republic', 'Jacques Chirac', 2974, 'FR');
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES ('ATA', 'Antarctica', 'Antarctica', 'Antarctica', 13120000.0, NULL, 0, NULL, 0.0, NULL, 'Antarctica', 'Co-administrated', '', NULL, 'AQ');
+
+-- USA has English and non-English (tests NOT IN / NOT EXISTS vs <> 'English' and DISTINCT)
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('USA', 'English', 'T', 86.2);
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('USA', 'Spanish', 'F', 7.5);
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('USA', 'French', 'F', 0.6);
+
+-- GBR has ONLY English (should be excluded by <> 'English', included by = 'English')
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('GBR', 'English', 'T', 97.3);
+
+-- FRA has ONLY non-English, inserted out of alphabetical order with USA to test ORDER BY
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('FRA', 'French', 'T', 93.6);
+```
+
+```sql
+-- DATASET 2
+-- Tests relational operator mutations (<, >, <=, >= vs <>), case sensitivity ('english' vs 'English'), and extra filters on IsOfficial/Percentage.
+INSERT INTO "country" ("Code", "Name") VALUES ('C01', 'Country 1');
+INSERT INTO "country" ("Code", "Name") VALUES ('C02', 'Country 2');
+INSERT INTO "country" ("Code", "Name") VALUES ('C03', 'Country 3');
+INSERT INTO "country" ("Code", "Name") VALUES ('C04', 'Country 4');
+INSERT INTO "country" ("Code", "Name") VALUES ('C05', 'Country 5');
+
+-- Language lexicographically smaller than 'English' (tests > 'English' mutant)
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('C04', 'Arabic', 'F', 0.0);
+
+-- Language lexicographically greater than 'English' (tests < 'English' mutant)
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('C02', 'Zulu', 'T', 100.0);
+
+-- Exact match 'English' (tests <= and >= mutants)
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('C03', 'English', 'T', 50.0);
+
+-- Case sensitivity check ('english' <> 'English' is TRUE in SQLite)
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('C01', 'english', 'F', 10.0);
+
+-- Substring / LIKE check ('EnglishCreole' <> 'English' is TRUE)
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('C05', 'EnglishCreole', 'T', 25.5);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in CountryCode (ORDER BY countrycode NULLS LAST) and NULL in Language (since SQLite allows NULL in non-INTEGER PRIMARY KEY columns).
+INSERT INTO "country" ("Code", "Name") VALUES ('ZWE', 'Zimbabwe');
+INSERT INTO "country" ("Code", "Name") VALUES ('AFG', 'Afghanistan');
+
+-- Valid CountryCode rows inserted in reverse order
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('ZWE', 'Shona', 'F', 70.0);
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('AFG', 'Pashto', 'T', 52.4);
+
+-- NULL CountryCode with non-English language (tests NULLS LAST vs default NULLS FIRST in SQLite)
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES (NULL, 'Esperanto', 'F', 0.1);
+
+-- NULL Language (NULL <> 'English' evaluates to UNKNOWN, should be filtered out, tests IS NOT 'English' mutant)
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('ZWE', NULL, 'F', 0.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests table/join confusion (e.g., querying city.CountryCode or country.Code instead of countrylanguage.CountryCode).
+INSERT INTO "country" ("Code", "Name") VALUES ('AAA', 'No Lang Country');
+INSERT INTO "country" ("Code", "Name") VALUES ('BBB', 'City Only Country');
+INSERT INTO "country" ("Code", "Name") VALUES ('CCC', 'Lang Country');
+
+-- City exists for BBB, and city Name is 'English' / 'French'
+INSERT INTO "city" ("ID", "CountryCode", "Name", "District", "Population") VALUES (1, 'BBB', 'French', 'Dist1', 1000);
+INSERT INTO "city" ("ID", "CountryCode", "Name", "District", "Population") VALUES (2, 'CCC', 'English', 'Dist2', 2000);
+
+-- Only CCC has a non-English language in countrylanguage; AAA and BBB have no languages.
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('CCC', 'German', 'T', 99.0);
+```
+
+```sql
+-- DATASET 5
+-- Edge case: All rows in countrylanguage are 'English' (tests queries that return non-empty results on full exclusion).
+INSERT INTO "country" ("Code", "Name") VALUES ('AUS', 'Australia');
+INSERT INTO "country" ("Code", "Name") VALUES ('NZL', 'New Zealand');
+
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('AUS', 'English', 'T', 81.2);
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES ('NZL', 'English', 'T', 87.0);
+```

@@ -1,0 +1,57 @@
+-- Schema DDL
+CREATE TABLE "Addresses" ("address_id" INTEGER PRIMARY KEY, "address_content" TEXT(80), "city" TEXT(50), "zip_postcode" TEXT(20), "state_province_county" TEXT(50), "country" TEXT(50), "other_address_details" TEXT(255));
+
+CREATE TABLE "Products" ("product_id" INTEGER PRIMARY KEY, "product_details" TEXT(255));
+
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "payment_method" TEXT(15), "customer_name" TEXT(80), "date_became_customer" DATETIME, "other_customer_details" TEXT(255));
+
+CREATE TABLE "Customer_Addresses" ("customer_id" INTEGER, "address_id" INTEGER, "date_address_from" DATETIME, "address_type" TEXT(15), "date_address_to" DATETIME, FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"), FOREIGN KEY ("address_id") REFERENCES "Addresses" ("address_id"));
+
+CREATE TABLE "Customer_Contact_Channels" ("customer_id" INTEGER, "channel_code" TEXT(15), "active_from_date" DATETIME, "active_to_date" DATETIME, "contact_number" TEXT(50), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+CREATE TABLE "Customer_Orders" ("order_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "order_status" TEXT(15), "order_date" DATETIME, "order_details" TEXT(255), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+CREATE TABLE "Order_Items" ("order_id" INTEGER, "product_id" INTEGER, "order_quantity" TEXT(15), FOREIGN KEY ("order_id") REFERENCES "Customer_Orders" ("order_id"), FOREIGN KEY ("product_id") REFERENCES "Products" ("product_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+-- Tests:
+-- 1. String vs Numeric comparison on order_quantity ('10' < '2' lexicographically, whereas 2 < 10 numerically).
+-- 2. Duplicate rows in output (DISTINCT vs ALL) when the minimum quantity occurs multiple times for the same payment_method.
+-- 3. Ordering of payment_method (ASC vs DESC).
+-- 4. Customers with no orders (LEFT JOIN vs INNER JOIN).
+INSERT INTO Products (product_id, product_details) VALUES (1, 'Laptop');
+INSERT INTO Products (product_id, product_details) VALUES (2, 'Mouse');
+INSERT INTO Products (product_id, product_details) VALUES (3, 'Keyboard');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Credit Card', 'Alice', '2020-01-01', 'Regular');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Cash', 'Bob', '2020-02-01', 'VIP');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (3, 'PayPal', 'Charlie', '2020-03-01', 'New');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (4, 'Bitcoin', 'David', '2020-04-01', 'No Orders');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (101, 1, 'Completed', '2021-01-10', 'First Order');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (102, 2, 'Completed', '2021-01-11', 'Second Order');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (103, 3, 'Pending', '2021-01-12', 'Third Order');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (101, 1, '10');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (101, 2, '10');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (102, 1, '2');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (103, 3, '10');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT payment_method FROM (SELECT LHS.customer_id AS customer_id, LHS.payment_method AS payment_method, LHS.customer_name AS customer_name, LHS.date_became_customer AS date_became_customer, LHS.other_customer_details AS other_customer_details, LHS.order_id AS order_id, LHS.order_status AS order_status, LHS.order_date AS order_date, LHS.order_details AS order_details, LHS.product_id AS product_id, LHS.order_quantity AS order_quantity FROM (SELECT LHS.customer_id AS customer_id, LHS.payment_method AS payment_method, LHS.customer_name AS customer_name, LHS.date_became_customer AS date_became_customer, LHS.other_customer_details AS other_customer_details, LHS.order_id AS order_id, LHS.order_status AS order_status, LHS.order_date AS order_date, LHS.order_details AS order_details, RHS.product_id AS product_id, RHS.order_quantity AS order_quantity FROM (SELECT LHS.customer_id AS customer_id, LHS.payment_method AS payment_method, LHS.customer_name AS customer_name, LHS.date_became_customer AS date_became_customer, LHS.other_customer_details AS other_customer_details, RHS.order_id AS order_id, RHS.order_status AS order_status, RHS.order_date AS order_date, RHS.order_details AS order_details FROM customers AS LHS INNER JOIN customer_orders AS RHS ON (LHS.customer_id = RHS.customer_id)) AS LHS INNER JOIN order_items AS RHS ON (LHS.order_id = RHS.order_id)) AS LHS INNER JOIN (SELECT order_id, product_id, MIN(order_quantity) OVER () AS order_quantity FROM order_items) AS RHS ON (LHS.order_id = RHS.order_id AND LHS.product_id = RHS.product_id AND LHS.order_quantity = RHS.order_quantity)) ORDER BY payment_method;
+
+/*
+Gold Result:
+('Credit Card',)
+('Credit Card',)
+('PayPal',)
+*/
+
+-- Prediction Query
+SELECT t1.payment_method FROM customers AS t1 JOIN customer_orders AS t2 ON t1.customer_id = t2.customer_id JOIN order_items AS t3 ON t2.order_id = t3.order_id GROUP BY t1.customer_name ORDER BY SUM(t3.order_quantity), t1.payment_method NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('Cash',)
+*/

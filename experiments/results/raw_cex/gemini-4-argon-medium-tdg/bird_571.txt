@@ -1,0 +1,125 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Floating-point division (CAST AS REAL) vs integer division (7 / 2 = 3.5 vs 3).
+-- 2. COUNT(T2.Id) vs COUNT(DISTINCT T2.Id) and COUNT(T1.Id) vs COUNT(DISTINCT T1.Id) via M-to-N join (2 votes x 7 posts = 14 join rows).
+-- 3. Join condition: T1.UserId = T2.OwnerUserId vs T1.PostId = T2.Id vs T1.UserId = T2.LastEditorUserId.
+-- 4. WHERE filter: T1.UserId = 24 vs other users (23, 25, NULL) and vs T1.Id = 24 or T2.Id = 24.
+INSERT INTO users (Id, DisplayName) VALUES (23, 'User23');
+INSERT INTO users (Id, DisplayName) VALUES (24, 'User24');
+INSERT INTO users (Id, DisplayName) VALUES (25, 'User25');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (101, 24, 23, 'P1');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (102, 24, 23, 'P2');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (103, 24, 23, 'P3');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (104, 24, 23, 'P4');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (105, 24, 23, 'P5');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (106, 24, 23, 'P6');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (107, 24, 23, 'P7');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (24, 25, 24, 'PostWithId24');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (108, 23, 24, 'PostEditedBy24');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (109, NULL, 24, 'PostNullOwner');
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (1, 24, 24);
+INSERT INTO votes (Id, PostId, UserId) VALUES (2, 108, 24);
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (24, 101, 25);
+INSERT INTO votes (Id, PostId, UserId) VALUES (3, 101, 23);
+INSERT INTO votes (Id, PostId, UserId) VALUES (4, 102, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Fractional result < 1.0 (1 post, 4 votes for UserId 24 -> 4 / 4 = 1.0 in Gold, vs 1 / 4 = 0.25 if COUNT(DISTINCT T2.Id) is used, or 0 if integer division with distinct).
+-- 2. Differentiates COUNT(T2.Id) [4] from COUNT(DISTINCT T2.Id) [1] and from COUNT(T1.Id) when votes > posts.
+INSERT INTO users (Id, DisplayName) VALUES (24, 'User24');
+INSERT INTO users (Id, DisplayName) VALUES (99, 'User99');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (10, 24, 'OnlyPostBy24');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (20, 99, 'PostBy99');
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (1, 20, 24);
+INSERT INTO votes (Id, PostId, UserId) VALUES (2, 20, 24);
+INSERT INTO votes (Id, PostId, UserId) VALUES (3, 20, 24);
+INSERT INTO votes (Id, PostId, UserId) VALUES (4, NULL, 24);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN / RIGHT JOIN when User 24 has votes, but owns 0 posts.
+-- 2. Gold Query produces 0 join rows -> 0 / 0 = NULL.
+-- 3. A LEFT JOIN mutant (votes LEFT JOIN posts) would have COUNT(T2.Id) = 0 and COUNT(DISTINCT T1.Id) = 2 -> 0.0 / 2 = 0.0 (differs from NULL).
+-- 4. Also includes other users with both votes and posts to kill mutants without the WHERE clause.
+INSERT INTO users (Id, DisplayName) VALUES (24, 'User24');
+INSERT INTO users (Id, DisplayName) VALUES (25, 'User25');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (1, 25, 'Post1By25');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (2, 25, 'Post2By25');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (3, 25, 'Post3By25');
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (10, 1, 24);
+INSERT INTO votes (Id, PostId, UserId) VALUES (11, 2, 24);
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (12, 1, 25);
+INSERT INTO votes (Id, PostId, UserId) VALUES (13, 2, 25);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. INNER JOIN vs RIGHT JOIN (or posts LEFT JOIN votes) when User 24 owns posts, but has 0 votes.
+-- 2. Gold Query (with T1.UserId = 24) produces 0 join rows -> NULL.
+-- 3. Mutants filtering on T2.OwnerUserId = 24 with a LEFT JOIN from posts to votes would get COUNT(T2.Id) = 3, COUNT(DISTINCT T1.Id) = 0 -> NULL, or if using COUNT(*) in denominator -> 3.0 / 3 = 1.0.
+-- 4. Also tests mutants that swap T1 and T2 in the SELECT clause without proper join filtering.
+INSERT INTO users (Id, DisplayName) VALUES (24, 'User24');
+INSERT INTO users (Id, DisplayName) VALUES (25, 'User25');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (1, 24, 'Post1By24');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (2, 24, 'Post2By24');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (3, 24, 'Post3By24');
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (10, 1, 25);
+INSERT INTO votes (Id, PostId, UserId) VALUES (11, 2, 25);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Columns with NULLs in T1 (votes) and T2 (posts) for User 24.
+-- 2. Kills mutants that replace COUNT(T2.Id) with COUNT(T2.AcceptedAnswerId), COUNT(T2.ParentId), COUNT(T2.LastEditorUserId), etc.
+-- 3. Kills mutants that replace COUNT(DISTINCT T1.Id) with COUNT(DISTINCT T1.PostId), COUNT(DISTINCT T1.VoteTypeId), COUNT(DISTINCT T1.BountyAmount), or COUNT(DISTINCT T1.UserId).
+-- 4. Here User 24 has 3 votes (all with same PostId=500, same VoteTypeId=2, NULL BountyAmount) and 5 posts (some with NULL columns).
+-- Gold Query: COUNT(T2.Id) = 15, COUNT(DISTINCT T1.Id) = 3 -> 15.0 / 3 = 5.0.
+INSERT INTO users (Id, DisplayName) VALUES (24, 'User24');
+
+INSERT INTO posts (Id, OwnerUserId, AcceptedAnswerId, ParentId, LastEditorUserId, Score) VALUES (500, 24, NULL, NULL, NULL, 10);
+INSERT INTO posts (Id, OwnerUserId, AcceptedAnswerId, ParentId, LastEditorUserId, Score) VALUES (501, 24, 500, NULL, 24, 10);
+INSERT INTO posts (Id, OwnerUserId, AcceptedAnswerId, ParentId, LastEditorUserId, Score) VALUES (502, 24, NULL, 500, NULL, NULL);
+INSERT INTO posts (Id, OwnerUserId, AcceptedAnswerId, ParentId, LastEditorUserId, Score) VALUES (503, 24, NULL, NULL, NULL, 0);
+INSERT INTO posts (Id, OwnerUserId, AcceptedAnswerId, ParentId, LastEditorUserId, Score) VALUES (504, 24, NULL, NULL, NULL, 5);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (1, 500, 2, 24, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (2, 500, 2, 24, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (3, 500, 2, 24, 50);
+```
+
+```sql
+-- DATASET 6
+-- Tests:
+-- 1. Non-integer ratio where COUNT(DISTINCT T2.Id) = 3 and COUNT(DISTINCT T1.Id) = 2.
+-- 2. In Gold Query: 3 posts x 2 votes = 6 join rows. COUNT(T2.Id) = 6, COUNT(DISTINCT T1.Id) = 2 -> 6.0 / 2 = 3.0.
+-- 3. If a mutant swaps numerator and denominator: CAST(COUNT(T1.Id) AS REAL) / COUNT(DISTINCT T2.Id) -> 6.0 / 3 = 2.0 (killed).
+-- 4. If a mutant uses DISTINCT in both: COUNT(DISTINCT T2.Id) / COUNT(DISTINCT T1.Id) -> 3.0 / 2 = 1.5 (killed!).
+-- 5. If a mutant omits DISTINCT in both: COUNT(T2.Id) / COUNT(T1.Id) -> 6.0 / 6 = 1.0 (killed!).
+INSERT INTO users (Id, DisplayName) VALUES (24, 'User24');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (1, 24, 'P1');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (2, 24, 'P2');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (3, 24, 'P3');
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (10, 1, 24);
+INSERT INTO votes (Id, PostId, UserId) VALUES (20, 2, 24);
+```

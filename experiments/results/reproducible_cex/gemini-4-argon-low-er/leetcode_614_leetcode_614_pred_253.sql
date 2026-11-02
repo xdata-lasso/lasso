@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "follow" ("followee" TEXT(255), "follower" TEXT(255), PRIMARY KEY ("followee", "follower"), CHECK ("followee" <> 'Follow.follower'));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "follow" ("followee", "follower") VALUES ('A', 'B');
+INSERT INTO "follow" ("followee", "follower") VALUES ('A', NULL);
+INSERT INTO "follow" ("followee", "follower") VALUES ('C', 'A');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT followee AS follower, COUNT(followee) AS num FROM follow WHERE followee IN (SELECT follower FROM follow) GROUP BY 1 ORDER BY 1, follower NULLS LAST, num NULLS LAST;
+
+/*
+Gold Result:
+('A', 2)
+*/
+
+-- Prediction Query
+SELECT DISTINCT FOLLOWER, FOLLOW_NUM AS NUM FROM FOLLOW AS F JOIN (SELECT FOLLOWEE, COUNT(FOLLOWER) AS FOLLOW_NUM FROM FOLLOW GROUP BY FOLLOWEE) AS T ON F.FOLLOWER = T.FOLLOWEE ORDER BY FOLLOWER, NUM NULLS LAST;
+
+/*
+Prediction Result:
+('A', 1)
+*/

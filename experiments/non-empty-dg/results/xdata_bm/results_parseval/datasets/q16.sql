@@ -1,0 +1,15 @@
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('dep_f61e6a', 'dep_5c9830', 0.01);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('C', 'dep_5c9830', 0.01);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('A', 'dep_f0958c', 0.03);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('_', 'dep_5c9830', 0.01);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('G', 'dep_5c9830', 0.01);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('stu_e68dea', 'dep_5c9830', 0.01);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('ins_3dcd90', 'dep_5c9830', 0.01);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('ins_af44e8', 'ins_4e59db', 'dep_f61e6a', 29000.01);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('O', 'ins_4e59db', 'ins_3dcd90', 29000.01);
+INSERT INTO "instructor" ("ID", "name", "dept_name", "salary") VALUES ('ins_b56d50', 'ins_4fdce7', 'ins_3dcd90', 29000.01);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('stu_d86e03', 'stu_f7cd6c', 'dep_f61e6a', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('A', 'stu_f7cd6c', 'dep_f61e6a', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('id_3', 'stu_a46cd5', 'stu_e68dea', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('tak_f6e0fc', 'stu_f7cd6c', 'dep_f61e6a', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('id_5', 'stu_a46cd5', 'stu_e68dea', 0.0);

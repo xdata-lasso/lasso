@@ -1,0 +1,36 @@
+-- Schema DDL
+CREATE TABLE "Salaries" ("company_id" INTEGER, "employee_id" INTEGER, "employee_name" TEXT(255), "salary" INTEGER, PRIMARY KEY ("company_id", "employee_id"), CHECK ("salary" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO salaries (company_id, employee_id, employee_name, salary) VALUES (76, 1001, 'default2', NULL), (1, -1, NULL, 77), (76, 1, 'default1', 50), (75, 10001, NULL, 76), (1000, 10001, NULL, 100), (10001, 100, NULL, 10000), (51, 1000, NULL, 52);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT S.COMPANY_ID, S.EMPLOYEE_ID, S.EMPLOYEE_NAME, ROUND(CASE WHEN X.MAX_SAL BETWEEN 1000 AND 10000 THEN SALARY * 0.76 WHEN X.MAX_SAL > 10000 THEN SALARY * 0.51 ELSE SALARY END, 0) AS SALARY FROM SALARIES AS S INNER JOIN (SELECT COMPANY_ID, MAX(SALARY) AS MAX_SAL FROM SALARIES GROUP BY COMPANY_ID) AS X ON S.COMPANY_ID = X.COMPANY_ID;
+
+/*
+Gold Result:
+(1, -1, None, 77.0)
+(51, 1000, None, 52.0)
+(75, 10001, None, 76.0)
+(76, 1, 'default1', 50.0)
+(76, 1001, 'default2', None)
+(1000, 10001, None, 100.0)
+(10001, 100, None, 7600.0)
+*/
+
+-- Prediction Query
+SELECT COMPANY_ID, EMPLOYEE_ID, EMPLOYEE_NAME, ROUND(CAST(SALARY * (CASE WHEN MAX(SALARY) OVER (PARTITION BY COMPANY_ID) < 1000 THEN 100 WHEN MAX(SALARY) OVER (PARTITION BY COMPANY_ID) < 10000 THEN 76 ELSE 51 END) AS REAL) / 100) AS SALARY FROM SALARIES;
+
+/*
+Prediction Result:
+(1, -1, None, 77.0)
+(51, 1000, None, 52.0)
+(75, 10001, None, 76.0)
+(76, 1, 'default1', 50.0)
+(76, 1001, 'default2', None)
+(1000, 10001, None, 100.0)
+(10001, 100, None, 5100.0)
+*/

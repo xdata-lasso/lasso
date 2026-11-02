@@ -1,0 +1,63 @@
+```sql
+-- DATASET 1
+-- Tests basic price DESC ordering, LIMIT 1, and ensures flight.distance is selected instead of aircraft.distance.
+-- Also tests that flights without a valid aircraft (aid IS NULL) or with different prices are handled properly.
+INSERT INTO aircraft (aid, name, distance) VALUES (1, 'Boeing 747', 9999);
+INSERT INTO aircraft (aid, name, distance) VALUES (2, 'Airbus A320', 8888);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (102, 1, 'NYC', 'LAX', 2500, '2023-01-01', '2023-01-01', 300.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (101, NULL, 'LAX', 'SFO', 500, '2023-01-02', '2023-01-02', 800.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (103, 2, 'ORD', 'MIA', 1200, '2023-01-03', '2023-01-03', 500.00);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on maximum price using flno ASC (inserted out of order to prevent natural insertion order passing).
+-- Also ensures distance is not used as the tie-breaker.
+INSERT INTO aircraft (aid, name, distance) VALUES (10, 'Jet A', 5000);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (205, 10, 'BOS', 'SEA', 3000, '2023-02-01', '2023-02-01', 1000.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (201, 10, 'SEA', 'BOS', 1500, '2023-02-02', '2023-02-02', 1000.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (203, 10, 'DEN', 'ATL', 4500, '2023-02-03', '2023-02-03', 1000.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (199, 10, 'ATL', 'DEN', 1200, '2023-02-04', '2023-02-04', 950.00);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULLS LAST on flno when tied for the highest price (SQLite allows NULL in REAL PRIMARY KEY).
+-- If NULLS LAST is omitted, SQLite defaults to NULLS FIRST for ASC, which would erroneously return the NULL flno row.
+INSERT INTO aircraft (aid, name, distance) VALUES (1, 'Concorde', 6000);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (NULL, 1, 'LON', 'NYC', 3500, '2023-03-01', '2023-03-01', 1500.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (305, 1, 'PAR', 'TYO', 6000, '2023-03-02', '2023-03-02', 1500.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (302, 1, 'SYD', 'LAX', 7500, '2023-03-03', '2023-03-03', 1500.00);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in price column alongside negative prices.
+-- In SQLite, ORDER BY price DESC places non-null values before NULLs.
+INSERT INTO aircraft (aid, name, distance) VALUES (5, 'Cessna', 1000);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (401, 5, 'A', 'B', 100, '2023-04-01', '2023-04-01', NULL);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (403, 5, 'C', 'D', 200, '2023-04-02', '2023-04-02', -50.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (402, 5, 'E', 'F', 300, '2023-04-03', '2023-04-03', -10.00);
+```
+
+```sql
+-- DATASET 5
+-- Tests when all prices are NULL, forcing the query to rely entirely on the secondary sort (flno ASC NULLS LAST).
+INSERT INTO aircraft (aid, name, distance) VALUES (7, 'Glider', 500);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (NULL, 7, 'X', 'Y', 50, '2023-05-01', '2023-05-01', NULL);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (502, 7, 'Y', 'Z', 150, '2023-05-02', '2023-05-02', NULL);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (501, 7, 'Z', 'X', 250, '2023-05-03', '2023-05-03', NULL);
+```
+
+```sql
+-- DATASET 6
+-- Tests that uncertified aircraft/flights are still included (refutes mutants that unnecessarily inner-join certificate or employee).
+-- Also tests numeric vs lexicographical sorting on price and flno (e.g., 1000.00 vs 900.00, flno 90 vs 100).
+INSERT INTO aircraft (aid, name, distance) VALUES (1, 'B737', 3000);
+INSERT INTO aircraft (aid, name, distance) VALUES (2, 'B777', 8000);
+INSERT INTO employee (eid, name, salary) VALUES (1, 'John Doe', 100000.00);
+INSERT INTO certificate (eid, aid) VALUES (1, 1);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (90, 1, 'SFO', 'SEA', 680, '2023-06-01', '2023-06-01', 900.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (100, 2, 'SFO', 'JFK', 2586, '2023-06-02', '2023-06-02', 1000.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (85, 2, 'JFK', 'LHR', 3451, '2023-06-03', '2023-06-03', 1000.00);
+```

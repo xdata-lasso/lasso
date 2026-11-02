@@ -1,0 +1,106 @@
+```sql
+-- DATASET 1
+-- Tests: 
+-- 1. Multiple classes per course (SUM of joined rows vs SUM on COURSE table only, or SUM(DISTINCT crs_credit)).
+-- 2. Multiple courses per department with identical and distinct credit values.
+-- 3. Unmatched rows in COURSE (no classes) and CLASS (NULL crs_code) to kill LEFT/RIGHT/FULL JOIN mutants.
+-- 4. Tie-breaking in ORDER BY: identical sum_t1_crs_credit_ values with different dept_codes, including a NULL dept_code to test NULLS LAST.
+-- 5. Ordering direction (ASC vs DESC) on both sort keys.
+
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME") VALUES (1, 'Smith', 'John');
+
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('CS', 1, 'Computer Science');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('MATH', 1, 'Mathematics');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('ENG', 1, 'English');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('HIST', 1, 'History');
+
+-- CS: 1 course of 3.0 credits, taught in 2 class sections -> SUM = 6.0 (Tests SUM vs SUM(DISTINCT) and JOIN multiplicity)
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('CS101', 'CS', 'Intro to CS', 3.0);
+
+-- MATH: 2 courses of 2.0 and 4.0 credits, 1 class each -> SUM = 6.0 (Ties with CS on sumcrs_credit=6.0)
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('MATH101', 'MATH', 'Calculus I', 2.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('MATH102', 'MATH', 'Calculus II', 4.0);
+
+-- NULL dept_code: 1 course of 6.0 credits, 1 class -> SUM = 6.0 (Ties with CS and MATH on sumcrs_credit=6.0, tests NULLS LAST on dept_code)
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('GEN101', NULL, 'General Studies', 6.0);
+
+-- ENG: 1 course of 2.5 credits, 1 class -> SUM = 2.5 (Tests fractional credits and primary sort order < 6.0)
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('ENG101', 'ENG', 'Composition', 2.5);
+
+-- HIST: 1 course of 4.0 credits, NO classes -> Tests INNER JOIN vs RIGHT JOIN on COURSE
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('HIST101', 'HIST', 'World History', 4.0);
+
+-- Classes
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('1001', 1, 'CS101', '1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('1002', 1, 'CS101', '2');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('1003', 1, 'MATH101', '1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('1004', 1, 'MATH102', '1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('1005', 1, 'GEN101', '1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('1006', 1, 'ENG101', '1');
+
+-- Class with NULL crs_code -> Tests INNER JOIN vs LEFT JOIN on CLASS
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('1007', 1, NULL, '1');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL values in CRS_CREDIT ( both partially NULL within a department and completely NULL for a department ).
+-- 2. Zero and negative CRS_CREDIT values.
+-- 3. Distinguishes SUM vs COUNT, AVG, MIN, MAX.
+-- 4. Behavior of NULL sum_t1_crs_credit_ in ORDER BY (sorts first in SQLite ASC).
+
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('ART', NULL, 'Art');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('BIO', NULL, 'Biology');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('CHEM', NULL, 'Chemistry');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('PHYS', NULL, 'Physics');
+
+-- ART: 1 course with NULL credit, 2 classes -> SUM is NULL
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('ART101', 'ART', 'Drawing', NULL);
+
+-- BIO: 2 courses, one NULL credit, one 0.0 credit -> SUM is 0.0
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('BIO101', 'BIO', 'Bio Lab', NULL);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('BIO102', 'BIO', 'Bio Seminar', 0.0);
+
+-- CHEM: 3 courses (1.0, 4.0, 4.0), 1 class each -> SUM = 9.0, AVG = 3.0, COUNT = 3, MIN = 1.0, MAX = 4.0, SUM(DISTINCT) = 5.0
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('CHEM1', 'CHEM', 'Chem I', 1.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('CHEM2', 'CHEM', 'Chem II', 4.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('CHEM3', 'CHEM', 'Chem III', 4.0);
+
+-- PHYS: 1 course of 5.0 credits, 1 class -> SUM = 5.0 (Ordering: NULL < 0.0 < 5.0 < 9.0)
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('PHYS1', 'PHYS', 'Mechanics', 5.0);
+
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('2001', NULL, 'ART101', '1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('2002', NULL, 'ART101', '2');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('2003', NULL, 'BIO101', '1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('2004', NULL, 'BIO102', '1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('2005', NULL, 'CHEM1', '1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('2006', NULL, 'CHEM2', '1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('2007', NULL, 'CHEM3', '1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('2008', NULL, 'PHYS1', '1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. GROUP BY column mutation (e.g., grouping by crs_code, class_section, or prof_num instead of dept_code).
+-- 2. Join condition mutation (e.g., natural join or joining on other columns).
+-- 3. String vs numeric sorting on sum_t1_crs_credit_ (e.g., 2.0 vs 10.0).
+
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (10, 'Adams');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (20, 'Baker');
+
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('D1', 10, 'Dept 1');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME") VALUES ('D2', 20, 'Dept 2');
+
+-- D1 has two distinct courses (C1, C2) totaling 10.0 credits across different professors and sections
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C1', 'D1', 'Course 1', 3.5);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C2', 'D1', 'Course 2', 6.5);
+
+-- D2 has one course (C3) with 2.0 credits
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C3', 'D2', 'Course 3', 2.0);
+
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('CL1', 10, 'C1', 'A', 'MWF 9', 'R1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('CL2', 20, 'C2', 'B', 'TTh 10', 'R2');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('CL3', 10, 'C3', 'A', 'MWF 9', 'R1');
+```

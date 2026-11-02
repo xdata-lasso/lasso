@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests SUM(Price) vs MAX(Price), AVG(Price), COUNT(*), SUM(Amount), SUM(Price * Amount), and Date filtering.
+-- Customer 1: Two transactions on '2012-08-25', SUM(Price) = 120.0, MAX(Price) = 60.0, AVG(Price) = 60.0, SUM(Amount) = 2.
+-- Customer 2: One transaction on '2012-08-25', SUM(Price) = 100.0, MAX(Price) = 100.0, AVG(Price) = 100.0, SUM(Amount) = 10.
+-- Customer 3: Three transactions on '2012-08-25', SUM(Price) = 90.0, COUNT(*) = 3.
+-- Customer 4: Huge transaction on a different date '2012-08-24', SUM(Price) = 500.0.
+-- Gold Query returns CustomerID = 1.
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '10:00:00', 1, 101, 1, 1, 1, 60.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '11:00:00', 1, 101, 1, 1, 1, 60.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '12:00:00', 2, 102, 1, 1, 10, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-25', '13:00:00', 3, 103, 1, 1, 5, 30.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-25', '14:00:00', 3, 103, 1, 1, 5, 30.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (6, '2012-08-25', '15:00:00', 3, 103, 1, 1, 5, 30.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (7, '2012-08-24', '16:00:00', 4, 104, 1, 1, 50, 500.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (8, '2012-08-26', '17:00:00', 2, 102, 1, 1, 50, 500.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on CustomerID ASC and NULLS LAST, as well as unnecessary INNER JOINs to customers/yearmonth/gasstations/products.
+-- Customer 10, Customer 20, and NULL CustomerID all have SUM(Price) = 200.0 on '2012-08-25'.
+-- Notice no rows are inserted into `customers`, `gasstations`, `products`, or `yearmonth`. Any mutant doing an INNER JOIN will return empty or wrong results.
+-- Gold Query returns CustomerID = 10 (since 10 < 20, and NULL is placed last).
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '08:00:00', NULL, 200, 10, 10, 10, 200.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '09:00:00', 20, 202, 10, 10, 10, 200.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '10:00:00', 10, 201, 10, 10, 5, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-25', '11:00:00', 10, 201, 10, 10, 5, 100.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY CustomerID vs GROUP BY CardID, GasStationID, or ProductID, and tests floating-point precision (REAL) vs INTEGER casting.
+-- Also includes parent table rows for Customer 2 (the loser) so mutants joining `customers` will pick Customer 2 instead of Customer 1 (who is not in `customers`).
+-- Customer 1: Two transactions with DIFFERENT CardID, GasStationID, ProductID. Prices are 10.4 and 10.4 (SUM = 20.8, INT SUM = 20).
+-- Customer 2: One transaction with Price 20.5 (SUM = 20.5, INT SUM = 20). Present in `customers`.
+-- Gold Query returns CustomerID = 1 (20.8 > 20.5).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Value');
+INSERT INTO products (ProductID, Description) VALUES (1, 'Diesel');
+INSERT INTO "yearmonth" (CustomerID, Date, Consumption) VALUES (2, '201208', 500.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '10:00:00', 1, 10, 1, 1, 5, 10.4);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '12:00:00', 1, 20, 2, 2, 5, 10.4);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '14:00:00', 2, 30, 1, 1, 10, 20.5);
+```
+
+```sql
+-- DATASET 4
+-- Tests SUM(DISTINCT Price) vs SUM(Price), and negative/refund transactions vs MAX(Price).
+-- Customer 1: Three identical prices of 50.0 -> SUM(Price) = 150.0, SUM(DISTINCT Price) = 50.0.
+-- Customer 2: Two distinct prices 70.0 and 60.0 -> SUM(Price) = 130.0, SUM(DISTINCT Price) = 130.0.
+-- Customer 3: One high transaction 200.0 and one refund -100.0 -> SUM(Price) = 100.0, MAX(Price) = 200.0.
+-- Gold Query returns CustomerID = 1.
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '08:00:00', 1, 1, 1, 1, 1, 50.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '09:00:00', 1, 1, 1, 1, 1, 50.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '10:00:00', 1, 1, 1, 1, 1, 50.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-25', '11:00:00', 2, 2, 1, 1, 1, 70.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-25', '12:00:00', 2, 2, 1, 1, 1, 60.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (6, '2012-08-25', '13:00:00', 3, 3, 1, 1, 1, 200.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (7, '2012-08-25', '14:00:00', 3, 3, 1, 1, 1, -100.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests behavior when all sums are negative (e.g. -10.0 vs -50.0, testing DESC vs ASC and handling of NULL Price).
+-- Customer 5: One transaction with Price -10.0, one with NULL Price -> SUM(Price) = -10.0.
+-- Customer 6: One transaction with Price -50.0 -> SUM(Price) = -50.0.
+-- Customer 7: One transaction with NULL Price -> SUM(Price) = NULL (in SQLite, NULL is smaller than any number in ORDER BY ... DESC).
+-- Gold Query returns CustomerID = 5.
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '10:00:00', 5, 5, 1, 1, 1, -10.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '11:00:00', 5, 5, 1, 1, 1, NULL);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '12:00:00', 6, 6, 1, 1, 1, -50.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-25', '13:00:00', 7, 7, 1, 1, 1, NULL);
+```

@@ -1,0 +1,65 @@
+-- Schema DDL
+CREATE TABLE "COUNTRY" (
+    "COUNTRY_ID" INT,
+    "COUNTRY_NAME" TEXT,
+    "CAPITAL" TEXT,
+    "OFFICIAL_NATIVE_LANGUAGE" TEXT,
+    PRIMARY KEY ("COUNTRY_ID")
+);
+CREATE TABLE "TEAM" (
+    "TEAM_ID" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("TEAM_ID")
+);
+CREATE TABLE "MATCH_SEASON" (
+    "SEASON" FLOAT,
+    "TEAM" INT,
+    "COUNTRY" INT,
+    "PLAYER" TEXT,
+    "POSITION" TEXT,
+    "DRAFT_PICK_NUMBER" INT,
+    "DRAFT_CLASS" TEXT,
+    "COLLEGE" TEXT,
+    PRIMARY KEY ("SEASON"),
+    FOREIGN KEY ("TEAM") REFERENCES "TEAM"("TEAM_ID"),
+    FOREIGN KEY ("COUNTRY") REFERENCES "COUNTRY"("COUNTRY_ID")
+);
+CREATE TABLE "PLAYER" (
+    "PLAYER_ID" INT,
+    "TEAM" INT,
+    "PLAYER" TEXT,
+    "YEARS_PLAYED" TEXT,
+    "TOTAL_WL" TEXT,
+    "SINGLES_WL" TEXT,
+    "DOUBLES_WL" TEXT,
+    PRIMARY KEY ("PLAYER_ID"),
+    FOREIGN KEY ("TEAM") REFERENCES "TEAM"("TEAM_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO COUNTRY VALUES (1, 0, 0, 0);
+INSERT INTO COUNTRY VALUES (0, 0, 0, 0);
+INSERT INTO TEAM VALUES (1, 0);
+INSERT INTO TEAM VALUES (0, 0);
+INSERT INTO MATCH_SEASON VALUES (6, 1, 1, 20, 21, 0, 22, 0);
+INSERT INTO MATCH_SEASON VALUES (7, 1, 1, 20, 21, 0, 22, 0);
+INSERT INTO PLAYER VALUES (0, 1, 0, 0, 0, 0, 0);
+INSERT INTO PLAYER VALUES (1, 1, 0, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT college_other AS college FROM (SELECT LHS.college AS college, LHS.n AS n, RHS.college AS college_other, RHS.n AS n_other FROM (SELECT college, COUNT(*) AS n FROM match_season GROUP BY college) AS LHS CROSS JOIN (SELECT college, COUNT(*) AS n FROM match_season GROUP BY college) AS RHS) WHERE (n < n_other) ORDER BY college;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT College FROM match_season GROUP BY College ORDER BY COUNT(*) DESC, College NULLS LAST LIMIT 3;
+
+/*
+Prediction Result:
+('0',)
+*/

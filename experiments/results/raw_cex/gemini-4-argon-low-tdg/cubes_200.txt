@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Primary ordering by count___ ASC vs ordering by YEAR first
+-- 2. Secondary tie-breaker ordering by YEAR ASC vs DESC
+-- 3. NULLS LAST behavior when tied on count___
+-- 4. COUNT(*) vs COUNT(year) or COUNT(winner_id) when columns contain NULLs
+-- 5. Unreferenced players (kills mutants that INNER JOIN or LEFT JOIN players)
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (1, 'Roger', 'Federer', 'R', '1981-08-08', 'SUI');
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (2, 'Rafael', 'Nadal', 'L', '1986-06-03', 'ESP');
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (3, 'Novak', 'Djokovic', 'R', '1987-05-22', 'SRB');
+
+-- Year NULL: 2 matches (1 with NULL winner_id/loser_id to test COUNT(*) vs COUNT(col))
+INSERT INTO matches (winner_id, loser_id, year) VALUES (1, 2, NULL);
+INSERT INTO matches (winner_id, loser_id, year) VALUES (NULL, NULL, NULL);
+
+-- Year 2022: 2 matches (tied with Year 2018 and Year NULL on count=2, tests secondary sort and NULLS LAST)
+INSERT INTO matches (winner_id, loser_id, year) VALUES (1, 2, 2022);
+INSERT INTO matches (winner_id, loser_id, year) VALUES (2, 1, 2022);
+
+-- Year 2018: 2 matches
+INSERT INTO matches (winner_id, loser_id, year) VALUES (1, 2, 2018);
+INSERT INTO matches (winner_id, loser_id, year) VALUES (NULL, 2, 2018);
+
+-- Year 2020: 1 match (lowest count=1, but middle year, tests primary sort priority count___ over YEAR)
+INSERT INTO matches (winner_id, loser_id, year) VALUES (2, 1, 2020);
+
+-- Year 2015: 3 matches (highest count=3, lowest year, tests primary sort ASC vs DESC)
+INSERT INTO matches (winner_id, loser_id, year) VALUES (1, 2, 2015);
+INSERT INTO matches (winner_id, loser_id, year) VALUES (1, 2, 2015);
+INSERT INTO matches (winner_id, loser_id, year) VALUES (1, 2, 2015);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. GROUP BY YEAR vs GROUP BY other attributes (e.g., tourney_id, surface, winner_id)
+-- 2. COUNT(*) vs COUNT(DISTINCT winner_id / tourney_id / surface)
+-- 3. Presence of rankings rows (kills mutants that erroneously join the rankings table)
+-- 4. Duplicate identical match tuples (kills mutants using DISTINCT before aggregation)
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (10, 'Andy', 'Murray', 'R', '1987-05-15', 'GBR');
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (20, 'Stan', 'Wawrinka', 'R', '1985-03-28', 'SUI');
+
+INSERT INTO rankings (player_id, ranking_date, ranking, ranking_points, tours) VALUES (10, '2016-11-07', 1, 12410, 20);
+INSERT INTO rankings (player_id, ranking_date, ranking, ranking_points, tours) VALUES (10, '2016-11-14', 1, 12685, 21);
+INSERT INTO rankings (player_id, ranking_date, ranking, ranking_points, tours) VALUES (20, '2016-11-07', 3, 5115, 19);
+
+-- Year 2016: 3 matches with identical players/tourney/surface (tests COUNT(*) vs COUNT(DISTINCT ...))
+INSERT INTO matches (winner_id, loser_id, tourney_id, surface, year) VALUES (10, 20, 'T1', 'Hard', 2016);
+INSERT INTO matches (winner_id, loser_id, tourney_id, surface, year) VALUES (10, 20, 'T1', 'Hard', 2016);
+INSERT INTO matches (winner_id, loser_id, tourney_id, surface, year) VALUES (10, 20, 'T1', 'Hard', 2016);
+
+-- Year 2017: 2 matches with different tourneys and surfaces, but sharing 'T1'/'Hard' with 2016
+INSERT INTO matches (winner_id, loser_id, tourney_id, surface, year) VALUES (10, 20, 'T1', 'Hard', 2017);
+INSERT INTO matches (winner_id, loser_id, tourney_id, surface, year) VALUES (20, 10, 'T2', 'Clay', 2017);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty matches table (kills mutants using scalar COUNT(*) without GROUP BY, which returns 1 row with count=0 instead of 0 rows)
+-- 2. Non-empty players and rankings tables when matches is empty
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (1, 'Pete', 'Sampras', 'R', '1971-08-12', 'USA');
+INSERT INTO rankings (player_id, ranking_date, ranking, ranking_points, tours) VALUES (1, '1998-11-23', 1, 3915, 20);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Single NULL group vs single non-NULL group with different counts (ensures count___ ordering takes precedence over YEAR NULLS LAST)
+-- 2. NULL year having smaller count (1) than non-NULL year (2), so NULL year must appear FIRST despite NULLS LAST on secondary column
+-- 3. Extraction of YEAR from tourney_date vs using the explicit `year` column (mismatched year in tourney_date vs `year` column)
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (1, 'Andre', 'Agassi', 'R', '1970-04-29', 'USA');
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (2, 'Boris', 'Becker', 'R', '1967-11-22', 'GER');
+
+-- NULL year has count 1 (should be ordered first because 1 < 2, even though YEAR is NULL)
+INSERT INTO matches (winner_id, loser_id, tourney_date, year) VALUES (1, 2, '1999-01-01', NULL);
+
+-- Year 1995 has count 2 (note tourney_date has 1996 to kill mutants parsing year from tourney_date)
+INSERT INTO matches (winner_id, loser_id, tourney_date, year) VALUES (1, 2, '1996-05-01', 1995);
+INSERT INTO matches (winner_id, loser_id, tourney_date, year) VALUES (2, 1, '1996-06-01', 1995);
+```

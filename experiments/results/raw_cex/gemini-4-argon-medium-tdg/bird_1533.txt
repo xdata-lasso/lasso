@@ -1,0 +1,107 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, exact boundary on division (Price/Amount = 29.00), wrong ProductID, and wrong Date.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'EUR');
+
+INSERT INTO products (ProductID, Description) VALUES (5, 'Diesel');
+INSERT INTO products (ProductID, Description) VALUES (6, 'Gasoline');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201208', 100.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201208', 200.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201208', 300.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201209', 400.5);
+
+-- Positive match: 60.0 / 2 = 30.0 > 29.00, ProductID = 5, Date = '201208'
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-15', '12:00:00', 1, 10, 100, 5, 2, 60.0);
+-- Boundary mutant killer (>= 29.00 vs > 29.00): 58.0 / 2 = 29.00
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-15', '12:05:00', 2, 20, 100, 5, 2, 58.0);
+-- Wrong ProductID mutant killer: 60.0 / 2 = 30.0 > 29.00, ProductID = 6
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-15', '12:10:00', 3, 30, 100, 6, 2, 60.0);
+-- Wrong Date mutant killer: 60.0 / 2 = 30.0 > 29.00, ProductID = 5, but T2.Date = '201209'
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-15', '12:15:00', 4, 40, 100, 5, 2, 60.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate preservation (SELECT vs SELECT DISTINCT) and 1-to-N join multiplicity.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'KAM', 'CZK');
+
+INSERT INTO products (ProductID, Description) VALUES (5, 'Diesel');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201208', 555.55);
+
+-- Two distinct transactions for the same customer meeting all criteria; should output 555.55 twice.
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (101, '2012-08-01', '08:00:00', 10, 111, 200, 5, 1, 30.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (102, '2012-08-02', '09:00:00', 10, 111, 200, 5, 2, 60.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests floating-point division vs integer division, Price > 29.00 without division, and Amount * Price mutations.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (21, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (22, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (23, 'LAM', 'EUR');
+
+INSERT INTO products (ProductID, Description) VALUES (5, 'Diesel');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (21, '201208', 777.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (22, '201208', 888.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (23, '201208', 999.0);
+
+-- Fractional result just above 29.00: 58.2 / 2 = 29.1 > 29.00 (kills CAST(Price AS INT)/Amount or > 30 mutants)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (201, '2012-08-10', '10:00:00', 21, 210, 300, 5, 2, 58.2);
+-- High Price, high Amount: Price = 100.0 (> 29.00), Amount = 4, 100.0 / 4 = 25.0 (< 29.00) (kills Price > 29.00 mutant)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (202, '2012-08-10', '11:00:00', 22, 220, 300, 5, 4, 100.0);
+-- Low Price, negative/zero or inverted division check: Amount = 100, Price = 2.0 (kills Amount / Price > 29.00 mutant)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (203, '2012-08-10', '12:00:00', 23, 230, 300, 5, 100, 2.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN, NULL handling, and cross-column confusion (e.g., CardID or GasStationID = CustomerID).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (31, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (32, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (33, 'SME', 'EUR');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (31, 1, 'CZE', 'Value');
+
+INSERT INTO products (ProductID, Description) VALUES (5, 'Diesel');
+
+-- Customer 31 has yearmonth record, but no matching transaction (kills RIGHT JOIN / FROM yearmonth LEFT JOIN transactions_1k)
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (31, '201208', 111.1);
+-- Customer 33 has a valid yearmonth record with NULL Consumption
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (33, '201208', NULL);
+
+-- Customer 32 has matching transaction, but NO yearmonth record (kills LEFT JOIN if projecting T1 columns or NULL row count)
+-- Also sets GasStationID = 31 and CardID = 31 to kill mutants joining on T1.GasStationID = T2.CustomerID or T1.CardID = T2.CustomerID
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (301, '2012-08-20', '14:00:00', 32, 31, 31, 5, 1, 35.0);
+
+-- Customer 33 has matching transaction and NULL Consumption in yearmonth
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (302, '2012-08-20', '15:00:00', 33, 330, 300, 5, 1, 35.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests Date confusion between T1.Date and T2.Date, and multiple dates per customer in yearmonth.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (41, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (42, 'KAM', 'EUR');
+
+INSERT INTO products (ProductID, Description) VALUES (5, 'Diesel');
+
+-- Customer 41 has multiple dates in yearmonth; only '201208' should be selected.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (41, '201207', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (41, '201208', 20.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (41, '201209', 30.0);
+
+-- Customer 42 only has '201207' in yearmonth, but transaction T1.Date is '201208'.
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (42, '201207', 40.0);
+
+-- Transaction for Customer 41 with T1.Date NOT in August 2012, while T2.Date IS '201208' (kills mutants filtering on T1.Date)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (401, '2013-01-01', '10:00:00', 41, 410, 400, 5, 1, 50.0);
+
+-- Transaction for Customer 42 where T1.Date is '201208', killing mutants that filter T1.Date = '201208' instead of T2.Date = '201208'
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (402, '201208', '11:00:00', 42, 420, 400, 5, 1, 50.0);
+```

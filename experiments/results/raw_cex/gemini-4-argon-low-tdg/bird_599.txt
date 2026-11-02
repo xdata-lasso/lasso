@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(DISTINCT UserId) vs COUNT(UserId) vs COUNT(*) via duplicate UserIds and NULL UserIds in comments.
+-- 2. Duplicate PostHistoryTypeId rows in postHistory (testing missing GROUP BY vs scalar subquery).
+-- 3. Filtering on PostId = 3720 vs other PostIds (3719, 3721) and NULL PostIds.
+-- 4. Disjoint UserIds between postHistory and comments (testing incorrect join conditions on UserId).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'User1');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'User2');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'User3');
+INSERT INTO users (Id, DisplayName) VALUES (4, 'User4');
+
+INSERT INTO posts (Id, Title, CommentCount) VALUES (3719, 'Post 3719', 5);
+INSERT INTO posts (Id, Title, CommentCount) VALUES (3720, 'Post 3720', 99);
+INSERT INTO posts (Id, Title, CommentCount) VALUES (3721, 'Post 3721', 5);
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (10, 1, 3720, 3);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (11, 1, 3720, 3);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (12, 2, 3720, NULL);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (13, 3, 3719, 1);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (14, 4, 3721, 2);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (15, 5, NULL, 1);
+
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (100, 3720, 1, 10);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (101, 3720, 1, 20);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (102, 3720, 2, 30);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (103, 3720, NULL, 40);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (104, 3719, 4, 50);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (105, 3721, 4, 60);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (106, NULL, 4, 70);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Post 3720 has postHistory rows, but 0 comments for Post 3720.
+-- 2. Kills INNER JOIN mutants (which would return 0 rows instead of rows with NumberOfUsers = 0).
+-- 3. Kills LEFT JOIN mutants that use COUNT(*) instead of COUNT(DISTINCT comments.UserId) (which would return 1 instead of 0).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'User1');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'User2');
+
+INSERT INTO posts (Id, Title, CommentCount) VALUES (3720, 'Target Post No Comments', 10);
+INSERT INTO posts (Id, Title, CommentCount) VALUES (3721, 'Other Post With Comments', 1);
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (20, 2, 3720, 1);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (21, 5, 3720, 2);
+
+INSERT INTO comments (Id, PostId, UserId) VALUES (200, 3721, 1);
+INSERT INTO comments (Id, PostId, UserId) VALUES (201, 3721, 2);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Post 3720 has comments, but 0 postHistory rows.
+-- 2. Kills mutants that drive the query from comments or posts (e.g., RIGHT JOIN or selecting from comments and LEFT JOINing postHistory).
+-- 3. Also tests when Id = 3720 (primary key) exists in postHistory/comments for a different PostId.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'User1');
+INSERT INTO users (Id, DisplayName) VALUES (3720, 'User3720');
+
+INSERT INTO posts (Id, Title) VALUES (100, 'Other Post');
+INSERT INTO posts (Id, Title) VALUES (3720, 'Target Post No History');
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (3720, 3720, 100, 3720);
+
+INSERT INTO comments (Id, PostId, UserId) VALUES (300, 3720, 1);
+INSERT INTO comments (Id, PostId, UserId) VALUES (301, 3720, 3720);
+INSERT INTO comments (Id, PostId, UserId) VALUES (3720, 100, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. NULL PostHistoryTypeId in postHistory for Post 3720.
+-- 2. Comments for Post 3720 exist, but ALL have UserId IS NULL (NumberOfUsers should be 0, whereas COUNT(*) would be 2).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'User1');
+
+INSERT INTO posts (Id, Title) VALUES (3720, 'Post 3720');
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (40, NULL, 3720, 1);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (41, 6, 3720, 1);
+
+INSERT INTO comments (Id, PostId, UserId, UserDisplayName) VALUES (400, 3720, NULL, 'Anon1');
+INSERT INTO comments (Id, PostId, UserId, UserDisplayName) VALUES (401, 3720, NULL, 'Anon2');
+```

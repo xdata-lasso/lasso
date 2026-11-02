@@ -1,0 +1,44 @@
+-- Schema DDL
+CREATE TABLE "POKER_PLAYER" (
+    "POKER_PLAYER_ID" INT,
+    "PEOPLE_ID" INT,
+    "FINAL_TABLE_MADE" FLOAT,
+    "BEST_FINISH" FLOAT,
+    "MONEY_RANK" FLOAT,
+    "EARNINGS" FLOAT,
+    PRIMARY KEY ("POKER_PLAYER_ID"),
+    FOREIGN KEY ("PEOPLE_ID") REFERENCES "PEOPLE"("PEOPLE_ID")
+);
+CREATE TABLE "PEOPLE" (
+    "PEOPLE_ID" INT,
+    "NATIONALITY" TEXT,
+    "NAME" TEXT,
+    "BIRTH_DATE" TEXT,
+    "HEIGHT" FLOAT,
+    PRIMARY KEY ("PEOPLE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO POKER_PLAYER VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO POKER_PLAYER VALUES (1, 0, 0, 0, 0, 0);
+INSERT INTO PEOPLE VALUES (1, 0, 11, 12, 13);
+INSERT INTO PEOPLE VALUES (0, -1, 6, 7, 8);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT nationality FROM (SELECT * FROM (SELECT * FROM (SELECT nationality, COUNT(*) AS n FROM people GROUP BY nationality) ORDER BY n DESC) LIMIT 1);
+
+/*
+Gold Result:
+('-1',)
+*/
+
+-- Prediction Query
+SELECT Nationality FROM people GROUP BY Nationality ORDER BY COUNT(*) DESC, Nationality NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('-1',)
+*/

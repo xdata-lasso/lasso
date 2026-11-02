@@ -1,0 +1,96 @@
+```sql
+-- DATASET 1
+-- Tests standard join condition vs FK join condition, WHERE predicates, and OUTER JOIN mutations.
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (10, 'Chain Alpha');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (20, 'Chain Beta');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (30, 'Chain Gamma');
+
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 20, 'Store One', '123 Main', '111-2222', 's1@example.com');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (2, 10, 'Store Two', '456 Oak', '333-4444', 's2@example.com');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (3, 30, 'Store Three', '789 Pine', '555-6666', 's3@example.com');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (4, 10, 'Store Four', '101 Maple', '777-8888', 's4@example.com');
+
+-- Matches Gold Join (LHS.dept_store_id = RHS.department_id -> 1 = 1), but FK points to Store 2.
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (1, 2, 'marketing');
+
+-- Matches FK Join (RHS.dept_store_id = 1), but department_id = 99 (unmatched in Gold Join).
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (99, 1, 'marketing');
+
+-- Matches Gold Join ID (2 = 2), but department_name is 'managing' (tests WHERE predicate mutations).
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (2, 2, 'managing');
+
+-- Matches Gold Join ID (3 = 3), but department_name is 'sales' (tests <> 'managing' alone).
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (3, 3, 'sales');
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY aliasing (ordering by alias dept_store_id which is dept_store_chain_id vs inner LHS.dept_store_id),
+-- secondary sort on store_name, and NULLS LAST behavior.
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (10, 'Chain 10');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (50, 'Chain 50');
+
+-- dept_store_id=1 has chain_id=50; dept_store_id=2,3,4 have chain_id=10; dept_store_id=5 has chain_id=NULL.
+-- Inverse order between dept_store_id and dept_store_chain_id catches sorting by wrong column.
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 50, 'Zeta Store', 'Addr 1', '111', 'e1');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (2, 10, 'Beta Store', 'Addr 2', '222', 'e2');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (3, 10, NULL, 'Addr 3', '333', 'e3');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (4, 10, 'Alpha Store', 'Addr 4', '444', 'e4');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (5, NULL, 'Omega Store', 'Addr 5', '555', 'e5');
+
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (1, 1, 'marketing');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (2, 2, 'marketing');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (3, 3, 'marketing');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (4, 4, 'marketing');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (5, 5, 'marketing');
+```
+
+```sql
+-- DATASET 3
+-- Tests duplicate rows (SELECT vs SELECT DISTINCT) when two different stores share the same chain_id and store_name,
+-- and tests multiple departments per store if a mutant joins on FK (LHS.dept_store_id = RHS.dept_store_id).
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (100, 'MegaChain');
+
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 100, 'Duplicate Name Store', 'Loc A', '111', 'a@e.com');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (2, 100, 'Duplicate Name Store', 'Loc B', '222', 'b@e.com');
+
+-- Both department_id 1 and 2 match Gold Join (1=1 and 2=2), producing two identical output rows (100, 'Duplicate Name Store').
+-- Both have dept_store_id = 1, so a mutant joining on FK (LHS.dept_store_id = RHS.dept_store_id) will match Store 1 twice and Store 2 zero times.
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (1, 1, 'marketing');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (2, 1, 'marketing');
+```
+
+```sql
+-- DATASET 4
+-- Tests case sensitivity, substring/LIKE mutations, and NULL handling in WHERE clause ("department_name" = 'marketing').
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (1, 'Chain A');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (2, 'Chain B');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (3, 'Chain C');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (4, 'Chain D');
+
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 1, 'Store Exact', 'Addr 1', '1', 'e1');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (2, 2, 'Store Case', 'Addr 2', '2', 'e2');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (3, 3, 'Store Null', 'Addr 3', '3', 'e3');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (4, 4, 'Store Prefix', 'Addr 4', '4', 'e4');
+
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (1, 1, 'marketing');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (2, 2, 'Marketing');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (3, 3, NULL);
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (4, 4, 'marketing_dept');
+```
+
+```sql
+-- DATASET 5
+-- Tests column projection confusion (e.g., projecting RHS.department_name or LHS.store_address instead of store_name,
+-- or projecting RHS.dept_store_id instead of LHS.dept_store_chain_id).
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (77, 'Chain 77');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (88, 'Chain 88');
+
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (10, 77, 'UniqueStoreName_10', 'UniqueAddress_10', 'Phone_10', 'Email_10');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (20, 88, 'UniqueStoreName_20', 'UniqueAddress_20', 'Phone_20', 'Email_20');
+
+-- Department 10 joins with Store 10 (10 = 10), but its dept_store_id is 20.
+-- Thus for this joined row: LHS.dept_store_id = 10, LHS.dept_store_chain_id = 77, RHS.dept_store_id = 20.
+-- All three ID columns have distinct values (10, 77, 20), killing any mutant that projects or sorts by the wrong ID column.
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (10, 20, 'marketing');
+```

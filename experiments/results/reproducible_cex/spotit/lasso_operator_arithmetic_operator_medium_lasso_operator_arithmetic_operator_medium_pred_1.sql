@@ -1,0 +1,42 @@
+-- Schema DDL
+CREATE TABLE "EMPLOYEES" (
+    "EMPLOYEE_ID" INT,
+    "FIRST_NAME" TEXT,
+    "LAST_NAME" TEXT,
+    "SALARY" FLOAT,
+    "BONUS" FLOAT,
+    "DEPARTMENT_ID" INT,
+    PRIMARY KEY ("EMPLOYEE_ID"),
+    FOREIGN KEY ("DEPARTMENT_ID") REFERENCES "DEPARTMENTS"("DEPARTMENT_ID")
+);
+CREATE TABLE "DEPARTMENTS" (
+    "DEPARTMENT_ID" INT,
+    "DEPARTMENT_NAME" TEXT,
+    "BUDGET" FLOAT,
+    PRIMARY KEY ("DEPARTMENT_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO EMPLOYEES VALUES (0, 0, 0, 100001, 0, 0);
+INSERT INTO EMPLOYEES VALUES (1, 0, 0, 100001, 0, 0);
+INSERT INTO DEPARTMENTS VALUES (1, 0, 0);
+INSERT INTO DEPARTMENTS VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT first_name FROM Employees WHERE salary + bonus > 100000;
+
+/*
+Gold Result:
+('0',)
+('0',)
+*/
+
+-- Prediction Query
+SELECT first_name FROM Employees WHERE salary * bonus > 100000;
+
+/*
+Prediction Result:
+*/

@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "customer_name" TEXT(255));
+
+CREATE TABLE "Orders" ("order_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "product_name" TEXT(255), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO customers (customer_id, customer_name) VALUES (0, 'C'), (1, 'A'), (2, 'default1'), (3, 'default2'), (4, 'default1'), (5, 'A'), (6, 'C'), (7, 'default1'), (8, 'B'), (9, 'default1'), (10, NULL), (11, 'default2');
+INSERT INTO orders (order_id, customer_id, product_name) VALUES (0, NULL, 'default1'), (1, 8, 'A'), (2, 10, 'A'), (3, 10, 'C'), (4, 10, 'default1'), (5, 2, NULL), (6, NULL, 'C'), (7, NULL, 'default2'), (8, 7, 'C'), (9, NULL, 'default2'), (10, 10, NULL), (11, 7, 'A'), (12, 3, 'A'), (13, 7, 'B'), (14, 8, 'A'), (15, 8, 'B'), (16, 10, 'A'), (17, 6, 'C'), (18, NULL, 'C'), (19, 7, 'B'), (20, 0, 'A'), (21, 11, 'default2'), (22, 8, 'default1'), (23, 7, 'default2'), (24, 5, 'default2'), (25, 7, 'B'), (26, 6, NULL), (27, NULL, 'B'), (28, 3, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CUSTOMER_ID, CUSTOMER_NAME FROM CUSTOMERS WHERE CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'A') AND CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'B') AND NOT CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'C') ORDER BY CUSTOMER_ID;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH BOUGHTA AS (SELECT DISTINCT C.CUSTOMER_ID AS ID, C.CUSTOMER_NAME FROM CUSTOMERS AS C JOIN ORDERS AS O ON C.CUSTOMER_ID = O.CUSTOMER_ID WHERE O.PRODUCT_NAME = 'A'), BOUGHTB AS (SELECT DISTINCT C.CUSTOMER_ID AS ID, C.CUSTOMER_NAME FROM CUSTOMERS AS C JOIN ORDERS AS O ON C.CUSTOMER_ID = O.CUSTOMER_ID WHERE O.PRODUCT_NAME = 'B'), BOUGHTC AS (SELECT DISTINCT C.CUSTOMER_ID AS ID, C.CUSTOMER_NAME FROM CUSTOMERS AS C JOIN ORDERS AS O ON C.CUSTOMER_ID = O.CUSTOMER_ID WHERE O.PRODUCT_NAME = 'C') SELECT DISTINCT CUSTOMER_ID, CUSTOMER_NAME FROM CUSTOMERS AS C WHERE C.CUSTOMER_ID IN (SELECT BOUGHTA.ID FROM BOUGHTA) AND C.CUSTOMER_ID IN (SELECT BOUGHTB.ID FROM BOUGHTB) AND NOT C.CUSTOMER_ID IN (SELECT BOUGHTC.ID FROM BOUGHTC);
+
+/*
+Prediction Result:
+(8, 'B')
+*/

@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- Tests predicate boundary conditions (buildUpPlayPassing > 70 vs >= 70, < 70, = 70, NULL) and column selection (team_short_name vs team_long_name)
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 101, 1001, 'Long_Alpha', 'Short_A');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 102, 1002, 'Long_Beta', 'Short_B');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (3, 103, 1003, 'Long_Gamma', 'Short_C');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (4, 104, 1004, 'Long_Delta', 'Short_D');
+
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing", "buildUpPlaySpeed", "chanceCreationPassing") VALUES (1, 1001, 101, 70, 80, 80);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing", "buildUpPlaySpeed", "chanceCreationPassing") VALUES (2, 1002, 102, 71, 50, 50);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing", "buildUpPlaySpeed", "chanceCreationPassing") VALUES (3, 1003, 103, 69, 90, 90);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing", "buildUpPlaySpeed", "chanceCreationPassing") VALUES (4, 1004, 104, NULL, 95, 95);
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT requirement (1-to-many join producing duplicate short names and different teams sharing the same short name)
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 201, 2001, 'Real Madrid', 'RMA');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 202, 2002, 'Real Madrid B', 'RMA');
+
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (1, 2001, 201, '2014-01-01', 75);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (2, 2001, 201, '2015-01-01', 85);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (3, 2002, 202, '2015-01-01', 90);
+```
+
+```sql
+-- DATASET 3
+-- Tests JOIN key mutations (joining on team_api_id vs team_fifa_api_id vs id) and INNER vs LEFT/RIGHT JOIN
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 301, 3001, 'Team One', 'T1');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 302, 3002, 'Team Two', 'T2');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (3, 303, 3003, 'Team Three', 'T3');
+
+-- Matches T1 via team_api_id (301), but references T2 via team_fifa_api_id (3002) and has id=3 (matching T3.id)
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing") VALUES (3, 3002, 301, 80);
+
+-- Orphan attribute row with no matching team_api_id in Team
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing") VALUES (4, NULL, 999, 85);
+```
+
+```sql
+-- DATASET 4
+-- Tests Aggregation/HAVING mutations (e.g., MIN(buildUpPlayPassing) > 70 or AVG(buildUpPlayPassing) > 70 vs row-level WHERE)
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 401, 4001, 'Inconsistent Team', 'INC');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 402, 4002, 'Consistent Low Team', 'LOW');
+
+-- Team 401 has one attribute row > 70 (72) and one very low (10), making AVG = 41 and MIN = 10, but it should still be returned
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing") VALUES (1, 4001, 401, 72);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing") VALUES (2, 4001, 401, 10);
+
+-- Team 402 has two attribute rows of 40, making SUM = 80 (> 70), but neither row is > 70, so it must NOT be returned
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing") VALUES (3, 4002, 402, 40);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing") VALUES (4, 4002, 402, 40);
+```
+
+```sql
+-- DATASET 5
+-- Tests handling of NULL values in the projected column (team_short_name) and NULL join keys
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 501, 5001, 'Null Short Name Team', NULL);
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, NULL, 5002, 'Null API ID Team', 'NUL');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (3, 503, 5003, 'Valid Team', 'VAL');
+
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing") VALUES (1, 5001, 501, 75);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing") VALUES (2, 5002, NULL, 80);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "buildUpPlayPassing") VALUES (3, 5003, 503, 85);
+```

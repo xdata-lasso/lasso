@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Core test: Distinguishes correct join key (player_fifa_api_id vs player_api_id vs id), 
+-- SUBSTRING vs exact date match, WHERE predicates, and projected column (defensive_work_rate vs attacking_work_rate).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 101, 'Kevin Berigaud', 1001, '1988-05-09 00:00:00', 180, 75);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 102, 'Other Player', 1002, '1990-01-01 00:00:00', 185, 80);
+
+-- Target row (matches everything, has timestamp suffix so exact equality on date = '2013-02-22' fails)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (10, 1001, 999, '2013-02-22 00:00:00', 70, 75, 'right', 'high', 'medium');
+
+-- Wrong date for same player (kills missing date filter)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (11, 1001, 101, '2014-05-10 00:00:00', 72, 75, 'right', 'high', 'low');
+
+-- Wrong player, right date, and player_api_id matches Kevin Berigaud's player_api_id (kills wrong join condition t1.player_api_id = t2.player_api_id and missing player_name filter)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (12, 1002, 101, '2013-02-22 00:00:00', 65, 70, 'left', 'low', 'high');
+
+-- Wrong player, right date, where t2.id = t1.id (kills wrong join condition t1.id = t2.id)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (1, 1002, 102, '2013-02-22 00:00:00', 60, 65, 'left', 'medium', 'low');
+```
+
+```sql
+-- DATASET 2
+-- Multiplicity and DISTINCT test: Multiple matching rows with identical defensive_work_rate,
+-- plus boundary tests on SUBSTRING (e.g. '2013-02-22' at offset > 1) and OR vs AND mutations.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 201, 'Kevin Berigaud', 2001, '1988-05-09 00:00:00', 180, 75);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 202, 'Kevin Berigaud Jr', 2002, '1992-03-15 00:00:00', 175, 70);
+
+-- Two valid records for Kevin Berigaud on the target date with the same defensive_work_rate (kills SELECT DISTINCT mutants)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (20, 2001, 201, '2013-02-22 00:00:00', 70, 75, 'right', 'medium', 'medium');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (21, 2001, 201, '2013-02-22', 71, 76, 'right', 'high', 'medium');
+
+-- Date contains '2013-02-22' but not at index 1..10 (kills LIKE '%2013-02-22%' or wrong SUBSTRING start index)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (22, 2001, 201, 'X2013-02-22 00:00:00', 68, 72, 'right', 'low', 'low');
+
+-- Prefix of date matches '2013-02-2' but 10th char differs (kills SUBSTRING(date, 1, 9) or wrong length)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (23, 2001, 201, '2013-02-23 00:00:00', 69, 73, 'right', 'low', 'high');
+
+-- Superstring of player_name on exact target date (kills t1.player_name LIKE 'Kevin Berigaud%')
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (24, 2002, 202, '2013-02-22 00:00:00', 64, 68, 'left', 'high', 'low');
+```
+
+```sql
+-- DATASET 3
+-- Outer Join / NULL handling and cross-attribute confusion test:
+-- Player exists without matching attributes on the target date, and orphan/NULL attributes exist.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 301, 'Kevin Berigaud', 3001, '2013-02-22', 180, 75);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 302, 'Laurent Pionnier', 3002, '1982-05-24', 184, 82);
+
+-- Kevin Berigaud only has an attribute on a different date (even though his birthday is '2013-02-22', killing t1.birthday vs t2.date confusion, and killing LEFT JOIN where t2 date filter is pushed into ON clause)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (30, 3001, 301, '2012-08-31 00:00:00', 67, 71, 'right', 'medium', 'high');
+
+-- Attribute with NULL player_fifa_api_id on the target date (kills RIGHT/FULL JOIN or improper NULL join handling)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (31, NULL, 301, '2013-02-22 00:00:00', 75, 80, 'right', 'high', 'low');
+
+-- Other player has attribute on the target date
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (32, 3002, 302, '2013-02-22 00:00:00', 70, 70, 'right', 'medium', 'medium');
+```

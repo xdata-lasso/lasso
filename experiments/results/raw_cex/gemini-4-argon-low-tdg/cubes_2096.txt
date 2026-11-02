@@ -1,0 +1,51 @@
+```sql
+-- DATASET 1
+-- Core test: Multiple airports in Greenland (with duplicate cities, NULL cities, and distinct names) alongside other countries.
+-- Catches: missing DISTINCT on city, COUNT(*) instead of COUNT(city), counting wrong column (e.g., name), missing country filter, or missing GROUP BY.
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (1, 'Nuuk Airport', 'Nuuk', 'Greenland', 64.19, -51.67, 283, 'GOH', 'BGGH');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (2, 'Nuuk Heliport', 'Nuuk', 'Greenland', 64.18, -51.70, 50, 'JGO', 'BGGN');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (3, 'Ilulissat Airport', 'Ilulissat', 'Greenland', 69.24, -51.05, 95, 'JAV', 'BGJN');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (4, 'Ice Camp', NULL, 'Greenland', 75.00, -40.00, 3000, 'ICE', 'BGIC');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (5, 'Keflavik Airport', 'Reykjavik', 'Iceland', 63.98, -22.60, 171, 'KEF', 'BIKF');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (6, 'Reykjavik Airport', 'Reykjavik', 'Iceland', 64.13, -21.94, 45, 'RKV', 'BIRK');
+```
+
+```sql
+-- DATASET 2
+-- Edge case: No rows where country = 'Greenland'.
+-- Catches: Scalar aggregation without GROUP BY (SELECT COUNT(DISTINCT city) FROM airports WHERE country = 'Greenland'), which returns 1 row with 0 instead of 0 rows (empty result set).
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (1, 'Keflavik', 'Reykjavik', 'Iceland', 63.98, -22.60, 171, 'KEF', 'BIKF');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (2, 'Copenhagen', 'Copenhagen', 'Denmark', 55.61, 12.65, 17, 'CPH', 'EKCH');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (3, 'Unknown Airport', 'Unknown', NULL, 0.0, 0.0, 0, 'UNK', 'ZZZZ');
+```
+
+```sql
+-- DATASET 3
+-- Edge case: 'Greenland' exists in the table, but all its cities are NULL.
+-- Catches: Mutants using HAVING COUNT(DISTINCT city) > 0, or counting NULL as a valid city, or using COUNT(*). Expected result: 1 row with 0.
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (1, 'Summit Camp', NULL, 'Greenland', 72.57, -38.45, 10551, 'SUM', 'BGSM');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (2, 'North Ice', NULL, 'Greenland', 78.06, -38.48, 7680, 'NIC', 'BGNI');
+```
+
+```sql
+-- DATASET 4
+-- Edge case: String matching, case sensitivity, and substring/wildcard confusion, plus column confusion ('Greenland' in city or name or airlines.country).
+-- Catches: LIKE '%Greenland%', case-insensitive matching, filtering on city = 'Greenland' or airlines.country = 'Greenland'.
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (1, 'Kangerlussuaq', 'Kangerlussuaq', 'Greenland', 67.01, -50.70, 165, 'SFJ', 'BGSF');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (2, 'Fake Greenland 1', 'CityA', 'greenland', 10.0, 10.0, 10, 'FG1', 'BFG1');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (3, 'Fake Greenland 2', 'CityB', 'East Greenland', 10.0, 10.0, 10, 'FG2', 'BFG2');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (4, 'Greenland Regional', 'Greenland', 'USA', 36.0, -94.1, 1200, 'GRN', 'KGRN');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (1, 'Air Greenland', 'GL', 'GRL', 'GREENLANDAIR', 'Greenland', 'Y');
+```
+
+```sql
+-- DATASET 5
+-- Edge case: Joins with routes and airlines.
+-- Catches: Mutants that unnecessarily INNER JOIN with routes or airlines (filtering out unconnected airports or multiplying rows before non-distinct counts).
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (1, 'Air Greenland', 'GL', 'GRL', 'GREENLANDAIR', 'Greenland', 'Y');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (1, 'Nuuk Airport', 'Nuuk', 'Greenland', 64.19, -51.67, 283, 'GOH', 'BGGH');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (2, 'Kulusuk Airport', 'Kulusuk', 'Greenland', 65.57, -37.12, 117, 'KUS', 'BGKK');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (3, 'Unconnected Airport', 'Qaanaaq', 'Greenland', 77.48, -69.38, 52, 'NAQ', 'BGQQ');
+INSERT INTO "routes" ("rid", "alid", "src_apid", "dst_apid", "dst_ap", "src_ap", "airline", "codeshare") VALUES (1, 1, 1, 2, 'KUS', 'GOH', 'GL', NULL);
+INSERT INTO "routes" ("rid", "alid", "src_apid", "dst_apid", "dst_ap", "src_ap", "airline", "codeshare") VALUES (2, 1, 2, 1, 'GOH', 'KUS', 'GL', NULL);
+```

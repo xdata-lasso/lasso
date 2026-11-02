@@ -1,0 +1,6 @@
+INSERT INTO "space_unit" ("fclt_organization_key", "space_unit_key", "space_unit_code", "space_unit", "dlc_key", "warehouse_load_date") VALUES ('Rodriguez, Figueroa and Sanchez', 'all', 'early', 'agreement', 'sense', '1970-01-01');
+INSERT INTO "space_unit" ("fclt_organization_key", "space_unit_key", "space_unit_code", "space_unit", "dlc_key", "warehouse_load_date") VALUES ('Doyle Ltd', 'better', 'mouth', 'option', 'rate', '1970-01-02');
+INSERT INTO "space_unit" ("fclt_organization_key", "space_unit_key", "space_unit_code", "space_unit", "dlc_key", "warehouse_load_date") VALUES ('Mcclain, Miller and Henderson', 'discover', 'play', 'decide', 'science', '1970-01-03');
+INSERT INTO "zpm_rooms_load" ("building_room", "building_component", "floor", "space_usage", "space_unit_code", "hr_org_unit_id", "access_level") VALUES ('offer', 'list', 'table', 'song', 'early', 'Henderson, Ramirez and Lewis', '1');
+INSERT INTO "zpm_rooms_load" ("building_room", "building_component", "floor", "space_usage", "space_unit_code", "hr_org_unit_id", "access_level") VALUES ('kind', 'perform', 'true', 'sure', 'mouth', 'Garcia-James', '1');
+INSERT INTO "zpm_rooms_load" ("building_room", "building_component", "floor", "space_usage", "space_unit_code", "hr_org_unit_id", "access_level") VALUES ('discussion', 'fall', 'according', 'collection', 'play', 'Abbott-Munoz', '1');

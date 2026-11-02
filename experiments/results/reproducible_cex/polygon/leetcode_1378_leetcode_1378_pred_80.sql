@@ -1,0 +1,30 @@
+-- Schema DDL
+CREATE TABLE "Employees" ("id" INTEGER PRIMARY KEY, "name" TEXT(255));
+
+CREATE TABLE "EmployeeUNI" ("id" INTEGER, "unique_id" INTEGER, PRIMARY KEY ("id", "unique_id"), FOREIGN KEY ("id") REFERENCES "Employees" ("id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Employees" ("id", "name") VALUES (18, NULL);
+INSERT INTO "EmployeeUNI" ("id", "unique_id") VALUES (18, 20);
+INSERT INTO "EmployeeUNI" ("id", "unique_id") VALUES (18, 21);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT e2.unique_id, e1.name FROM employees AS e1 LEFT JOIN employeeUNI AS e2 ON e1.id = e2.id;
+
+/*
+Gold Result:
+(20, None)
+(21, None)
+*/
+
+-- Prediction Query
+SELECT T2.NAME, T1.UNIQUE_ID FROM ((SELECT ID, NAME FROM EMPLOYEES AS E2) AS T2 LEFT JOIN (SELECT ID, UNIQUE_ID FROM EMPLOYEEUNI AS E1) AS T1 ON T1.ID = T2.ID);
+
+/*
+Prediction Result:
+(None, 20)
+(None, 21)
+*/

@@ -1,0 +1,99 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Suppliers with no addresses (catches INNER JOIN vs LEFT JOIN on Suppliers).
+-- 2. Suppliers with multiple addresses (catches SELECT DISTINCT vs SELECT ALL).
+-- 3. Addresses with no suppliers (catches INNER JOIN vs LEFT JOIN on Addresses).
+-- 4. Conflicting IDs between supplier_id and address_id (catches swapped join keys like supplier_id = address_id).
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, '100 Main St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (2, '200 Oak Ave');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (3, '300 Pine Rd');
+
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (1, 'Supplier No Address', '111-0000');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (2, 'Supplier Multi Address', '222-0000');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (3, 'Supplier Single Address', '333-0000');
+
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (2, 1, '2020-01-01', '2021-01-01');
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (2, 2, '2021-01-02', '2022-01-01');
+INSERT INTO "Supplier_Addresses" ("supplier_id", "supplier_name", "address_id", "date_from", "date_to") VALUES (3, 1, '2019-05-01', '2023-05-01');
+```
+
+```sql
+-- DATASET 2
+-- Fix typo in Dataset 1 and focus on:
+-- 1. Multiplicity (duplicate rows for supplier with 2 addresses).
+-- 2. Unreferenced supplier and unreferenced address.
+-- 3. Disjoint IDs between Suppliers and Addresses to kill cross-column join mutations (e.g., LHS.address_id = RHS.supplier_id).
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (10, '100 Main St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (20, '200 Oak Ave');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (30, '300 Pine Rd');
+
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (1, 'Alpha Corp', '555-1111');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (2, 'Beta LLC', '555-2222');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (3, 'Gamma Inc', '555-3333');
+
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (1, 10, '2020-01-01 00:00:00', '2021-01-01 00:00:00');
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (1, 20, '2021-01-02 00:00:00', '2022-01-01 00:00:00');
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (2, 10, '2019-05-01 00:00:00', '2023-05-01 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. ORDER BY supplier_name ASC, supplier_phone ASC NULLS LAST.
+-- 2. Same supplier_name with different supplier_phone values, including NULLs.
+-- 3. NULL supplier_name values to test NULL ordering in the primary sort key.
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, '742 Evergreen Terrace');
+
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (1, 'Zeta Supplies', '999-9999');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (2, 'Acme', NULL);
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (3, 'Acme', '123-4567');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (4, 'Acme', '000-1111');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (5, NULL, '555-0000');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (6, NULL, NULL);
+
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (1, 1, '2020-01-01', '2020-12-31');
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (2, 1, '2020-01-01', '2020-12-31');
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (3, 1, '2020-01-01', '2020-12-31');
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (4, 1, '2020-01-01', '2020-12-31');
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (5, 1, '2020-01-01', '2020-12-31');
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (6, 1, '2020-01-01', '2020-12-31');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Confounding tables: Product_Suppliers and Customer_Addresses vs Supplier_Addresses.
+--    Catches mutants that join Suppliers with Product_Suppliers or Customer_Addresses instead of Supplier_Addresses.
+-- 2. Confounding columns: Customers/Department_Stores phone/name vs Suppliers phone/name.
+-- 3. NULL dates in Supplier_Addresses (catches mutants with unnecessary WHERE date_from IS NOT NULL filters).
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (100, 'Supplier Only Address');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (200, 'Customer Only Address');
+
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (10, 'Active Addr Supplier', '800-1111');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (20, 'Product Only Supplier', '800-2222');
+
+INSERT INTO "Customers" ("customer_id", "payment_method_code", "customer_code", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (10, 'CARD', 'C10', 'Confusing Customer', '200 Cust St', '900-9999', 'cust@test.com');
+
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (100, 'ELEC', 'Test Gadget', 49.99);
+
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (10, 100, NULL, NULL);
+
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_from", "date_to") VALUES (10, 200, '2021-01-01', '2022-01-01');
+
+INSERT INTO "Product_Suppliers" ("product_id", "supplier_id", "date_supplied_from", "date_supplied_to", "total_amount_purchased", "total_value_purchased") VALUES (100, 20, '2021-01-01', '2022-01-01', '500', 24995.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Missing join condition mutant: (LHS.address_id = RHS.address_id) WITHOUT (LHS.supplier_id = RHS.supplier_id), or vice versa, or OR instead of AND.
+-- 2. Empty result scenario for specific suppliers while others match, with overlapping IDs (1 and 2).
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, 'Addr 1');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (2, 'Addr 2');
+
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (1, 'Supplier One', '101-0101');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (2, 'Supplier Two', '202-0202');
+
+INSERT INTO "Supplier_Addresses" ("supplier_id", "address_id", "date_from", "date_to") VALUES (1, 2, '2022-01-01', '2022-06-01');
+```

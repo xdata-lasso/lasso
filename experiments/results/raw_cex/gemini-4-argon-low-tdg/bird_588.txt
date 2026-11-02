@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, boundary values for UserId (12, 13, 14), NULL UserId,
+-- NULL values in other columns (to kill COUNT(Score) or COUNT(PostId)),
+-- duplicate PostId/Score (to kill COUNT(DISTINCT ...)), and column confusion (Id = 13, PostId = 13).
+INSERT INTO users (Id, DisplayName) VALUES (12, 'User12');
+INSERT INTO users (Id, DisplayName) VALUES (13, 'User13');
+INSERT INTO users (Id, DisplayName) VALUES (14, 'User14');
+
+INSERT INTO posts (Id, OwnerUserId, CommentCount) VALUES (13, 12, 5);
+INSERT INTO posts (Id, OwnerUserId, CommentCount) VALUES (100, 13, 10);
+
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (1, 100, 5, 'Valid 1', '2023-01-01 00:00:00', 13, 'User13');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (2, 100, 5, 'Valid 2 (same PostId and Score)', '2023-01-01 00:00:00', 13, 'User13');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (3, NULL, NULL, NULL, NULL, 13, NULL);
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (13, 13, 13, 'Wrong User (12), but Id/PostId/Score are 13', '2023-01-02 00:00:00', 12, '13');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (14, 100, 1, 'Wrong User (14)', '2023-01-03 00:00:00', 14, 'User14');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (15, 13, 1, 'Null User', '2023-01-04 00:00:00', NULL, '13');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set (0 matches for UserId = 13) when user 13 exists and has posts/votes/badges/history,
+-- and other users have comments. Kills mutants querying wrong tables (posts, votes, postHistory, badges)
+-- or mutants using SUM/MAX/MIN which return NULL instead of 0.
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, AccountId, Age) VALUES (13, 13, 13, 13, 13, 13, 13);
+INSERT INTO users (Id, DisplayName) VALUES (99, 'User99');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Score, CommentCount) VALUES (1, 13, 13, 13, 13);
+
+INSERT INTO comments (Id, PostId, Score, Text, UserId) VALUES (13, 1, 13, 'Comment by 99 on User 13 post', 99);
+
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (1, 1, 13, 'History by 13');
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (2, 1, 13, 'History 2 by 13');
+
+INSERT INTO votes (Id, PostId, UserId) VALUES (1, 1, 13);
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 13, 'Badge1');
+```
+
+```sql
+-- DATASET 3
+-- Tests when UserId = 13 has exactly 1 comment with Id != 1, Score = 0.
+-- Kills mutants doing SUM(Id), SUM(Score), or checking wrong user attributes.
+INSERT INTO users (Id, DisplayName) VALUES (13, 'TargetUser');
+
+INSERT INTO comments (Id, PostId, Score, Text, UserId) VALUES (500, NULL, 0, 'Single comment with high ID and zero score', 13);
+```
+
+```sql
+-- DATASET 4
+-- Tests when UserId = 13 does not exist in the users table at all ( completely empty or only other data ).
+-- Ensures query returns 0 and doesn't fail or return NULL.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'OnlyUser');
+INSERT INTO posts (Id, OwnerUserId) VALUES (1, 1);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (1, 1, 1, 10);
+```
+
+```sql
+-- DATASET 5
+-- Tests inner join mutants (e.g., SELECT COUNT(c.Id) FROM comments c JOIN posts p ON c.PostId = p.Id WHERE c.UserId = 13).
+-- By having comments for UserId = 13 with NULL PostId, an inner join on posts will drop rows and fail.
+-- Also tests negative IDs and Scores.
+INSERT INTO users (Id, DisplayName) VALUES (13, 'User13');
+INSERT INTO posts (Id, OwnerUserId) VALUES (10, 13);
+
+INSERT INTO comments (Id, PostId, Score, UserId) VALUES (-10, NULL, -5, 13);
+INSERT INTO comments (Id, PostId, Score, UserId) VALUES (-20, NULL, -1, 13);
+INSERT INTO comments (Id, PostId, Score, UserId) VALUES (30, 10, 0, 13);
+```

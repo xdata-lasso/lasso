@@ -1,0 +1,78 @@
+```sql
+-- DATASET 1
+-- Tests basic INNER JOIN, WHERE clause filtering ('Fahey' vs other names, first/middle vs last name, case sensitivity), and ORDER BY date_incident_start (ASC vs DESC vs insertion order vs end date order).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "zip_postcode", "country") VALUES (1, '123 Main St', 'Springfield', 12345, 'USA');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('NOISE', 'Noise Complaint');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('DAMAGE', 'Property Damage');
+
+-- Student 1: Matches last_name = 'Fahey'
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name", "date_first_rental", "date_left_university") VALUES (1, 1, 'John', 'Paul', 'Fahey', '2020-09-01 00:00:00', '2024-06-01 00:00:00');
+-- Student 2: Does NOT match last_name, but has 'Fahey' as first_name and middle_name (tests column confusion)
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name", "date_first_rental", "date_left_university") VALUES (2, 1, 'Fahey', 'Fahey', 'Smith', '2020-09-01 00:00:00', '2024-06-01 00:00:00');
+-- Student 3: Lowercase 'fahey' (tests case sensitivity / LIKE vs =)
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name", "date_first_rental", "date_left_university") VALUES (3, 1, 'Alice', 'M', 'fahey', '2020-09-01 00:00:00', '2024-06-01 00:00:00');
+-- Student 4: Matches last_name = 'Fahey', but has NO incidents (tests INNER JOIN vs RIGHT/FULL JOIN)
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name", "date_first_rental", "date_left_university") VALUES (4, 1, 'Bob', 'R', 'Fahey', '2021-09-01 00:00:00', '2025-06-01 00:00:00');
+
+-- Incidents for Student 1 ('Fahey'), inserted out of chronological order, and where start_date order opposes end_date order and incident_id order
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end", "incident_summary") VALUES (1, 1, 'NOISE', '2023-05-10 10:00:00', '2023-05-10 12:00:00', 'Loud music');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end", "incident_summary") VALUES (2, 1, 'DAMAGE', '2023-01-15 08:00:00', '2023-06-20 09:00:00', 'Broken window');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end", "incident_summary") VALUES (3, 1, 'NOISE', '2023-03-01 14:00:00', '2023-05-15 15:00:00', 'Party');
+
+-- Incidents for non-matching students
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end", "incident_summary") VALUES (4, 2, 'NOISE', '2022-01-01 00:00:00', '2022-01-02 00:00:00', 'Other student');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end", "incident_summary") VALUES (5, 3, 'NOISE', '2022-02-01 00:00:00', '2022-02-02 00:00:00', 'Lowercase student');
+```
+
+```sql
+-- DATASET 2
+-- Tests SELECT DISTINCT vs SELECT ALL (duplicate date pairs across the same or different 'Fahey' students) and wrong JOIN condition (e.g. joining incident_id = student_id or student_id = address_id).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "zip_postcode", "country") VALUES (10, '10 Oak Ave', 'Metropolis', 54321, 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "zip_postcode", "country") VALUES (20, '20 Pine Rd', 'Gotham', 99999, 'USA');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('LATE', 'Late Curfew');
+
+-- Two distinct students both named 'Fahey'
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (10, 20, 'Clara', 'Fahey');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (20, 10, 'David', 'Fahey');
+-- A student whose student_id (100) matches an incident_id (100) belonging to someone else, or whose address_id matches a student_id
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (100, 10, 'Eve', 'Johnson');
+
+-- Exact duplicate start and end dates for two different incidents of 'Fahey' students (kills DISTINCT mutants)
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end") VALUES (100, 10, 'LATE', '2023-04-01 22:00:00', '2023-04-02 01:00:00');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end") VALUES (101, 20, 'LATE', '2023-04-01 22:00:00', '2023-04-02 01:00:00');
+
+-- Incident for student 100 ('Johnson'), where incident_id = 10 (matches Clara Fahey's student_id, killing mutants that join on incident_id = student_id)
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end") VALUES (10, 100, 'LATE', '2021-11-11 11:11:11', '2021-11-12 11:11:11');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in student_id, last_name, date_incident_start, date_incident_end, and confusion with other tables (e.g. Detention dates or Teachers named Fahey).
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '789 Broadway');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('MISC', 'Miscellaneous');
+INSERT INTO "Ref_Detention_Type" ("detention_type_code", "detention_type_description") VALUES ('AFTER', 'After School');
+
+-- Teacher named 'Fahey' (kills mutants joining Teachers instead of Students)
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Thomas', 'Fahey');
+
+-- Student with NULL last_name
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Ghost', NULL);
+-- Student with 'Fahey' with substring padding ('Fahey Jr') to kill LIKE '%Fahey%' mutants
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (2, 1, 'Frank', 'Fahey Jr');
+-- Valid 'Fahey' student
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (3, 1, 'Grace', 'Fahey');
+
+-- Incident with NULL student_id
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end") VALUES (1, NULL, 'MISC', '2023-01-01 00:00:00', '2023-01-02 00:00:00');
+-- Incident for NULL last_name student
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end") VALUES (2, 1, 'MISC', '2023-02-01 00:00:00', '2023-02-02 00:00:00');
+-- Incident for 'Fahey Jr'
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end") VALUES (3, 2, 'MISC', '2023-03-01 00:00:00', '2023-03-02 00:00:00');
+-- Incidents for valid 'Fahey' student, including one with NULL date_incident_end (kills mutants filtering IS NOT NULL on end date)
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end") VALUES (4, 3, 'MISC', '2023-08-10 09:00:00', NULL);
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end") VALUES (5, 3, 'MISC', '2023-07-10 09:00:00', '2023-07-10 17:00:00');
+
+-- Detention linked to Teacher 'Fahey' and Student 'Fahey' (kills mutants that unnecessarily INNER JOIN Students_in_Detention or Detention)
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code", "datetime_detention_start", "datetime_detention_end") VALUES (1, 1, 'AFTER', '2023-09-01 15:00:00', '2023-09-01 16:00:00');
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (3, 1, 5);
+```

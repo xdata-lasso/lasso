@@ -1,0 +1,124 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. HAVING COUNT(RA.B) > 3 boundary condition: 'b1' has 2 rows in RA * 2 rows in RB = 4 rows (>3, included).
+-- 2. HAVING COUNT(RA.B) > 3 boundary condition: 'b2' has 1 row in RA * 2 rows in RB = 2 rows (<=3, excluded).
+-- 3. COUNT(RA.B) vs COUNT(*): 'NULL' has 2 rows in RA * 2 rows in RB = 4 rows, but COUNT(RA.B) = 0 (excluded).
+-- 4. CROSS JOIN vs INNER/NATURAL JOIN: RB has a row with B=NULL and a row referencing 'a3' (so 'a1' and 'a2' are unreferenced in RB).
+-- 5. GROUP BY RA.B vs GROUP BY RA.A1: 'b1' is split across two different A1 keys ('a1', 'a2'), each only having 2 rows in the cross product (<3 if grouped by A1).
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a4', NULL);
+INSERT INTO RA (A1, B) VALUES ('a5', NULL);
+
+INSERT INTO RB (A2, B) VALUES ('b_1', 'a3');
+INSERT INTO RB (A2, B) VALUES ('b_2', NULL);
+
+INSERT INTO RC (A3, B) VALUES ('c_1', 'b_1');
+INSERT INTO RD (A4, B) VALUES ('d_1', 'c_1');
+INSERT INTO RE (A5, B) VALUES ('e_1', 'd_1');
+INSERT INTO RF (A6, B) VALUES ('f_1', 'e_1');
+INSERT INTO RG (A7, B) VALUES ('g_1', 'f_1');
+INSERT INTO RH (A8, B) VALUES ('h_1', 'g_1');
+INSERT INTO RI (A9, B) VALUES ('i_1', 'h_1');
+INSERT INTO RJ (A10, B) VALUES ('j_1', 'i_1');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Exact boundary HAVING COUNT(RA.B) = 3 vs >= 3:
+--    1 row in RA ('b_ex3'), 3 rows in RJ, 1 row in all other tables. Total cross product = 3 rows.
+--    Gold query (> 3) returns empty set; a mutant with (>= 3) or (> 2) will return 'b_ex3'.
+-- 2. Foreign key chains are completely disconnected (B is NULL in RB..RI, and RJ has 3 rows pointing to 'i_1')
+--    to ensure any mutant introducing INNER JOIN on foreign keys fails.
+INSERT INTO RA (A1, B) VALUES ('a1', 'b_ex3');
+
+INSERT INTO RB (A2, B) VALUES ('b_1', NULL);
+INSERT INTO RC (A3, B) VALUES ('c_1', NULL);
+INSERT INTO RD (A4, B) VALUES ('d_1', NULL);
+INSERT INTO RE (A5, B) VALUES ('e_1', NULL);
+INSERT INTO RF (A6, B) VALUES ('f_1', NULL);
+INSERT INTO RG (A7, B) VALUES ('g_1', NULL);
+INSERT INTO RH (A8, B) VALUES ('h_1', NULL);
+INSERT INTO RI (A9, B) VALUES ('i_1', NULL);
+
+INSERT INTO RJ (A10, B) VALUES ('j_1', 'i_1');
+INSERT INTO RJ (A10, B) VALUES ('j_2', 'i_1');
+INSERT INTO RJ (A10, B) VALUES ('j_3', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Valid full FK chain where COUNT = 4 comes from multiplying intermediate tables (RC has 2 rows, RG has 2 rows -> 2 * 2 = 4).
+-- 2. Kills mutants that omit RC or RG from the CROSS JOIN (count would drop to 2, failing HAVING > 3).
+-- 3. Kills mutants that use COUNT(DISTINCT RA.B) or COUNT(DISTINCT RA.A1) (which would be 1).
+-- 4. Kills mutants that select or group by RB.B, RC.B, etc. (since RA.B has a distinct value 'gold' not present in any other column).
+INSERT INTO RA (A1, B) VALUES ('a1', 'gold');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'b1');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+
+INSERT INTO RG (A7, B) VALUES ('g1', 'f1');
+INSERT INTO RG (A7, B) VALUES ('g2', 'f1');
+
+INSERT INTO RH (A8, B) VALUES ('h1', 'g1');
+INSERT INTO RI (A9, B) VALUES ('i1', 'h1');
+INSERT INTO RJ (A10, B) VALUES ('j1', 'i1');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty table in the CROSS JOIN (RJ is empty, while RA..RI have rows that would otherwise multiply to > 3).
+-- 2. Gold query returns 0 rows. Kills mutants that omit RJ from the join or use LEFT JOIN on RJ.
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a4', 'b1');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+INSERT INTO RG (A7, B) VALUES ('g1', 'f1');
+INSERT INTO RH (A8, B) VALUES ('h1', 'g1');
+INSERT INTO RI (A9, B) VALUES ('i1', 'h1');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Multiple groups exceeding the threshold ('valA' with count 4, 'valB' with count 5) and one below ('valC' with count 1).
+-- 2. Kills mutants that lacks GROUP BY RA.B (which would aggregate all rows into a single row output instead of 2 rows).
+-- 3. Kills mutants with COUNT(RX.B) instead of COUNT(RA.B) where RX.B is NULL (all B columns in RB..RJ are NULL here, so COUNT(RB.B) = 0).
+INSERT INTO RA (A1, B) VALUES ('a1', 'valA');
+INSERT INTO RA (A1, B) VALUES ('a2', 'valA');
+INSERT INTO RA (A1, B) VALUES ('a3', 'valA');
+INSERT INTO RA (A1, B) VALUES ('a4', 'valA');
+INSERT INTO RA (A1, B) VALUES ('a5', 'valB');
+INSERT INTO RA (A1, B) VALUES ('a6', 'valB');
+INSERT INTO RA (A1, B) VALUES ('a7', 'valB');
+INSERT INTO RA (A1, B) VALUES ('a8', 'valB');
+INSERT INTO RA (A1, B) VALUES ('a9', 'valB');
+INSERT INTO RA (A1, B) VALUES ('a0', 'valC');
+
+INSERT INTO RB (A2, B) VALUES ('b1', NULL);
+INSERT INTO RC (A3, B) VALUES ('c1', NULL);
+INSERT INTO RD (A4, B) VALUES ('d1', NULL);
+INSERT INTO RE (A5, B) VALUES ('e1', NULL);
+INSERT INTO RF (A6, B) VALUES ('f1', NULL);
+INSERT INTO RG (A7, B) VALUES ('g1', NULL);
+INSERT INTO RH (A8, B) VALUES ('h1', NULL);
+INSERT INTO RI (A9, B) VALUES ('i1', NULL);
+INSERT INTO RJ (A10, B) VALUES ('j1', NULL);
+```

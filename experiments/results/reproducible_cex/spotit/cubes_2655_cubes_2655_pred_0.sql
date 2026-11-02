@@ -1,0 +1,77 @@
+-- Schema DDL
+CREATE TABLE "CLUB" (
+    "CLUB_ID" INT,
+    "NAME" TEXT,
+    "REGION" TEXT,
+    "START_YEAR" TEXT,
+    PRIMARY KEY ("CLUB_ID")
+);
+CREATE TABLE "CLUB_RANK" (
+    "RANK" FLOAT,
+    "CLUB_ID" INT,
+    "GOLD" FLOAT,
+    "SILVER" FLOAT,
+    "BRONZE" FLOAT,
+    "TOTAL" FLOAT,
+    PRIMARY KEY ("RANK", "CLUB_ID"),
+    FOREIGN KEY ("CLUB_ID") REFERENCES "CLUB"("CLUB_ID")
+);
+CREATE TABLE "PLAYER" (
+    "PLAYER_ID" INT,
+    "CLUB_ID" INT,
+    "NAME" TEXT,
+    "POSITION" TEXT,
+    "APPS" FLOAT,
+    "TRIES" FLOAT,
+    "GOALS" TEXT,
+    "POINTS" FLOAT,
+    PRIMARY KEY ("PLAYER_ID"),
+    FOREIGN KEY ("CLUB_ID") REFERENCES "CLUB"("CLUB_ID")
+);
+CREATE TABLE "COMPETITION" (
+    "COMPETITION_ID" INT,
+    "YEAR" FLOAT,
+    "COMPETITION_TYPE" TEXT,
+    "COUNTRY" TEXT,
+    PRIMARY KEY ("COMPETITION_ID")
+);
+CREATE TABLE "COMPETITION_RESULT" (
+    "COMPETITION_ID" INT,
+    "CLUB_ID_1" INT,
+    "CLUB_ID_2" INT,
+    "SCORE" TEXT,
+    PRIMARY KEY ("COMPETITION_ID", "CLUB_ID_1", "CLUB_ID_2"),
+    FOREIGN KEY ("COMPETITION_ID") REFERENCES "COMPETITION"("COMPETITION_ID"),
+    FOREIGN KEY ("CLUB_ID_2") REFERENCES "CLUB"("CLUB_ID"),
+    FOREIGN KEY ("CLUB_ID_1") REFERENCES "CLUB"("CLUB_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO CLUB VALUES (1, 0, 0, 0);
+INSERT INTO CLUB VALUES (0, 0, 0, 0);
+INSERT INTO CLUB_RANK VALUES (4, 0, 0, 0, 0, 0);
+INSERT INTO CLUB_RANK VALUES (5, 0, 0, 0, 0, 0);
+INSERT INTO PLAYER VALUES (0, 1, 18, -1, 19, 0, 20, NULL);
+INSERT INTO PLAYER VALUES (-1, 0, 18, -1, 19, 0, 20, 0);
+INSERT INTO COMPETITION VALUES (0, 0, 0, 0);
+INSERT INTO COMPETITION VALUES (-1, 0, 0, 0);
+INSERT INTO COMPETITION_RESULT VALUES (0, 0, 1, 0);
+INSERT INTO COMPETITION_RESULT VALUES (-1, 1, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT POSITION FROM (SELECT LHS.player_id AS player_id, LHS.name AS name, LHS.position AS POSITION, LHS.club_id AS club_id, LHS.apps AS apps, LHS.tries AS tries, LHS.goals AS goals, LHS.points AS points, RHS.player_id AS player_id_other, RHS.name AS name_other, RHS.club_id AS club_id_other, RHS.apps AS apps_other, RHS.goals AS goals_other, RHS.points AS points_other FROM (SELECT * FROM player WHERE (points < 20.0 OR points >= 10.0)) AS LHS INNER JOIN (SELECT * FROM player WHERE (points < 20.0 OR points >= 10.0)) AS RHS ON (LHS.position = RHS.position AND LHS.points = RHS.tries)) ORDER BY POSITION;
+
+/*
+Gold Result:
+('-1',)
+*/
+
+-- Prediction Query
+SELECT POSITION FROM player WHERE Points > 20 INTERSECT SELECT POSITION FROM player WHERE Points < 10;
+
+/*
+Prediction Result:
+*/

@@ -1,0 +1,2 @@
+INSERT INTO "space_unit" ("fclt_organization_key", "space_unit_key", "space_unit_code", "space_unit", "dlc_key", "warehouse_load_date") VALUES ('Rodriguez, Figueroa and Sanchez', 'chair', 'since', 'blue', 'require', '1970-01-01');
+INSERT INTO "zpm_rooms_load" ("building_room", "building_component", "floor", "space_usage", "space_unit_code", "hr_org_unit_id", "access_level") VALUES ('sit', 'wait', 'offer', 'begin', 'since', 'Henderson, Johnson and Robinson', 'mouth');

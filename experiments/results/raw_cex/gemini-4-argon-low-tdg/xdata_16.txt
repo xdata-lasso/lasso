@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests basic GROUP BY name, AVG vs SUM/MIN/MAX/COUNT, AVG(DISTINCT salary) vs AVG(salary), and GROUP BY dept_name/ID mutants.
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Physics', 'Watson', 90000);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Alice', 'Comp. Sci.', 30000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10102', 'Alice', 'Comp. Sci.', 30000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10103', 'Alice', 'Physics', 90000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10104', 'Bob', 'Comp. Sci.', 45000);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in salary and dept_name:
+-- 1. AVG(salary) vs SUM(salary)/COUNT(*) when some salaries are NULL.
+-- 2. Group with all NULL salaries (returns NULL, kills COALESCE/HAVING > 0 mutants).
+-- 3. Instructors with NULL dept_name (kills accidental INNER JOIN with department).
+INSERT INTO department (dept_name, building, budget) VALUES ('History', 'Painter', 50000);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20101', 'Charlie', 'History', 40000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20102', 'Charlie', 'History', NULL);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20103', 'Charlie', NULL, 80000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20104', 'David', NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests extraneous JOIN mutants (teaches, advisor, department, student):
+-- 1. Instructor teaching multiple sections (causes row multiplication and skews AVG if joined with teaches).
+-- 2. Instructor teaching 0 sections / advising 0 students (dropped if INNER JOINed with teaches/advisor).
+-- 3. Student table populated with different names (kills mutants querying student instead of instructor).
+INSERT INTO department (dept_name, building, budget) VALUES ('Math', 'Watson', 70000);
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Watson', '100', 50);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro', 'Math', 4);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '1', 'Fall', 2020, 'Watson', '100', 'A');
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS-101', '2', 'Spring', 2021, 'Watson', '100', 'B');
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('30101', 'Eve', 'Math', 40000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('30102', 'Eve', 'Math', 100000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('30103', 'Frank', 'Math', 60000);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('30101', 'CS-101', '1', 'Fall', 2020);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('30101', 'CS-101', '2', 'Spring', 2021);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('30102', 'CS-101', '1', 'Fall', 2020);
+
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('90001', 'StudentOnly', 'Math', 30);
+INSERT INTO advisor (s_ID, i_ID) VALUES ('90001', '30101');
+```
+
+```sql
+-- DATASET 4
+-- Tests floating-point division precision, boundary values, and sorting/ordering mutants:
+-- 1. Non-integer average (30000 + 30001 = 60001 / 2 = 30000.5) to kill integer division/CAST/ROUND mutants.
+-- 2. Salaries near the CHECK constraint boundary (29000.01) and high values to kill arbitrary WHERE filters (e.g., salary > 30000, salary < 100000).
+-- 3. Insertion order where name order, salary order, and ID order all conflict to kill accidental ORDER BY or LIMIT mutants.
+INSERT INTO department (dept_name, building, budget) VALUES ('Biology', 'Watson', 80000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Music', 'Packard', 40000);
+
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('40003', 'Zack', 'Biology', 29000.50);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('40001', 'Yara', 'Music', 150000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('40002', 'Xena', 'Biology', 30000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('40004', 'Xena', 'Music', 30001.00);
+```
+
+```sql
+-- DATASET 5
+-- Tests missing GROUP BY clause when multiple distinct names have identical averages:
+-- If GROUP BY is omitted, a single row is returned instead of multiple rows.
+-- Also tests SELECT DISTINCT without GROUP BY where two instructors have the exact same name and salary.
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('50001', 'Grace', NULL, 50000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('50002', 'Grace', NULL, 50000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('50003', 'Heidi', NULL, 40000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('50004', 'Heidi', NULL, 60000);
+```

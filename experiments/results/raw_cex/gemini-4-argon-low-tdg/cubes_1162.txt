@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- Core test: Multiple 'Blackville' stores, duplicate Headquartered_City, NULL Headquartered_City, and ORDER BY / DISTINCT / LIMIT mutations.
+-- Also tests stores with different names, unlinked districts, and unlinked stores.
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (1, 'Blackville', 'TypeA', 100.0, 5.0, 1);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (2, 'Blackville', 'TypeB', 200.0, 10.0, 2);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (3, 'Blackville', 'TypeC', 150.0, 8.0, 3);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (4, 'Blackville', 'TypeD', 120.0, 6.0, 4);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (5, 'Blackville', 'TypeE', 180.0, 9.0, 5);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (6, 'Greenville', 'TypeA', 300.0, 12.0, 1);
+
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (10, 'North District', 'Zeta City', 50000.0, 120.5);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (20, 'South District', 'Alpha City', 80000.0, 250.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (30, 'East District', 'Alpha City', 60000.0, 180.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (40, 'West District', NULL, 40000.0, 90.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (50, 'Central District', 'Beta City', 100000.0, 300.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (60, 'Unlinked District', 'Omega City', 10000.0, 50.0);
+
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (1, 10);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (2, 20);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (3, 30);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (4, 40);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (6, 50);
+```
+
+```sql
+-- DATASET 2
+-- String & Column Confusion Test:
+-- Tests mutations that filter on the wrong column (e.g., District_name = 'Blackville', Type = 'Blackville', Headquartered_City = 'Blackville')
+-- or use LIKE '%Blackville%' / case-insensitive matching ('blackville', 'Blackville North').
+-- Also tests ID collisions (Store_ID = District_ID) where store_district links them differently.
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (1, 'Blackville', 'Retail', 100.0, 5.0, 1);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (2, 'blackville', 'Retail', 100.0, 5.0, 2);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (3, 'Blackville East', 'Retail', 100.0, 5.0, 3);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (4, 'OtherStore', 'Blackville', 100.0, 5.0, 4);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (5, 'AnotherStore', 'Wholesale', 100.0, 5.0, 5);
+
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (1, 'WrongJoinDistrict', 'WrongJoinCity', 1000.0, 10.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (2, 'D_Case', 'CaseCity', 2000.0, 20.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (3, 'D_Prefix', 'PrefixCity', 3000.0, 30.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (4, 'Blackville', 'DistrictNamedBlackvilleCity', 4000.0, 40.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (5, 'CorrectDistrict', 'CorrectCity', 5000.0, 50.0);
+
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (1, 5);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (2, 2);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (3, 3);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (4, 1);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (5, 4);
+```
+
+```sql
+-- DATASET 3
+-- Join Condition & Product Table Mutation Test:
+-- Tests mutations that accidentally join with `store_product` or `product`, or omit `store_district` join conditions.
+-- Here, Store 1 ('Blackville') has NO products in `store_product`, while Store 2 ('Blackville') has multiple products.
+-- If a mutant joins `store_product`, Store 1 will be lost and Store 2 will be duplicated.
+INSERT INTO "product" ("product_id", "product", "dimensions", "dpi", "pages_per_minute_color", "max_page_size", "interface") VALUES (101, 'Printer A', '10x10', 600.0, 20.0, 'A4', 'USB');
+INSERT INTO "product" ("product_id", "product", "dimensions", "dpi", "pages_per_minute_color", "max_page_size", "interface") VALUES (102, 'Printer B', '20x20', 1200.0, 30.0, 'A3', 'WiFi');
+
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (1, 'Blackville', 'Supermarket', 500.0, 20.0, 1);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (2, 'Blackville', 'Hypermarket', 800.0, 35.0, 2);
+
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (10, 'District 10', 'City_NoProducts', 15000.0, 45.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (20, 'District 20', 'City_MultiProducts', 25000.0, 75.0);
+
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (1, 10);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (2, 20);
+
+INSERT INTO "store_product" ("Store_ID", "Product_ID") VALUES (2, 101);
+INSERT INTO "store_product" ("Store_ID", "Product_ID") VALUES (2, 102);
+```
+
+```sql
+-- DATASET 4
+-- Empty Result / Outer Join / NULL Foreign Key Test:
+-- Store 'Blackville' exists, and linked rows in `store_district` exist, but one has NULL District_ID,
+-- and another 'Blackville' store is not in `store_district` at all.
+-- Tests INNER JOIN vs LEFT JOIN mutations, and NOT NULL filtering on join keys.
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (1, 'Blackville', 'Mall', 1000.0, 50.0, 1);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (2, 'Blackville', 'Outlet', 400.0, 15.0, 2);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (3, 'Whiteville', 'Mall', 900.0, 40.0, 3);
+
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (100, 'Valid District', 'ValidCity', 90000.0, 110.0);
+
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (1, NULL);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (3, 100);
+```
+
+```sql
+-- DATASET 5
+-- Same District / Multiple Stores Test:
+-- Multiple stores (some 'Blackville', some not) belong to the exact same district.
+-- Tests mutations that group by district_id or filter before/after aggregation improperly.
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (10, 'Blackville', 'Mini', 50.0, 2.0, 10);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (20, 'Blackville', 'Mega', 5000.0, 200.0, 1);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (30, 'Redville', 'Midi', 250.0, 10.0, 5);
+
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (1, 'Shared District', 'SharedCity', 500000.0, 1000.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (2, 'Other District', 'OtherCity', 200000.0, 400.0);
+
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (10, 1);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (20, 1);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (30, 1);
+```

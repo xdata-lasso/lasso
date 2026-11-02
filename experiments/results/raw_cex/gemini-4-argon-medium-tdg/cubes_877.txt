@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Grouping by storm_id vs region_id (Storm 10 has count 1, Storm 20 has count 2).
+-- 2. Joining on region_id = n vs region_id = storm_id (Storm_IDs are 10, 20; Region_ids are 1, 2, 3, 10, 20).
+-- 3. COUNT(*) vs COUNT(Number_city_affected) when Number_city_affected is NULL.
+-- 4. COUNT(*) vs SUM(Number_city_affected) when Number_city_affected is 5.0.
+-- 5. Ordering (Zeta vs Alpha) and unmatched regions (Gamma, Delta, Epsilon).
+INSERT INTO "storm" ("Storm_ID", "Name", "Dates_active", "Max_speed", "Damage_millions_USD", "Number_Deaths") VALUES (10, 'StormA', 'Jan', 100, 10.5, 2);
+INSERT INTO "storm" ("Storm_ID", "Name", "Dates_active", "Max_speed", "Damage_millions_USD", "Number_Deaths") VALUES (20, 'StormB', 'Feb', 120, 20.0, 5);
+INSERT INTO "storm" ("Storm_ID", "Name", "Dates_active", "Max_speed", "Damage_millions_USD", "Number_Deaths") VALUES (30, 'StormC', 'Mar', 80, 1.0, 0);
+
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (1, 'C_ZETA', 'Zeta');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (2, 'C_ALPHA', 'Alpha');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (3, 'C_GAMMA', 'Gamma');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (10, 'C_DELTA', 'Delta');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (20, 'C_EPSILON', 'Epsilon');
+
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (10, 10, 5.0);
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (10, 20, NULL);
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (20, 20, 5.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. DISTINCT on region_name when multiple storms have the same count (Storm 100 and 200 both have count 1, matching Region 1).
+-- 2. DISTINCT on region_name when different regions share the exact same Region_name (Region 1 and Region 2 both named 'DuplicateName').
+-- 3. Inequality join mutations (<, <=, >, >=, !=) by having Region 0 and Region 3 which should not match counts 1 and 2.
+INSERT INTO "storm" ("Storm_ID", "Name", "Dates_active", "Max_speed", "Damage_millions_USD", "Number_Deaths") VALUES (100, 'S1', 'May', 110, 5.0, 1);
+INSERT INTO "storm" ("Storm_ID", "Name", "Dates_active", "Max_speed", "Damage_millions_USD", "Number_Deaths") VALUES (200, 'S2', 'Jun', 130, 15.0, 3);
+INSERT INTO "storm" ("Storm_ID", "Name", "Dates_active", "Max_speed", "Damage_millions_USD", "Number_Deaths") VALUES (300, 'S3', 'Jul', 140, 25.0, 4);
+
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (0, 'R0', 'ZeroRegion');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (1, 'R1', 'DuplicateName');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (2, 'R2', 'DuplicateName');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (3, 'R3', 'ThreeRegion');
+
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (3, 100, 10.0);
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (3, 200, 20.0);
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (1, 300, 30.0);
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (2, 300, 40.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty affected_region table (kills LEFT JOIN vs INNER JOIN mutations, and global COUNT(*) without GROUP BY if Region 0 exists).
+-- 2. Ensures queries that simply select from region without joining fail.
+INSERT INTO "storm" ("Storm_ID", "Name", "Dates_active", "Max_speed", "Damage_millions_USD", "Number_Deaths") VALUES (1, 'EmptyStorm', 'Aug', 90, 0.0, 0);
+
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (0, 'R_ZERO', 'RegionZero');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (1, 'R_ONE', 'RegionOne');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Missing GROUP BY in subquery (Total rows in affected_region is 4; individual storm counts are 1 and 3. Region 4 exists to catch global COUNT(*)).
+-- 2. Normal join on affected_region (Region 100 and 200 are in affected_region, but their IDs do not match any counts; Region 1 and 3 are NOT in affected_region, but their IDs match the counts 1 and 3).
+-- 3. Kills any mutation that joins region with affected_region directly on Region_id.
+INSERT INTO "storm" ("Storm_ID", "Name", "Dates_active", "Max_speed", "Damage_millions_USD", "Number_Deaths") VALUES (50, 'StormFifty', 'Sep', 150, 50.0, 10);
+INSERT INTO "storm" ("Storm_ID", "Name", "Dates_active", "Max_speed", "Damage_millions_USD", "Number_Deaths") VALUES (60, 'StormSixty', 'Oct', 160, 60.0, 12);
+
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (1, 'M1', 'MatchCountOne');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (3, 'M3', 'MatchCountThree');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (4, 'M4', 'TrapTotalCountFour');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (100, 'A1', 'AffectedOne');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (200, 'A2', 'AffectedTwo');
+INSERT INTO "region" ("Region_id", "Region_code", "Region_name") VALUES (300, 'A3', 'AffectedThree');
+
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (100, 50, 2.0);
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (100, 60, 2.0);
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (200, 60, 2.0);
+INSERT INTO "affected_region" ("Region_id", "Storm_ID", "Number_city_affected") VALUES (300, 60, 2.0);
+```

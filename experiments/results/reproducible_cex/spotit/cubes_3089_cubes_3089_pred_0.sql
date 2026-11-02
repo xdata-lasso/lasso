@@ -1,0 +1,57 @@
+-- Schema DDL
+CREATE TABLE "MOUNTAIN" (
+    "ID" INT,
+    "NAME" TEXT,
+    "HEIGHT" FLOAT,
+    "PROMINENCE" FLOAT,
+    "RANGE" TEXT,
+    "COUNTRY" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "CAMERA_LENS" (
+    "ID" INT,
+    "BRAND" TEXT,
+    "NAME" TEXT,
+    "FOCAL_LENGTH_MM" FLOAT,
+    "MAX_APERTURE" FLOAT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "PHOTOS" (
+    "ID" INT,
+    "MOUNTAIN_ID" INT,
+    "CAMERA_LENS_ID" INT,
+    "COLOR" TEXT,
+    "NAME" TEXT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("MOUNTAIN_ID") REFERENCES "MOUNTAIN"("ID"),
+    FOREIGN KEY ("CAMERA_LENS_ID") REFERENCES "CAMERA_LENS"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO MOUNTAIN VALUES (0, 10, 0, 0, 2224814449551252530, 0);
+INSERT INTO MOUNTAIN VALUES (1, 9, 0, 0, 2224814449551252530, 0);
+INSERT INTO CAMERA_LENS VALUES (-1, 0, 0, 0, 0);
+INSERT INTO CAMERA_LENS VALUES (0, 0, 0, 0, 0);
+INSERT INTO PHOTOS VALUES (-1, 0, 0, 0, 0);
+INSERT INTO PHOTOS VALUES (0, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name, height, prominence FROM (SELECT * FROM (SELECT * FROM mountain ORDER BY RANGE DESC, mountain.id NULLS LAST) LIMIT 21);
+
+/*
+Gold Result:
+('10', 0.0, 0.0)
+('9', 0.0, 0.0)
+*/
+
+-- Prediction Query
+SELECT name, height, prominence FROM mountain WHERE RANGE <> 'Aberdare Range';
+
+/*
+Prediction Result:
+('10', 0.0, 0.0)
+('9', 0.0, 0.0)
+*/

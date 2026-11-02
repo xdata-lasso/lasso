@@ -1,0 +1,2 @@
+-- TPC-H Query 17
+SELECT SUM(l_extendedprice) / 7.0 AS avg_yearly FROM lineitem, part, (SELECT l_partkey AS agg_partkey, 0.2 * AVG(l_quantity) AS avg_quantity FROM lineitem GROUP BY l_partkey) AS part_agg WHERE p_partkey = l_partkey AND agg_partkey = l_partkey AND p_brand = 'Brand#13' AND p_container = 'WRAP PKG' AND l_quantity < avg_quantity LIMIT 1

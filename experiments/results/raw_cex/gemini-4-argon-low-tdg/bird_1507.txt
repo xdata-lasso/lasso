@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Missing DISTINCT (multiple transactions at same time for ChainID = 11, both within same station and across different stations).
+-- 2. Boundary conditions for ChainID = 11 (ChainID = 10, 12, NULL).
+-- 3. Wrong column used for ChainID filter (e.g., GasStationID = 11, CustomerID = 11, ProductID = 11, TransactionID = 11).
+-- 4. Missing JOIN condition (Cartesian product check).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 11, 'CZE', 'Value');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 11, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 10, 'SVK', 'Value');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 12, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (5, NULL, 'CZE', 'Other');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (11, 99, 'CZE', 'Value');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2023-01-01', '08:00:00', 101, 201, 1, 301, 10, 20.5);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2023-01-01', '08:00:00', 102, 202, 1, 302, 15, 30.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2023-01-02', '08:00:00', 103, 203, 2, 301, 20, 40.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2023-01-02', '09:30:00', 104, 204, 2, 303, 5, 10.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2023-01-03', '10:15:00', 105, 205, 3, 301, 12, 25.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (6, '2023-01-03', '11:45:00', 106, 206, 4, 302, 8, 16.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (7, '2023-01-04', '12:00:00', 107, 207, 5, 301, 25, 50.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (11, '2023-01-05', '13:00:00', 11, 11, 11, 11, 11, 11.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. INNER JOIN vs LEFT/RIGHT OUTER JOIN (transactions with unreferenced or NULL GasStationID, gasstations with ChainID = 11 but no transactions).
+-- 2. Wrong JOIN keys (e.g., T1.TransactionID = T2.GasStationID, T1.CustomerID = T2.GasStationID, T1.GasStationID = T2.ChainID).
+-- 3. NULL Time values for matching ChainID = 11 vs non-matching ChainID.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (11, 22, 'CZE', 'Value');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (50, 11, 'CZE', 'Value');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (60, 11, 'SVK', 'Premium');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (50, '2023-02-01', '14:00:00', 50, 1, 11, 1, 10, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (51, '2023-02-01', '15:00:00', 99, 2, 50, 2, 20, 200.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (52, '2023-02-01', NULL, 100, 3, 50, 3, 30, 300.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (53, '2023-02-01', '16:00:00', 101, 4, 999, 4, 40, 400.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (54, '2023-02-01', '17:00:00', 102, 5, NULL, 5, 50, 500.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty result set when ChainID = 11 exists in gasstations, and transactions exist, but no transactions match the station with ChainID = 11.
+-- 2. Kills mutants using OR instead of AND/WHERE with JOIN, or inverted WHERE conditions (ChainID != 11).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 11, 'CZE', 'Value');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 15, 'CZE', 'Value');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2023-03-01', '18:30:00', 1, 1, 2, 1, 10, 20.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2023-03-02', '19:45:00', 2, 2, 2, 2, 15, 30.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Wrong column projected (e.g., Date instead of Time) or wrong formatting/functions applied.
+-- 2. Extra spurious filters on other columns (e.g., Amount > 0, Price > 0, Country = 'CZE', CustomerID IS NOT NULL).
+-- 3. Case/format sensitivity and multiple distinct times with unusual edge-case values.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (101, 11, NULL, NULL);
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (102, 11, 'DEU', 'Discount');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2023-04-01', '00:00:00', NULL, NULL, 101, NULL, 0, 0.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2023-04-01', '23:59:59', -1, -1, 102, -1, -5, -10.5);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '00:00:00', '12:34:56', 1, 1, 101, 1, 1, 1.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Mutants that unnecessarily join `customers`, `products`, or `yearmonth` tables (which would filter out valid transactions that have unreferenced or NULL CustomerID / ProductID).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO products (ProductID, Description) VALUES (1, 'Diesel');
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '202301', 100.0);
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 11, 'CZE', 'Value');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2023-01-15', '07:11:00', 1, 10, 10, 1, 50, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2023-01-15', '08:22:00', 999, 11, 10, 1, 50, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2023-01-15', '09:33:00', 1, 12, 10, 999, 50, 100.0);
+```

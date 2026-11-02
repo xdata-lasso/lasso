@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, DISTINCT vs ALL (duplicate languages), and partial condition failures (OR vs AND, off-by-one boundaries, string prefix/case mismatches).
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "totalSetSize", "name", "type") VALUES (1, 'GPT', 'Ravnica', 180, 180, 'Guildpact', 'expansion');
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "totalSetSize", "name", "type") VALUES (2, 'RAV', 'Ravnica', 306, 306, 'Ravnica: City of Guilds', 'expansion');
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "totalSetSize", "name", "type") VALUES (3, 'DIS', 'Ravnica', 179, 180, 'Dissension', 'expansion');
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "totalSetSize", "name", "type") VALUES (4, 'RTR', 'Return to Ravnica', 180, 274, 'Return to Ravnica', 'expansion');
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "totalSetSize", "name", "type") VALUES (5, 'GTC', 'ravnica', 180, 249, 'Gatecrash', 'expansion');
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "totalSetSize", "name", "type") VALUES (6, 'DGM', 'Ravnica', 181, 156, 'Dragons Maze', 'expansion');
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (10, 'French', 'GPT', 'Le Pacte des Guildes');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (20, 'French', 'GPT', 'Pacte des Guildes Alt');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (30, 'German', 'GPT', 'Gildenbund');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (40, 'Spanish', 'RAV', 'Ravnica');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (50, 'Italian', 'DIS', 'Discordia');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (60, 'Japanese', 'RTR', 'ラヴニカへの回帰');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (70, 'Russian', 'GTC', 'Незваные гости');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (80, 'Korean', 'DGM', '용의 미로');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN, accidental join on id=id instead of code=setCode, and NULL handling in filter columns and target projection.
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "name") VALUES (1, 'S1', 'Ravnica', 180, 'Set With Unmatched Translation');
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "name") VALUES (2, 'S2', 'Ravnica', 180, 'Set With Matched Translation And Null Language');
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "name") VALUES (3, 'S3', NULL, 180, 'Null Block');
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "name") VALUES (4, 'S4', 'Ravnica', NULL, 'Null BaseSetSize');
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize", "name") VALUES (5, 'S5', 'Kamigawa', 165, 'Trap For ID Join');
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'FakeLang_IDJoinTrap', 'S5', 'Trap Translation');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (5, 'Chinese Simplified', 'S2', 'Valid Translation');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (6, NULL, 'S2', 'Null Language Translation');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (7, 'OrphanLanguage', NULL, 'Unlinked Translation');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (8, 'Portuguese (Brazil)', 'S3', 'Null Block Translation');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (9, 'Chinese Traditional', 'S4', 'Null Size Translation');
+```
+
+```sql
+-- DATASET 3
+-- Tests decoy tables/columns (e.g., foreign_data.language vs set_translations.language, cards.setCode vs set_translations.setCode, parentCode vs code).
+INSERT INTO "sets" ("id", "code", "parentCode", "keyruneCode", "mtgoCode", "block", "baseSetSize", "totalSetSize") VALUES (100, 'REAL_CODE', 'TRAP_CODE', 'TRAP_CODE', 'TRAP_CODE', 'Ravnica', 180, 999);
+INSERT INTO "sets" ("id", "code", "parentCode", "keyruneCode", "mtgoCode", "block", "baseSetSize", "totalSetSize") VALUES (200, 'TRAP_CODE', 'REAL_CODE', 'REAL_CODE', 'REAL_CODE', 'Zendikar', 100, 180);
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Correct_Set_Lang', 'REAL_CODE', 'Translated Set Name');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Wrong_Parent_Or_TotalSize_Lang', 'TRAP_CODE', 'Trap Set Name');
+
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (1, 'uuid-1', 'Decoy Card 1', 'REAL_CODE');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (2, 'uuid-2', 'Decoy Card 2', 'TRAP_CODE');
+
+INSERT INTO "foreign_data" ("id", "uuid", "language", "name") VALUES (1, 'uuid-1', 'Wrong_ForeignData_Lang_1', 'Foreign Card 1');
+INSERT INTO "foreign_data" ("id", "uuid", "language", "name") VALUES (2, 'uuid-2', 'Wrong_ForeignData_Lang_2', 'Foreign Card 2');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when individual conditions exist in the table across different rows, killing Cartesian product (missing JOIN condition) or split subquery mutants.
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize") VALUES (1, 'ONLY_BLOCK', 'Ravnica', 250);
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize") VALUES (2, 'ONLY_SIZE', 'Mirrodin', 180);
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize") VALUES (3, 'BOTH_BUT_NO_TRANS', 'Ravnica', 180);
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Lang_Only_Block', 'ONLY_BLOCK', 'T1');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Lang_Only_Size', 'ONLY_SIZE', 'T2');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple distinct sets matching the criteria simultaneously to kill LIMIT 1 or scalar subquery mutations.
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize") VALUES (10, 'R_SET_A', 'Ravnica', 180);
+INSERT INTO "sets" ("id", "code", "block", "baseSetSize") VALUES (20, 'R_SET_B', 'Ravnica', 180);
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (101, 'German', 'R_SET_A', 'Set A DE');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (102, 'French', 'R_SET_A', 'Set A FR');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (103, 'Japanese', 'R_SET_B', 'Set B JP');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (104, 'Russian', 'R_SET_B', 'Set B RU');
+```

@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests predicate boundaries:
+-- 1. Client 101: Matches all conditions (gender='M', A3='North Bohemia', A11=8001).
+-- 2. Client 102: Fails gender ('F').
+-- 3. Client 103: Fails A3 ('South Bohemia', while A2 is 'North Bohemia' to catch A2 vs A3 confusion).
+-- 4. Client 104: Fails A11 boundary (A11=8000, testing > vs >=, while A14/A16 > 8000 to catch column confusion).
+-- 5. Client 105: Fails A11 (A11=7999).
+-- 6. District 5: Matches district conditions, but has 0 clients (tests LEFT JOIN / COUNT(*) vs COUNT(client_id) mutants).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Teplice', 'North Bohemia', '100', '10', '10', '10', 1, 1, 50.5, 8001, 1.5, 2.5, 100, 100, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'North Bohemia', 'South Bohemia', '100', '10', '10', '10', 1, 1, 50.5, 9000, 1.5, 2.5, 100, 100, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'Most', 'North Bohemia', '9000', '10', '10', '10', 9000, 9000, 9000.0, 8000, 9000.0, 9000.0, 9000, 9000, 9000);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (4, 'Decin', 'North Bohemia', '100', '10', '10', '10', 1, 1, 50.5, 7999, 1.5, 2.5, 100, 100, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (5, 'Liberec', 'North Bohemia', '100', '10', '10', '10', 1, 1, 50.5, 8500, 1.5, 2.5, 100, 100, 100);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (101, 'M', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (102, 'F', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (103, 'M', '1980-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (104, 'M', '1980-01-01', 3);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (105, 'M', '1980-01-01', 4);
+```
+
+```sql
+-- DATASET 2
+-- Tests cardinality, aggregation, and join path mutations:
+-- 1. Multiple valid male clients (1, 2, 3) in the same valid district (10) -> kills COUNT(DISTINCT T1.district_id), COUNT(DISTINCT T1.gender), or GROUP BY mutants.
+-- 2. Valid male client (4) in a second valid district (20).
+-- 3. Wrong join key test: Client 5 has client_id = 10 (matches valid district 10), but belongs to invalid district 30 -> kills ON T1.client_id = T2.district_id.
+-- 4. Unnecessary joins to account/disp: Client 1 has 2 accounts/disps, Client 2 has 1 account/disp in a different district (30), Client 3 has 0 accounts/disps -> kills mutants that join via account or disp.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'Usti', 'North Bohemia', '100', '10', '10', '10', 1, 1, 50.5, 8500, 1.5, 2.5, 100, 100, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'Lipa', 'North Bohemia', '100', '10', '10', '10', 1, 1, 50.5, 9500, 1.5, 2.5, 100, 100, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (30, 'Prague', 'Prague', '100', '10', '10', '10', 1, 1, 50.5, 7000, 1.5, 2.5, 100, 100, 100);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-05-05', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'M', '1975-05-05', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'M', '1980-05-05', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'M', '1985-05-05', 20);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'M', '1990-05-05', 30);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1001, 10, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1002, 10, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1003, 30, 'POPLATEK MESICNE', '1995-01-01');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (5001, 1, 1001, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (5002, 1, 1002, 'DISPONENT');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (5003, 2, 1003, 'OWNER');
+```
+
+```sql
+-- DATASET 3
+-- Tests zero-match behavior and NULL handling:
+-- All rows fail at least one condition (Result should be 0).
+-- Kills SUM(T1.client_id), AVG, MIN, MAX (which return NULL instead of 0 on empty set).
+-- Kills OR vs AND mutations in the WHERE clause.
+-- Includes NULLs in nullable columns A12 and A15 to break mutants that reference them.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'North Bohemia', '100', '10', '10', '10', 1, 1, 50.5, 8000, NULL, 2.5, 100, NULL, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'North Bohemia', '100', '10', '10', '10', 1, 1, 50.5, 9000, NULL, 2.5, 100, NULL, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D3', 'South Moravia', '100', '10', '10', '10', 1, 1, 50.5, 9000, NULL, 2.5, 100, NULL, 100);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1980-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'M', '1980-01-01', 3);
+```
+
+```sql
+-- DATASET 4
+-- Tests string matching precision and case sensitivity:
+-- 1. Client 1 in District 1: 'North Bohemia Extra' (kills LIKE 'North Bohemia%' or CONTAINS mutants).
+-- 2. Client 2 in District 2: 'north bohemia' (kills case-insensitive LOWER/UPPER/ILIKE mutants).
+-- 3. Client 3 in District 3: gender = 'm' (kills case-insensitive gender filter).
+-- 4. Client 4 in District 4: Exact match (ensures non-zero output of 1).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'North Bohemia Extra', '100', '10', '10', '10', 1, 1, 50.5, 8500, 1.0, 1.0, 100, 100, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'north bohemia', '100', '10', '10', '10', 1, 1, 50.5, 8500, 1.0, 1.0, 100, 100, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D3', 'North Bohemia', '100', '10', '10', '10', 1, 1, 50.5, 8500, 1.0, 1.0, 100, 100, 100);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (4, 'D4', 'North Bohemia', '100', '10', '10', '10', 1, 1, 50.5, 8100, 1.0, 1.0, 100, 100, 100);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'M', '1980-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'm', '1980-01-01', 3);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'M', '1980-01-01', 4);
+```

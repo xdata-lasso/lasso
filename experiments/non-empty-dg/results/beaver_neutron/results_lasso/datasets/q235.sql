@@ -1,0 +1,2 @@
+INSERT INTO "networks" ("tenant_id", "id", "name", "status", "admin_state_up", "mtu", "vlan_transparent", "standard_attr_id", "availability_zone_hints") VALUES ('purpose', 'brother', 'Donald Walker', 'since', 1, 1001, 1002, 1003, 'blue');
+INSERT INTO "standardattributes" ("id", "resource_type", "created_at", "updated_at", "description") VALUES (1003, 'require', '1970-01-01', '1970-01-01', 'Beautiful instead ahead despite measure ago current.');

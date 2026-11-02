@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+INSERT INTO "artists" ("id", "name") VALUES (1, 'Accept');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 1, 'Restless and Wild');
+INSERT INTO "genres" ("id", "name") VALUES (1, 'Rock');
+INSERT INTO "media_types" ("id", "name") VALUES (1, 'Protected AAC audio file');
+
+-- Exact match: Multiple rows with different milliseconds (inserted out of order) and duplicate milliseconds to test DISTINCT, LIMIT 1, and ORDER BY ASC vs DESC
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (1, 1, 1, 1, 'Fast As a Shark', 'Accept', 250000, 4000000, 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (2, 1, 1, 1, 'Fast As a Shark', 'Accept', 230000, 3500000, 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (3, 1, 1, 1, 'Fast As a Shark', 'Accept', 230000, 3600000, 0.99);
+
+-- Non-matching names to test case sensitivity, LIKE, prefix/suffix, and NULL handling
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (4, 1, 1, 1, 'fast as a shark', 'Accept', 210000, 3000000, 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (5, 1, 1, 1, 'Fast As A Shark', 'Accept', 215000, 3100000, 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (6, 1, 1, 1, 'Fast As a Shark (Live)', 'Accept', 260000, 4200000, 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (7, 1, 1, 1, 'Balls to the Wall', 'Accept', 340000, 5500000, 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (8, 1, 1, 1, NULL, 'Accept', 190000, 2900000, 0.99);
+
+-- Confounding columns (where another column has the target string)
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (9, 1, 1, 1, 'Other Track', 'Fast As a Shark', 180000, 2800000, 0.99);
+```
+
+```sql
+-- DATASET 2
+-- Tests tracks with NULL foreign keys (kills INNER JOIN mutants on albums, genres, media_types, invoice_lines, playlist_tracks)
+-- Also tests single row result (kills COUNT/SUM/AVG/MIN/MAX vs raw column, and tests NULL milliseconds ordering)
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (10, NULL, NULL, NULL, 'Fast As a Shark', NULL, NULL, 1000, 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (11, NULL, NULL, NULL, 'Fast As a Shark', NULL, 230619, 3990994, 0.99);
+```
+
+```sql
+-- DATASET 3
+-- Tests scenario where matching track is referenced multiple times in child tables (invoice_lines, playlist_tracks)
+-- Kills mutants that unnecessarily join child tables without deduplication
+INSERT INTO "artists" ("id", "name") VALUES (1, 'Accept');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 1, 'Restless and Wild');
+INSERT INTO "genres" ("id", "name") VALUES (1, 'Metal');
+INSERT INTO "media_types" ("id", "name") VALUES (1, 'MPEG audio file');
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (1, 1, 1, 1, 'Fast As a Shark', 'F. Baltes, S. Kaufmann, U. Dirkscneider & W. Hoffman', 230619, 3990994, 0.99);
+
+INSERT INTO "playlists" ("id", "name") VALUES (1, 'Heavy Metal Classic');
+INSERT INTO "playlists" ("id", "name") VALUES (2, 'Workout');
+INSERT INTO "playlist_tracks" ("playlist_id", "track_id") VALUES (1, 1);
+INSERT INTO "playlist_tracks" ("playlist_id", "track_id") VALUES (2, 1);
+
+INSERT INTO "employees" ("id", "reports_to", "last_name", "first_name", "title") VALUES (1, NULL, 'Adams', 'Andrew', 'General Manager');
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "email") VALUES (1, 1, 'Luis', 'Gonçalves', 'luisg@embraer.com.br');
+INSERT INTO "invoices" ("id", "customer_id", "invoice_date", "total") VALUES (1, 1, '2023-01-01 00:00:00', 1.98);
+INSERT INTO "invoices" ("id", "customer_id", "invoice_date", "total") VALUES (2, 1, '2023-01-02 00:00:00', 0.99);
+INSERT INTO "invoice_lines" ("id", "track_id", "invoice_id", "unit_price", "quantity") VALUES (1, 1, 1, 0.99, 1);
+INSERT INTO "invoice_lines" ("id", "track_id", "invoice_id", "unit_price", "quantity") VALUES (2, 1, 2, 0.99, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result when 'Fast As a Shark' appears in album title, artist name, genre name, or playlist name, but NOT in track name
+-- Kills mutants querying the wrong table or joining and filtering on the wrong name column
+INSERT INTO "artists" ("id", "name") VALUES (1, 'Fast As a Shark');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 1, 'Fast As a Shark');
+INSERT INTO "genres" ("id", "name") VALUES (1, 'Fast As a Shark');
+INSERT INTO "media_types" ("id", "name") VALUES (1, 'Fast As a Shark');
+INSERT INTO "playlists" ("id", "name") VALUES (1, 'Fast As a Shark');
+
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (1, 1, 1, 1, 'Princess of the Dawn', 'Accept', 375418, 6191560, 0.99);
+INSERT INTO "playlist_tracks" ("playlist_id", "track_id") VALUES (1, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests ordering of tracks.id vs milliseconds when both vary inversely, and ensures milliseconds (not bytes or id) is projected
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (10, NULL, NULL, NULL, 'Fast As a Shark', 'Accept', 500, 100, 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (20, NULL, NULL, NULL, 'Fast As a Shark', 'Accept', 400, 200, 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "milliseconds", "bytes", "unit_price") VALUES (30, NULL, NULL, NULL, 'Fast As a Shark', 'Accept', 300, 300, 0.99);
+```

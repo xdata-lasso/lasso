@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, WHERE clause filtering ('EUR' vs others/NULL), and DISTINCT elimination on ChainID.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'LAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', NULL);
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 100, 'CZE', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 200, 'SVK', 'Premium');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-24', '09:00:00', 1, 111, 10, 1, 10, 20.5);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-24', '10:00:00', 1, 112, 10, 2, 15, 30.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-24', '11:00:00', 2, 222, 20, 1, 20, 40.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-24', '12:00:00', 3, 333, 20, 1, 25, 50.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs OUTER JOIN and ensures transactions must link a valid 'EUR' customer and a valid gas station.
+-- Also tests unmatched entities and dangling foreign keys in transactions_1k.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'USD');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 100, 'CZE', 'Other');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 200, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (30, 300, 'SVK', 'Discount');
+
+-- Customer 1 ('EUR') visits GasStation 10 (Chain 100) -> Valid
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '08:00:00', 1, 101, 10, 1, 5, 10.0);
+-- Customer 3 ('USD') visits GasStation 20 (Chain 200) -> Filtered out by Currency
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '09:00:00', 3, 103, 20, 1, 5, 10.0);
+-- Dangling CustomerID (99) visits GasStation 20 (Chain 200) -> Filtered out by INNER JOIN customers
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '10:00:00', 99, 199, 20, 1, 5, 10.0);
+-- Customer 1 ('EUR') visits Dangling GasStationID (99) -> Filtered out by INNER JOIN gasstations
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-25', '11:00:00', 1, 101, 99, 1, 5, 10.0);
+```
+
+```sql
+-- DATASET 3
+-- Catches wrong join key mutations (e.g., joining on CustomerID = GasStationID, CardID = CustomerID, or ChainID = GasStationID)
+-- and wrong projection mutations (e.g., selecting GasStationID, CustomerID, or ProductID instead of ChainID).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'SME', 'CZK');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 999, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (30, 777, 'CZE', 'Discount');
+
+-- Customer 10 ('EUR') uses Card 20 at GasStation 30 (Chain 777).
+-- If mutated to T1.CustomerID = T3.GasStationID, it would falsely match GasStation 10 (Chain 999).
+-- If mutated to T1.CardID = T2.CustomerID, it would falsely match Customer 20 ('CZK').
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-26', '14:00:00', 10, 20, 30, 50, 100, 250.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL ChainID handling, multiple gas stations sharing the same ChainID, and case/substring sensitivity on 'EUR'.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'eur');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'EURO');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 500, 'CZE', 'SME');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 500, 'SVK', 'SME');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (30, NULL, 'CZE', 'SME');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (40, 600, 'CZE', 'EUR');
+
+-- Customer 1 & 2 ('EUR') visit different stations (10, 20) that have the same ChainID (500) -> Should yield single 500
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-27', '08:00:00', 1, 11, 10, 1, 1, 1.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-27', '09:00:00', 2, 22, 20, 1, 1, 1.0);
+-- Customer 1 ('EUR') visits station 30 with NULL ChainID -> Should include NULL in output
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-27', '10:00:00', 1, 11, 30, 1, 1, 1.0);
+-- Customers 3 ('eur') and 4 ('EURO') visit station 40 (Chain 600) -> Should be excluded (tests LIKE '%EUR%' or case-insensitive mutants)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-27', '11:00:00', 3, 33, 40, 1, 1, 1.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-27', '12:00:00', 4, 44, 40, 1, 1, 1.0);
+```
+
+```sql
+-- DATASET 5
+-- Catches column confusion where a mutant checks T2.Segment = 'EUR', T3.Country = 'EUR', or T3.Segment = 'EUR',
+-- or joins with yearmonth/products unnecessarily (which would filter out valid rows if those tables are empty or unmatched).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'EUR', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 10, 'EUR', 'EUR');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 20, 'DEU', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (30, 30, 'AUT', 'Discount');
+
+INSERT INTO products (ProductID, Description) VALUES (1, 'Diesel');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201208', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201208', 200.0);
+
+-- Customer 1 (Currency='CZK', Segment='EUR') at Station 10 (Country='EUR', Segment='EUR') -> Must NOT match
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-28', '08:00:00', 1, 101, 10, 1, 10, 15.0);
+-- Customer 2 (Currency='EUR', has yearmonth & valid product) at Station 20 (Chain 20) -> Must match
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-28', '09:00:00', 2, 102, 20, 1, 0, 0.0);
+-- Customer 3 (Currency='EUR', NO yearmonth, NULL/unmatched product, negative amount) at Station 30 (Chain 30) -> Must match
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-28', '10:00:00', 3, 103, 30, NULL, -5, -10.0);
+```

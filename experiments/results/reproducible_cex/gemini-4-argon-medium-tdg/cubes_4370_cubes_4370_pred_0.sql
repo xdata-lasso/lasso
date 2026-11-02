@@ -1,0 +1,39 @@
+-- Schema DDL
+CREATE TABLE "people" ("People_ID" INTEGER PRIMARY KEY, "District" TEXT, "Name" TEXT, "Party" TEXT, "Age" INTEGER);
+
+CREATE TABLE "debate" ("Debate_ID" INTEGER PRIMARY KEY, "Date" TEXT, "Venue" TEXT, "Num_of_Audience" INTEGER);
+
+CREATE TABLE "debate_people" ("Debate_ID" INTEGER, "Affirmative" INTEGER, "Negative" INTEGER, "If_Affirmative_Win" INTEGER, PRIMARY KEY ("Debate_ID", "Affirmative", "Negative"), FOREIGN KEY ("Negative") REFERENCES "people" ("People_ID"), FOREIGN KEY ("Affirmative") REFERENCES "people" ("People_ID"), FOREIGN KEY ("Debate_ID") REFERENCES "debate" ("Debate_ID"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+-- Tests ties in minimum age with different parties (tests ORDER BY ASC vs DESC, LIMIT 1 mutants) and duplicate parties (tests DISTINCT mutants).
+-- Also includes people not in debate_people to kill unnecessary JOIN mutants.
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (1, 'District 1', 'Alice', 'Republican', 25);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (2, 'District 2', 'Bob', 'Democratic', 25);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (3, 'District 3', 'Charlie', 'Democratic', 25);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (4, 'District 4', 'Diana', 'Independent', 40);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (5, 'District 5', 'Evan', 'Green', 60);
+INSERT INTO "debate" ("Debate_ID", "Date", "Venue", "Num_of_Audience") VALUES (101, '2023-01-01', 'Hall A', 25);
+INSERT INTO "debate_people" ("Debate_ID", "Affirmative", "Negative", "If_Affirmative_Win") VALUES (101, 4, 5, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT party FROM (SELECT LHS.age AS age, RHS.people_id AS people_id, RHS.district AS district, RHS.name AS name, RHS.party AS party, RHS.age AS age_other FROM (SELECT MIN(age) AS age FROM people) AS LHS CROSS JOIN people AS RHS) WHERE (age = age_other) ORDER BY party;
+
+/*
+Gold Result:
+('Democratic',)
+('Democratic',)
+('Republican',)
+*/
+
+-- Prediction Query
+SELECT Party FROM people ORDER BY Age ASC, people.people_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('Republican',)
+*/

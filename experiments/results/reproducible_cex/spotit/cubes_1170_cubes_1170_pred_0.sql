@@ -1,0 +1,52 @@
+-- Schema DDL
+CREATE TABLE "PARTY" (
+    "PARTY_ID" INT,
+    "PARTY_THEME" TEXT,
+    "LOCATION" TEXT,
+    "FIRST_YEAR" TEXT,
+    "LAST_YEAR" TEXT,
+    "NUMBER_OF_HOSTS" INT,
+    PRIMARY KEY ("PARTY_ID")
+);
+CREATE TABLE "HOST" (
+    "HOST_ID" INT,
+    "NAME" TEXT,
+    "NATIONALITY" TEXT,
+    "AGE" TEXT,
+    PRIMARY KEY ("HOST_ID")
+);
+CREATE TABLE "PARTY_HOST" (
+    "PARTY_ID" INT,
+    "HOST_ID" INT,
+    "IS_MAIN_IN_CHARGE" INT,
+    PRIMARY KEY ("PARTY_ID", "HOST_ID"),
+    FOREIGN KEY ("PARTY_ID") REFERENCES "PARTY"("PARTY_ID"),
+    FOREIGN KEY ("HOST_ID") REFERENCES "HOST"("HOST_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO PARTY VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO PARTY VALUES (1, 0, 0, 0, 0, 0);
+INSERT INTO HOST VALUES (-1, 0, 0, 0);
+INSERT INTO HOST VALUES (0, -1, 0, 0);
+INSERT INTO PARTY_HOST VALUES (1, 0, 0);
+INSERT INTO PARTY_HOST VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT * FROM host AS LHS WHERE NOT EXISTS(SELECT 1 FROM party_host AS RHS WHERE (LHS.host_id = RHS.host_id))) ORDER BY name;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT Name FROM HOST WHERE NOT Host_ID IN (SELECT Host_ID FROM party_host);
+
+/*
+Prediction Result:
+('0',)
+*/

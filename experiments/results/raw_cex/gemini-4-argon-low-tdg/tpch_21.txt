@@ -1,0 +1,166 @@
+```sql
+-- DATASET 1
+-- Core logic, tie-breaking ORDER BY (numwait DESC, s_name ASC), COUNT(o_orderkey) vs COUNT(DISTINCT o_orderkey), and date boundary conditions (receiptdate = commitdate vs > vs <).
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'Region 1');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'BRAZIL', 1, 'Target Nation');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'Supp_Alpha', 'Addr 1', 1, '111-111', 100.0, 'Main supplier');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (2, 'Supp_Beta', 'Addr 2', 1, '222-222', 200.0, 'Helper supplier');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (3, 'Supp_Gamma', 'Addr 3', 1, '333-333', 300.0, 'Tie supplier B');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (4, 'Supp_Delta', 'Addr 4', 1, '444-444', 400.0, 'Tie supplier A');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Cust_1', 'Addr C1', 1, '999-999', 500.0, 'AUTO', 'Customer 1');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part_1', 'Mfgr1', 'Brand1', 'STANDARD', 10, 'SM BOX', 50.0, 'Part 1');
+
+-- Order 101: Supp_Alpha has TWO late lineitems on the SAME order, Supp_Beta has ONE on-time lineitem (receipt = commit).
+-- Tests COUNT(o_orderkey) = 2 vs COUNT(DISTINCT o_orderkey) = 1, and l3 boundary receipt == commit.
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (101, 1, 'F', 1000.0, '1995-01-01', '1-URGENT', 'Clerk#1', 0, 'Order 101');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (101, 1, 1, 1, 10.0, 100.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-10', 'NONE', 'AIR', 'Late 1');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (101, 1, 1, 2, 20.0, 200.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-06', 'NONE', 'AIR', 'Late 2');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (101, 1, 2, 3, 15.0, 150.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-05', 'NONE', 'AIR', 'Exact commit date');
+
+-- Order 102: Supp_Gamma has 1 late item, Supp_Beta has 1 early item (receipt < commit).
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (102, 1, 'F', 500.0, '1995-02-01', '2-HIGH', 'Clerk#1', 0, 'Order 102');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (102, 1, 3, 1, 10.0, 100.0, 0.0, 0.0, 'N', 'O', '1995-02-02', '1995-02-05', '1995-02-08', 'NONE', 'TRUCK', 'Late');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (102, 1, 2, 2, 10.0, 100.0, 0.0, 0.0, 'N', 'O', '1995-02-02', '1995-02-05', '1995-02-03', 'NONE', 'TRUCK', 'Early');
+
+-- Order 103: Supp_Delta has 1 late item, Supp_Beta has 1 early item. Ties with Supp_Gamma on numwait = 1, tests s_name ASC ('Supp_Delta' before 'Supp_Gamma').
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (103, 1, 'F', 500.0, '1995-03-01', '3-MEDIUM', 'Clerk#2', 0, 'Order 103');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (103, 1, 4, 1, 10.0, 100.0, 0.0, 0.0, 'N', 'O', '1995-03-02', '1995-03-05', '1995-03-09', 'NONE', 'MAIL', 'Late');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (103, 1, 2, 2, 10.0, 100.0, 0.0, 0.0, 'N', 'O', '1995-03-02', '1995-03-05', '1995-03-04', 'NONE', 'MAIL', 'Early');
+```
+
+```sql
+-- DATASET 2
+-- Tests EXISTS and NOT EXISTS subquery boundaries:
+-- 1. Single-supplier order with multiple lineitems (must be excluded by EXISTS l2.l_suppkey <> l1.l_suppkey).
+-- 2. Multi-supplier order where TWO different suppliers are late (must be excluded by NOT EXISTS l3).
+-- 3. Multi-supplier order where ONLY ONE supplier is late (must be included).
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'BRAZIL', 1, 'Brazil');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'Supp_Solo', 'Addr 1', 1, '111', 100.0, 'Solo');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (2, 'Supp_BothLate_A', 'Addr 2', 1, '222', 100.0, 'BothLate A');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (3, 'Supp_BothLate_B', 'Addr 3', 1, '333', 100.0, 'BothLate B');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (4, 'Supp_Valid', 'Addr 4', 1, '444', 100.0, 'Valid');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Cust_1', 'Addr C1', 1, '999', 100.0, 'AUTO', 'Cust');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part_1', 'Mfgr', 'Brand', 'TYPE', 1, 'BOX', 10.0, 'Part');
+
+-- Order 201: Only Supp_Solo (suppkey=1), has 1 late item and 1 early item. Fails EXISTS(l2.l_suppkey <> l1.l_suppkey).
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (201, 1, 'F', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Solo supplier order');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (201, 1, 1, 1, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-10', 'NONE', 'AIR', 'Late');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (201, 1, 1, 2, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-03', 'NONE', 'AIR', 'Early');
+
+-- Order 202: Supp_BothLate_A (2) and Supp_BothLate_B (3) both have late items, plus an early item. Fails NOT EXISTS(l3).
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (202, 1, 'F', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Both suppliers late');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (202, 1, 2, 1, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-10', 'NONE', 'AIR', 'Late A');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (202, 1, 3, 2, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-08', 'NONE', 'AIR', 'Late B');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (202, 1, 3, 3, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-04', 'NONE', 'AIR', 'Early B');
+
+-- Order 203: Supp_Valid (4) is late, Supp_Solo (1) is on-time. Passes all conditions.
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (203, 1, 'F', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Valid order');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (203, 1, 4, 1, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-10', 'NONE', 'AIR', 'Late Valid');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (203, 1, 1, 2, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-05', 'NONE', 'AIR', 'OnTime Solo');
+```
+
+```sql
+-- DATASET 3
+-- Tests filter predicates:
+-- 1. o_orderstatus = 'F' vs 'O' or 'P' (and ensures l_linestatus = 'F' is not confused with o_orderstatus = 'F').
+-- 2. n_name = 'BRAZIL' vs other nations, and ensures supplier nation (s_nationkey) is checked rather than customer nation (c_nationkey), and that l2/l3 suppliers do NOT need to be from BRAZIL.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'BRAZIL', 1, 'Brazil');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'CANADA', 1, 'Canada');
+
+-- Supp 1: Brazil. Supp 2: Canada.
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'Supp_Brazil', 'Addr 1', 1, '111', 100.0, 'Brazil Supp');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (2, 'Supp_Canada', 'Addr 2', 2, '222', 100.0, 'Canada Supp');
+
+-- Customer 1: Brazil. Customer 2: Canada.
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Cust_Brazil', 'Addr C1', 1, '999', 100.0, 'AUTO', 'Brazil Cust');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (2, 'Cust_Canada', 'Addr C2', 2, '888', 100.0, 'AUTO', 'Canada Cust');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part_1', 'Mfgr', 'Brand', 'TYPE', 1, 'BOX', 10.0, 'Part');
+
+-- Order 301: o_orderstatus = 'O' (should be excluded), even though l_linestatus = 'F' and Supp_Brazil is the only late supplier.
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (301, 1, 'O', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Status O');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (301, 1, 1, 1, 1.0, 10.0, 0.0, 0.0, 'F', 'F', '1995-01-02', '1995-01-05', '1995-01-10', 'NONE', 'AIR', 'Late');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (301, 1, 2, 2, 1.0, 10.0, 0.0, 0.0, 'F', 'F', '1995-01-02', '1995-01-05', '1995-01-04', 'NONE', 'AIR', 'Early');
+
+-- Order 302: Customer is Brazil, o_orderstatus = 'F', Supp_Canada (2) is the only late supplier, Supp_Brazil (1) is early.
+-- Should be excluded because late supplier is from CANADA, not BRAZIL.
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (302, 1, 'F', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Canada Supp Late');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (302, 1, 2, 1, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-10', 'NONE', 'AIR', 'Late Canada');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (302, 1, 1, 2, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-04', 'NONE', 'AIR', 'Early Brazil');
+
+-- Order 303: Customer is Canada (2), o_orderstatus = 'F', Supp_Brazil (1) is late, Supp_Canada (2) is early.
+-- MUST BE INCLUDED: Supplier is from Brazil (even though Customer is Canada and the other supplier l2 is from Canada).
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (303, 2, 'F', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Brazil Supp Late, Canada Cust');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (303, 1, 1, 1, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-10', 'NONE', 'AIR', 'Late Brazil');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (303, 1, 2, 2, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-04', 'NONE', 'AIR', 'Early Canada');
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY s_name vs GROUP BY s_suppkey when two distinct suppliers in BRAZIL share the exact same s_name,
+-- and tests date comparison mistakes (e.g. comparing l_shipdate > l_commitdate instead of l_receiptdate > l_commitdate).
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'BRAZIL', 1, 'Brazil');
+
+-- Two suppliers with the same s_name 'Dup_Supp_Name'
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'Dup_Supp_Name', 'Addr 1', 1, '111', 100.0, 'Dup 1');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (2, 'Dup_Supp_Name', 'Addr 2', 1, '222', 200.0, 'Dup 2');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (3, 'Other_Supp', 'Addr 3', 1, '333', 300.0, 'Other');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Cust_1', 'Addr C1', 1, '999', 100.0, 'AUTO', 'Cust');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part_1', 'Mfgr', 'Brand', 'TYPE', 1, 'BOX', 10.0, 'Part');
+
+-- Order 401: suppkey 1 ('Dup_Supp_Name') is late (shipdate < commitdate < receiptdate). suppkey 3 is early.
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (401, 1, 'F', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Order 401');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (401, 1, 1, 1, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-10', 'NONE', 'AIR', 'Late receipt, early ship');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (401, 1, 3, 2, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-04', 'NONE', 'AIR', 'Early');
+
+-- Order 402: suppkey 2 (also 'Dup_Supp_Name') is late (shipdate > commitdate and receiptdate > commitdate). suppkey 3 is early.
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (402, 1, 'F', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Order 402');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (402, 1, 2, 1, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-07', '1995-01-05', '1995-01-10', 'NONE', 'AIR', 'Late receipt and ship');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (402, 1, 3, 2, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-04', 'NONE', 'AIR', 'Early');
+
+-- Order 403: suppkey 3 has shipdate > commitdate BUT receiptdate = commitdate (not late by receiptdate). suppkey 1 is early.
+-- Catches mutants that check l_shipdate > l_commitdate instead of l_receiptdate > l_commitdate.
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (403, 1, 'F', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Order 403');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (403, 1, 3, 1, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-06', '1995-01-05', '1995-01-05', 'NONE', 'AIR', 'Late ship, ontime receipt');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (403, 1, 1, 2, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-04', 'NONE', 'AIR', 'Early');
+```
+
+```sql
+-- DATASET 5
+-- Tests correlation conditions in EXISTS / NOT EXISTS:
+-- Catches mutants that omit `l2.l_orderkey = l1.l_orderkey` or `l3.l_orderkey = l1.l_orderkey` or `l3.l_suppkey <> l1.l_suppkey`.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'BRAZIL', 1, 'Brazil');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'Supp_One', 'Addr 1', 1, '111', 100.0, 'S1');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (2, 'Supp_Two', 'Addr 2', 1, '222', 200.0, 'S2');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (3, 'Supp_Three', 'Addr 3', 1, '333', 300.0, 'S3');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Cust_1', 'Addr C1', 1, '999', 100.0, 'AUTO', 'Cust');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'Part_1', 'Mfgr', 'Brand', 'TYPE', 1, 'BOX', 10.0, 'Part');
+
+-- Order 501: Supp_One (1) has 1 late item AND 1 early item; Supp_Two (2) has 1 early item.
+-- Valid for Supp_One (numwait=1).
+-- If a mutant writes `l3.l_linenumber <> l1.l_linenumber` instead of `l3.l_suppkey <> l1.l_suppkey` or omits `l3.l_suppkey <> l1.l_suppkey`, it will fail when Supp_One has two late items (tested in Order 502).
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (501, 1, 'F', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Order 501');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (501, 1, 1, 1, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-09', 'NONE', 'AIR', 'S1 Late');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (501, 1, 1, 2, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-03', 'NONE', 'AIR', 'S1 Early');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (501, 1, 2, 3, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-04', 'NONE', 'AIR', 'S2 Early');
+
+-- Order 502: Supp_Two (2) has 1 late item, Supp_Three (3) has 1 early item.
+-- Note: Across the database, Supp_One (1) was late in Order 501, and Supp_Two (2) is late in Order 502.
+-- If `l3.l_orderkey = l1.l_orderkey` is omitted in NOT EXISTS, then Order 501 and Order 502 would block each other!
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (502, 1, 'F', 100.0, '1995-01-01', '1-URGENT', 'Clerk', 0, 'Order 502');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (502, 1, 2, 1, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-12', 'NONE', 'AIR', 'S2 Late');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (502, 1, 3, 2, 1.0, 10.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-01-05', '1995-01-04', 'NONE', 'AIR', 'S3 Early');
+```

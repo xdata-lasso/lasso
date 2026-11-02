@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "Actions" ("user_id" INTEGER, "post_id" INTEGER UNIQUE, "action_date" DATE, "action" TEXT(255), "extra" TEXT(255));
+
+CREATE TABLE "Removals" ("post_id" INTEGER PRIMARY KEY, "remove_date" DATE, FOREIGN KEY ("post_id") REFERENCES "Actions" ("post_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO actions (user_id, post_id, action_date, action, extra) VALUES (99, 0, '2023-01-01', 'report', 'SPAM'), (NULL, 1, NULL, 'like', 'racism'), (1, NULL, '2023-01-01', 'comment', 'spam');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ROUND(CAST(SUM(DAILY_AVG) AS REAL) / COUNT(*) * 100, 2) AS AVERAGE_DAILY_PERCENT FROM (SELECT A.ACTION_DATE, CAST(COUNT(DISTINCT R.POST_ID) AS REAL) / COUNT(DISTINCT A.POST_ID) AS DAILY_AVG FROM ACTIONS AS A LEFT JOIN REMOVALS AS R ON A.POST_ID = R.POST_ID WHERE A.ACTION = 'report' AND A.EXTRA = 'spam' GROUP BY ACTION_DATE) AS TEMP;
+
+/*
+Gold Result:
+(None,)
+*/
+
+-- Prediction Query
+WITH T1 AS (SELECT DISTINCT POST_ID, ACTION_DATE, REMOVE_DATE FROM ACTIONS LEFT JOIN REMOVALS USING (POST_ID) WHERE EXTRA = 'SPAM'), T2 AS (SELECT CAST(SUM(CASE WHEN NOT REMOVE_DATE IS NULL THEN 1 ELSE 0 END) AS REAL) / COUNT(*) * 100 AS PERCENT FROM T1 GROUP BY ACTION_DATE) SELECT ROUND(AVG(PERCENT), 2) AS AVERAGE_DAILY_PERCENT FROM T2;
+
+/*
+Prediction Result:
+(0.0,)
+*/

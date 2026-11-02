@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Comprehensive truth table for the 3 conditions (artist, cardKingdomFoilId, cardKingdomId) + duplicates + case sensitivity + substring checks.
+-- Expected result: 2
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (1, 'Aaron Miller', '100', '200', 'uuid-1');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (2, 'Aaron Miller', '100', '200', 'uuid-2');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (3, 'Aaron Miller', NULL, '201', 'uuid-3');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (4, 'Aaron Miller', '102', NULL, 'uuid-4');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (5, 'Aaron Miller', NULL, NULL, 'uuid-5');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (6, 'John Avon', '103', '203', 'uuid-6');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (7, 'aaron miller', '104', '204', 'uuid-7');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (8, 'Aaron Miller Jr.', '105', '205', 'uuid-8');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (9, NULL, '106', '206', 'uuid-9');
+```
+
+```sql
+-- DATASET 2
+-- Non-empty table where 0 rows match the condition.
+-- Distinguishes SUM(CASE ... ELSE 0 END) (returns 0) from SUM(CASE ... ELSE NULL END) (returns NULL) and COUNT(*) without proper filtering.
+-- Expected result: 0
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (1, 'Aaron Miller', NULL, '200', 'uuid-201');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (2, 'Aaron Miller', '100', NULL, 'uuid-202');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (3, 'Rebecca Guay', '101', '201', 'uuid-203');
+```
+
+```sql
+-- DATASET 3
+-- Empty cards table (only unrelated tables populated).
+-- Distinguishes SUM(CASE ...) (returns NULL on empty table) from COUNT(...) (returns 0 on empty table).
+-- Expected result: NULL
+INSERT INTO "sets" ("id", "code", "name") VALUES (1, 'LEA', 'Limited Edition Alpha');
+```
+
+```sql
+-- DATASET 4
+-- Traps unnecessary JOINs with related tables (foreign_data, legalities, rulings, sets) which would either filter out valid rows (INNER JOIN) or multiply rows (1-to-many JOIN).
+-- Also tests boolean flag traps (hasFoil = 0, hasNonFoil = 0 despite IDs being present).
+-- Expected result: 2
+INSERT INTO "sets" ("id", "code", "name") VALUES (1, 'M20', 'Core Set 2020');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "hasFoil", "hasNonFoil", "setCode", "uuid") VALUES (1, 'Aaron Miller', 'F1', 'NF1', 0, 0, 'M20', 'uuid-401');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "hasFoil", "hasNonFoil", "setCode", "uuid") VALUES (2, 'Aaron Miller', 'F2', 'NF2', 1, 1, NULL, 'uuid-402');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (1, 'German', 'Karte 1', 'uuid-401');
+INSERT INTO "foreign_data" ("id", "language", "name", "uuid") VALUES (2, 'French', 'Carte 1', 'uuid-401');
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (1, 'Standard', 'Legal', 'uuid-401');
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (2, 'Modern', 'Legal', 'uuid-401');
+INSERT INTO "rulings" ("id", "date", "text", "uuid") VALUES (1, '2020-01-01', 'Ruling 1', 'uuid-401');
+INSERT INTO "rulings" ("id", "date", "text", "uuid") VALUES (2, '2020-01-02', 'Ruling 2', 'uuid-401');
+```
+
+```sql
+-- DATASET 5
+-- Isolates condition: NOT cardKingdomFoilId IS NULL (tests mutants that omit the foil ID check or use OR instead of AND).
+-- Expected result: 0
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (1, 'Aaron Miller', NULL, '999', 'uuid-501');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (2, 'Aaron Miller', NULL, '888', 'uuid-502');
+```
+
+```sql
+-- DATASET 6
+-- Isolates condition: NOT cardKingdomId IS NULL (tests mutants that omit the non-foil ID check or check mtgoId/tcgplayerProductId instead).
+-- Expected result: 0
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "mtgoId", " mtgoFoilId", "tcgplayerProductId", "uuid") VALUES (1, 'Aaron Miller', '777', NULL, '111', '222', '333', 'uuid-601');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "mtgoId", " mtgoFoilId", "tcgplayerProductId", "uuid") VALUES (2, 'Aaron Miller', '666', NULL, '444', '555', '666', 'uuid-602');
+```
+
+```sql
+-- DATASET 7
+-- Tests string edge cases: empty strings '' (which are NOT NULL in SQL) and string 'NULL' vs actual SQL NULL, plus DISTINCT traps on cardKingdomId/cardKingdomFoilId.
+-- Expected result: 2
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (1, 'Aaron Miller', '', '', 'uuid-701');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (2, 'Aaron Miller', '', '', 'uuid-702');
+INSERT INTO "cards" ("id", "artist", "cardKingdomFoilId", "cardKingdomId", "uuid") VALUES (3, 'NULL', '123', '456', 'uuid-703');
+```

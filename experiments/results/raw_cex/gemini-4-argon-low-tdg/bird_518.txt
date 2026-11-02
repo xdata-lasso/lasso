@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality, WHERE clause filtering ('Banned' vs 'Legal'), COUNT() DESC ordering, and LIMIT 1.
+-- 'Modern' has 2 'Banned' cards, 'Standard' has 1 'Banned' card and 3 'Legal' cards.
+-- If WHERE clause is omitted or inverted, 'Standard' wins (4 total vs 2 total).
+-- If ORDER BY is ASC instead of DESC, 'Standard' wins (1 vs 2).
+-- If LIMIT 1 is omitted, 2 rows are returned.
+INSERT INTO cards (id, uuid, name) VALUES (1, 'u1', 'CardA');
+INSERT INTO cards (id, uuid, name) VALUES (2, 'u2', 'CardB');
+INSERT INTO cards (id, uuid, name) VALUES (3, 'u3', 'CardC');
+INSERT INTO cards (id, uuid, name) VALUES (4, 'u4', 'CardD');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Modern', 'Banned', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Modern', 'Banned', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (3, 'Standard', 'Banned', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (4, 'Standard', 'Legal', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (5, 'Standard', 'Legal', 'u3');
+INSERT INTO legalities (id, format, status, uuid) VALUES (6, 'Standard', 'Legal', 'u4');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T2.format ASC NULLS LAST when COUNT(T2.status) is equal.
+-- Also tests INNER JOIN vs RIGHT JOIN / unjoined legalities rows (if uuid is NULL or not in cards).
+-- 'Legacy', 'Vintage', and NULL format each have 2 'Banned' cards.
+-- 'Legacy' should win over 'Vintage' (alphabetical ASC) and over NULL (NULLS LAST).
+INSERT INTO cards (id, uuid, name) VALUES (1, 'u1', 'CardX');
+INSERT INTO cards (id, uuid, name) VALUES (2, 'u2', 'CardY');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Vintage', 'Banned', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Vintage', 'Banned', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (3, 'Legacy', 'Banned', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (4, 'Legacy', 'Banned', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (5, NULL, 'Banned', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (6, NULL, 'Banned', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (7, 'Alchemy', 'Banned', NULL);
+INSERT INTO legalities (id, format, status, uuid) VALUES (8, 'Alchemy', 'Banned', NULL);
+INSERT INTO legalities (id, format, status, uuid) VALUES (9, 'Alchemy', 'Banned', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY T2.format vs GROUP BY T2.format, T1.name or GROUP BY T1.name.
+-- 'Commander' has 3 'Banned' entries across 3 distinct card names (1 per card name).
+-- 'Historic' has 2 'Banned' entries for the exact same card name ('CardZ').
+-- Grouping only by format gives 'Commander' (count 3) > 'Historic' (count 2).
+-- Grouping by both format and name gives ('Historic', 'CardZ') count 2 > ('Commander', ...) count 1.
+INSERT INTO cards (id, uuid, name) VALUES (1, 'u1', 'CardA');
+INSERT INTO cards (id, uuid, name) VALUES (2, 'u2', 'CardB');
+INSERT INTO cards (id, uuid, name) VALUES (3, 'u3', 'CardC');
+INSERT INTO cards (id, uuid, name) VALUES (4, 'u4', 'CardZ');
+INSERT INTO cards (id, uuid, name) VALUES (5, 'u5', 'CardZ');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Commander', 'Banned', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Commander', 'Banned', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (3, 'Commander', 'Banned', 'u3');
+INSERT INTO legalities (id, format, status, uuid) VALUES (4, 'Historic', 'Banned', 'u4');
+INSERT INTO legalities (id, format, status, uuid) VALUES (5, 'Historic', 'Banned', 'u5');
+```
+
+```sql
+-- DATASET 4
+-- Tests COUNT(T2.status) vs COUNT(DISTINCT T1.name) or COUNT(T1.name).
+-- 'Pauper' has 3 'Banned' cards, but two of them have NULL for T1.name, and all have the same non-null name if not NULL.
+-- 'Pioneer' has 2 'Banned' cards with distinct non-null names.
+-- Reference query counts T2.status: 'Pauper' (3) > 'Pioneer' (2).
+-- If a mutant uses COUNT(T1.name) or COUNT(DISTINCT T1.name), 'Pauper' has 1 while 'Pioneer' has 2.
+INSERT INTO cards (id, uuid, name) VALUES (1, 'u1', 'SameName');
+INSERT INTO cards (id, uuid, name) VALUES (2, 'u2', NULL);
+INSERT INTO cards (id, uuid, name) VALUES (3, 'u3', NULL);
+INSERT INTO cards (id, uuid, name) VALUES (4, 'u4', 'Name1');
+INSERT INTO cards (id, uuid, name) VALUES (5, 'u5', 'Name2');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Pauper', 'Banned', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Pauper', 'Banned', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (3, 'Pauper', 'Banned', 'u3');
+INSERT INTO legalities (id, format, status, uuid) VALUES (4, 'Pioneer', 'Banned', 'u4');
+INSERT INTO legalities (id, format, status, uuid) VALUES (5, 'Pioneer', 'Banned', 'u5');
+```
+
+```sql
+-- DATASET 5
+-- Tests case sensitivity and exact matching of 'Banned' vs 'Restricted' or 'banned', and empty result set handling when no 'Banned' exists if mutated.
+-- Also tests tie-breaking when T2.format is identical (e.g. if GROUP BY was omitted or mutated to GROUP BY uuid) using T1.name NULLS LAST.
+INSERT INTO cards (id, uuid, name) VALUES (1, 'u1', NULL);
+INSERT INTO cards (id, uuid, name) VALUES (2, 'u2', 'Beta');
+INSERT INTO cards (id, uuid, name) VALUES (3, 'u3', 'Alpha');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Brawl', 'Banned', 'u3');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Explorer', 'Restricted', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (3, 'Explorer', 'Restricted', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (4, 'Explorer', 'banned', 'u3');
+```

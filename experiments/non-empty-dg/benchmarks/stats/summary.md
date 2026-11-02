@@ -1,0 +1,14 @@
+# Benchmark Dialect Compatibility & Transpilation Stats
+
+| Benchmark | Source Dialect | Total Queries | SQLite-Compatible | MySQL-Compatible | PostgreSQL-Compatible | Verification Time (s) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **beaver** | `mysql` | 5752 | 2255 (39.2%) | 5688 (98.9%) | 2797 (48.6%) | 56.13s |
+| **beaver_nova** | `mysql` | 1053 | 390 (37.0%) | 1053 (100.0%) | 838 (79.6%) | 11.75s |
+| **beaver_neutron** | `mysql` | 996 | 527 (52.9%) | 996 (100.0%) | 723 (72.6%) | 11.82s |
+| **tpch** | `postgres` | 22 | 22 (100.0%) | 10 (45.5%) | 10 (45.5%) | 0.17s |
+| **xdata_bm** | `postgres` | 84 | 77 (91.7%) | 80 (95.2%) | 84 (100.0%) | 0.2s |
+| **largejoin** | `postgres` | 10 | 10 (100.0%) | 10 (100.0%) | 10 (100.0%) | 0.05s |
+| **many_rows_bm** | `sqlite` | 54 | 54 (100.0%) | 54 (100.0%) | 54 (100.0%) | 0.22s |
+
+> All SQLite queries are validated via `EXPLAIN` and execution against in-memory schemas.
+> PostgreSQL and MySQL queries are validated via engine `EXPLAIN` planning with AST transpilation fallbacks.

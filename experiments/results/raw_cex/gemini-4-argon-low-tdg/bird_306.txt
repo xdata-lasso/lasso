@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, filtering out non-'#' bond types, and molecules without bonds or atoms.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR001', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR002', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR003', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR004', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR001_1', 'TR001', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR001_2', 'TR001', 'n');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR002_1', 'TR002', 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR003_1', 'TR003', 'h');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'TR001', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR002', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'TR002', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B4', 'TR004', '#');
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT requirement when a molecule has multiple '#' bonds and multiple atoms of the same element.
+-- Also tests mutants that incorrectly join via the `connected` table instead of `molecule_id`.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', 'M1', 'n');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A4', 'M1', 'o');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'M1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'M1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'M1', '-');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'B1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'A1', 'B1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'A3', 'B3');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A3', 'A2', 'B3');
+-- Note: A4 is in M1, not connected to B1 or B2, but should still be returned by the reference query.
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in join keys (molecule_id), filter column (bond_type), and projected column (element).
+-- Also tests outer join mutants (LEFT/RIGHT JOIN) and DISTINCT on NULL elements.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', NULL);
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', NULL, 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M1', NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', 'M1', NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A4', 'M1', 'h');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', NULL, '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'M1', NULL);
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'M1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B4', 'M2', '#');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong join condition mutants (e.g., joining on bond_id = atom_id, or bond_type = element).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('SHARED_ID', 'M1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M2', '#');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('SHARED_ID', 'M2', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'M1', '-');
+```
+
+```sql
+-- DATASET 5
+-- Tests string matching edge cases on bond_type (e.g., LIKE '%#%', whitespace, multiple characters) and empty result sets.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M2', 'n');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'M1', '##');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'M1', ' #');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'M2', '# ');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B4', 'M2', '');
+```
+
+```sql
+-- DATASET 6
+-- Tests multiple molecules having identical elements and '#' bonds (kills mutants doing GROUP BY element ONLY or DISTINCT element ONLY).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M3', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M1', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', 'M2', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A4', 'M2', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A5', 'M3', 'c');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'M1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'M2', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B3', 'M3', '=');
+```

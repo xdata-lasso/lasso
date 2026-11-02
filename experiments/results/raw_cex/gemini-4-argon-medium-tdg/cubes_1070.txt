@@ -1,0 +1,71 @@
+```sql
+-- DATASET 1
+-- Tests basic join, filtering on customer_first_name = 'Meaghan', ordering by account_id (out of insertion order), and ignoring customers without accounts or with different names.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_middle_initial", "customer_last_name", "gender", "email_address", "login_name", "login_password", "phone_number", "town_city", "state_county_province", "country") VALUES (1, 'Meaghan', 'A', 'Smith', 'F', 'm1@example.com', 'meaghan1', 'pass1', '111-2222', 'Boston', 'MA', 'USA');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_middle_initial", "customer_last_name", "gender", "email_address", "login_name", "login_password", "phone_number", "town_city", "state_county_province", "country") VALUES (2, 'John', 'B', 'Doe', 'M', 'john@example.com', 'johnd', 'pass2', '333-4444', 'New York', 'NY', 'USA');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_middle_initial", "customer_last_name", "gender", "email_address", "login_name", "login_password", "phone_number", "town_city", "state_county_province", "country") VALUES (3, 'Meaghan', 'C', 'Jones', 'F', 'm2@example.com', 'meaghan2', 'pass3', '555-6666', 'Chicago', 'IL', 'USA');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (20, 1, '2022-05-10 10:00:00', 'Savings', 'Details 20');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (10, 1, '2023-01-15 08:30:00', 'Checking', 'Details 10');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (15, 2, '2021-03-20 12:00:00', 'Business', 'Details 15');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (30, NULL, '2020-11-11 11:11:11', 'OrphanAccount', 'No customer');
+```
+
+```sql
+-- DATASET 2
+-- Tests string matching edge cases (case sensitivity 'meaghan', substring 'Meaghan2', whitespace, and 'Meaghan' appearing in last_name or account_name instead of customer_first_name).
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'meaghan', 'Lower');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (2, 'MEAGHAN', 'Upper');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (3, 'Meaghan ', 'TrailingSpace');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (4, 'Alice', 'Meaghan');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (5, 'Meaghan', 'ExactMatch');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (1, 1, '2023-01-01', 'Acc1', 'D1');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (2, 2, '2023-01-02', 'Acc2', 'D2');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (3, 3, '2023-01-03', 'Acc3', 'D3');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (4, 4, '2023-01-04', 'Meaghan', 'Meaghan');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (5, 5, '2023-01-05', 'ValidAcc', 'ValidDetails');
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple customers named 'Meaghan' having multiple accounts, with identical values in account_name, date_account_opened, and other_account_details, as well as NULL values in projected columns. Kills DISTINCT/GROUP BY mutations on non-PK columns and NOT NULL assumptions.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (10, 'Meaghan', 'One');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (20, 'Meaghan', 'Two');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (105, 20, '2022-01-01', 'Standard', 'None');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (101, 10, '2022-01-01', 'Standard', 'None');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (103, 10, NULL, NULL, NULL);
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (102, 20, '2020-05-05', 'Alpha', 'Zeta');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong join predicates (e.g., LHS.account_id = RHS.customer_id or LHS.customer_id = LHS.account_id) and presence of child records in Orders and Financial_Transactions (to kill mutants that unnecessarily inner-join other tables).
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Meaghan', 'Target');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (2, 'Robert', 'Decoy');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (1, 2, '2021-01-01', 'DecoyAccountWithId1', 'Belongs to Robert (cust 2), but account_id is 1');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (2, 1, '2021-06-01', 'TargetAccountWithId2', 'Belongs to Meaghan (cust 1), account_id is 2');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (99, 1, '2021-07-01', 'SecondTargetAccount', 'No transactions or orders linked');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed", "order_details") VALUES (500, 1, '2021-06-15', 'Order 1');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed", "order_details") VALUES (501, 1, '2021-06-16', 'Order 2');
+
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (600, 500, '2021-06-15');
+
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_date", "transaction_amount") VALUES (2, 600, 700, 'Payment', '2021-06-16', 100.00);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_date", "transaction_amount") VALUES (2, 600, 701, 'Refund', '2021-06-17', 50.00);
+```
+
+```sql
+-- DATASET 5
+-- Tests negative/zero account_ids, empty result set scenarios for 'Meaghan' when only other customers have accounts, vs 'Meaghan' having an account with negative ID to test numeric vs lexicographical sorting on account_id.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (100, 'Meaghan');
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (200, NULL);
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (10, 100, '2023-01-01', 'A_Ten', 'Ten');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (2, 100, '2023-02-01', 'B_Two', 'Two');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (-5, 100, '2023-03-01', 'C_MinusFive', 'MinusFive');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (0, 200, '2023-04-01', 'D_Zero', 'NullCustomerName');
+```

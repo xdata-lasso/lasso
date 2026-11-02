@@ -1,0 +1,58 @@
+-- Schema DDL
+CREATE TABLE "ATOM" (
+    "ATOM_ID" TEXT,
+    "MOLECULE_ID" TEXT,
+    "ELEMENT" TEXT,
+    PRIMARY KEY ("ATOM_ID"),
+    FOREIGN KEY ("MOLECULE_ID") REFERENCES "MOLECULE"("MOLECULE_ID")
+);
+CREATE TABLE "BOND" (
+    "BOND_ID" TEXT,
+    "MOLECULE_ID" TEXT,
+    "BOND_TYPE" TEXT,
+    PRIMARY KEY ("BOND_ID"),
+    FOREIGN KEY ("MOLECULE_ID") REFERENCES "MOLECULE"("MOLECULE_ID")
+);
+CREATE TABLE "CONNECTED" (
+    "ATOM_ID" TEXT,
+    "ATOM_ID2" TEXT,
+    "BOND_ID" TEXT,
+    PRIMARY KEY ("ATOM_ID", "ATOM_ID2"),
+    FOREIGN KEY ("ATOM_ID") REFERENCES "ATOM"("ATOM_ID"),
+    FOREIGN KEY ("ATOM_ID2") REFERENCES "ATOM"("ATOM_ID"),
+    FOREIGN KEY ("BOND_ID") REFERENCES "BOND"("BOND_ID")
+);
+CREATE TABLE "MOLECULE" (
+    "MOLECULE_ID" TEXT,
+    "LABEL" TEXT,
+    PRIMARY KEY ("MOLECULE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ATOM VALUES (2, 700091779666040040, 1523168543204945408);
+INSERT INTO ATOM VALUES (3, 700091779666040040, 439989754648462949);
+INSERT INTO BOND VALUES (4, 700091779666040040, 0);
+INSERT INTO BOND VALUES (5, 700091779666040040, 0);
+INSERT INTO CONNECTED VALUES (3, 2, 4);
+INSERT INTO CONNECTED VALUES (2, 2, 4);
+INSERT INTO MOLECULE VALUES (700091779666040040, 0);
+INSERT INTO MOLECULE VALUES (6, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT T.element FROM atom AS T WHERE T.molecule_id = 'TR000' ORDER BY T.element LIMIT 3;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT CASE WHEN element = 'cl' THEN 'Chlorine' WHEN element = 'c' THEN 'Carbon' WHEN element = 'h' THEN 'Hydrogen' WHEN element = 'o' THEN 'Oxygen' WHEN element = 's' THEN 'Sulfur' WHEN element = 'n' THEN 'Nitrogen' WHEN element = 'p' THEN 'Phosphorus' WHEN element = 'na' THEN 'Sodium' WHEN element = 'br' THEN 'Bromine' WHEN element = 'f' THEN 'Fluorine' WHEN element = 'i' THEN 'Iodine' WHEN element = 'sn' THEN 'Tin' WHEN element = 'pb' THEN 'Lead' WHEN element = 'te' THEN 'Tellurium' WHEN element = 'ca' THEN 'Calcium' END AS ELEMENT FROM atom WHERE molecule_id;
+
+/*
+Prediction Result:
+(None,)
+(None,)
+*/

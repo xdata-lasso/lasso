@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. GROUP BY Name vs GROUP BY Teacher_ID (Two different teachers with the exact same name 'Alice')
+-- 2. INNER JOIN vs LEFT/RIGHT JOIN (Teacher 'Charlie' has 0 courses; should be excluded)
+-- 3. COUNT(*) vs COUNT(DISTINCT Course_ID) vs COUNT(DISTINCT Teacher_ID) (Teacher 1 teaches Course 1 in two different grades)
+-- 4. ORDER BY Name ASC vs DESC vs ORDER BY Count
+-- 5. Join condition on Teacher_ID vs Course_ID (IDs intentionally misaligned/overlapping)
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (1, '2023-01-01', 'Math');
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (2, '2023-02-01', 'Physics');
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (3, '2023-03-01', 'Chemistry');
+
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (1, 'Alice', '35', 'NY');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (2, 'Alice', '40', 'LA');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (3, 'Bob', '29', 'Chicago');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (4, 'Charlie', '50', 'Boston');
+
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (1, 1, 10);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (1, 1, 11);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (2, 2, 10);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (3, 3, 12);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Handling of NULL values in Teacher Name (GROUP BY NULL, COUNT(*) vs COUNT(Name), ORDER BY Name NULLS FIRST/LAST)
+-- 2. Handling of NULL values in non-grouped columns (Age, Hometown) to kill COUNT(Age) or COUNT(Hometown) mutants
+-- 3. Inverse correlation between alphabetical Name order and Count order ('Zack' has more courses than 'Aaron')
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (10, '2023-09-01', 'Biology');
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (20, '2023-09-02', 'History');
+
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (10, NULL, '45', 'Seattle');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (20, NULL, NULL, NULL);
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (30, 'Zack', NULL, 'Austin');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (40, 'Aaron', '33', NULL);
+
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (10, 10, 1);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (20, 20, 1);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (10, 30, 1);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (10, 30, 2);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (20, 30, 3);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (20, 40, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Disjoint ID sets between Course_ID and Teacher_ID (Kills LHS.Course_ID = RHS.Teacher_ID join mutants completely)
+-- 2. Single teacher teaching multiple distinct courses at the exact same grade (Kills COUNT(DISTINCT Grade) mutants)
+-- 3. Having clauses (e.g., HAVING COUNT(*) > 1 vs > 2 vs = 1) with counts of 1, 2, and 4
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (101, '2022-01-01', 'CS101');
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (102, '2022-01-01', 'CS102');
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (103, '2022-01-01', 'CS103');
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (104, '2022-01-01', 'CS104');
+
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (1, 'David', '28', 'Denver');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (2, 'Eva', '31', 'Miami');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (3, 'Frank', '60', 'Dallas');
+
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (101, 1, 5);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (102, 1, 5);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (103, 1, 5);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (104, 1, 5);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (101, 2, 5);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (102, 2, 6);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (103, 3, 7);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty child table (course_arrange has 0 rows) while parent tables are populated.
+-- 2. Distinguishes INNER JOIN (returns 0 rows) from RIGHT JOIN / teacher-based LEFT JOIN (returns teachers with 0 or 1 count).
+-- 3. Distinguishes GROUP BY queries (returns 0 rows) from ungrouped aggregate queries if mutated.
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (1, '2023-05-01', 'Art');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (1, 'Grace', '42', 'Portland');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (2, 'Henry', '38', 'Phoenix');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Teachers sharing Age and Hometown, but having different Names (Kills GROUP BY Age or GROUP BY Hometown mutants).
+-- 2. Teachers sharing Name, Age, Hometown, and teaching the exact same Course_ID and Grade (Tests duplicate projection handling before aggregation).
+-- 3. Zero and negative integers in Grade/IDs to kill SUM(Grade) or MIN/MAX mutants replacing COUNT(*).
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (0, '2020-01-01', 'Intro');
+INSERT INTO "course" ("Course_ID", "Staring_Date", "Course") VALUES (-1, '2020-01-02', 'Advanced');
+
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (1, 'Ivy', '30', 'NY');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (2, 'Jack', '30', 'NY');
+INSERT INTO "teacher" ("Teacher_ID", "Name", "Age", "Hometown") VALUES (3, 'Ivy', '30', 'NY');
+
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (0, 1, 0);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (0, 3, 0);
+INSERT INTO "course_arrange" ("Course_ID", "Teacher_ID", "Grade") VALUES (-1, 2, -5);
+```

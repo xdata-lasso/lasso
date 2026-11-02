@@ -1,0 +1,103 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT T1.ID) vs COUNT(*) or COUNT(T1.ID) when a single patient has multiple matching Laboratory and Examination records.
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (1, 'F', 'SLE');
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (1, '2020-01-01', 800);
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (1, '2020-01-02', 850);
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (1, '2020-01-01', 'abortion');
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (1, '2020-01-03', 'abortion');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary conditions for T2.IGG < 900 (899, 900, 901, NULL) and other similar columns (IGA, IGM, aCL IgG).
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (4, 'F');
+
+INSERT INTO Laboratory (ID, Date, IGG, IGA, IGM) VALUES (1, '2020-01-01', 899, 950, 950);
+INSERT INTO Laboratory (ID, Date, IGG, IGA, IGM) VALUES (2, '2020-01-01', 900, 800, 800);
+INSERT INTO Laboratory (ID, Date, IGG, IGA, IGM) VALUES (3, '2020-01-01', 901, 800, 800);
+INSERT INTO Laboratory (ID, Date, IGG, IGA, IGM) VALUES (4, '2020-01-01', NULL, 800, 800);
+
+INSERT INTO Examination (ID, "Examination Date", Symptoms, "aCL IgG") VALUES (1, '2020-01-01', 'abortion', 950.0);
+INSERT INTO Examination (ID, "Examination Date", Symptoms, "aCL IgG") VALUES (2, '2020-01-01', 'abortion', 500.0);
+INSERT INTO Examination (ID, "Examination Date", Symptoms, "aCL IgG") VALUES (3, '2020-01-01', 'abortion', 500.0);
+INSERT INTO Examination (ID, "Examination Date", Symptoms, "aCL IgG") VALUES (4, '2020-01-01', 'abortion', 500.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests exact string match on T3.Symptoms = 'abortion' vs LIKE '%abortion%', case sensitivity, NULL, and confusion with Diagnosis columns.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'other');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'abortion');
+INSERT INTO Patient (ID, Diagnosis) VALUES (3, 'other');
+INSERT INTO Patient (ID, Diagnosis) VALUES (4, 'other');
+INSERT INTO Patient (ID, Diagnosis) VALUES (5, 'other');
+
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (1, '2020-01-01', 500);
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (2, '2020-01-01', 500);
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (3, '2020-01-01', 500);
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (4, '2020-01-01', 500);
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (5, '2020-01-01', 500);
+
+INSERT INTO Examination (ID, Symptoms, Diagnosis) VALUES (1, 'abortion', 'SLE');
+INSERT INTO Examination (ID, Symptoms, Diagnosis) VALUES (2, 'headache', 'abortion');
+INSERT INTO Examination (ID, Symptoms, Diagnosis) VALUES (3, 'habitual abortion', 'SLE');
+INSERT INTO Examination (ID, Symptoms, Diagnosis) VALUES (4, 'Abortion', 'SLE');
+INSERT INTO Examination (ID, Symptoms, Diagnosis) VALUES (5, NULL, 'SLE');
+```
+
+```sql
+-- DATASET 4
+-- Tests date-join mutations: ensures the query joins only on ID and does NOT require Laboratory.Date = Examination."Examination Date" or Patient."First Date".
+INSERT INTO Patient (ID, "First Date", Description, Birthday) VALUES (1, '2018-01-01', '2018-01-01', '1980-01-01');
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (1, '2019-05-05', 750);
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (1, '2021-10-10', 'abortion');
+```
+
+```sql
+-- DATASET 5
+-- Tests logical AND vs OR, and INNER JOIN vs LEFT JOIN (patients with only one matching condition or missing child records).
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (4, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (5, 'F');
+
+-- Patient 1: Matches Laboratory condition, but has no Examination record
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (1, '2020-01-01', 600);
+
+-- Patient 2: Matches Examination condition, but has no Laboratory record
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (2, '2020-01-01', 'abortion');
+
+-- Patient 3: Has both records, matches Laboratory, fails Examination
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (3, '2020-01-01', 600);
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (3, '2020-01-01', 'fever');
+
+-- Patient 4: Has both records, fails Laboratory, matches Examination
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (4, '2020-01-01', 1200);
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (4, '2020-01-01', 'abortion');
+
+-- Patient 5: Has both records and matches both conditions
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (5, '2020-01-01', 600);
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (5, '2020-01-01', 'abortion');
+```
+
+```sql
+-- DATASET 6
+-- Tests multiple patients where each has a mix of matching and non-matching rows in Laboratory and Examination (catches HAVING / MIN / MAX / AVG(IGG) mutations).
+INSERT INTO Patient (ID, SEX) VALUES (10, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (20, 'F');
+
+-- Patient 10: One valid Lab (850) and one high Lab (2000 -> AVG is 1425, MAX is 2000); one valid Exam and one non-matching Exam.
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (10, '2020-01-01', 850);
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (10, '2020-02-01', 2000);
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (10, '2020-01-01', 'abortion');
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (10, '2020-02-01', 'thrombosis');
+
+-- Patient 20: Also valid, ensures COUNT(DISTINCT T1.ID) > 1 (returns 2).
+INSERT INTO Laboratory (ID, Date, IGG) VALUES (20, '2020-03-01', 400);
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (20, '2020-03-01', 'abortion');
+```

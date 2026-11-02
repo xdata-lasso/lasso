@@ -1,0 +1,63 @@
+```sql
+-- DATASET 1
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name) VALUES (1, 'John', 'Doe');
+INSERT INTO Orders (order_id, customer_id, date_order_placed) VALUES (1, 1, '2023-01-01 10:00:00');
+INSERT INTO Invoices (invoice_number, order_id, invoice_date) VALUES (1, 1, '2023-01-02 10:00:00');
+INSERT INTO Accounts (account_id, customer_id, date_account_opened, account_name) VALUES (1, 1, '2023-01-01 09:00:00', 'Main Account');
+
+-- Group 1: Payment, Details_A -> SUM = 100.50 + 100.50 + 50.00 = 251.00 (Tests SUM(DISTINCT), AVG, MAX, MIN, COUNT)
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (1, 1, 1, 'Payment', '2023-01-03 10:00:00', 100.50, 'Comment1', 'Details_A');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (1, 1, 2, 'Payment', '2023-01-04 10:00:00', 100.50, 'Comment1', 'Details_A');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (1, 1, 3, 'Payment', '2023-01-05 10:00:00', 50.00, 'Comment2', 'Details_A');
+
+-- Group 2: Payment, Details_B -> SUM = 251.00 (Same transaction_type and same sum as Group 1! Tests SELECT DISTINCT in outer query)
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (1, 1, 4, 'Payment', '2023-01-06 10:00:00', 251.00, 'Comment1', 'Details_B');
+
+-- Group 3: Payment, Details_C -> SUM = 10.00 (Same transaction_type, lower sum. Tests secondary ORDER BY sum_transaction_amount_ ASC vs DESC)
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (1, 1, 5, 'Payment', '2023-01-07 10:00:00', 10.00, 'Comment3', 'Details_C');
+
+-- Group 4: Refund, Details_A -> SUM = 500.00 (Same other_transaction_details as Group 1, different transaction_type. Tests GROUP BY columns and primary ORDER BY)
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (1, 1, 6, 'Refund', '2023-01-08 10:00:00', 500.00, 'Comment1', 'Details_A');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY, SUM, and ORDER BY (specifically NULLS LAST vs NULLS FIRST), and outer JOIN vs no JOIN (NULL FKs)
+-- Group 1: transaction_type = 'Adjustment', other_transaction_details = NULL -> SUM = NULL (Tests NULLS LAST in secondary sort)
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (NULL, NULL, 1, 'Adjustment', '2023-02-01 10:00:00', NULL, 'Null Amount', NULL);
+
+-- Group 2: transaction_type = 'Adjustment', other_transaction_details = 'Valid_Detail' -> SUM = -20.00 (Tests negative sum vs NULL sum ordering)
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (NULL, NULL, 2, 'Adjustment', '2023-02-02 10:00:00', -50.00, 'Neg Amount', 'Valid_Detail');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (NULL, NULL, 3, 'Adjustment', '2023-02-03 10:00:00', 30.00, 'Pos Amount', 'Valid_Detail');
+
+-- Group 3: transaction_type = 'Adjustment', other_transaction_details = 'Zero_Detail' -> SUM = 0.00 (Tests 0 vs NULL vs negative)
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (NULL, NULL, 4, 'Adjustment', '2023-02-04 10:00:00', 0.00, 'Zero Amount', 'Zero_Detail');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (NULL, NULL, 5, 'Adjustment', '2023-02-05 10:00:00', NULL, 'Ignored Null in Sum', 'Zero_Detail');
+
+-- Group 4: transaction_type = NULL, other_transaction_details = 'Orphan_Type' -> SUM = 15.00 (Tests NULL in transaction_type primary sort)
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (NULL, NULL, 6, NULL, '2023-02-06 10:00:00', 15.00, 'Null Type', 'Orphan_Type');
+```
+
+```sql
+-- DATASET 3
+-- Tests anti-join / extraneous INNER JOIN mutants by having multiple parent records and transactions with mixed FK presence
+INSERT INTO Customers (customer_id, customer_first_name) VALUES (10, 'Alice');
+INSERT INTO Customers (customer_id, customer_first_name) VALUES (20, 'Bob');
+INSERT INTO Accounts (account_id, customer_id) VALUES (100, 10);
+INSERT INTO Orders (order_id, customer_id) VALUES (1000, 20);
+INSERT INTO Invoices (invoice_number, order_id) VALUES (2000, 1000);
+
+-- Transaction linked to Account 100 (Customer 10), but Invoice 2000 (Order 1000 -> Customer 20). 
+-- If a mutant joins Accounts and Invoices and checks Customers.customer_id equality, this row is lost!
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_amount, other_transaction_details) VALUES (100, 2000, 1, 'Transfer', 75.25, 'Cross_Customer');
+
+-- Transaction with Account but NULL Invoice
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_amount, other_transaction_details) VALUES (100, NULL, 2, 'Transfer', 24.75, 'Cross_Customer');
+
+-- Transaction with Invoice but NULL Account
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_amount, other_transaction_details) VALUES (NULL, 2000, 3, 'Fee', 12.34, 'Invoice_Only');
+
+-- Transaction where other_transaction_details has same string as transaction_type (Tests column swap mutants)
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_amount, other_transaction_details) VALUES (100, 2000, 4, 'Alpha', 99.99, 'Beta');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_amount, other_transaction_details) VALUES (100, 2000, 5, 'Beta', 11.11, 'Alpha');
+```

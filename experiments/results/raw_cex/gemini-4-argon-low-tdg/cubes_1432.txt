@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match where Event_ID = 1 (since COUNT(*) per Member_ID PK is 1)
+-- Also includes a member not in charge of event 1 to test join filtering, and an event with ID != 1 to test the LHS.event_id = RHS.n condition.
+INSERT INTO region (Region_ID, Region_name, Date, Label, Format, Catalogue) VALUES (1, 'North', '2020-01-01', 'L1', 'F1', 'C1');
+INSERT INTO party (Party_ID, Region_ID, Minister, Took_office, Left_office, Party_name) VALUES (10, 1, 'Min A', '2020', '2024', 'Alpha Party');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (100, '10', 'Alice', 'Yes');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (200, '10', 'Bob', 'No');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (1, 100, 10, 'Gala');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (2, 200, 10, 'Summit');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition where Member_ID = 1, Event_ID = 1, and COUNT(*) = 1, vs another member who actually owns Event_ID = 1.
+-- Catches mutants that confuse LHS.member_in_charge_id = RHS.member_id with LHS.event_id = RHS.member_id or RHS.member_id = RHS.n.
+INSERT INTO region (Region_ID, Region_name, Date, Label, Format, Catalogue) VALUES (1, 'South', '2021-01-01', 'L2', 'F2', 'C2');
+INSERT INTO party (Party_ID, Region_ID, Minister, Took_office, Left_office, Party_name) VALUES (1, 1, 'Min B', '2021', '2025', 'Beta Party');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (1, '1', 'Charlie', 'Yes');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (50, '1', 'David', 'Yes');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (1, 50, 1, 'Opening');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (50, 1, 1, 'Closing');
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY and COUNT(*) mutations. Multiple members share the same Member_Name ('Eve').
+-- If a mutant groups only by member_name (omitting member_id), COUNT(*) becomes 2, which would falsely match Event_ID = 2 instead of Event_ID = 1.
+INSERT INTO region (Region_ID, Region_name, Date, Label, Format, Catalogue) VALUES (1, 'East', '2022-01-01', 'L3', 'F3', 'C3');
+INSERT INTO party (Party_ID, Region_ID, Minister, Took_office, Left_office, Party_name) VALUES (10, 1, 'Min C', '2019', '2023', 'Gamma Party');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (10, '10', 'Eve', 'Yes');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (20, '10', 'Eve', 'No');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (30, '10', 'Frank', 'Yes');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (1, 10, 10, 'Event One');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (2, 20, 10, 'Event Two');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (3, 30, 10, 'Event Three');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in Member_Name and foreign keys, as well as outer join vs inner join mutations.
+-- The matching member for Event 1 has a NULL Member_Name, while non-matching members have non-NULL names.
+INSERT INTO region (Region_ID, Region_name, Date, Label, Format, Catalogue) VALUES (1, 'West', '2023-01-01', 'L4', 'F4', 'C4');
+INSERT INTO party (Party_ID, Region_ID, Minister, Took_office, Left_office, Party_name) VALUES (100, 1, 'Min D', '2020', '2022', 'Delta Party');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (5, '100', NULL, 'Yes');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (6, NULL, 'Grace', 'No');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (1, 5, 100, 'Null Name Event');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (2, NULL, NULL, 'Orphan Event');
+```
+
+```sql
+-- DATASET 5
+-- Tests cross-party relationships where a member belongs to Party 1, but is in charge of Event 1 hosted by Party 2.
+-- Catches mutants that inject an implicit join condition on LHS.party_id = RHS.party_id.
+INSERT INTO region (Region_ID, Region_name, Date, Label, Format, Catalogue) VALUES (1, 'Central', '2020-05-05', 'L5', 'F5', 'C5');
+INSERT INTO party (Party_ID, Region_ID, Minister, Took_office, Left_office, Party_name) VALUES (1, 1, 'Min E', '2018', '2020', 'Party One');
+INSERT INTO party (Party_ID, Region_ID, Minister, Took_office, Left_office, Party_name) VALUES (2, 1, 'Min F', '2020', '2022', 'Party Two');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (7, '1', 'Heidi', 'Yes');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (8, '2', 'Ivan', 'Yes');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (1, 7, 2, 'Cross Party Rally');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (2, 8, 2, 'Standard Rally');
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set when Event_ID = 1 exists, but its Member_in_charge_ID is NULL, while valid members are only in charge of Event_ID > 1.
+-- Kills mutants using LEFT JOIN, RIGHT JOIN, or OR instead of AND in the join predicate.
+INSERT INTO region (Region_ID, Region_name, Date, Label, Format, Catalogue) VALUES (10, 'Metro', '2015-01-01', 'L6', 'F6', 'C6');
+INSERT INTO party (Party_ID, Region_ID, Minister, Took_office, Left_office, Party_name) VALUES (20, 10, 'Min G', '2015', '2019', 'Zeta Party');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (1, '20', 'Judy', 'Yes');
+INSERT INTO member (Member_ID, Party_ID, Member_Name, In_office) VALUES (2, '20', 'Karl', 'No');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (1, NULL, 20, 'Unassigned Event 1');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (2, 1, 20, 'Judy Event');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (3, 2, 20, 'Karl Event');
+```

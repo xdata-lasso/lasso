@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE T1.StatusType = 'Active' filter (by having 'Closed' and 'Merged' rows with higher AvgScrRead).
+-- 2. INNER JOIN vs LEFT JOIN on schools (by having an Active school with no satscores row and a lower CDSCode).
+-- 3. ORDER BY AvgScrRead DESC vs ASC, and AvgScrRead vs AvgScrMath/Write/NumGE1500/NumTstTakr.
+-- 4. SELECT T1.District vs T2.dname / T1.County / T1.School.
+-- 5. Missing JOIN condition (Cartesian product) or wrong join key.
+-- 6. Unnecessary INNER JOIN with `frpm` table (the winning school '03' is intentionally omitted from `frpm`).
+
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES 
+('01', 'Closed', 'County1', 'Dist_Closed_HighRead', 'School1', '01', 'DocType1', '2020-01-01'),
+('02', 'Active', 'County2', 'Dist_Active_NoSAT', 'School2', '02', 'DocType2', '2020-01-01'),
+('03', 'Active', 'County3', 'Dist_Winner', 'School3', '03', 'DocType3', '2020-01-01'),
+('04', 'Active', 'County4', 'Dist_Active_LowRead_HighMath', 'School4', '04', 'DocType4', '2020-01-01'),
+('05', 'Merged', 'County5', 'Dist_Merged_MaxRead', 'School5', '05', 'DocType5', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES 
+('01', 'S', 'SName1', 'DName_Wrong1', 'CName1', 100, 50, 700, 500, 500, 40),
+('03', 'S', 'SName3', 'DName_Wrong3', 'CName3', 100, 50, 600, 400, 400, 20),
+('04', 'S', 'SName4', 'DName_Wrong4', 'CName4', 500, 400, 500, 800, 800, 350),
+('05', 'S', 'SName5', 'DName_Wrong5', 'CName5', 100, 50, 750, 750, 750, 45);
+
+INSERT INTO frpm (CDSCode, "District Name") VALUES 
+('04', 'Dist_Active_LowRead_HighMath');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL handling in ORDER BY T2.AvgScrRead DESC (In SQLite, NULL is considered the smallest value, so in DESC order NULLs appear last; an Active school with NULL AvgScrRead must not beat an Active school with a non-null AvgScrRead).
+-- 2. Tie-breaking on T1.CDSCode ASC (Two Active schools have the exact same highest AvgScrRead, testing that CDSCode '10' beats '20' and that LIMIT 1 is present).
+-- 3. Case sensitivity / exact string matching for 'Active' vs 'active'.
+
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES 
+('05', 'Active', 'CountyA', 'Dist_NullRead', 'SchoolA', '01', 'DocType1', '2020-01-01'),
+('08', 'active', 'CountyB', 'Dist_LowercaseActive', 'SchoolB', '01', 'DocType1', '2020-01-01'),
+('20', 'Active', 'CountyC', 'Dist_Tie_Lose', 'SchoolC', '01', 'DocType1', '2020-01-01'),
+('10', 'Active', 'CountyD', 'Dist_Tie_Win', 'SchoolD', '01', 'DocType1', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES 
+('05', 'S', 'SNameA', 'DNameA', 'CNameA', 100, 50, NULL, 800, 800, 50),
+('08', 'S', 'SNameB', 'DNameB', 'CNameB', 100, 50, 790, 790, 790, 50),
+('20', 'S', 'SNameC', 'DNameC', 'CNameC', 100, 50, 650, 650, 650, 30),
+('10', 'S', 'SNameD', 'DNameD', 'CNameD', 100, 50, 650, 500, 500, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Boundary conditions where AvgScrRead is 0 or negative vs NULL.
+-- 2. Filtering out extra rtype filters if a mutant wrongly restricts satscores.rtype (e.g., rtype = 'S' vs 'D').
+-- 3. Testing Charter / Magnet / Virtual columns if a mutant wrongly confuses 'Active' with Charter = 1 or similar flags.
+
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Charter, Magnet, DOC, DOCType, LastUpdate) VALUES 
+('100', 'Active', 'CountyX', 'Dist_ZeroScore_Winner', 'SchoolX', 0, 0, '01', 'DocType1', '2020-01-01'),
+('200', 'Active', 'CountyY', 'Dist_NullScore_Loser', 'SchoolY', 1, 1, '01', 'DocType1', '2020-01-01'),
+('300', 'Pending', 'CountyZ', 'Dist_Pending_HighScore', 'SchoolZ', 1, 1, '01', 'DocType1', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES 
+('100', 'D', 'SNameX', 'DNameX', 'CNameX', 0, 0, 0, 0, 0, 0),
+('200', 'S', 'SNameY', 'DNameY', 'CNameY', 200, 100, NULL, NULL, NULL, NULL),
+('300', 'S', 'SNameZ', 'DNameZ', 'CNameZ', 200, 100, 500, 500, 500, 50);
+```

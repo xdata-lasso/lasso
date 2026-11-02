@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Grouping by both (district, party) vs grouping ONLY by party.
+-- 2. MAX(n) vs SUM(n) across districts.
+-- 3. Joining with debate_people (unreferenced people) vs querying 'people' directly.
+-- 4. MAX(Age) vs COUNT(*).
+-- 5. ORDER BY DESC vs ASC.
+-- 6. LIMIT 1 vs no LIMIT.
+-- 'Dem' has the highest total count (4 across D1, D2) and highest age (90), and is in debate_people.
+-- 'Rep' has the highest count within a SINGLE district (3 in D1), which is what the Reference Query actually selects.
+-- 'Ind' has the lowest count (1 in D3) to catch ASC vs DESC mutations.
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (1, 'D1', 'Alice', 'Dem', 90);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (2, 'D1', 'Bob', 'Dem', 80);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (3, 'D2', 'Charlie', 'Dem', 85);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (4, 'D2', 'David', 'Dem', 70);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (5, 'D1', 'Eve', 'Rep', 20);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (6, 'D1', 'Frank', 'Rep', 25);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (7, 'D1', 'Grace', 'Rep', 30);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (8, 'D3', 'Heidi', 'Ind', 40);
+
+INSERT INTO "debate" ("Debate_ID", "Date", "Venue", "Num_of_Audience") VALUES (101, '2023-01-01', 'Hall A', 500);
+
+INSERT INTO "debate_people" ("Debate_ID", "Affirmative", "Negative", "If_Affirmative_Win") VALUES (101, 1, 2, 1);
+INSERT INTO "debate_people" ("Debate_ID", "Affirmative", "Negative", "If_Affirmative_Win") VALUES (101, 3, 4, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Grouping by both (district, party) vs grouping ONLY by district (where a bare 'party' column is arbitrarily picked in SQLite).
+-- 2. COUNT(*) vs COUNT(DISTINCT Name) or COUNT(DISTINCT Age).
+-- 3. Selecting 'district' or 'Name' instead of 'party'.
+-- D1 has the largest total district size (5 people: 2 Green, 2 Lib, 1 Con), so GROUP BY district picks D1 (and either Green/Lib/Con).
+-- D2 has 'Whig' with 3 people (all sharing the same Name and Age), which is the true maximum for a (district, party) pair (count = 3).
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (1, 'D1', 'A', 'Green', 50);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (2, 'D1', 'B', 'Green', 51);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (3, 'D1', 'C', 'Lib', 52);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (4, 'D1', 'D', 'Lib', 53);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (5, 'D1', 'E', 'Con', 54);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (6, 'D2', 'SameName', 'Whig', 40);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (7, 'D2', 'SameName', 'Whig', 40);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (8, 'D2', 'SameName', 'Whig', 40);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. COUNT(*) vs COUNT(Age) or COUNT(Name) when NULL values are present.
+-- 2. Handling of NULLs in non-grouping columns.
+-- 'Labor' in D1 has 3 rows, but Age and Name are NULL in 2 of them (COUNT(*) = 3, COUNT(Age) = 1).
+-- 'Tory' in D2 has 2 rows with non-null values (COUNT(*) = 2, COUNT(Age) = 2).
+-- Reference query outputs 'Labor'. Mutants using COUNT(Age) or COUNT(Name) or filtering WHERE Age IS NOT NULL will output 'Tory'.
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (1, 'D1', 'John', 'Labor', 35);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (2, 'D1', NULL, 'Labor', NULL);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (3, 'D1', NULL, 'Labor', NULL);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (4, 'D2', 'Mary', 'Tory', 45);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (5, 'D2', 'Jane', 'Tory', 55);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Outer GROUP BY (district, party) vs Outer GROUP BY (district) or Outer GROUP BY (party).
+-- 2. MAX(n) vs MIN(n) in the outer query if grouped improperly.
+-- In D1: 'Alpha' has 2, 'Beta' has 4. (If grouped by district, MAX(n) is 4, but SQLite might pick 'Alpha' or 'Beta' depending on internal order; if MIN(n), it's 2).
+-- In D2: 'Alpha' has 3.
+-- Also tests alphabetical ordering of party names vs ordering by maxn DESC ('Zeta' has 5 in D3, which is the true winner, despite being last alphabetically).
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (1, 'D1', 'P1', 'Alpha', 30);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (2, 'D1', 'P2', 'Alpha', 30);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (3, 'D2', 'P3', 'Alpha', 30);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (4, 'D2', 'P4', 'Alpha', 30);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (5, 'D2', 'P5', 'Alpha', 30);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (6, 'D3', 'P6', 'Zeta', 30);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (7, 'D3', 'P7', 'Zeta', 30);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (8, 'D3', 'P8', 'Zeta', 30);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (9, 'D3', 'P9', 'Zeta', 30);
+INSERT INTO "people" ("People_ID", "District", "Name", "Party", "Age") VALUES (10, 'D3', 'P10', 'Zeta', 30);
+```

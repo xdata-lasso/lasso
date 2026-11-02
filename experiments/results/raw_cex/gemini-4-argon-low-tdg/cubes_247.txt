@@ -1,0 +1,71 @@
+```sql
+-- DATASET 1
+-- Tests standard INNER JOIN vs LEFT/RIGHT JOIN, GROUP BY on template_type_code vs template_id, and COUNT(*) vs COUNT(DISTINCT template_id).
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('TYPE_A', 'Desc A');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('TYPE_B', 'Desc B');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('TYPE_C', 'Desc C');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('TYPE_D', 'Desc D');
+
+-- TYPE_A has 2 templates, linked to 2 and 1 documents respectively (Total count = 3)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, 'TYPE_A', 1, '2020-01-01', '2025-01-01', 'Det 1');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (2, 'TYPE_A', 2, '2020-01-01', '2025-01-01', 'Det 2');
+
+-- TYPE_B has 1 template, linked to 1 document (Total count = 1)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (3, 'TYPE_B', 1, '2020-01-01', '2025-01-01', 'Det 3');
+
+-- TYPE_C has 1 template, linked to 0 documents (Should be excluded by INNER JOIN)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (4, 'TYPE_C', 1, '2020-01-01', '2025-01-01', 'Det 4');
+
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (10, 1, 'Doc 10', 'Desc 10', 'Other 10');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (20, 1, 'Doc 20', 'Desc 20', 'Other 20');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (30, 2, 'Doc 30', 'Desc 30', 'Other 30');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (40, 3, 'Doc 40', 'Desc 40', 'Other 40');
+-- Document with NULL Template_ID (Should be excluded by INNER JOIN)
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (50, NULL, 'Doc 50', 'Desc 50', 'Other 50');
+
+-- Paragraphs to catch mutants that erroneously join the Paragraphs table
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (100, 10, 'Para 1', 'Other');
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (101, 10, 'Para 2', 'Other');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY, COUNT(*) vs COUNT(col), and ORDER BY ASC vs DESC when counts inversely correlate with alphabetical order.
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('ALPHA', 'Alpha Type');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('BETA', 'Beta Type');
+
+-- Template with NULL Template_Type_Code (Valid in SQLite foreign keys; tests if NULL group is preserved and how it is ordered)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, NULL, NULL, NULL, NULL, NULL);
+
+-- ALPHA has 1 document, BETA has 3 documents (Tests ORDER BY template_type_code vs ORDER BY count___)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (2, 'ALPHA', 1, NULL, NULL, NULL);
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (3, 'BETA', 1, NULL, NULL, NULL);
+
+-- Documents with NULLs in non-key attributes to kill mutants using COUNT(document_name) or COUNT(template_type_code) instead of COUNT(*)
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (1, 1, NULL, NULL, NULL);
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (2, 1, 'Doc 2', NULL, NULL);
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (3, 2, NULL, 'Desc', NULL);
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (4, 3, 'SameName', NULL, NULL);
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (5, 3, 'SameName', NULL, NULL);
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (6, 3, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition mutations (e.g., joining on Document_ID = Template_ID or Document_ID = Version_Number) and HAVING clause mutations (e.g., HAVING COUNT(*) > 1).
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T1', 'Type 1');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T2', 'Type 2');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T3', 'Type 3');
+
+-- Overlapping IDs between Templates, Version_Number, and Documents to trap incorrect ON clauses
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (10, 'T1', 20, '2021-01-01', '2022-01-01', 'D1');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (20, 'T2', 10, '2021-01-01', '2022-01-01', 'D2');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (30, 'T3', 30, '2021-01-01', '2022-01-01', 'D3');
+
+-- Doc 10 belongs to Template 20 (T2). If joined on Doc_ID = Template_ID, it falsely matches Template 10 (T1).
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (10, 20, 'D_10', 'Desc', 'O');
+-- Doc 20 belongs to Template 20 (T2).
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (20, 20, 'D_20', 'Desc', 'O');
+-- Doc 99 belongs to Template 10 (T1). Count for T1 is 1 (tests HAVING COUNT > 1).
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (99, 10, 'D_99', 'Desc', 'O');
+```

@@ -1,0 +1,50 @@
+-- Schema DDL
+CREATE TABLE "ALLERGY_TYPE" (
+    "ALLERGY" TEXT,
+    "ALLERGYTYPE" TEXT,
+    PRIMARY KEY ("ALLERGY")
+);
+CREATE TABLE "HAS_ALLERGY" (
+    "ALLERGY" TEXT,
+    "STUID" INT,
+    FOREIGN KEY ("ALLERGY") REFERENCES "ALLERGY_TYPE"("ALLERGY"),
+    FOREIGN KEY ("STUID") REFERENCES "STUDENT"("STUID")
+);
+CREATE TABLE "STUDENT" (
+    "STUID" INT,
+    "LNAME" TEXT,
+    "FNAME" TEXT,
+    "AGE" INT,
+    "SEX" TEXT,
+    "MAJOR" INT,
+    "ADVISOR" INT,
+    "CITY_CODE" TEXT,
+    PRIMARY KEY ("STUID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ALLERGY_TYPE VALUES (-1, 0);
+INSERT INTO ALLERGY_TYPE VALUES (0, 0);
+INSERT INTO HAS_ALLERGY VALUES (0, 0);
+INSERT INTO HAS_ALLERGY VALUES (-1, 1);
+INSERT INTO STUDENT VALUES (1, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO STUDENT VALUES (0, 0, 0, 0, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT allergy FROM (SELECT * FROM (SELECT * FROM (SELECT allergy, COUNT(*) AS n FROM has_allergy GROUP BY allergy) ORDER BY n DESC) LIMIT 1);
+
+/*
+Gold Result:
+('-1',)
+*/
+
+-- Prediction Query
+SELECT Allergy FROM Has_allergy GROUP BY Allergy ORDER BY COUNT(*) DESC, Allergy NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('-1',)
+*/

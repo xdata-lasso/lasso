@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests standard anti-join, duplicate tourist_details, multiple visits per tourist, and overlapping IDs across Visit_ID, Tourist_ID, and Tourist_Attraction_ID.
+-- Expected result: 2 (Visitors 1 and 2 have no visits).
+INSERT INTO "Locations" ("Location_ID", "Location_Name", "Address", "Other_Details") VALUES (1, 'Downtown', '100 Main St', 'None');
+INSERT INTO "Ref_Attraction_Types" ("Attraction_Type_Code", "Attraction_Type_Description") VALUES ('MUSEUM', 'Museum');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (1, 'MUSEUM', 1, 'Bus', 'City Museum', 'History', '9-5', 'None');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (2, 'MUSEUM', 1, 'Walk', 'Art Gallery', 'Art', '10-6', 'None');
+
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (1, 'Same Details');
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (2, 'Same Details');
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (3, 'Frequent Visitor');
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (4, 'Single Visitor');
+
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (1, 3, 1, '2023-01-01 10:00:00', 'First visit');
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (2, 3, 2, '2023-01-02 11:00:00', 'Second visit');
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (3, 4, 1, '2023-01-03 12:00:00', 'Third visit');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set (all visitors have visits).
+-- Expected result: 0 rows returned (since COUNT(*) OVER () is a window function over 0 rows, unlike aggregate COUNT(*) which returns 0).
+INSERT INTO "Locations" ("Location_ID", "Location_Name", "Address", "Other_Details") VALUES (1, 'Uptown', '200 High St', 'None');
+INSERT INTO "Ref_Attraction_Types" ("Attraction_Type_Code", "Attraction_Type_Description") VALUES ('PARK', 'Theme Park');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (10, 'PARK', 1, 'Train', 'Fun Land', 'Rides', '9-9', 'None');
+
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (1, 'Alice');
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (2, 'Bob');
+
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (100, 1, 10, '2023-05-01 09:00:00', 'Morning');
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (101, 2, 10, '2023-05-01 14:00:00', 'Afternoon');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Visits.Tourist_ID (catches NOT IN vs NOT EXISTS bugs) and NULL in Visitors.Tourist_Details (catches COUNT(Tourist_Details) bugs).
+-- Expected result: 2 (Visitors 1 and 2 have no matching visits; the NULL Tourist_ID in Visits does not block NOT EXISTS).
+INSERT INTO "Locations" ("Location_ID", "Location_Name", "Address", "Other_Details") VALUES (1, 'Center', '1 Plaza', 'None');
+INSERT INTO "Ref_Attraction_Types" ("Attraction_Type_Code", "Attraction_Type_Description") VALUES ('SHOP', 'Shopping');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (1, 'SHOP', 1, 'Subway', 'Mall', 'Big Mall', '8-10', 'None');
+
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (1, NULL);
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (2, 'Bob');
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (3, 'Charlie');
+
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (1, 3, 1, '2023-06-01 10:00:00', 'Valid visit');
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (2, NULL, 1, '2023-06-02 10:00:00', 'Anonymous visit');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty Visits table when Visitors is populated.
+-- Expected result: 3.
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (10, 'Visitor A');
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (20, 'Visitor B');
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (30, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests single unvisited tourist (boundary condition where COUNT = 1, testing DISTINCT vs non-DISTINCT and off-by-one errors).
+-- Expected result: 1.
+INSERT INTO "Locations" ("Location_ID", "Location_Name", "Address", "Other_Details") VALUES (1, 'Port', '5 Dock St', 'None');
+INSERT INTO "Ref_Attraction_Types" ("Attraction_Type_Code", "Attraction_Type_Description") VALUES ('MARKET', 'Street Market');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (5, 'MARKET', 1, 'Ferry', 'Fish Market', 'Fresh fish', '6-2', 'None');
+
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (1, 'Lonely Unvisited');
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (2, 'Visited A');
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (3, 'Visited B');
+
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (10, 2, 5, '2023-07-01 07:00:00', 'Bought fish');
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (11, 3, 5, '2023-07-01 08:00:00', 'Just looking');
+```

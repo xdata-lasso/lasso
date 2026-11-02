@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "Activity" ("player_id" INTEGER, "event_date" DATE, "device_id" INTEGER, "games_played" INTEGER, PRIMARY KEY ("player_id", "event_date"), CHECK ("games_played" >= 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "activity" ("player_id", "event_date", "device_id", "games_played") VALUES (1007, '1974-05-05', 1008, 1009);
+INSERT INTO "activity" ("player_id", "event_date", "device_id", "games_played") VALUES (1010, NULL, 1011, 1012);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT PLAYER_ID, DEVICE_ID FROM ACTIVITY WHERE (PLAYER_ID, EVENT_DATE) IN (SELECT PLAYER_ID, MIN(EVENT_DATE) FROM ACTIVITY GROUP BY PLAYER_ID);
+
+/*
+Gold Result:
+(1007, 1008)
+*/
+
+-- Prediction Query
+WITH REGISTER_DAY AS (SELECT PLAYER_ID, MIN(EVENT_DATE) AS R_DAY FROM ACTIVITY GROUP BY PLAYER_ID) SELECT REGISTER_DAY.PLAYER_ID, ACTIVITY.DEVICE_ID FROM REGISTER_DAY LEFT JOIN ACTIVITY ON REGISTER_DAY.PLAYER_ID = ACTIVITY.PLAYER_ID AND REGISTER_DAY.R_DAY = ACTIVITY.EVENT_DATE;
+
+/*
+Prediction Result:
+(1007, 1008)
+(1010, None)
+*/

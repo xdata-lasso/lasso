@@ -1,0 +1,18 @@
+{
+  "id": "anti_join_subquery_predicate_mutation_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE Vessels (vessel_id INTEGER PRIMARY KEY, vessel_name TEXT NOT NULL, is_active INTEGER NOT NULL);\nCREATE TABLE Inspections (inspection_id INTEGER PRIMARY KEY, vessel_id INTEGER NOT NULL, result_status TEXT NOT NULL, severity TEXT NOT NULL, FOREIGN KEY (vessel_id) REFERENCES Vessels (vessel_id));",
+  "correct_query": "SELECT v.vessel_id, v.vessel_name FROM Vessels AS v WHERE v.is_active = 1 AND NOT EXISTS (SELECT 1 FROM Inspections AS i WHERE i.vessel_id = v.vessel_id AND i.result_status = 'FAILED')",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "spurious_conjunct_in_not_exists",
+      "description": "Adds a spurious conjunct i.severity <> 'MINOR' inside the NOT EXISTS subquery, failing to exclude outer rows when the matching subquery row has severity = 'MINOR'.",
+      "query": "SELECT v.vessel_id, v.vessel_name FROM Vessels AS v WHERE v.is_active = 1 AND NOT EXISTS (SELECT 1 FROM Inspections AS i WHERE i.vessel_id = v.vessel_id AND i.result_status = 'FAILED' AND i.severity <> 'MINOR')"
+    },
+    {
+      "id": "omitted_conjunct_in_not_exists",
+      "description": "Omits the status filter i.result_status = 'FAILED' inside the NOT EXISTS subquery, erroneously excluding outer rows that have only non-failed inspections.",
+      "query": "SELECT v.vessel_id, v.vessel_name FROM Vessels AS v WHERE v.is_active = 1 AND NOT EXISTS (SELECT 1 FROM Inspections AS i WHERE i.vessel_id = v.vessel_id)"
+    }
+  ]
+}

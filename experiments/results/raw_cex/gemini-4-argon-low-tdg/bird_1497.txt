@@ -1,0 +1,112 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (Segment = 'SME', Date = '201206'), ASC vs DESC ordering, and LIMIT 1.
+-- C2 should win (Consumption 20.0).
+-- C1 has lower consumption (5.0) but wrong Segment ('LAM').
+-- C4 has lower consumption (2.0) but wrong Date ('201205').
+-- C3 has valid Segment and Date, but higher consumption (50.0) - kills DESC mutants.
+-- C5 has valid Segment, but no yearmonth record - kills LEFT JOIN mutants.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'SME', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201206', 5.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 20.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201206', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201205', 2.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201207', 100.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on CustomerID ASC, and tests mutants that omit the WHERE Date filter while keeping GROUP BY.
+-- C10 and C20 tie on '201206' with Consumption = 30.0. C10 should win due to CustomerID ASC tie-breaker.
+-- However, across all dates, C10 has total 1030.0 while C20 has total 30.0.
+-- If a mutant omits WHERE T2.Date = '201206', C20 wins instead of C10.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201206', 30.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201205', 1000.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201206', 30.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL Consumption handling and COUNT(T2.Consumption) vs SUM(T2.Consumption) mutants.
+-- In SQLite, NULLs are considered smaller than any non-NULL value in ASC order.
+-- C2 has NULL consumption -> SUM(Consumption) is NULL, which sorts first in ASC.
+-- C1 has 0.0 consumption -> if a mutant uses COALESCE(Consumption, 0) or filters IS NOT NULL, or uses COUNT(), C1 might win or tie differently.
+-- C3 has negative consumption (-10.0) -> tests signed ordering vs NULL ordering.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201206', 0.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201206', -10.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests mutants that replace SUM(T2.Consumption) with COUNT(*) or COUNT(T2.Consumption), or omit GROUP BY.
+-- Both C1 and C2 have 1 row in '201206'.
+-- C1 has Consumption = 500.0, C2 has Consumption = 100.0.
+-- Gold query returns C2 (100.0 < 500.0).
+-- A mutant ordering by COUNT(*) ASC, T1.CustomerID ASC will see a tie (1 == 1) and return C1 (since CustomerID 1 < 2).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201206', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 100.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary conditions on Date ('201205', '201206', '201207') and Segment case/substring sensitivity ('sme', 'SME ', 'KAM').
+-- Kills mutants using LIKE '%SME%', >= '201206', <= '201206', or <> '201206'.
+-- Only C4 is strictly valid ('SME' and '201206') with a very high consumption (9999.0).
+-- Any relaxation of the WHERE predicates will cause C1, C2, or C3 (which have tiny consumptions) to be selected instead of C4.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'sme', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, NULL, 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201206', 1.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201205', 2.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201207', 3.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201206', 9999.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (5, '201206', 0.5);
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set behavior when data exists in both tables, and matches exist individually for Segment='SME' and Date='201206',
+-- but NO joined row satisfies both conditions simultaneously (kills OR vs AND mutants in the WHERE clause).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'LAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201205', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 20.0);
+```
+
+```sql
+-- DATASET 7
+-- Tests mutants that join or query the wrong table (e.g., transactions_1k instead of yearmonth) or join on wrong columns.
+-- In yearmonth, C2 has the minimum consumption (15.0 vs C1's 80.0).
+-- In transactions_1k, C1 has the minimum Amount/Price.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (100, 1, 'CZE', 'SME');
+INSERT INTO products (ProductID, Description) VALUES (200, 'Diesel');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201206', 80.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201206', 15.0);
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-06-15', '12:00:00', 1, 10, 100, 200, 1, 1.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-06-15', '12:05:00', 2, 20, 100, 200, 500, 500.0);
+```

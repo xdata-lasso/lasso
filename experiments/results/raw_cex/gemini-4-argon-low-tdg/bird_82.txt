@@ -1,0 +1,47 @@
+```sql
+-- DATASET 1
+-- Tests: ABS(longitude) vs raw longitude, ASC vs DESC, LIMIT 1, Join vs Single Table, and Column Selection (GSoffered vs GSserved).
+-- The row with the largest ABS(longitude) (-122.5) is an orphan row (no matching records in frpm or satscores), killing unnecessary INNER JOINs.
+-- Every row has a distinct GSoffered to guarantee any sorting or filtering mutation produces a different output.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('1003', 'Active', 'Alameda', 'DistA', '00', 'TypeA', 'K-12', 'K-8', 37.5, -122.5, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('1001', 'Closed', 'Butte', 'DistB', '00', 'TypeB', '9-12', '9-11', 89.9, 110.0, '2020-01-02');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('1002', 'Active', 'Colusa', 'DistC', '00', 'TypeC', 'K-5', 'K-6', -10.0, -5.0, '2020-01-03');
+
+INSERT INTO frpm (CDSCode, "Academic Year") VALUES ('1001', '2014-15');
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr) VALUES ('1002', 'S', 100, 50);
+```
+
+```sql
+-- DATASET 2
+-- Tests: Tie-breaking on ORDER BY schools.cdscode (ASC vs DESC) when ABS(longitude) values are equal (both positive and negative with same magnitude).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('2002', 'Active', 'Alameda', 'DistA', '00', 'TypeA', '6-8', '6-8', 40.0, -120.0, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('2001', 'Active', 'Butte', 'DistB', '00', 'TypeB', 'K-8', 'K-8', 35.0, 120.0, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('2000', 'Active', 'Colusa', 'DistC', '00', 'TypeC', '9-12', '9-12', 45.0, -100.0, '2020-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests: Handling of NULL in Longitude and NULL in GSoffered.
+-- In SQLite, NULL is considered smaller than any non-NULL value, so ORDER BY ABS(longitude) DESC places NULLs at the bottom.
+-- Also tests queries that mistakenly add WHERE GSoffered IS NOT NULL when the winning row has a NULL GSoffered.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('3001', 'Active', 'Alameda', 'DistA', '00', 'TypeA', 'K-12', 'K-12', 38.0, NULL, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('3002', 'Active', 'Butte', 'DistB', '00', 'TypeB', NULL, 'K-6', 37.0, -119.5, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('3003', 'Active', 'Colusa', 'DistC', '00', 'TypeC', '7-12', '7-12', 36.0, 115.0, '2020-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests: Floating point precision in ABS(longitude) and string vs numeric sorting on CDSCode.
+-- '0999' < '1000' alphabetically and numerically, whereas '10000' < '2000' alphabetically but not numerically (tests CAST(cdscode AS INT) mutations).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('10000', 'Active', 'Alameda', 'DistA', '00', 'TypeA', 'P-12', 'P-12', 34.0, -118.123456, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('2000', 'Active', 'Butte', 'DistB', '00', 'TypeB', 'K-5', 'K-5', 34.0, 118.123456, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('0500', 'Active', 'Colusa', 'DistC', '00', 'TypeC', '9-12', '9-12', 34.0, -118.123455, '2020-01-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests: Positive longitude having the maximum absolute value, ensuring mutants that do `ORDER BY longitude ASC` (trying to get the most negative number) fail.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('5001', 'Active', 'Alameda', 'DistA', '00', 'TypeA', '1-12', '1-12', 35.0, -114.2, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('5002', 'Active', 'Butte', 'DistB', '00', 'TypeB', 'K-6', 'K-6', 36.0, 124.8, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, GSoffered, GSserved, Latitude, Longitude, LastUpdate) VALUES ('5003', 'Active', 'Colusa', 'DistC', '00', 'TypeC', '6-8', '6-8', 37.0, 0.0, '2020-01-01');
+```

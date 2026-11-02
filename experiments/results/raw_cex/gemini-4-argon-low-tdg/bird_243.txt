@@ -1,0 +1,123 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, asymmetric directionality (atom_id vs atom_id2), AND vs OR logic, and cross-molecule bond vs molecule_id confusion.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'p');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm2', 'p');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a6', 'm3', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a7', 'm3', 'o');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '2');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm2', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b4', 'm2', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b5', 'm3', '1');
+
+-- b1: valid match where both 'n' (a1) and 'p' (a2) appear as the first column (atom_id) in connected
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a1', 'b1');
+
+-- b2: asymmetric test; 'n' (a1) is in atom_id, 'p' (a2) is ONLY in atom_id2. Should NOT match Reference Query.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b2');
+
+-- b3, b4: same molecule 'm2' has both 'n' (a4) and 'p' (a5), but on DIFFERENT bonds. Tests join on molecule_id vs bond_id.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a4', 'a3', 'b3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a5', 'a3', 'b4');
+
+-- b5: has 'n' (a6) in atom_id, but connected to 'o' (a7). Tests OR vs AND mutations and NOT IN mutations.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a6', 'a7', 'b5');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a7', 'a6', 'b5');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate preservation (SELECT vs SELECT DISTINCT) and IN-subquery vs INNER JOIN multiplicity differences.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'p');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm1', 'p');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm1', 'c');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '2');
+
+-- b1 has ONE 'n' atom (a1) in atom_id, and TWO 'p' atoms (a3, a4) in atom_id.
+-- Reference Query (using IN) outputs 'b1' ONCE. An un-deduplicated INNER JOIN mutant outputs 'b1' TWICE.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a3', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a1', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a4', 'a1', 'b1');
+
+-- b2 has TWO 'n' atoms (a1, a2) in atom_id, and ONE 'p' atom (a3) in atom_id.
+-- Reference Query outputs 'b2' TWICE. A SELECT DISTINCT mutant outputs 'b2' ONCE.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a5', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a5', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a5', 'b2');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling (NULL bond_id, NULL element), case sensitivity ('N'/'P' vs 'n'/'p'), and outer join mutations.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', NULL);
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'p');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'N');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm1', 'P');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm1', NULL);
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm1', '1');
+
+-- NULL bond_id in connected for valid 'n' and 'p' atoms. (NULL IN (NULL, ...) evaluates to UNKNOWN, should not be returned unless IS NOT DISTINCT FROM or COALESCE is mistakenly used).
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', NULL);
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a1', NULL);
+
+-- b1: Uppercase 'N' and 'P' elements. Tests case-sensitivity / LIKE mutations.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a4', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a4', 'a3', 'b1');
+
+-- b2: 'n' connected with NULL element atom.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a5', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a5', 'a1', 'b2');
+
+-- b3: 'p' in atom_id2, 'n' in atom_id2, while atom_id is NULL element (a5).
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a5', 'a1', 'b3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a5', 'a2', 'b3');
+```
+
+```sql
+-- DATASET 4
+-- Tests edge case where T1.atom_id = T2.atom_id2, and tests where the 'n' and 'p' atoms are in the same connected tuple vs different tuples, or where an atom is only 'p' without 'n'.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'p');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'c');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm1', '1');
+
+-- b1: 'p' (a2) is in atom_id, 'n' (a1) is ONLY in atom_id2.
+-- Catches mutants that join T1 on T2.atom_id2 instead of T2.atom_id, or swap 'n' and 'p'.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a1', 'b1');
+
+-- b2: 'n' (a1) and 'p' (a2) both have b2 as their bond_id, but neither is directly connected to the other (both connected to 'c' a3).
+-- Reference Query DOES return 'b2' because it only checks that 'b2' is shared in `connected` by an 'n' atom_id and a 'p' atom_id, NOT that T2.atom_id2 = T4.atom_id!
+-- This kills mutants that rewrite the query into: T1.atom_id = T2.atom_id AND T2.atom_id2 = T4.atom_id.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a3', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a3', 'b2');
+
+-- b3: Only 'p' (a2) is involved. Kills mutants that drop `T1.element = 'n'` or use `T1.element = 'p'`.
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a3', 'b3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a2', 'b3');
+```

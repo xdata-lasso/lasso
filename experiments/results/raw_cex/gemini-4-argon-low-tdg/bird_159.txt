@@ -1,0 +1,120 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, boundary client_ids (3355, 3357), different operations, and NULL operation.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3355, 'M', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3356, 'F', '1985-05-05', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3357, 'M', '1990-10-10', 1);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 1, 'POPLATEK MESICNE', '1995-01-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (103, 1, 'POPLATEK MESICNE', '1995-01-03');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (201, 3355, 101, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (202, 3356, 102, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (203, 3357, 103, 'OWNER');
+
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1001, 102, '1996-01-01', 'VYDAJ', 'VYBER', 500, 5000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1002, 102, '1996-01-02', 'PRIJEM', 'VKLAD', 500, 5500, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1003, 102, '1996-01-03', 'VYDAJ', NULL, 100, 5400, 'SLUZBY', NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1004, 101, '1996-01-01', 'VYDAJ', 'VYBER', 500, 5000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1005, 103, '1996-01-01', 'VYDAJ', 'VYBER', 500, 5000, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests JOIN key traps (confusing account_id, client_id, disp_id, district_id, or trans.account with trans.account_id) and extra filters on disp.type or trans.type.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'D10', 'R10', '100', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'D20', 'R20', '100', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3356, 'M', '1970-01-01', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (9999, 'F', '1975-01-01', 20);
+
+-- Account 500 is in district 20 (different from client 3356's district 10) to kill mutants joining client and account on district_id.
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (500, 20, 'POPLATEK TYDNE', '1993-01-01');
+-- Account 3356 has ID matching target client_id, owned by someone else, to kill mutants filtering account_id = 3356 or joining client_id = account_id.
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3356, 10, 'POPLATEK MESICNE', '1993-01-01');
+-- Account 400 has ID matching disp_id 400, owned by someone else, to kill mutants joining disp_id = account_id.
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (400, 10, 'POPLATEK MESICNE', '1993-01-01');
+
+-- Client 3356 is a DISPONENT on Account 500 (kills mutants filtering disp.type = 'OWNER').
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (400, 3356, 500, 'DISPONENT');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (3356, 9999, 3356, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (401, 9999, 400, 'OWNER');
+
+-- Valid match for client 3356 on account 500 (with unusual trans.type 'PRIJEM' and operation 'VYBER').
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2001, 500, '1997-05-05', 'PRIJEM', 'VYBER', 1000, 2000, 'UROK', 'AB', 9999);
+-- Trap: operation is 'VYBER KARTOU' instead of 'VYBER' (kills LIKE '%VYBER%').
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2002, 500, '1997-05-06', 'VYDAJ', 'VYBER KARTOU', 200, 1800, NULL, NULL, NULL);
+-- Trap: operation is lowercase 'vyber' (kills case-insensitive mutants).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2003, 500, '1997-05-07', 'VYDAJ', 'vyber', 200, 1600, NULL, NULL, NULL);
+-- Trap: trans on account 3356, and partner account column is 500 (kills mutants joining on trans.account = account.account_id or filtering trans.account_id = 3356).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2004, 3356, '1997-05-08', 'VYDAJ', 'VYBER', 300, 3000, NULL, 'CD', 500);
+-- Trap: trans on account 400 (kills mutants joining disp.disp_id = trans.account_id).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2005, 400, '1997-05-09', 'VYDAJ', 'VYBER', 400, 4000, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests cardinality, duplicate handling (DISTINCT vs ALL), multiple accounts per client, multiple disponents per account, and multiple transactions.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3356, 'M', '1960-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3357, 'F', '1962-01-01', 1);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'POPLATEK MESICNE', '1993-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 1, 'POPLATEK MESICNE', '1994-01-01');
+
+-- Client 3356 linked to two different accounts (10 and 20).
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 3356, 10, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 3356, 20, 'DISPONENT');
+-- Account 10 also has another client (3357) to test if a mutant drops the client_id filter after joining account.
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (3, 3357, 10, 'DISPONENT');
+
+-- Multiple 'VYBER' transactions across both accounts of client 3356 (kills LIMIT 1, MAX/MIN aggregations).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (301, 10, '1998-01-01', 'VYDAJ', 'VYBER', 100, 1000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (302, 10, '1998-01-02', 'VYDAJ', 'VYBER', 200, 800, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (303, 20, '1998-01-03', 'VYDAJ', 'VYBER', 300, 2000, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when client 3356 exists with accounts/transactions, and 'VYBER' exists for other clients, but no intersection (kills OR instead of AND, and OUTER JOIN mutants).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3356, 'F', '1990-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1000, 'M', '1990-01-01', 1);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 1, 'POPLATEK MESICNE', '1995-01-01');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 3356, 1, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 1000, 2, 'OWNER');
+
+-- Client 3356 has only non-'VYBER' transactions.
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (401, 1, '1996-01-01', 'PRIJEM', 'VKLAD', 1000, 1000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (402, 1, '1996-01-02', 'VYDAJ', 'PREVOD NA UCET', 500, 500, NULL, 'EF', 2);
+-- Client 1000 has 'VYBER' transaction.
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (403, 2, '1996-01-03', 'VYDAJ', 'VYBER', 500, 500, NULL, NULL, NULL);
+-- Account 3 has no disp/client at all, but has a 'VYBER' transaction (kills RIGHT JOIN / FULL OUTER JOIN mutants).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (404, 3, '1996-01-04', 'VYDAJ', 'VYBER', 500, 500, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests column projection errors (e.g., selecting account_id, disp_id, client_id, amount, or k_symbol='VYBER' instead of trans_id and operation='VYBER').
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (5, 'D5', 'R5', '100', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3356, 'M', '1988-08-08', 5);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (77, 5, 'POPLATEK PO OBRATU', '1994-04-04');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (88, 3356, 77, 'OWNER');
+
+-- Trap: type is 'VYBER' or k_symbol is 'VYBER', while operation is 'VKLAD' (kills mutants checking wrong column for 'VYBER').
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (501, 77, '1995-05-05', 'VYBER', 'VKLAD', 3356, 10000, 'VYBER', 'VYBER', 3356);
+-- Valid row with distinct values across all integer columns (trans_id=9001, account_id=77, disp_id=88, client_id=3356, amount=250, balance=9750).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (9001, 77, '1995-05-06', 'VYDAJ', 'VYBER', 250, 9750, 'SIPO', 'GH', 12345);
+```

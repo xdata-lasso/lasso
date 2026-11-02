@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE amount <> 5000 boundary conditions (4999, 5000, 5001, NULL).
+-- 2. GROUP BY cust_id (customer with multiple valid loans should appear only once).
+-- 3. INNER JOIN vs LEFT JOIN (customer with no loans, customer with only 5000 loan, customer with NULL loan).
+-- 4. Duplicate output rows (two distinct customers with identical cust_name and acc_type to kill DISTINCT mutants).
+-- 5. Cross-branch loans (customer's branch_ID differs from loan's branch_ID to kill natural join / branch_ID join mutants).
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (1, 'Main', 100, 'NYC', 'NY');
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (2, 'West', 50, 'LA', 'CA');
+
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C1', 1, 'Alice', 'S', 1000, 2, 700, 'NY');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C2', 1, 'Bob', 'C', 2000, 1, 650, 'NY');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C3', 1, 'Charlie', 'S', 1500, 0, 800, 'NY');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C4', 2, 'Alice', 'S', 3000, 1, 750, 'CA');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C5', 2, 'David', 'C', 500, 1, 600, 'CA');
+
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L1', 'C1', '1', 'Auto', 4999);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L2', 'C1', '2', 'Home', 5001);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L3', 'C1', '1', 'Personal', 5000);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L4', 'C2', '1', 'Auto', 5000);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L5', 'C4', '1', 'Home', 1000);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L6', 'C5', '2', 'Personal', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. ORDER BY cust_name ASC, acc_type ASC NULLS LAST (multiple acc_types including NULL for the same cust_name, plus NULL cust_name).
+-- 2. HAVING vs WHERE (Customer with two loans of 2500 summing to 5000; WHERE amount <> 5000 keeps them, HAVING SUM(amount) <> 5000 would falsely exclude them).
+-- 3. Negative and zero loan amounts (kills amount > 0 or amount >= 5000 mutants).
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (10, 'Central', 200, 'Chicago', 'IL');
+
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C1', 10, 'Zack', NULL, 100, 1, 500, 'IL');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C2', 10, 'Zack', 'B', 200, 1, 550, 'IL');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C3', 10, 'Zack', 'A', 300, 1, 600, 'IL');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C4', 10, 'Aaron', 'C', 400, 2, 650, 'IL');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C5', 10, NULL, 'A', 500, 1, 700, 'IL');
+
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L1', 'C1', '10', 'M1', 100);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L2', 'C2', '10', 'M2', 0);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L3', 'C3', '10', 'M3', -500);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L4', 'C4', '10', 'M4', 2500);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L5', 'C4', '10', 'M5', 2500);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L6', 'C5', '10', 'M6', 8000);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Column confusion (acc_bal = 5000, credit_score = 5000, no_of_loans = 5000, while loan amount <> 5000).
+-- 2. Orphaned/NULL foreign keys in loan table (loan with cust_ID = NULL).
+-- 3. Order by tie-breaking and anti-correlation with cust_ID, acc_bal, credit_score, and sumamount.
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (5, 'South', 10, 'Austin', 'TX');
+
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C9', 5, 'Beta', 'Z', 5000, 5000, 5000, 'TX');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C1', 5, 'Beta', 'A', 9000, 1, 900, 'TX');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C5', 5, 'Alpha', 'Y', 100, 2, 300, 'TX');
+
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L1', 'C9', '5', 'T1', 9000);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L2', 'C1', '5', 'T2', 100);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L3', 'C5', '5', 'T3', 4000);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L4', NULL, '5', 'T4', 2000);
+```

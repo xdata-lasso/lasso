@@ -1,0 +1,56 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by AvgScrMath DESC, column confusion (AvgScrMath vs AvgScrRead/AvgScrWrite/NumTstTakr/enroll12/NumGE1500), and LIMIT 1.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, LastUpdate) VALUES ('CDS_1', 'Active', 'C1', 'D1', '01', 'DT1', 'EdOps_Lowest_Math', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, LastUpdate) VALUES ('CDS_2', 'Active', 'C2', 'D2', '02', 'DT2', 'EdOps_Highest_Math', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, LastUpdate) VALUES ('CDS_3', 'Active', 'C3', 'D3', '03', 'DT3', 'EdOps_Middle_Math', '2023-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_1', 'S', 500, 400, 750, 400, 750, 300);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_2', 'S', 100, 50, 400, 700, 400, 10);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_3', 'S', 300, 200, 600, 550, 600, 100);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in AvgScrMath DESC (in SQLite, DESC places NULLs last by default) and tie-breaking on T1.cds ASC.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, LastUpdate) VALUES ('CDS_A', 'Active', 'C1', 'D1', '01', 'DT1', 'EdOps_Null_Math', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, LastUpdate) VALUES ('CDS_B', 'Active', 'C2', 'D2', '02', 'DT2', 'EdOps_Tied_First', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, LastUpdate) VALUES ('CDS_C', 'Active', 'C3', 'D3', '03', 'DT3', 'EdOps_Tied_Second', '2023-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_A', 'S', 200, 150, 800, NULL, 800, 120);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_C', 'S', 200, 150, 500, 650, 500, 80);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_B', 'S', 200, 150, 500, 650, 500, 80);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN from schools, and ensures extra unjoined rows in schools or frpm do not interfere.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, LastUpdate) VALUES ('CDS_NO_SAT', 'Active', 'C1', 'D1', '01', 'DT1', 'EdOps_Unjoined_School', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, LastUpdate) VALUES ('CDS_WITH_SAT', 'Active', 'C2', 'D2', '02', 'DT2', 'EdOps_Joined_School', '2023-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_WITH_SAT', 'S', 120, 100, 500, 520, 510, 45);
+
+INSERT INTO frpm (CDSCode, "Educational Option Type") VALUES ('CDS_NO_SAT', 'Fake_EdOps_1');
+```
+
+```sql
+-- DATASET 4
+-- Tests target column selection (EdOpsName vs EdOpsCode, EILName, SOCType, frpm."Educational Option Type") and ensures queries mistakenly joining frpm fail if school is absent from frpm.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, SOC, SOCType, EdOpsCode, EdOpsName, EILCode, EILName, LastUpdate) VALUES ('CDS_TOP', 'Active', 'CountyA', 'DistA', 'SchoolA', '10', 'DocTypeA', '20', 'SocTypeA', 'EOC_TOP', 'Traditional_Correct_EdOpsName', 'EIL_A', 'High School', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, SOC, SOCType, EdOpsCode, EdOpsName, EILCode, EILName, LastUpdate) VALUES ('CDS_BOT', 'Active', 'CountyB', 'DistB', 'SchoolB', '11', 'DocTypeB', '21', 'SocTypeB', 'EOC_BOT', 'Alternative_Lower_EdOpsName', 'EIL_B', 'Elementary', '2023-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_TOP', 'S', 'SchoolA', 'DistA', 'CountyA', 300, 250, 600, 750, 600, 200);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_BOT', 'S', 'SchoolB', 'DistB', 'CountyB', 300, 250, 600, 500, 600, 100);
+
+INSERT INTO frpm (CDSCode, "Educational Option Type") VALUES ('CDS_BOT', 'FRPM_EdOps_Type_Bot');
+```
+
+```sql
+-- DATASET 5
+-- Tests integer vs lexicographical sorting on AvgScrMath (e.g., 1000 vs 99, or 600 vs 85) and checks that NULL EdOpsName is properly returned if it has the highest AvgScrMath (catching unnecessary WHERE EdOpsName IS NOT NULL filters).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, LastUpdate) VALUES ('CDS_1', 'Active', 'C1', 'D1', '01', 'DT1', NULL, '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, EdOpsName, LastUpdate) VALUES ('CDS_2', 'Active', 'C2', 'D2', '02', 'DT2', 'EdOps_NinetyNine', '2023-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_1', 'D', 100, 80, 500, 600, 500, 40);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_2', 'S', 100, 80, 500, 99, 500, 5);
+```

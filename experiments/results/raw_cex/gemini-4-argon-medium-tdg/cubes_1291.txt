@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Universal quantification vs Existential quantification (Location 'Loc_Mixed' has both <800 and >=800).
+-- 2. Boundary values around 800 (799, 800, 801).
+-- 3. Duplicate locations (<800) to test DISTINCT.
+-- 4. Unscheduled cinemas (since schedule table is empty) to kill mutants that inner-join with schedule.
+-- 5. Ordering of results (Loc_A_799, Loc_B_Dup, Loc_Z_Low).
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (1, 'Cin_799', 2000, 799, 'Loc_A_799');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (2, 'Cin_800', 2001, 800, 'Loc_Boundary_800');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (3, 'Cin_801', 2002, 801, 'Loc_Boundary_801');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (4, 'Cin_Mixed_Low', 2003, 500, 'Loc_Mixed');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (5, 'Cin_Mixed_High', 2004, 800, 'Loc_Mixed');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (6, 'Cin_Dup_1', 2005, 300, 'Loc_B_Dup');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (7, 'Cin_Dup_2', 2006, 400, 'Loc_B_Dup');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (8, 'Cin_Z', 2007, 100, 'Loc_Z_Low');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL Location and NULL Capacity handling.
+-- 2. In the reference query, a row with Location IS NULL and Capacity >= 800 does NOT exclude other NULL Locations because NULL = NULL is UNKNOWN in WHERE (LHS.location = RHS.location).
+-- 3. In the reference query, a row with Capacity IS NULL in a valid Location does NOT exclude that Location, and is included in the output.
+-- 4. Kills mutants using NOT IN when RHS contains a NULL Location (which would cause NOT IN to return 0 rows overall).
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (1, 'Cin_Null_Loc_High', 2010, 900, NULL);
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (2, 'Cin_Null_Cap', 2011, NULL, 'Loc_With_Null_Cap');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (3, 'Cin_Valid_With_Null_Peer', 2012, 500, 'Loc_With_Null_Cap');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (4, 'Cin_Pure_Null_Cap', 2013, NULL, 'Loc_Only_Null_Cap');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (5, 'Cin_Standard_Low', 2014, 600, 'Loc_Standard');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Aggregation mutants (e.g., GROUP BY Location HAVING SUM(Capacity) < 800 or AVG(Capacity) < 800 instead of MAX(Capacity) < 800).
+-- 2. Loc_Sum_Over_800 has two cinemas of capacity 450 (each < 800, MAX is 450 < 800, but SUM is 900 >= 800).
+-- 3. Loc_Avg_Under_800 has cinemas of capacity 100 and 900 (AVG is 500 < 800, MIN is 100 < 800, but MAX is 900 >= 800).
+-- 4. Populated film and schedule tables to test interaction with foreign keys.
+INSERT INTO film (Film_ID, Rank_in_series, Number_in_season, Title, Directed_by, Original_air_date, Production_code) VALUES (1, 1, 1, 'Film A', 'Dir X', '2020-01-01', 'P01');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (1, 'Cin_Sum_1', 2000, 450, 'Loc_Sum_Over_800');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (2, 'Cin_Sum_2', 2001, 450, 'Loc_Sum_Over_800');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (3, 'Cin_Avg_1', 2002, 100, 'Loc_Avg_Under_800');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (4, 'Cin_Avg_2', 2003, 900, 'Loc_Avg_Under_800');
+INSERT INTO schedule (Cinema_ID, Film_ID, Date, Show_times_per_day, Price) VALUES (1, 1, '2020-05-01', 3, 12.5);
+INSERT INTO schedule (Cinema_ID, Film_ID, Date, Show_times_per_day, Price) VALUES (3, 1, '2020-05-02', 4, 15.0);
+INSERT INTO schedule (Cinema_ID, Film_ID, Date, Show_times_per_day, Price) VALUES (4, 1, '2020-05-03', 5, 10.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty result set scenario when all locations have at least one cinema with Capacity >= 800.
+-- 2. Kills mutants that use > 800 instead of >= 800, or fail to filter properly.
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (1, 'Cin_1', 1995, 800, 'Loc_1');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (2, 'Cin_2', 1996, 200, 'Loc_2');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (3, 'Cin_3', 1997, 1200, 'Loc_2');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Confounding values across columns (Openning_year = 800, Capacity = 800, Cinema_ID = 800) to kill mutants comparing the wrong column or joining on Cinema_ID / Name instead of Location.
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (800, 'Loc_Alpha', 800, 500, 'Loc_Beta');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (801, 'Loc_Beta', 2020, 900, 'Loc_Alpha');
+INSERT INTO cinema (Cinema_ID, Name, Openning_year, Capacity, Location) VALUES (802, 'Cin_Gamma', 850, 700, 'Loc_Gamma');
+```

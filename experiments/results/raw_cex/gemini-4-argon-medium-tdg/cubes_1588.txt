@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Core logic: Tests multiple addresses for document_id = 4 (in reverse alphabetical order by ID to test ORDER BY), duplicate address_details (tests SELECT vs SELECT DISTINCT), unmailed addresses (tests INNER vs LEFT JOIN), and boundary document_ids (3 and 5) as well as address_id = 4 (tests filtering on wrong column).
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (3, 'A1', 'S1', 'T1', '2023-01-01 10:00:00', 'R3', 'D3');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (4, 'A1', 'S1', 'T1', '2023-01-02 10:00:00', 'R4', 'D4');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (5, 'A1', 'S1', 'T1', '2023-01-03 10:00:00', 'R5', 'D5');
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, 'Zeta Street');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (2, 'Alpha Avenue');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (3, 'Alpha Avenue');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (4, 'Delta Road');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (5, 'Unmailed Lane');
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (4, 1, '2023-02-01 10:00:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (4, 2, '2023-02-03 10:00:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (4, 3, '2023-02-02 10:00:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (3, 4, '2023-02-04 10:00:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (5, 4, '2023-02-05 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Edge cases: Tests when the same address receives multiple documents (including document 4 and others, catching missing WHERE or wrong GROUP BY), when an address has NULL address_details, and when a document with ID=4 exists in another table or column (e.g., receipt_number = '4').
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('4', 'Type 4');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('4', 'Status 4');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('4', 'Agent 4', 'Desc 4');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (1, '4', '4', '4', '2023-01-01 00:00:00', '4', '4');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (4, '4', '4', '4', '2023-01-02 00:00:00', '100', 'Details');
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (10, '123 Main St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (20, NULL);
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (30, '999 Broadway');
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (1, 10, '2023-03-01 00:00:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (4, 10, '2023-03-02 00:00:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (4, 20, NULL);
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (1, 30, '2023-03-03 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Empty result set test: Document 4 exists in Documents and Document_Drafts, and Address 4 exists in Addresses, but Document 4 has never been mailed. Catches mutants that join on the wrong tables, use outer joins, or filter on address_id = 4.
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (4, NULL, NULL, NULL, '2023-05-01 00:00:00', 'R4', 'Unmailed Doc 4');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (10, NULL, NULL, NULL, '2023-05-02 00:00:00', 'R10', 'Mailed Doc 10');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (4, 4, 'Draft 4 for Doc 4');
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (4, 'Address 4 Details');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (10, 'Address 10 Details');
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (10, 4, '2023-06-01 00:00:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (10, 10, '2023-06-02 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Join condition trap: Tests when LHS.address_id = RHS.document_id (both equal to 4), while RHS.mailed_to_address_id is different (e.g., 99). Catches mutants that mistakenly join on LHS.address_id = RHS.document_id instead of LHS.address_id = RHS.mailed_to_address_id.
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (4, NULL, NULL, NULL, NULL, NULL, NULL);
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (4, 'Wrong Join Target Address (ID 4)');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (99, 'Correct Mailed Target Address (ID 99)');
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (4, 99, '2023-07-01 00:00:00');
+```

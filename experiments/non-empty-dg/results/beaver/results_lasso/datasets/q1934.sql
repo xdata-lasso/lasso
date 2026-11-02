@@ -1,0 +1,2 @@
+INSERT INTO "space_detail" ("building_key", "floor_key", "space_unit_key", "space_usage_key", "building_room", "building_room_name", "room_number", "room_square_footage", "room_counter", "building_component", "warehouse_load_date") VALUES ('32', 'dog', 'chair', 1001.5, 'since', 'Patrick Gardner', 'performance', 101, 1002.5, 'knowledge', '1970-01-01');
+INSERT INTO "space_floor" ("floor_key", "floor", "floor_name", "warehouse_load_date") VALUES ('dog', 'almost', 'Floor', '1970-01-01');

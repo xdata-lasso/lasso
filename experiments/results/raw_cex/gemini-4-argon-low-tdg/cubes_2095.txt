@@ -1,0 +1,56 @@
+```sql
+-- DATASET 1
+-- Tests basic AVG calculation, duplicate elevation values (AVG vs AVG(DISTINCT)), fractional averages, and inverse correlation between country name and average elevation to verify primary vs secondary sort keys.
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (1, 'A1', 'C1', 'Zambia', 10.0, 10.0, 10, 'AA1', 'AAA1');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (2, 'A2', 'C2', 'Zambia', 11.0, 11.0, 10, 'AA2', 'AAA2');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (3, 'A3', 'C3', 'Zambia', 12.0, 12.0, 40, 'AA3', 'AAA3');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (4, 'A4', 'C4', 'Albania', 20.0, 20.0, 50, 'AA4', 'AAA4');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (5, 'A5', 'C5', 'Albania', 21.0, 21.0, 51, 'AA5', 'AAA5');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on avg_elevation_ (including a NULL country tied with non-NULL countries to strictly test 'country NULLS LAST' vs default SQLite NULLS FIRST), and negative elevations.
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (1, 'A1', 'C1', 'Brazil', 0.0, 0.0, 100, 'AA1', 'AAA1');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (2, 'A2', 'C2', 'Brazil', 0.0, 0.0, 200, 'AA2', 'AAA2');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (3, 'A3', 'C3', 'Argentina', 0.0, 0.0, 150, 'AA3', 'AAA3');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (4, 'A4', 'C4', NULL, 0.0, 0.0, 150, 'AA4', 'AAA4');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (5, 'A5', 'C5', 'Netherlands', 0.0, 0.0, -20, 'AA5', 'AAA5');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (6, 'A6', 'C6', 'Netherlands', 0.0, 0.0, -10, 'AA6', 'AAA6');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL elevations (partial NULLs within a group vs all NULLs in a group resulting in NULL avg_elevation_), zero elevation vs NULL elevation, and multiple NULL country rows grouping together.
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (1, 'A1', 'C1', 'Canada', 0.0, 0.0, 100, 'AA1', 'AAA1');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (2, 'A2', 'C2', 'Canada', 0.0, 0.0, NULL, 'AA2', 'AAA2');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (3, 'A3', 'C3', 'Atlantis', 0.0, 0.0, NULL, 'AA3', 'AAA3');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (4, 'A4', 'C4', 'Atlantis', 0.0, 0.0, NULL, 'AA4', 'AAA4');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (5, 'A5', 'C5', 'ZeroLand', 0.0, 0.0, 0, 'AA5', 'AAA5');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (6, 'A6', 'C6', NULL, 0.0, 0.0, 10, 'AA6', 'AAA6');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (7, 'A7', 'C7', NULL, 0.0, 0.0, 30, 'AA7', 'AAA7');
+```
+
+```sql
+-- DATASET 4
+-- Tests mutants that erroneously JOIN with routes or airlines (causing fan-out in AVG or filtering out unreferenced airports) or group by city/name instead of country.
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (1, 'AirFrance', 'AF', 'AFR', 'AIRFRANS', 'France', 'Y');
+INSERT INTO "airlines" ("alid", "name", "iata", "icao", "callsign", "country", "active") VALUES (2, 'GhostAir', 'GH', 'GHT', 'GHOST', 'Spain', 'N');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (1, 'SameName', 'CityA', 'France', 0.0, 0.0, 10, 'F01', 'FR01');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (2, 'SameName', 'CityB', 'France', 0.0, 0.0, 100, 'F02', 'FR02');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (3, 'LonelyAp', 'CityC', 'LonelyCountry', 0.0, 0.0, 50, 'L01', 'LN01');
+INSERT INTO "routes" ("rid", "alid", "src_apid", "dst_apid", "dst_ap", "src_ap", "airline", "codeshare") VALUES (1, 1, 1, 2, 'FR02', 'FR01', 'AF', 'Y');
+INSERT INTO "routes" ("rid", "alid", "src_apid", "dst_apid", "dst_ap", "src_ap", "airline", "codeshare") VALUES (2, 1, 1, 2, 'FR02', 'FR01', 'AF', 'N');
+INSERT INTO "routes" ("rid", "alid", "src_apid", "dst_apid", "dst_ap", "src_ap", "airline", "codeshare") VALUES (3, 1, 1, 2, 'FR02', 'FR01', 'AF', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests tie-breaking when avg_elevation_ itself is NULL across multiple countries (including NULL country), and distinguishes AVG from MIN, MAX, SUM, and COUNT.
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (1, 'A1', 'C1', 'B_Country', 0.0, 0.0, NULL, 'AA1', 'AAA1');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (2, 'A2', 'C2', 'A_Country', 0.0, 0.0, NULL, 'AA2', 'AAA2');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (3, 'A3', 'C3', NULL, 0.0, 0.0, NULL, 'AA3', 'AAA3');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (4, 'A4', 'C4', 'C_Country', 0.0, 0.0, 2, 'AA4', 'AAA4');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (5, 'A5', 'C5', 'C_Country', 0.0, 0.0, 4, 'AA5', 'AAA5');
+INSERT INTO "airports" ("apid", "name", "city", "country", "x", "y", "elevation", "iata", "icao") VALUES (6, 'A6', 'C6', 'C_Country', 0.0, 0.0, 9, 'AA6', 'AAA6');
+```

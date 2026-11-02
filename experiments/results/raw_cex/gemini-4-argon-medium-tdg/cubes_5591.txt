@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (1, 'Main Catalog', 'Publisher A', '2023-01-01 00:00:00', '2023-06-01 00:00:00');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (10, 1, 'Level 10');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (20, 1, 'Level 20');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (30, 1, 'Level 30');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (40, 1, 'Level 40');
+
+-- Exact match: LHS.catalog_entry_id (10) = RHS.previous_entry_id (10) AND LHS.catalog_level_number (20) = RHS.catalog_entry_id (20)
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (10, 20, 99, 99, 20, 'LHS_Valid_Name', 'STK10', 10.0, 9.0, 8.0, '10L', '10cm', '10cm', '10cm');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (20, 10, 99, 10, 99, 'RHS_Target_Name_Z', 'STK20', 20.0, 18.0, 16.0, '20L', '20cm', '20cm', '20cm');
+
+-- Partial match 1: Only LHS.catalog_entry_id (10) = RHS.previous_entry_id (10), but LHS.catalog_level_number (20) != RHS.catalog_entry_id (30)
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (30, 10, 10, 10, 10, 'Wrong_Partial_1', 'STK30', 30.0, 27.0, 24.0, '30L', '30cm', '30cm', '30cm');
+
+-- Partial match 2: Only LHS.catalog_level_number (40) = RHS.catalog_entry_id (40), but LHS.catalog_entry_id (35) != RHS.previous_entry_id (99)
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (35, 40, 40, 35, 40, 'LHS_Partial_2', 'STK35', 35.0, 31.0, 28.0, '35L', '35cm', '35cm', '35cm');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (40, 10, 35, 99, 35, 'Wrong_Partial_2', 'STK40', 40.0, 36.0, 32.0, '40L', '40cm', '40cm', '40cm');
+```
+
+```sql
+-- DATASET 2
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (1, 'Catalog Two', 'Publisher B', '2023-01-01 00:00:00', '2023-06-01 00:00:00');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (1, 1, 'Level 1');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (2, 1, 'Level 2');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (3, 1, 'Level 3');
+
+-- Multiple LHS rows matching the same RHS row (to test DISTINCT vs ALL and ORDER BY)
+-- RHS row is catalog_entry_id = 3, previous_entry_id = NULL (won't match) -> Wait: for multiple LHS to match same RHS, RHS must have previous_entry_id = LHS.catalog_entry_id. Since catalog_entry_id is PK, only ONE LHS row can match a given RHS.previous_entry_id!
+-- However, ONE LHS row? No, LHS.catalog_level_number = RHS.catalog_entry_id (PK). So each LHS row can match at most ONE RHS row, and each RHS row can match at most ONE LHS row!
+-- Wait: What if two DIFFERENT pairs produce the SAME RHS.catalog_entry_name (duplicate names in output) and different names for sorting?
+
+-- Pair 1: LHS (id=1, level=2) matches RHS (id=2, prev=1) -> RHS name = 'Duplicate_Name'
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (1, 2, 100, 100, 100, 'Z_LHS_1', 'S1', 1.0, 1.0, 1.0, '1', '1', '1', '1');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (2, 1, 100, 1, 100, 'Duplicate_Name', 'S2', 2.0, 2.0, 2.0, '2', '2', '2', '2');
+
+-- Pair 2: LHS (id=3, level=3) self-join! LHS.id (3) = RHS.prev (3) AND LHS.level (3) = RHS.id (3) -> RHS name = 'Duplicate_Name'
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (3, 3, 100, 3, 100, 'Duplicate_Name', 'S3', 3.0, 3.0, 3.0, '3', '3', '3', '3');
+```
+
+```sql
+-- DATASET 3
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (1, 'Catalog Three', 'Publisher C', '2023-01-01 00:00:00', '2023-06-01 00:00:00');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (10, 1, 'L10');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (20, 1, 'L20');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (30, 1, 'L30');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (40, 1, 'L40');
+
+-- Testing ORDER BY (RHS.catalog_entry_name vs LHS.catalog_entry_name) and traps for wrong join columns (parent_entry_id, next_entry_id)
+-- Pair A: LHS (id=11, level=10) -> RHS (id=10, prev=11). LHS name = 'Alpha', RHS name = 'Zeta'
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (11, 10, 999, 999, 999, 'Alpha', 'S11', 10.0, 10.0, 10.0, '1', '1', '1', '1');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (10, 20, 999, 11, 999, 'Zeta', 'S10', 20.0, 20.0, 20.0, '1', '1', '1', '1');
+
+-- Pair B: LHS (id=21, level=20) -> RHS (id=20, prev=21). LHS name = 'Omega', RHS name = 'Beta'
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (21, 20, 999, 999, 999, 'Omega', 'S21', 30.0, 30.0, 30.0, '1', '1', '1', '1');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (20, 10, 999, 21, 999, 'Beta', 'S20', 5.0, 5.0, 5.0, '1', '1', '1', '1');
+
+-- Trap row: matches on next_entry_id or parent_entry_id instead of previous_entry_id
+-- LHS (id=31, level=30), RHS (id=30, parent=31, next=31, prev=999)
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (31, 30, 30, 30, 30, 'Trap_LHS', 'S31', 1.0, 1.0, 1.0, '1', '1', '1', '1');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (30, 40, 31, 999, 31, 'Trap_RHS_NextOrParent', 'S30', 1.0, 1.0, 1.0, '1', '1', '1', '1');
+
+-- Trap row: swapped condition (LHS.previous_entry_id = RHS.catalog_entry_id AND LHS.catalog_level_number = RHS.catalog_level_number)
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (40, 40, 999, 41, 999, 'Trap_Swapped_LHS', 'S40', 1.0, 1.0, 1.0, '1', '1', '1', '1');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (41, 40, 999, 999, 999, 'Trap_Swapped_RHS', 'S41', 1.0, 1.0, 1.0, '1', '1', '1', '1');
+```
+
+```sql
+-- DATASET 4
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (1, 'Catalog Four', 'Publisher D', '2023-01-01 00:00:00', '2023-06-01 00:00:00');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (5, 1, 'L5');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (6, 1, 'L6');
+
+-- Testing NULL handling in join columns and output column
+-- Row with NULLs in non-PK join columns (should not join)
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (5, NULL, NULL, NULL, NULL, 'Null_Level_And_Prev', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+
+-- Valid join where LHS has NULL catalog_entry_name but RHS has non-NULL catalog_entry_name (and vice versa)
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (1, 6, NULL, NULL, NULL, NULL, 'S1', 10.0, 10.0, 10.0, '1', '1', '1', '1');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (6, 5, NULL, 1, NULL, 'Valid_RHS_With_Null_LHS_Name', 'S6', 20.0, 20.0, 20.0, '2', '2', '2', '2');
+```

@@ -1,0 +1,58 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, non-matching, ordering, and unnecessary joins/subqueries with Document_Locations.
+-- Specifically, 'CA_B' has 0 documents, 'CA_A' has 2 documents, and 'CA_C' has 1 document.
+-- This kills mutants that accidentally INNER JOIN with Document_Locations (which drops 'CA_B' or duplicates 'CA_A'),
+-- as well as mutants that omit the WHERE clause, invert the WHERE clause, or use DESC ordering.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DOC1', 'Report', 'Standard Report');
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-01-01', 1);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-01-02', 2);
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('CA_C', 'Canada', 'East Coast');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('CA_A', 'Canada', 'West Coast');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('CA_B', 'Canada', 'Central');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('US_A', 'USA', 'South');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (1, '2023-01-01', 'DOC1', 'Doc1', 'Desc1', 'Det1');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (2, '2023-01-01', 'DOC1', 'Doc2', 'Desc2', 'Det2');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (1, 'CA_A', '2023-01-01', '2023-01-02');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (2, 'CA_A', '2023-01-01', '2023-01-02');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (1, 'CA_C', '2023-01-01', '2023-01-02');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (1, 'US_A', '2023-01-01', '2023-01-02');
+```
+
+```sql
+-- DATASET 2
+-- Tests column confusion, string comparison operators (LIKE, >, <, !=), case sensitivity, and NULL handling.
+-- Kills mutants that filter on Location_Description or Location_Code instead of Location_Name,
+-- mutants using LIKE '%Canada%', mutants using case-insensitive matching, and mutants using range operators (> or <).
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_2', 'Canada', 'Not the target column');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_1', 'Canada', 'Another valid Canada');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('Canada', 'Mexico', 'Code is Canada');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_3', 'France', 'Canada');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_4', 'canada', 'Lowercase name');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_5', 'CANADA', 'Uppercase name');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_6', 'Canada ', 'Trailing space');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_7', 'North Canada', 'Substring match');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_8', 'Brazil', 'Alphabetically before Canada');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_9', 'Denmark', 'Alphabetically after Canada');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_0', NULL, 'NULL Location Name');
+```
+
+```sql
+-- DATASET 3
+-- Tests ORDER BY column accuracy and LIMIT 1 / aggregation mutations (MIN, MAX, COUNT).
+-- By having 3 matching rows where Location_Code order ('Z_CA', 'M_CA', 'A_CA') is inverse to Location_Description order ('1_Desc', '2_Desc', '3_Desc'),
+-- it kills mutants that ORDER BY Location_Description, omit ORDER BY, or use MIN/MAX/LIMIT 1.
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('Z_CA', 'Canada', '1_Desc');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('M_CA', 'Canada', '2_Desc');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('A_CA', 'Canada', '3_Desc');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set behavior when no rows match 'Canada', while other tables and locations are populated.
+-- Kills mutants with tautological conditions, OR instead of AND, or fallback joins.
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('UK', 'United Kingdom', 'Canada');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('JP', 'Japan', 'Asia');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('Canada', 'Canada', 'Canada');
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('Canada', 'Canada', 'Canada');
+```

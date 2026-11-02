@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Tests standard multiple departments, unreferenced departments (catches RIGHT/FULL JOIN), 
+-- multiple employees in the same department, NULL vs non-NULL MGR, 0 vs positive COMM/SLACKER,
+-- and populates auxiliary tables to catch wrong table name mutants.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'SALES');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (7369, 20, 'SMITH', 'CLERK', 7902, '1980-12-17', 800, 0, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (7499, 20, 'ALLEN', 'SALESMAN', 7698, '1981-02-20', 1600, 300, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (7839, 10, 'KING', 'PRESIDENT', NULL, '1981-11-17', 5000, 0, 0);
+
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (9999, 30, 'GHOST', 'NONE', NULL, '2000-01-01', 100, 0, 0);
+INSERT INTO "EMPNULLABLES_20" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (9998, 20, 'GHOST20', 'NONE', NULL, '2000-01-01', 200, 0, 1);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (9997, 10, 'GHOSTB', 'NONE', NULL, '2000-01-01', 300, 0, 0, '1970-01-01');
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('SMITH', 'CLERK', 800, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests cross-column join/subquery mutations (e.g., EMPNO IN (SELECT DEPTNO ...), MGR IN (SELECT DEPTNO ...),
+-- SAL IN (SELECT DEPTNO ...)), and tests duplicate row attribute values (except EMPNO) to catch DISTINCT on non-PK columns.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 10, 'CLONE', 'ANALYST', 10, '1990-05-01', 10, 10, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (99, 10, 'CLONE', 'ANALYST', 10, '1990-05-01', 10, 10, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (100, 20, 'DIFF', 'MANAGER', 999, '1995-10-10', 3000, 500, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary values (negative numbers, 0) and empty EMP table with non-empty DEPT table
+-- (catches mutants that return DEPT rows or fail on empty EMP).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (0, 'ZERO_DEPT');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (-10, 'NEG_DEPT');
+```
+
+```sql
+-- DATASET 4
+-- Tests scalar subquery mutants (e.g., WHERE DEPTNO = (SELECT MAX(DEPTNO) FROM DEPT) or MIN or LIMIT 1)
+-- by distributing employees across 3 distinct departments with negative, zero, and positive IDs.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (-5, 'DEPT_NEG');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (0, 'DEPT_ZERO');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (5, 'DEPT_POS');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, -5, 'EMP_NEG', 'CLERK', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 0, 'EMP_ZERO', 'CLERK', 1, '2020-01-02', 2000, 100, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 5, 'EMP_POS', 'CLERK', 2, '2020-01-03', 3000, 200, 0);
+```
+
+```sql
+-- DATASET 5
+-- Tests orphan EMP rows (in SQLite when foreign_keys pragma is off, or catches mutants assuming FK always holds vs explicit IN check)
+-- Note: If FK enforcement is strictly enabled in the test runner, this tests valid matching where DEPT.NAME matches EMP.ENAME/JOB.
+-- To strictly obey Requirement 3 (Strict Schema Integrity / FOREIGN KEY references), all DEPTNOs exist in DEPT,
+-- but we align string values between DEPT.NAME and EMP.ENAME / EMP.JOB to catch string-based join mutations.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (1, 'SALES');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (2, 'MILLER');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (3, 'OTHER');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (101, 1, 'MILLER', 'CLERK', NULL, '1982-01-23', 1300, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (102, 2, 'WARD', 'SALES', 101, '1981-02-22', 1250, 500, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (103, 3, 'JONES', 'MANAGER', 101, '1981-04-02', 2975, 0, 0);
+```

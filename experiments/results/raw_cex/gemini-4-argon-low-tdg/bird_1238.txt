@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (Birthday ASC vs DESC), LIMIT 1 vs no limit, and strict inequality boundaries (HGB > 10 AND HGB < 17 vs >= 10, <= 17).
+-- Decoy patients (ID 1 and 2) have earlier Birthdays so if >= 10 or <= 17 is used, they will wrongly be returned first.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'M', '1940-01-01', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'F', '1945-01-01', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'F', '1960-05-15', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (4, 'M', '1985-11-20', '2000-01-01', '2000-01-01', '-', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (1, '2001-01-01', 10.0);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (2, '2001-01-01', 17.0);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (3, '2001-01-01', 13.5);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (4, '2001-01-01', 15.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests Diagnosis predicate (T1.Diagnosis = 'SLE' vs missing predicate, != 'SLE', LIKE '%SLE%', or using Examination.Diagnosis)
+-- and logical connectives (AND vs OR between Diagnosis and HGB conditions).
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (1, 'M', '1930-01-01', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (2, 'F', '1935-01-01', 'SLE, APS');
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (3, 'M', '1940-01-01', NULL);
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (4, 'F', '1945-01-01', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (5, 'M', '1970-01-01', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (1, '2005-01-01', 14.0);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (2, '2005-01-01', 14.0);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (3, '2005-01-01', 14.0);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (4, '2005-01-01', 8.5);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (5, '2005-01-01', 12.2);
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '2005-01-01', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (5, '2005-01-01', 'APS');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN on Laboratory, INNER JOIN vs joining Examination, and NULL handling in HGB and Birthday.
+-- Notice in SQLite NULLS FIRST is default for ASC. If Birthday is NULL on a matching row, it sorts first unless NULLS LAST is specified.
+-- Here we make the NULL Birthday patient fail the Laboratory join or HGB check to catch LEFT JOIN / OR mutants,
+-- and also test a valid patient with no Examination record to catch unnecessary INNER JOIN with Examination.
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (1, 'F', NULL, 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (2, 'M', '1950-01-01', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (3, 'F', '1965-03-10', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (4, 'M', '1980-07-22', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (2, '2010-01-01', NULL);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (3, '2010-01-01', 11.5);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (4, '2010-01-01', 14.0);
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (4, '2010-01-01', 'SLE');
+```
+
+```sql
+-- DATASET 4
+-- Tests tie-breaking on T1.ID ASC (when T1.Birthday is identical across multiple valid patients)
+-- and verifies that Ordering by other date columns (Description, First Date, Laboratory.Date) instead of Birthday fails.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Diagnosis) VALUES (10, 'M', '1975-06-15', '1990-01-01', '1990-01-01', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Diagnosis) VALUES (5, 'F', '1975-06-15', '2005-01-01', '2005-01-01', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (10, '1995-01-01', 16.5);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (5, '2010-01-01', 10.5);
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion in Laboratory (e.g., checking WBC, RBC, HCT, TP, ALB, or PLT instead of HGB)
+-- and ensures that a single patient with multiple Laboratory records (one out-of-range, one in-range) is still properly included.
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (1, 'M', '1955-02-02', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (2, 'F', '1975-08-08', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, WBC, RBC, HGB, HCT, PLT, TP, ALB) VALUES (1, '2002-01-01', 13.0, 13.0, 9.5, 13.0, 13, 13.0, 13.0);
+INSERT INTO Laboratory (ID, Date, WBC, RBC, HGB, HCT, PLT, TP, ALB) VALUES (1, '2002-06-01', 14.0, 14.0, 18.2, 14.0, 14, 14.0, 14.0);
+INSERT INTO Laboratory (ID, Date, WBC, RBC, HGB, HCT, PLT, TP, ALB) VALUES (2, '2002-01-01', 5.0, 4.0, 9.0, 35.0, 200, 7.0, 4.0);
+INSERT INTO Laboratory (ID, Date, WBC, RBC, HGB, HCT, PLT, TP, ALB) VALUES (2, '2002-06-01', 5.0, 4.0, 12.8, 38.0, 210, 7.2, 4.1);
+```
+
+```sql
+-- DATASET 6
+-- Tests NULLS FIRST vs NULLS LAST on T1.Birthday.
+-- In SQLite, ORDER BY T1.Birthday ASC places NULLs first by default.
+-- If a mutant adds NULLS LAST to T1.Birthday (or filters out NULL Birthday via WHERE T1.Birthday IS NOT NULL), this dataset catches it.
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (1, 'M', NULL, 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Diagnosis) VALUES (2, 'F', '1920-01-01', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (1, '2000-01-01', 14.0);
+INSERT INTO Laboratory (ID, Date, HGB) VALUES (2, '2000-01-01', 14.0);
+```

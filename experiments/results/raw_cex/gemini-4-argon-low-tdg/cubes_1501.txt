@@ -1,0 +1,54 @@
+```sql
+-- DATASET 1
+-- Empty "program" table. 
+-- Note: COUNT(*) OVER () returns 0 rows on an empty table, whereas aggregate COUNT(*) returns 1 row with value 0.
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'NBC', 'NBCUniversal', 15.5, 4.2);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'CBS', 'Paramount', 14.0, 3.8);
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows in "program" with duplicate attributes, NULLs, and partial foreign key coverage in child tables.
+-- Tests:
+-- 1. Missing DISTINCT (window function would return 3 rows instead of 1).
+-- 2. COUNT(column) vs COUNT(*) (due to NULLs in Name, Origin, Launch, Owner).
+-- 3. COUNT(DISTINCT column) vs COUNT(*) (due to duplicate column values across rows).
+-- 4. Unintended INNER JOINs with broadcast or broadcast_share (only 1 of the 3 programs is referenced).
+-- 5. Querying the wrong table (channel has 2 rows, broadcast has 1 row, program has 3 rows).
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (1, 'Morning News', 'USA', 1995.0, 'Network A');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (2, 'Morning News', 'USA', 1995.0, 'Network A');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (3, NULL, NULL, NULL, NULL);
+
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (10, 'Channel One', 'Network A', 20.0, 5.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (20, 'Channel Two', 'Network B', 10.0, 2.5);
+
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (10, 1, 'Morning');
+INSERT INTO "broadcast_share" ("Channel_ID", "Program_ID", "Date", "Share_in_percent") VALUES (10, 1, '2023-01-01', 22.5);
+```
+
+```sql
+-- DATASET 3
+-- Single row in "program", but multiple rows in child tables referencing the same program.
+-- Tests:
+-- 1. Unintended JOINs with broadcast or broadcast_share without grouping/distinct (would inflate row count from 1 to 2).
+-- 2. Boundary condition of exactly 1 row in the target table.
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (100, 'Evening Special', 'UK', 2010.5, 'BBC');
+
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'Global 1', 'BBC', 30.0, 8.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'Global 2', 'ITV', 25.0, 6.5);
+
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 100, 'Night');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (2, 100, 'Night');
+
+INSERT INTO "broadcast_share" ("Channel_ID", "Program_ID", "Date", "Share_in_percent") VALUES (1, 100, '2023-05-01', 31.0);
+INSERT INTO "broadcast_share" ("Channel_ID", "Program_ID", "Date", "Share_in_percent") VALUES (2, 100, '2023-05-02', 24.0);
+```
+
+```sql
+-- DATASET 4
+-- Diverse values in "program" to catch mutants that introduce arbitrary WHERE filters (e.g., Launch > 2000) or PARTITION BY / GROUP BY clauses.
+-- If a mutant uses GROUP BY or PARTITION BY (e.g., on Origin or Owner) with different group sizes (1 and 2), SELECT DISTINCT will return two rows (1 and 2) instead of one row (3).
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (1, 'Show A', 'Canada', 1980.0, 'Corp X');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (2, 'Show B', 'Canada', 2005.0, 'Corp X');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (3, 'Show C', 'Japan', 2020.0, 'Corp Y');
+```

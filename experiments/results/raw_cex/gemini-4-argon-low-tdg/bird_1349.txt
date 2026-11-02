@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests basic join, filtering by event_name, SUM vs AVG/MAX/MIN/COUNT, SUM(DISTINCT), and incorrect column selections (spent, remaining, income.amount, expense.cost).
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'CS', 'Eng', 'Engineering');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'John', 'Doe', 'j@d.com', 'Member', 'L', '123-456', 10001, 'M1');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'September Speaker', '2023-09-15', 'Speaker', 'September Speaker', 'Hall A', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'October Speaker', '2023-10-15', 'September Speaker', 'None', 'Hall B', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 10.5, 89.5, 100, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Room', 25.0, 75.0, 100, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Ads', 5.0, 45.0, 50, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'September Speaker', 100.0, 400.0, 500, 'Closed', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Misc', 0.0, 300.0, 300, 'Open', NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Pizza', '2023-09-16', 10.5, 'Yes', 'MEM1', 'B1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2023-09-01', 999, 'September Speaker', 'September Speaker', 'MEM1');
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple events with the exact same name 'September Speaker' (kills GROUP BY event_id or LIMIT 1 subqueries) and tests improper joins on event_status = status.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'September Speaker', '2022-09-10', 'Speaker', '2022 Event', 'Room 1', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'September Speaker', '2023-09-10', 'Speaker', '2023 Event', 'Room 2', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'Annual Gala', '2023-12-01', 'Social', 'Gala', 'Ballroom', 'Planning');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Refreshments', 40.0, 0.0, 40, 'Planning', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Honorarium', 60.0, 15.0, 75, 'Closed', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Decorations', 200.0, 0.0, 200, 'Open', 'E3');
+```
+
+```sql
+-- DATASET 3
+-- Tests LIKE '%September Speaker%' vs exact equality '=', case sensitivity, and empty result set behavior (NULL vs 0).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'September Speaker Series', '2023-09-01', 'Speaker', 'Notes', 'Loc 1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'september speaker', '2023-09-02', 'Speaker', 'Notes', 'Loc 2', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'The September Speaker', '2023-09-03', 'Speaker', 'Notes', 'Loc 3', 'Open');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Cat1', 10.0, 10.0, 20, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Cat2', 15.0, 15.0, 30, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Cat3', 25.0, 25.0, 50, 'Open', 'E3');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in budget.amount and ensures extra joins to expense or attendance (which would either drop unreferenced rows or multiply rows) are caught.
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (20001, 'Standard', 'DC', 'DC', 'DC', 'DC');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'Math', 'Sci', 'Science');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'Alice', 'Smith', 'a@s.com', 'Pres', 'M', '555-1111', 20001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM2', 'Bob', 'Jones', 'b@j.com', 'VP', 'S', '555-2222', 20001, 'M1');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'September Speaker', '2023-09-20', 'Workshop', 'None', 'Room 101', 'Open');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'MEM1');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'MEM2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Catering', 50.0, 50.0, 100, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Supplies', 0.0, 0.0, NULL, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Parking', 0.0, 35.0, 35, 'Open', 'E1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Drinks', '2023-09-20', 25.0, 'Yes', 'MEM1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Snacks', '2023-09-20', 25.0, 'Yes', 'MEM2', 'B1');
+```
+
+```sql
+-- DATASET 5
+-- Tests event 'September Speaker' existing in event table, but having NO associated budgets (while other events do have budgets). Kills RIGHT JOIN / wrong WHERE placement on outer joins / cross joins.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'September Speaker', '2023-09-25', 'Speaker', 'No budget', 'Auditorium', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'November Mixer', '2023-11-10', 'Social', 'Has budget', 'Lounge', 'Open');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Drinks', 80.0, 20.0, 100, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Music', 150.0, 0.0, 150, 'Open', 'E2');
+```

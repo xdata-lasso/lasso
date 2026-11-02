@@ -1,0 +1,131 @@
+```sql
+-- DATASET 1
+-- Tests basic threshold boundaries (COUNT > 4 vs >= 4 vs = 5 vs > 5), duplicate IDs vs COUNT(DISTINCT ID), and outer SUM(T) aggregation across multiple courses in the same year.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES (1, 10, 1000);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (101, 1, 1, 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (102, 2, 1, 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (103, 3, 1, 3);
+INSERT INTO "instructor" ("ID", "name", "salary", "dept_name") VALUES (1, 1, 50000, 1);
+INSERT INTO "instructor" ("ID", "name", "salary", "dept_name") VALUES (2, 2, 50000, 1);
+
+-- Group (year=2020, course_id=101): 5 rows, 2 distinct IDs. Passes HAVING COUNT(ID) > 4. Kills COUNT(DISTINCT ID) > 4 and COUNT(ID) > 5.
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 101, 1, 2020, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 101, 2, 2020, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 101, 3, 2020, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 101, 4, 2020, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (2, 101, 5, 2020, 1, 2);
+
+-- Group (year=2020, course_id=102): 6 rows. Passes HAVING COUNT(ID) > 4. With course 101, outer SUM(T) for 2020 becomes 4040 (kills MAX/MIN/AVG/SELECT DISTINCT T).
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (2, 102, 1, 2020, 1, 2);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (2, 102, 2, 2020, 1, 2);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (2, 102, 3, 2020, 1, 2);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (2, 102, 4, 2020, 1, 2);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (2, 102, 5, 2020, 1, 2);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (2, 102, 6, 2020, 1, 2);
+
+-- Group (year=2021, course_id=103): 4 rows. Fails HAVING COUNT(ID) > 4. Kills HAVING COUNT(ID) >= 4.
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 103, 1, 2021, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 103, 2, 2021, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 103, 3, 2021, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 103, 4, 2021, 1, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests inner GROUP BY keys (YEAR, COURSE_ID) vs single-column GROUP BY (only YEAR or only COURSE_ID), and outer GROUP BY T vs missing outer GROUP BY.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES (1, 10, 1000);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (201, 1, 1, 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (202, 2, 1, 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (203, 3, 1, 3);
+INSERT INTO "instructor" ("ID", "name", "salary", "dept_name") VALUES (1, 1, 50000, 1);
+
+-- Same year (2010), split across two courses (3 rows + 3 rows = 6 rows). Neither passes (YEAR, COURSE_ID), but would pass if grouped only by YEAR.
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 201, 1, 2010, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 201, 2, 2010, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 201, 3, 2010, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 202, 1, 2010, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 202, 2, 2010, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 202, 3, 2010, 1, 1);
+
+-- Same course (203), split across two years (3 rows in 2011 + 3 rows in 2012 = 6 rows). Neither passes, but would pass if grouped only by COURSE_ID.
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 203, 1, 2011, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 203, 2, 2011, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 203, 3, 2011, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 203, 1, 2012, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 203, 2, 2012, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 203, 3, 2012, 1, 1);
+
+-- Two valid groups in different years (2015 and 2016) to ensure outer GROUP BY T produces 2 separate rows instead of summing everything into 1 row.
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 201, 1, 2015, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 201, 2, 2015, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 201, 3, 2015, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 201, 4, 2015, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 201, 5, 2015, 1, 1);
+
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 202, 1, 2016, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 202, 2, 2016, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 202, 3, 2016, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 202, 4, 2016, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 202, 5, 2016, 1, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests NATURAL JOIN semantics: unmatched TEACHES.ID, duplicate INSTRUCTOR.ID (fan-out), and wrong join tables (e.g. STUDENT or COURSE).
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES (1, 10, 1000);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (301, 1, 1, 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (302, 2, 1, 3);
+
+-- Instructor 10 appears twice in INSTRUCTOR (testing join fan-out: 3 teaches rows * 2 instructor rows = 6 joined rows > 4).
+INSERT INTO "instructor" ("ID", "name", "salary", "dept_name") VALUES (10, 1, 50000, 1);
+INSERT INTO "instructor" ("ID", "name", "salary", "dept_name") VALUES (10, 2, 60000, 1);
+
+-- Student 99 exists in STUDENT, but NOT in INSTRUCTOR (kills mutants that omit join with INSTRUCTOR or join with STUDENT instead).
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (99, 9, 1, 100);
+
+-- Group (year=2018, course_id=301): 3 rows in TEACHES for ID=10, becomes 6 after NATURAL JOIN INSTRUCTOR.
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (10, 301, 1, 2018, 1, 10);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (10, 301, 2, 2018, 1, 10);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (10, 301, 3, 2018, 1, 10);
+
+-- Group (year=2019, course_id=302): 5 rows in TEACHES for ID=99 (unmatched in INSTRUCTOR, so filtered out by NATURAL JOIN).
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (99, 302, 1, 2019, 1, 99);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (99, 302, 2, 2019, 1, 99);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (99, 302, 3, 2019, 1, 99);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (99, 302, 4, 2019, 1, 99);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (99, 302, 5, 2019, 1, 99);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in YEAR and ID, and distinct values across COURSE_ID, SEC_ID, SEMESTER, and YEAR to catch column-reference swaps.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES (1, 10, 1000);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (500, 1, 1, 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (600, 2, 1, 3);
+INSERT INTO "instructor" ("ID", "name", "salary", "dept_name") VALUES (7, 1, 50000, 1);
+INSERT INTO "instructor" ("ID", "name", "salary", "dept_name") VALUES (NULL, 2, 50000, 1);
+
+-- 5 rows with NULL ID in both tables (NATURAL JOIN drops NULL=NULL; even if LEFT JOINed, COUNT(ID) ignores NULLs vs COUNT(*)).
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (NULL, 500, 1, 2022, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (NULL, 500, 2, 2022, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (NULL, 500, 3, 2022, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (NULL, 500, 4, 2022, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (NULL, 500, 5, 2022, 1, 1);
+
+-- 5 rows with valid ID=7, course_id=600, year=2025, where sec_id and semester vary so grouping by sec_id or semester fails.
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (7, 600, 11, 2025, 1, 7);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (7, 600, 12, 2025, 2, 7);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (7, 600, 13, 2025, 3, 7);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (7, 600, 14, 2025, 4, 7);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (7, 600, 15, 2025, 5, 7);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when no group satisfies HAVING COUNT(ID) > 4 (kills outer queries without GROUP BY that return a single row with NULL).
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES (1, 10, 1000);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (10, 1, 1, 3);
+INSERT INTO "instructor" ("ID", "name", "salary", "dept_name") VALUES (1, 1, 50000, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 10, 1, 2000, 1, 1);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "semester", "instructor") VALUES (1, 10, 2, 2000, 1, 1);
+```

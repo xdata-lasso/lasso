@@ -1,0 +1,113 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT T1.ID) vs COUNT(T1.ID) / COUNT(*) and basic inner join matching
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2023-01-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2023-02-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2023-01-01', 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2023-01-05', '10');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2023-02-05', '15');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (2, '2023-01-05', '12');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary conditions for T2.RF < 20 (including string vs numeric comparison in SQLite since RF is TEXT)
+-- In SQLite, TEXT column '5' > 20 is TRUE because TEXT > INTEGER in type affinity if not converted, 
+-- wait: RF has TEXT affinity, so 20 is converted to '20' (TEXT)! 
+-- Therefore, '15' < '20' is TRUE, '20' < '20' is FALSE, '5' < '20' is FALSE (lexicographical)!
+-- Including both '19' and '5' and '20' and '21' catches mutants changing < 20 to <= 20, < '20', CAST(RF AS INT) < 20, etc.
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (4, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (5, 'F');
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2023-01-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2023-01-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (3, '2023-01-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (4, '2023-01-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (5, '2023-01-01', 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2023-01-01', '19');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (2, '2023-01-01', '20');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (3, '2023-01-01', '21');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (4, '2023-01-01', '5');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (5, '2023-01-01', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary conditions and NULL handling for T1.Thrombosis = 0 (e.g., = 0 vs != 1 vs IS NULL vs <= 0)
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (4, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (5, 'F');
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2023-01-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2023-01-01', 1);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (3, '2023-01-01', 2);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (4, '2023-01-01', -1);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (5, '2023-01-01', NULL);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2023-01-01', '15');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (2, '2023-01-01', '15');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (3, '2023-01-01', '15');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (4, '2023-01-01', '15');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (5, '2023-01-01', '15');
+```
+
+```sql
+-- DATASET 4
+-- Tests AND vs OR in WHERE clause, and INNER JOIN vs LEFT/RIGHT JOIN (unmatched rows in Examination and Laboratory)
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (4, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (5, 'F');
+-- ID 1: Matches Thrombosis = 0, but fails RF < 20
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2023-01-01', 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2023-01-01', '25');
+-- ID 2: Fails Thrombosis = 0, but matches RF < 20
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2023-01-01', 1);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (2, '2023-01-01', '15');
+-- ID 3: In Examination with Thrombosis = 0, but missing from Laboratory
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (3, '2023-01-01', 0);
+-- ID 4: In Laboratory with RF < 20, but missing from Examination
+INSERT INTO Laboratory (ID, Date, RF) VALUES (4, '2023-01-01', '15');
+-- ID 5: Matches both conditions
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (5, '2023-01-01', 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (5, '2023-01-01', '10');
+```
+
+```sql
+-- DATASET 5
+-- Tests join condition mutations: ensures joining on Date = "Examination Date" fails if mutant adds/replaces join predicate,
+-- and tests cross-product / missing join condition mutants
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+-- ID 1 has matching ID, valid Thrombosis and RF, but different dates
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2022-05-10', 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2023-08-20', '12');
+-- ID 2 has same date as ID 1's Lab, valid Thrombosis, but its own Lab has invalid RF (catches missing join predicate T1.ID = T2.ID)
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2023-08-20', 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (2, '2023-08-20', '99');
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set (0 matches) and NULL ID in Examination (catches SUM/MIN/MAX/AVG mutations and NULL handling)
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (NULL, '2023-01-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2023-01-01', 1);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2023-01-01', '30');
+```
+
+```sql
+-- DATASET 7
+-- Tests a single patient having multiple rows in both tables where some rows match and some do not
+-- (catches mutants using EXCEPT, NOT IN, or universal quantification instead of existential join)
+INSERT INTO Patient (ID, SEX) VALUES (10, 'M');
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (10, '2023-01-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (10, '2023-01-02', 1);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (10, '2023-01-01', '14');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (10, '2023-01-02', '45');
+```

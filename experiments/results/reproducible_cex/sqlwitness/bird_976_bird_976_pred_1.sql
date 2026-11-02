@@ -1,0 +1,60 @@
+-- Schema DDL
+CREATE TABLE circuits (circuitId INTEGER PRIMARY KEY AUTOINCREMENT, circuitRef TEXT DEFAULT '' NOT NULL, name TEXT DEFAULT '' NOT NULL, location TEXT, country TEXT, lat REAL, lng REAL, alt INTEGER, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE constructors (constructorId INTEGER PRIMARY KEY AUTOINCREMENT, constructorRef TEXT DEFAULT '' NOT NULL, name TEXT DEFAULT '' NOT NULL UNIQUE, nationality TEXT, url TEXT DEFAULT '' NOT NULL);
+
+CREATE TABLE drivers (driverId INTEGER PRIMARY KEY AUTOINCREMENT, driverRef TEXT DEFAULT '' NOT NULL, number INTEGER, code TEXT, forename TEXT DEFAULT '' NOT NULL, surname TEXT DEFAULT '' NOT NULL, dob DATE, nationality TEXT, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE seasons (year INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, url TEXT DEFAULT '' NOT NULL UNIQUE);
+
+CREATE TABLE races (raceId INTEGER PRIMARY KEY AUTOINCREMENT, year INTEGER DEFAULT 0 NOT NULL, round INTEGER DEFAULT 0 NOT NULL, circuitId INTEGER DEFAULT 0 NOT NULL, name TEXT DEFAULT '' NOT NULL, date DATE DEFAULT '0000-00-00' NOT NULL, time TEXT, url TEXT UNIQUE, FOREIGN KEY (year) REFERENCES seasons (year), FOREIGN KEY (circuitId) REFERENCES circuits (circuitId));
+
+CREATE TABLE constructorResults (constructorResultsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, points REAL, status TEXT, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE constructorStandings (constructorStandingsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT, wins INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE driverStandings (driverStandingsId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT, wins INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE lapTimes (raceId INTEGER NOT NULL, driverId INTEGER NOT NULL, lap INTEGER NOT NULL, position INTEGER, time TEXT, milliseconds INTEGER, PRIMARY KEY (raceId, driverId, lap), FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE pitStops (raceId INTEGER NOT NULL, driverId INTEGER NOT NULL, stop INTEGER NOT NULL, lap INTEGER NOT NULL, time TEXT NOT NULL, duration TEXT, milliseconds INTEGER, PRIMARY KEY (raceId, driverId, stop), FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId));
+
+CREATE TABLE qualifying (qualifyId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, number INTEGER DEFAULT 0 NOT NULL, position INTEGER, q1 TEXT, q2 TEXT, q3 TEXT, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId));
+
+CREATE TABLE status (statusId INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT DEFAULT '' NOT NULL);
+
+CREATE TABLE results (resultId INTEGER PRIMARY KEY AUTOINCREMENT, raceId INTEGER DEFAULT 0 NOT NULL, driverId INTEGER DEFAULT 0 NOT NULL, constructorId INTEGER DEFAULT 0 NOT NULL, number INTEGER, grid INTEGER DEFAULT 0 NOT NULL, position INTEGER, positionText TEXT DEFAULT '' NOT NULL, positionOrder INTEGER DEFAULT 0 NOT NULL, points REAL DEFAULT 0 NOT NULL, laps INTEGER DEFAULT 0 NOT NULL, time TEXT, milliseconds INTEGER, fastestLap INTEGER, rank INTEGER DEFAULT 0, fastestLapTime TEXT, fastestLapSpeed TEXT, statusId INTEGER DEFAULT 0 NOT NULL, FOREIGN KEY (raceId) REFERENCES races (raceId), FOREIGN KEY (driverId) REFERENCES drivers (driverId), FOREIGN KEY (constructorId) REFERENCES constructors (constructorId), FOREIGN KEY (statusId) REFERENCES status (statusId));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO seasons (year, url) VALUES (6, 'default1'), (5, 'default2'), (2, 'unique_2'), (1, 'unique_3'), (0, 'unique_4'), (4, 'unique_5'), (3, 'unique_6'), (7, 'unique_7'), (8, 'unique_8'), (9, 'unique_9'), (10, 'unique_10'), (11, 'unique_11'), (12, 'unique_12'), (13, 'unique_13'), (14, 'unique_14');
+INSERT INTO drivers (driverid, driverref, number, code, forename, surname, dob, nationality, url) VALUES (4, 'default1', NULL, 'default2', 'default2', 'default2', '2023-01-02', 'default1', 'default1'), (2, 'default2', 1, NULL, 'default2', 'default1', '2023-01-02', 'default1', 'default2'), (6, 'default2', NULL, 'default1', 'default1', 'default2', '2023-01-02', 'default1', 'unique_2'), (1, 'default1', 5, 'default1', 'default2', 'default2', '2023-01-01', NULL, 'unique_3'), (0, 'default1', 4, 'default1', 'default2', 'default2', '2023-01-01', 'default2', 'unique_4'), (5, 'default1', NULL, 'default1', 'default2', 'default1', '2023-01-02', NULL, 'unique_5'), (3, 'default2', 6, NULL, 'default1', 'default2', '2023-01-02', NULL, 'unique_6'), (7, 'default1', NULL, 'default2', 'default2', 'default1', NULL, NULL, 'unique_7'), (8, 'default1', NULL, NULL, 'default2', 'default1', NULL, 'default2', 'unique_8'), (9, 'default2', 5, 'default1', 'default2', 'default1', '2023-01-02', 'default2', 'unique_9'), (10, 'default1', 2, NULL, 'default1', 'default1', '2023-01-01', 'default1', 'unique_10'), (11, 'default1', NULL, NULL, 'default2', 'default1', '2023-01-01', 'default2', 'unique_11'), (12, 'default1', 4, NULL, 'default1', 'default2', '2023-01-01', NULL, 'unique_12'), (13, 'default1', 0, 'default1', 'default2', 'default1', '2023-01-01', 'default1', 'unique_13'), (14, 'default1', 6, 'default2', 'default1', 'default2', NULL, 'default2', 'unique_14'), (15, 'default2', 2, 'default1', 'default2', 'default2', '2023-01-02', 'default2', 'unique_15'), (16, 'default2', 1, NULL, 'default1', 'default1', NULL, NULL, 'unique_16'), (17, 'default2', 6, 'default2', 'default1', 'default1', '2023-01-02', NULL, 'unique_17'), (18, 'default1', 1, NULL, 'default1', 'default2', NULL, 'default2', 'unique_18'), (19, 'default1', 5, NULL, 'default2', 'default2', '2023-01-02', 'default1', 'unique_19'), (20, 'default2', 6, 'default1', 'default1', 'default2', '2023-01-01', 'default1', 'unique_20'), (21, 'default1', 0, 'default2', 'default2', 'default1', '2023-01-02', 'default1', 'unique_21'), (22, 'default2', 6, NULL, 'default1', 'default1', NULL, 'default1', 'unique_22'), (23, 'default2', 4, 'default1', 'default1', 'default1', '2023-01-01', NULL, 'unique_23'), (24, 'default1', 6, NULL, 'default1', 'default1', NULL, NULL, 'unique_24'), (25, 'default2', 2, 'default2', 'default2', 'default1', '2023-01-02', NULL, 'unique_25'), (26, 'default2', 2, 'default2', 'default2', 'default2', '2023-01-01', NULL, 'unique_26'), (27, 'default1', 2, 'default2', 'default1', 'default2', '2023-01-02', 'default1', 'unique_27'), (28, 'default2', 2, NULL, 'default1', 'default1', '2023-01-02', NULL, 'unique_28'), (29, 'default2', NULL, NULL, 'default1', 'default1', '2023-01-02', NULL, 'unique_29'), (30, 'default1', 1, 'default2', 'default1', 'default2', NULL, 'default2', 'unique_30'), (31, 'default1', NULL, NULL, 'default2', 'default1', '2023-01-01', 'default2', 'unique_31');
+INSERT INTO circuits (circuitid, circuitref, name, location, country, lat, lng, alt, url) VALUES (2, 'default2', 'default1', 'default1', 'default1', 2.0, 4.0, 1, 'default2'), (1, 'default1', 'default1', 'default1', NULL, 6.0, 1.0, 6, 'default1'), (4, 'default2', 'default1', NULL, 'default2', 0.0, NULL, 6, 'unique_2'), (6, 'default1', 'default2', 'default2', 'default2', 4.0, 2.0, 6, 'unique_3'), (5, 'default2', 'default2', 'default1', NULL, 6.0, NULL, 4, 'unique_4'), (0, 'default2', 'default2', 'default2', 'default1', 6.0, 6.0, 0, 'unique_5'), (3, 'default1', 'default1', 'default1', 'default2', NULL, NULL, 4, 'unique_6'), (7, 'default1', 'default2', 'default2', 'default1', 1.0, 4.0, 6, 'unique_7'), (8, 'default2', 'default2', NULL, NULL, 2.0, 1.0, NULL, 'unique_8'), (9, 'default1', 'default2', 'default2', 'default1', NULL, 0.0, 2, 'unique_9'), (10, 'default1', 'default2', NULL, NULL, NULL, 4.0, 5, 'unique_10'), (11, 'default2', 'default1', 'default2', 'default2', 5.0, 2.0, 6, 'unique_11'), (12, 'default1', 'default1', NULL, 'default2', 2.0, 0.0, 2, 'unique_12'), (13, 'default1', 'default1', NULL, 'default2', 0.0, 4.0, 6, 'unique_13'), (14, 'default1', 'default1', 'default2', NULL, 5.0, 5.0, 4, 'unique_14'), (15, 'default2', 'default2', NULL, 'default1', NULL, 5.0, 4, 'unique_15'), (16, 'default1', 'default2', NULL, NULL, 4.0, 5.0, 4, 'unique_16'), (17, 'default2', 'default2', 'default2', 'default2', 2.0, 6.0, 6, 'unique_17'), (18, 'default1', 'default2', 'default1', 'default1', 4.0, 1.0, 2, 'unique_18'), (19, 'default2', 'default2', 'default1', 'default2', 4.0, 6.0, 4, 'unique_19'), (20, 'default1', 'default2', 'default1', NULL, NULL, 1.0, 1, 'unique_20'), (21, 'default2', 'default1', 'default1', 'default1', 4.0, 2.0, 2, 'unique_21'), (22, 'default2', 'default2', 'default1', 'default2', 1.0, 4.0, 0, 'unique_22'), (23, 'default2', 'default1', 'default1', 'default2', 5.0, NULL, 1, 'unique_23'), (24, 'default2', 'default1', NULL, 'default2', NULL, 5.0, 5, 'unique_24'), (25, 'default1', 'default2', NULL, 'default1', NULL, 1.0, NULL, 'unique_25'), (26, 'default2', 'default1', 'default2', 'default2', NULL, 6.0, 6, 'unique_26'), (27, 'default2', 'default1', 'default2', NULL, NULL, 1.0, 4, 'unique_27');
+INSERT INTO races (raceid, year, circuitid, round, name, date, time, url) VALUES (6, 1, 3, 2, 'default2', '2023-01-01', NULL, 'default2'), (4, 2, 2, 0, 'default2', '2023-01-01', NULL, 'default1'), (2, 8, 1, 1, 'default2', '2023-01-01', 'default2', NULL), (0, 8, 11, 0, 'default1', '2023-01-01', 'default2', 'unique_3'), (1, 1, 0, 5, 'default2', '2023-01-01', 'default1', 'unique_4'), (5, 4, 21, 1, 'default1', '2023-01-01', NULL, 'unique_5'), (3, 9, 5, 5, 'default2', '2023-01-01', 'default1', 'unique_6'), (7, 2, 25, 6, 'default2', '2023-01-02', 'default1', 'unique_7'), (8, 2, 4, 0, 'default2', '2023-01-02', 'default2', 'unique_8'), (9, 5, 8, 2, 'default2', '2023-01-01', NULL, 'unique_9'), (10, 2, 9, 4, 'default1', '2023-01-02', 'default2', 'unique_10'), (11, 1, 26, 1, 'default1', '2023-01-01', 'default2', 'unique_11'), (12, 3, 16, 0, 'default1', '2023-01-01', 'default1', 'unique_12'), (13, 12, 1, 5, 'default1', '2023-01-01', 'default2', 'unique_13'), (14, 0, 15, 5, 'default1', '2023-01-02', NULL, 'unique_14'), (15, 1, 7, 2, 'default2', '2023-01-02', 'default1', 'unique_15'), (16, 5, 23, 5, 'default1', '2023-01-01', NULL, 'unique_16'), (17, 11, 6, 6, 'default2', '2023-01-01', NULL, 'unique_17'), (18, 8, 13, 6, 'default1', '2023-01-02', 'default1', 'unique_18');
+INSERT INTO laptimes (raceid, driverid, lap, position, time, milliseconds) VALUES (13, 16, 1, 4, 'default2', 1), (18, 7, 2, 0, 'default1', 2), (0, 26, 1, 5, NULL, 5), (17, 8, 0, 1, 'default2', 5), (12, 27, 5, NULL, 'default1', 1), (5, 30, 4, 5, 'default2', 4), (7, 16, 1, 2, NULL, 2), (9, 22, 1, 0, 'default1', 0), (18, 31, 0, 2, NULL, 0), (3, 29, 0, 4, 'default1', 4), (18, 12, 6, 0, NULL, 0), (8, 21, 0, NULL, 'default1', 4), (15, 12, 1, 2, NULL, 2), (18, 26, 0, NULL, NULL, 5), (13, 2, 4, 0, NULL, 5), (13, 30, 1, 2, 'default2', 6);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT driverId FROM lapTimes WHERE lap = 1 ORDER BY time, lapTimes.raceid NULLS LAST, lapTimes.driverid NULLS LAST, lapTimes.lap NULLS LAST LIMIT 5;
+
+/*
+Gold Result:
+(26,)
+(16,)
+(12,)
+(22,)
+(16,)
+*/
+
+-- Prediction Query
+SELECT driverId FROM lapTimes WHERE lap = 1 ORDER BY milliseconds ASC, lapTimes.raceid NULLS LAST, lapTimes.driverid NULLS LAST, lapTimes.lap NULLS LAST LIMIT 5;
+
+/*
+Prediction Result:
+(22,)
+(16,)
+(16,)
+(12,)
+(26,)
+*/

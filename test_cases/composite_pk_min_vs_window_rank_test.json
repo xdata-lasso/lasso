@@ -1,0 +1,18 @@
+{
+  "id": "composite_pk_min_vs_window_rank_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE \"sensor_logs\" (\"sensor_id\" INTEGER, \"reading_date\" DATE, \"status_code\" INTEGER, PRIMARY KEY (\"sensor_id\", \"reading_date\"), CHECK (\"status_code\" >= 0));",
+  "correct_query": "SELECT first_dt, COUNT(sensor_id) AS total_sensors, ROUND(CAST(COUNT(sensor_id) AS REAL) / COUNT(sensor_id), 2) AS valid_ratio FROM (SELECT sensor_id, MIN(reading_date) AS first_dt FROM sensor_logs GROUP BY sensor_id) AS s GROUP BY first_dt",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "window_rank_and_coalesce_instead_of_min_group_by",
+      "description": "Replaces GROUP BY with MIN(reading_date) by RANK() OVER (PARTITION BY sensor_id ORDER BY reading_date ASC) WHERE r = 1 and wraps division in COALESCE(..., 0) on a nullable composite PRIMARY KEY in SQLite",
+      "query": "WITH ranked AS (SELECT RANK() OVER (PARTITION BY sensor_id ORDER BY reading_date ASC) AS r, sensor_id, reading_date FROM sensor_logs) SELECT reading_date AS first_dt, COUNT(sensor_id) AS total_sensors, ROUND(COALESCE(CAST(COUNT(sensor_id) AS REAL) / COUNT(sensor_id), 0), 2) AS valid_ratio FROM ranked WHERE r = 1 GROUP BY reading_date"
+    },
+    {
+      "id": "window_row_number_instead_of_min_group_by",
+      "description": "Replaces GROUP BY with MIN(reading_date) by ROW_NUMBER() OVER (PARTITION BY sensor_id ORDER BY reading_date ASC) WHERE r = 1 on a nullable composite PRIMARY KEY in SQLite",
+      "query": "WITH ranked AS (SELECT ROW_NUMBER() OVER (PARTITION BY sensor_id ORDER BY reading_date ASC) AS r, sensor_id, reading_date FROM sensor_logs) SELECT reading_date AS first_dt, COUNT(sensor_id) AS total_sensors, ROUND(CAST(COUNT(sensor_id) AS REAL) / COUNT(sensor_id), 2) AS valid_ratio FROM ranked WHERE r = 1 GROUP BY reading_date"
+    }
+  ]
+}

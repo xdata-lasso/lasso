@@ -1,0 +1,28 @@
+-- Schema DDL
+CREATE TABLE "Employees" ("employee_id" INTEGER PRIMARY KEY, "name" TEXT(255), "reports_to" INTEGER, "age" INTEGER, FOREIGN KEY ("reports_to") REFERENCES "Employees" ("employee_id"), CHECK ("age" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO employees (employee_id, name, reports_to, age) VALUES (0, 'default2', -1, 1), (-1, NULL, -1, NULL), (1, NULL, NULL, NULL), (2, 'default1', NULL, 1), (3, NULL, NULL, NULL), (4, 'default2', NULL, NULL), (5, NULL, 1, 1), (6, 'default1', 0, 1), (7, NULL, NULL, 1), (8, 'default1', NULL, 1), (9, NULL, 1, NULL), (10, NULL, 1, NULL), (11, 'default1', 1, 1), (12, 'default2', 1, NULL), (13, 'default2', 0, 1), (14, NULL, NULL, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT A.EMPLOYEE_ID, A.NAME, B.REPORTS_COUNT, B.AVERAGE_AGE FROM EMPLOYEES AS A JOIN (SELECT REPORTS_TO, COUNT(EMPLOYEE_ID) AS REPORTS_COUNT, ROUND(AVG(AGE)) AS AVERAGE_AGE FROM EMPLOYEES GROUP BY REPORTS_TO) AS B ON A.EMPLOYEE_ID = B.REPORTS_TO ORDER BY EMPLOYEE_ID;
+
+/*
+Gold Result:
+(-1, None, 2, 1.0)
+(0, 'default2', 2, 1.0)
+(1, None, 5, 1.0)
+*/
+
+-- Prediction Query
+WITH TABLE1 AS (SELECT REPORTS_TO, COUNT(*) AS REPORTS_COUNT, ROUND(CAST(SUM(AGE) AS REAL) / COUNT(*), 0) AS AVERAGE_AGE FROM EMPLOYEES WHERE NOT REPORTS_TO IS NULL GROUP BY REPORTS_TO) SELECT DISTINCT E.EMPLOYEE_ID, NAME, T1.REPORTS_COUNT, T1.AVERAGE_AGE FROM EMPLOYEES AS E CROSS JOIN TABLE1 AS T1 WHERE E.EMPLOYEE_ID = T1.REPORTS_TO ORDER BY E.EMPLOYEE_ID, NAME NULLS LAST, T1.REPORTS_COUNT NULLS LAST, T1.AVERAGE_AGE NULLS LAST;
+
+/*
+Prediction Result:
+(-1, None, 2, 1.0)
+(0, 'default2', 2, 1.0)
+(1, None, 5, 0.0)
+*/

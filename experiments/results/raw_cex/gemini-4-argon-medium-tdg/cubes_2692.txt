@@ -1,0 +1,52 @@
+```sql
+-- DATASET 1
+-- Tests standard populated state where Order_Items has multiple rows (testing DISTINCT), 
+-- Orders has multiple rows with NULLs and duplicate foreign keys (testing COUNT(*) vs COUNT(col) vs COUNT(DISTINCT col)),
+-- and count of Orders (3) differs from count of Order_Items (2) and actual order_id values (10, 20, 30).
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Alice', 'Regular');
+INSERT INTO Products (product_id, product_name, product_details) VALUES (100, 'Laptop', 'Electronics');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (10, 1, 'Shipped', '2023-01-01 10:00:00', 'First order');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (20, 1, NULL, NULL, NULL);
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (30, NULL, 'Pending', '2023-01-02 10:00:00', NULL);
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1000, 100, 10, 'Delivered', 'Item 1');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1001, NULL, 10, NULL, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty Order_Items table with non-empty Orders table.
+-- Because Order_Items is CROSS JOINed, an empty Order_Items table must result in an empty result set (0 rows),
+-- killing mutants that simply query SELECT COUNT(*) FROM Orders without joining Order_Items.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Bob', 'VIP');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (10, 1, 'Pending', '2023-01-01 12:00:00', 'Order without items');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (20, 1, 'Cancelled', '2023-01-02 12:00:00', 'Second order without items');
+```
+
+```sql
+-- DATASET 3
+-- Tests non-empty Order_Items table with an empty Orders table (using NULL foreign key for order_id).
+-- The subquery (SELECT COUNT(*) FROM Orders) returns 1 row with n = 0.
+-- Crossing with non-empty Order_Items must return a single row with order_id = 0.
+INSERT INTO Products (product_id, product_name, product_details) VALUES (200, 'Mouse', 'Wireless');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (500, 200, NULL, 'Orphaned', 'No parent order');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (501, 200, NULL, 'Orphaned', 'Second item without order');
+```
+
+```sql
+-- DATASET 4
+-- Tests when Order_Items has more rows (3) than Orders (1), and the single Order has NULL attributes.
+-- Differentiates mutants that swap the tables in the COUNT vs LHS, or join on order_id where some items have NULL order_id.
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (99, NULL, NULL, NULL, NULL);
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1, NULL, NULL, 'Pending', 'Unassigned item 1');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (2, NULL, NULL, 'Pending', 'Unassigned item 2');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (3, NULL, 99, 'Shipped', 'Assigned item');
+```
+
+```sql
+-- DATASET 5
+-- Tests completely empty Orders and Order_Items tables (while other tables have data).
+-- Should return an empty result set.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Charlie', 'New');
+INSERT INTO Products (product_id, product_name, product_details) VALUES (1, 'Keyboard', 'Mechanical');
+INSERT INTO Invoices (invoice_number, invoice_date, invoice_details) VALUES (1, '2023-05-01 00:00:00', 'Empty invoice');
+```

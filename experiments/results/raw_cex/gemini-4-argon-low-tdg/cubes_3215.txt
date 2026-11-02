@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests exact match on (LHS.product_id = RHS.problem_id AND LHS.product_name = RHS.problem_description) vs standard FK join (LHS.product_id = RHS.product_id) and partial matches.
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (1, 'Alice', 'Smith', 'Details 1');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (1, 'MatchName1', 'Details A');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (2, 'MatchName2', 'Details B');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (3, 'MatchName3', 'Details C');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (4, 'MatchName4', 'Details D');
+
+-- Matches BOTH product_id = problem_id (1=1) AND product_name = problem_description ('MatchName1'='MatchName1'), while RHS.product_id is different (2).
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (1, 1, 2, 1, '2023-01-01 10:00:00', '2023-01-02 10:00:00', 'MatchName1', 'Other 1');
+
+-- Matches ONLY product_id = problem_id (2=2), description differs ('WrongDesc' != 'MatchName2').
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (2, 1, 2, 1, '2023-01-01 10:00:00', '2023-01-02 10:00:00', 'WrongDesc', 'Other 2');
+
+-- Matches ONLY product_name = problem_description ('MatchName3' = 'MatchName3'), ID differs (problem_id 30 != product_id 3), though FK product_id = 3.
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (30, 1, 3, 1, '2023-01-01 10:00:00', '2023-01-02 10:00:00', 'MatchName3', 'Other 3');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in COUNT(*) vs COUNT(column) and NULLs in join condition columns (product_name / problem_description).
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (10, 'Alpha', NULL);
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (20, 'Beta', NULL);
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (30, NULL, 'NonNullDetail');
+
+-- Valid match where all nullable columns in Product and Problems are NULL (kills mutants replacing COUNT(*) with COUNT(nullable_col)).
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (10, NULL, NULL, NULL, NULL, NULL, 'Alpha', NULL);
+
+-- Valid match with non-null attributes.
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (20, NULL, 10, NULL, '2023-05-01', '2023-05-02', 'Beta', 'Some details');
+
+-- Both product_name and problem_description are NULL for ID 30 (should NOT match in standard SQL equality).
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (30, NULL, 30, NULL, '2023-05-01', '2023-05-02', NULL, 'Some details');
+```
+
+```sql
+-- DATASET 3
+-- Tests 0-match scenario (COUNT(*) = 0) with non-empty tables to kill OUTER JOIN mutants, OR-join mutants, and non-aggregated subqueries.
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (1, 'John', 'Doe', 'Staff');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (1, 'ProdA', 'ProdDetails');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (2, 'ProdB', 'ProdDetails');
+
+-- Matches ProdA on FK product_id=1 and description='ProdA', but problem_id=100 != 1.
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (100, 1, 1, 1, '2023-01-01', '2023-01-02', 'ProdA', 'Details');
+
+-- Matches ProdB on problem_id=2, but description='ProdA' != 'ProdB'.
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (2, 1, 2, 1, '2023-01-01', '2023-01-02', 'ProdA', 'Details');
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple matches with identical non-key attribute values to catch DISTINCT mutations inside the subqueries or COUNT(DISTINCT ...).
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (1, 'SameName', 'SameDetails');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (2, 'SameName', 'SameDetails');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (3, 'SameName', 'SameDetails');
+
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (1, NULL, 1, NULL, '2023-01-01', '2023-01-02', 'SameName', 'SameOther');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (2, NULL, 1, NULL, '2023-01-01', '2023-01-02', 'SameName', 'SameOther');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (3, NULL, 1, NULL, '2023-01-01', '2023-01-02', 'SameName', 'SameOther');
+```
+
+```sql
+-- DATASET 5
+-- Tests column cross-comparisons (e.g., product_details vs problem_description, product_name vs other_problem_details) and inequality/case sensitivity.
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (1, 'TargetName', 'WrongString');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (2, 'WrongString', 'TargetName');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (3, 'TargetName', 'TargetName');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (4, 'targetname', 'TargetName');
+
+-- Match: product_id=1=problem_id, product_name='TargetName'=problem_description.
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (1, NULL, 1, NULL, '2023-01-01', '2023-01-02', 'TargetName', 'WrongString');
+
+-- Non-match: product_details='TargetName'=problem_description, but product_name='WrongString'.
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (2, NULL, 2, NULL, '2023-01-01', '2023-01-02', 'TargetName', 'WrongString');
+
+-- Non-match: product_name='TargetName'=other_problem_details, but problem_description='WrongString'.
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (3, NULL, 3, NULL, '2023-01-01', '2023-01-02', 'WrongString', 'TargetName');
+
+-- Non-match: case difference ('targetname' vs 'TargetName').
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (4, NULL, 4, NULL, '2023-01-01', '2023-01-02', 'TargetName', 'TargetName');
+```

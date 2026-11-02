@@ -1,0 +1,52 @@
+-- Schema DDL
+CREATE TABLE "AIRLINES" (
+    "UID" INT,
+    "AIRLINE" TEXT,
+    "ABBREVIATION" TEXT,
+    "COUNTRY" TEXT,
+    PRIMARY KEY ("UID")
+);
+CREATE TABLE "AIRPORTS" (
+    "AIRPORTCODE" TEXT,
+    "CITY" TEXT,
+    "AIRPORTNAME" TEXT,
+    "COUNTRY" TEXT,
+    "COUNTRYABBREV" TEXT,
+    PRIMARY KEY ("AIRPORTCODE")
+);
+CREATE TABLE "FLIGHTS" (
+    "AIRLINE" INT,
+    "FLIGHTNO" INT,
+    "DESTAIRPORT" TEXT,
+    "SOURCEAIRPORT" TEXT,
+    PRIMARY KEY ("AIRLINE", "FLIGHTNO"),
+    FOREIGN KEY ("DESTAIRPORT") REFERENCES "AIRPORTS"("AIRPORTCODE"),
+    FOREIGN KEY ("SOURCEAIRPORT") REFERENCES "AIRPORTS"("AIRPORTCODE")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO AIRLINES VALUES (0, 0, 0, 0);
+INSERT INTO AIRLINES VALUES (1, 0, 0, 0);
+INSERT INTO AIRPORTS VALUES (0, 0, -1, 0, 0);
+INSERT INTO AIRPORTS VALUES (-1, 0, 0, 0, 0);
+INSERT INTO FLIGHTS VALUES (0, 0, 0, -1);
+INSERT INTO FLIGHTS VALUES (-1, 1, -1, -1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT airportname FROM airports ORDER BY airportname, airports.airportcode NULLS LAST;
+
+/*
+Gold Result:
+('-1',)
+('0',)
+*/
+
+-- Prediction Query
+SELECT AirportName FROM Airports WHERE NOT AirportCode IN (SELECT SourceAirport FROM Flights UNION SELECT DestAirport FROM Flights);
+
+/*
+Prediction Result:
+*/

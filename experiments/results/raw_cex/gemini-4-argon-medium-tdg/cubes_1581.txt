@@ -1,0 +1,116 @@
+```sql
+-- DATASET 1
+-- Tests basic join conditions (employee_id match AND n = document_id where n = 1), duplicate rows (SELECT vs SELECT DISTINCT), and ordering by employee_name and employee_id.
+INSERT INTO Documents (document_id) VALUES (1);
+INSERT INTO Documents (document_id) VALUES (2);
+INSERT INTO Document_Drafts (document_id, draft_number) VALUES (1, 10);
+INSERT INTO Document_Drafts (document_id, draft_number) VALUES (2, 20);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (1, 10, 100);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (2, 20, 200);
+
+INSERT INTO Employees (employee_id, employee_name) VALUES (1, 'Bob');
+INSERT INTO Employees (employee_id, employee_name) VALUES (2, 'Alice');
+INSERT INTO Employees (employee_id, employee_name) VALUES (3, 'Alice');
+INSERT INTO Employees (employee_id, employee_name) VALUES (4, 'Charlie');
+INSERT INTO Employees (employee_id, employee_name) VALUES (5, 'David');
+
+-- Employee 1 ('Bob'): matches document_id = 1
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 10, 100, 1);
+
+-- Employee 2 ('Alice'): matches document_id = 1 AND has a non-matching record for document_id = 2
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 10, 100, 2);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (2, 20, 200, 2);
+
+-- Employee 3 ('Alice'): matches document_id = 1 across multiple draft/copy combinations (tests duplicate output rows & tie-breaking order)
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 10, 100, 3);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 20, 200, 3);
+
+-- Employee 4 ('Charlie'): only has document_id = 2 (should be filtered out since n = 1 != 2)
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (2, 20, 200, 4);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in employee_name, outer join mutations (LEFT/RIGHT JOIN), and cross-column confusion (e.g., employee_id = document_id vs n = document_id).
+INSERT INTO Documents (document_id) VALUES (1);
+INSERT INTO Documents (document_id) VALUES (10);
+INSERT INTO Document_Drafts (document_id, draft_number) VALUES (1, 1);
+INSERT INTO Document_Drafts (document_id, draft_number) VALUES (10, 2);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (1, 1, 1);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (10, 2, 2);
+
+-- Employee with NULL name
+INSERT INTO Employees (employee_id, employee_name) VALUES (10, NULL);
+INSERT INTO Employees (employee_id, employee_name) VALUES (20, 'Zoe');
+INSERT INTO Employees (employee_id, employee_name) VALUES (30, 'Aaron');
+
+-- Employee 10 matches document_id = 1 (n = 1) and also has a record with document_id = 10 (tests mutation RHS.document_id = LHS.employee_id)
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 1, 1, 10);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (10, 2, 2, 10);
+
+-- Employee 20 matches document_id = 1, but with draft_number/copy_number != 1 (tests mutation n = draft_number or n = copy_number)
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 2, 2, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary values (0, negative IDs, empty string vs NULL) and descending vs ascending sort mutations.
+INSERT INTO Documents (document_id) VALUES (0);
+INSERT INTO Documents (document_id) VALUES (1);
+INSERT INTO Document_Drafts (document_id, draft_number) VALUES (0, 0);
+INSERT INTO Document_Drafts (document_id, draft_number) VALUES (1, 5);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (0, 0, 0);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (1, 5, 5);
+
+INSERT INTO Employees (employee_id, employee_name) VALUES (-5, '');
+INSERT INTO Employees (employee_id, employee_name) VALUES (0, '');
+INSERT INTO Employees (employee_id, employee_name) VALUES (1, NULL);
+
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 5, 5, -5);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 5, 5, 0);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (0, 0, 0, 0);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 5, 5, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY mutations in the subquery (e.g., grouping ONLY by employee_name instead of (employee_id, employee_name), which would make COUNT(*) = 2 for 'Sam').
+INSERT INTO Documents (document_id) VALUES (1);
+INSERT INTO Documents (document_id) VALUES (2);
+INSERT INTO Document_Drafts (document_id, draft_number) VALUES (1, 1);
+INSERT INTO Document_Drafts (document_id, draft_number) VALUES (2, 2);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (1, 1, 1);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (2, 2, 2);
+
+INSERT INTO Employees (employee_id, employee_name) VALUES (101, 'Sam');
+INSERT INTO Employees (employee_id, employee_name) VALUES (102, 'Sam');
+INSERT INTO Employees (employee_id, employee_name) VALUES (103, 'Alex');
+
+-- If grouped by (employee_id, employee_name), n = 1 for both Sams, so employee 101 matches doc 1 and 102 does NOT match doc 2.
+-- If mutated to group only by employee_name, n = 2 for 'Sam', flipping the match to doc 2.
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 1, 1, 101);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (2, 2, 2, 102);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 1, 1, 103);
+```
+
+```sql
+-- DATASET 5
+-- Tests COUNT(*) vs COUNT(role_code) or COUNT(other_details) mutations in the subquery when nullable columns in Employees are NULL.
+INSERT INTO Roles (role_code, role_description) VALUES ('R1', 'Manager');
+INSERT INTO Documents (document_id) VALUES (0);
+INSERT INTO Documents (document_id) VALUES (1);
+INSERT INTO Document_Drafts (document_id, draft_number) VALUES (0, 10);
+INSERT INTO Document_Drafts (document_id, draft_number) VALUES (1, 20);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (0, 10, 100);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (1, 20, 200);
+
+-- Employee 1 has NULL role_code and NULL other_details; COUNT(*) is 1, but COUNT(role_code) or COUNT(other_details) would be 0.
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (1, NULL, 'Eve', NULL);
+-- Employee 2 has non-NULL role_code and other_details.
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (2, 'R1', 'Frank', 'Some details');
+
+-- If a mutant uses COUNT(role_code), Eve's n becomes 0 and matches doc 0 instead of doc 1.
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (0, 10, 100, 1);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 20, 200, 1);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 20, 200, 2);
+```

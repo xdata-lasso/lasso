@@ -1,0 +1,58 @@
+-- Schema DDL
+CREATE TABLE "SCHOOL" (
+    "SCHOOL_ID" TEXT,
+    "SCHOOL_NAME" TEXT,
+    "LOCATION" TEXT,
+    "MASCOT" TEXT,
+    "ENROLLMENT" INT,
+    "IHSAA_CLASS" TEXT,
+    "IHSAA_FOOTBALL_CLASS" TEXT,
+    "COUNTY" TEXT,
+    PRIMARY KEY ("SCHOOL_ID")
+);
+CREATE TABLE "BUDGET" (
+    "SCHOOL_ID" INT,
+    "YEAR" INT,
+    "BUDGETED" INT,
+    "TOTAL_BUDGET_PERCENT_BUDGETED" FLOAT,
+    "INVESTED" INT,
+    "TOTAL_BUDGET_PERCENT_INVESTED" FLOAT,
+    "BUDGET_INVESTED_PERCENT" TEXT,
+    PRIMARY KEY ("SCHOOL_ID", "YEAR"),
+    FOREIGN KEY ("SCHOOL_ID") REFERENCES "SCHOOL"("SCHOOL_ID")
+);
+CREATE TABLE "ENDOWMENT" (
+    "ENDOWMENT_ID" INT,
+    "SCHOOL_ID" INT,
+    "DONATOR_NAME" TEXT,
+    "AMOUNT" FLOAT,
+    PRIMARY KEY ("ENDOWMENT_ID"),
+    FOREIGN KEY ("SCHOOL_ID") REFERENCES "SCHOOL"("SCHOOL_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO SCHOOL VALUES (0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO SCHOOL VALUES (1, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO BUDGET VALUES (0, -1, 0, 0, 0, 0, 0);
+INSERT INTO BUDGET VALUES (1, 0, 0, 0, 0, 0, 0);
+INSERT INTO ENDOWMENT VALUES (1, 1, NULL, NULL);
+INSERT INTO ENDOWMENT VALUES (0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT amount, donator_name FROM (SELECT * FROM (SELECT * FROM endowment ORDER BY amount DESC, endowment.endowment_id NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+(0.0, '0')
+*/
+
+-- Prediction Query
+SELECT amount, donator_name FROM endowment ORDER BY amount DESC, endowment.endowment_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+(0.0, '0')
+*/

@@ -1,0 +1,53 @@
+-- Schema DDL
+CREATE TABLE "ARTIST" (
+    "ARTIST_ID" INT,
+    "NAME" TEXT,
+    "COUNTRY" TEXT,
+    "YEAR_JOIN" INT,
+    "AGE" INT,
+    PRIMARY KEY ("ARTIST_ID")
+);
+CREATE TABLE "EXHIBITION" (
+    "EXHIBITION_ID" INT,
+    "ARTIST_ID" INT,
+    "YEAR" INT,
+    "THEME" TEXT,
+    "TICKET_PRICE" FLOAT,
+    PRIMARY KEY ("EXHIBITION_ID"),
+    FOREIGN KEY ("ARTIST_ID") REFERENCES "ARTIST"("ARTIST_ID")
+);
+CREATE TABLE "EXHIBITION_RECORD" (
+    "EXHIBITION_ID" INT,
+    "DATE" TEXT,
+    "ATTENDANCE" INT,
+    PRIMARY KEY ("EXHIBITION_ID", "DATE"),
+    FOREIGN KEY ("EXHIBITION_ID") REFERENCES "EXHIBITION"("EXHIBITION_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ARTIST VALUES (0, 0, 0, 0, 0);
+INSERT INTO ARTIST VALUES (-1, 0, 0, 0, 0);
+INSERT INTO EXHIBITION VALUES (-1, -1, 0, 0, 15);
+INSERT INTO EXHIBITION VALUES (0, -1, 0, -1, 0);
+INSERT INTO EXHIBITION_RECORD VALUES (-1, 5, 0);
+INSERT INTO EXHIBITION_RECORD VALUES (0, 6, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT theme, YEAR FROM exhibition WHERE (ticket_price <= 15.0) ORDER BY theme, exhibition.exhibition_id NULLS LAST;
+
+/*
+Gold Result:
+('-1', 0)
+('0', 0)
+*/
+
+-- Prediction Query
+SELECT theme, YEAR FROM exhibition WHERE ticket_price < 15;
+
+/*
+Prediction Result:
+('-1', 0)
+*/

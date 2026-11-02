@@ -1,0 +1,113 @@
+```sql
+-- DATASET 1
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Smith', 'Surgeon', 11111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. Jones', 'Internist', 22222);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Procedure A', 100.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'Procedure B', 200.0);
+
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (100, 'Nurse Joy', 'RN', 1, 33333);
+
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1, 10, 'Alice', '123 Main St', '555-0101', 1001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (2, 20, 'Bob', '456 Oak St', '555-0102', 1002);
+
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (1, 101, 1, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (2, 101, 2, '2023-02-01 08:00:00', '2023-02-05 12:00:00');
+
+-- Patient 1 has a self-matching record where Procedures == Physician (10 == 10) and AssistingNurse IS NOT NULL
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1, 10, 1, '2023-01-02 10:00:00', 100, 10);
+-- Patient 1 also has a second matching record to test DISTINCT
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1, 20, 1, '2023-01-03 10:00:00', 100, 20);
+-- Patient 2 has a record where Procedures != Physician (10 != 20)
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (2, 10, 2, '2023-02-02 10:00:00', 100, 20);
+```
+
+```sql
+-- DATASET 2
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Smith', 'Surgeon', 11111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. Jones', 'Internist', 22222);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Procedure A', 100.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'Procedure B', 200.0);
+
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (100, 'Nurse Joy', 'RN', 1, 33333);
+
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1, 10, 'Alice', '123 Main St', '555-0101', 1001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (2, 20, 'Bob', '456 Oak St', '555-0102', 1002);
+
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (1, 101, 1, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (2, 101, 2, '2023-02-01 08:00:00', '2023-02-05 12:00:00');
+
+-- Patient 1: Row 1 has Procedures=10, Physician=20; Row 2 has Procedures=20, Physician=10.
+-- Inner subquery joins Row 1 and Row 2 (Row1.Procedures = Row2.Physician -> 10 = 10),
+-- but outer join requires LHS.Physician = RHS.Procedures (where RHS.Procedures = Row1.Procedures), which fails because Row1.Procedures != Row1.Physician!
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1, 10, 1, '2023-01-02 10:00:00', 100, 20);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1, 20, 1, '2023-01-03 10:00:00', 100, 10);
+
+-- Patient 2: Procedures = Physician (10 = 10), BUT AssistingNurse IS NULL.
+-- Outer join condition `LHS.assistingnurse = RHS.assistingnurse` evaluates to UNKNOWN (falsy) in SQL for NULL = NULL.
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (2, 10, 2, '2023-02-02 10:00:00', NULL, 10);
+```
+
+```sql
+-- DATASET 3
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Smith', 'Surgeon', 11111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. Jones', 'Internist', 22222);
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Procedure A', 100.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (20, 'Procedure B', 200.0);
+
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (100, 'Nurse Joy', 'RN', 1, 33333);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (200, 'Nurse Ann', 'RN', 1, 44444);
+
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1, 10, 'Alice', '123 Main St', '555-0101', 1001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (2, 10, 'Bob', '456 Oak St', '555-0102', 1002);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (3, 20, 'Charlie', '789 Pine St', '555-0103', 1003);
+
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (1, 101, 1, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (2, 101, 2, '2023-02-01 08:00:00', '2023-02-05 12:00:00');
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (3, 101, 3, '2023-03-01 08:00:00', '2023-03-05 12:00:00');
+
+-- Patient 3 and Patient 1 both match, inserted out of order to test ORDER BY patient
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (3, 20, 3, '2023-03-02 10:00:00', 200, 20);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1, 10, 1, '2023-01-02 10:00:00', 100, 10);
+
+-- Patient 2 has Procedures=10, Physician=20, while Patient 1 has Procedures=20, Physician=10 (cross-patient match only, should not qualify Patient 2)
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (2, 10, 2, '2023-02-02 10:00:00', 100, 20);
+```
+
+```sql
+-- DATASET 4
+-- Empty Patient table, non-empty Undergoes table (Wait: Undergoes.Patient references Patient.SSN, so in SQLite with FK enabled or standard schema integrity, Undergoes.Patient can be NULL if nullable!)
+-- Testing CROSS JOIN with empty Patient table vs non-empty Patient table, and NULL Patient in Undergoes.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Smith', 'Surgeon', 11111);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Procedure A', 100.0);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (100, 'Nurse Joy', 'RN', 1, 33333);
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+
+-- Only one patient (SSN=99), who has NO Undergoes records, while another patient (SSN=5) has a valid Undergoes record.
+-- Tests mutations that replace CROSS JOIN with INNER JOIN on Patient.SSN = Undergoes.Patient when Patient has extra rows or when projections pick LHS.ssn instead of patient.
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (5, 10, 'Eve', '111 Elm St', '555-0199', 1005);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (99, 10, 'Frank', '222 Maple St', '555-0200', 1099);
+
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (1, 101, 5, '2023-01-01 08:00:00', '2023-01-05 12:00:00');
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (5, 10, 1, '2023-01-02 10:00:00', 100, 10);
+```
+
+```sql
+-- DATASET 5
+-- Tests the case where Patient table is completely empty (CROSS JOIN must return empty result)
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Smith', 'Surgeon', 11111);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (10, 'Procedure A', 100.0);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (100, 'Nurse Joy', 'RN', 1, 33333);
+```

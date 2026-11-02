@@ -1,0 +1,138 @@
+```sql
+-- DATASET 1
+-- Tests the LIKE 'Riverside%' predicate (exact match, prefix match, non-prefix substring match, and completely different district).
+-- Also tests column confusion between T2."District Name", T1.dname, and T3.District.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS1', 'Active', 'Riverside', 'OtherDist', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS2', 'Active', 'Riverside', 'Riverside Unified', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS3', 'Active', 'Riverside', 'Riverside', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS4', 'Active', 'Riverside', 'Riverside', '01', 'TypeA', '2020-01-01');
+
+-- Exact 'Riverside' in T2."District Name" (Should be included)
+INSERT INTO frpm (CDSCode, "District Name", "School Name", "Charter Funding Type") VALUES ('CDS1', 'Riverside', 'FakeSchool1', 'Directly funded');
+INSERT INTO satscores (cds, rtype, sname, dname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS1', 'S', 'School Exact', 'OtherDist', 100, 50, 450);
+
+-- Prefix 'Riverside Unified' in T2."District Name" (Should be included)
+INSERT INTO frpm (CDSCode, "District Name", "School Name", "Charter Funding Type") VALUES ('CDS2', 'Riverside Unified', 'FakeSchool2', 'Locally funded');
+INSERT INTO satscores (cds, rtype, sname, dname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS2', 'S', 'School Prefix', 'OtherDist', 100, 50, 450);
+
+-- Non-prefix 'East Riverside' in T2."District Name", though T1.dname is 'Riverside' (Should be excluded)
+INSERT INTO frpm (CDSCode, "District Name", "School Name", "Charter Funding Type") VALUES ('CDS3', 'East Riverside', 'School Substring', 'Directly funded');
+INSERT INTO satscores (cds, rtype, sname, dname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS3', 'S', 'School Substring', 'Riverside', 100, 50, 450);
+
+-- Unmatched 'Other District' in T2."District Name" (Should be excluded)
+INSERT INTO frpm (CDSCode, "District Name", "School Name", "Charter Funding Type") VALUES ('CDS4', 'Other District', 'School Other', 'Locally funded');
+INSERT INTO satscores (cds, rtype, sname, dname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS4', 'S', 'School Other', 'Riverside Unified', 100, 50, 450);
+```
+
+```sql
+-- DATASET 2
+-- Tests the HAVING boundary conditions (> 400 vs >= 400 vs < 400) and floating-point division vs integer division: CAST(SUM(AvgScrMath) AS REAL) / COUNT(cds) > 400.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS1', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS2', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS3', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS4', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+
+-- Group 1: Two rows with AvgScrMath 400 and 401 -> SUM = 801, COUNT = 2.
+-- Real division = 400.5 (> 400, included). Integer division = 400 (not > 400, would fail if CAST AS REAL is omitted).
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS1', 'Riverside A', 'Direct');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath, AvgScrRead, AvgScrWrite) VALUES ('CDS1', 'S', 'School Float', 100, 50, 400, 300, 300);
+
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS2', 'Riverside B', 'Direct');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath, AvgScrRead, AvgScrWrite) VALUES ('CDS2', 'S', 'School Float', 100, 50, 401, 300, 300);
+
+-- Group 2: Exact boundary = 400.0 (Should be excluded by strict > 400, included if mutant uses >= 400)
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS3', 'Riverside C', 'Local');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath, AvgScrRead, AvgScrWrite) VALUES ('CDS3', 'S', 'School Exact 400', 100, 50, 400, 500, 500);
+
+-- Group 3: Below boundary = 399.0 (Should be excluded)
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS4', 'Riverside D', 'Local');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath, AvgScrRead, AvgScrWrite) VALUES ('CDS4', 'S', 'School Below 400', 100, 50, 399, 500, 500);
+```
+
+```sql
+-- DATASET 3
+-- Tests difference between CAST(SUM(T1.AvgScrMath) AS REAL) / COUNT(T1.cds) and AVG(T1.AvgScrMath) when AvgScrMath is NULL.
+-- Also tests INNER JOIN vs LEFT/RIGHT JOIN (unmatched rows in frpm or satscores).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS1', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS2', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS3', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS4', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS5', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS6', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+
+-- Group 1 ('School NullMath', 'Direct'):
+-- Row 1 has AvgScrMath = 600, Row 2 has AvgScrMath = NULL.
+-- Gold query: SUM(AvgScrMath) = 600, COUNT(cds) = 2 -> 600.0 / 2 = 300.0 (Not > 400, so EXCLUDED).
+-- Mutant using AVG(AvgScrMath) or COUNT(AvgScrMath): 600.0 / 1 = 600.0 (> 400, would be INCLUDED).
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS1', 'Riverside 1', 'Direct');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS1', 'S', 'School NullMath', 100, 50, 600);
+
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS2', 'Riverside 1', 'Direct');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS2', 'S', 'School NullMath', 100, 50, NULL);
+
+-- Group 2 ('School HighNullMath', 'Local'):
+-- Row 1 has AvgScrMath = 900, Row 2 has AvgScrMath = NULL.
+-- Gold query: SUM = 900, COUNT(cds) = 2 -> 900.0 / 2 = 450.0 (> 400, so INCLUDED).
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS3', 'Riverside 1', 'Local');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS3', 'S', 'School HighNullMath', 100, 50, 900);
+
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS4', 'Riverside 1', 'Local');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS4', 'S', 'School HighNullMath', 100, 50, NULL);
+
+-- Orphan row in satscores (no matching frpm)
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS5', 'S', 'Orphan Sat', 100, 50, 500);
+
+-- Orphan row in frpm (no matching satscores)
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS6', 'Riverside 1', 'Orphan Funding');
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY keys (T1.sname, T2."Charter Funding Type") vs missing GROUP BY, grouping by only one column, or grouping by CDSCode.
+-- Also tests HAVING vs WHERE (where one row is > 400 and another is < 400 in the same group).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS1', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS2', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS3', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS4', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS5', 'Active', 'CountyA', 'DistA', '01', 'TypeA', '2020-01-01');
+
+-- Same sname ('Lincoln High'), but two different Charter Funding Types ('Direct' and 'Local').
+-- For ('Lincoln High', 'Direct'): two schools (CDS1: 500, CDS2: 350). Group average = 850 / 2 = 425.0 (> 400, INCLUDED as 1 grouped row).
+-- Note: If WHERE AvgScrMath > 400 was used instead of HAVING, CDS2 would be dropped or if grouped by CDSCode, CDS2 would be excluded while CDS1 included.
+-- If GROUP BY was omitted, it would return 2 rows instead of 1, or collapse everything into 1 row.
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS1', 'Riverside Unified', 'Direct');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS1', 'S', 'Lincoln High', 100, 50, 500);
+
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS2', 'Riverside Unified', 'Direct');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS2', 'S', 'Lincoln High', 100, 50, 350);
+
+-- For ('Lincoln High', 'Local'): one school (CDS3: 360). Group average = 360.0 (EXCLUDED).
+-- Note: If grouped ONLY by T1.sname ('Lincoln High'), total sum = 500 + 350 + 360 = 1210 / 3 = 403.33 (> 400).
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS3', 'Riverside Unified', 'Local');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS3', 'S', 'Lincoln High', 100, 50, 360);
+
+-- Another group ('Washington High', 'Local'): two schools (CDS4: 450, CDS5: 200). Group average = 650 / 2 = 325.0 (EXCLUDED).
+-- Note: CDS4 alone is > 400 (450), so a mutant using WHERE T1.AvgScrMath > 400 instead of HAVING would falsely include ('Washington High', 'Local').
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS4', 'Riverside Unified', 'Local');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS4', 'S', 'Washington High', 100, 50, 450);
+
+INSERT INTO frpm (CDSCode, "District Name", "Charter Funding Type") VALUES ('CDS5', 'Riverside Unified', 'Local');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS5', 'S', 'Washington High', 100, 50, 200);
+```
+
+```sql
+-- DATASET 5
+-- Tests handling of NULL values in the GROUP BY / SELECT columns (T1.sname and T2."Charter Funding Type")
+-- and verifies that T2."Charter Funding Type" is selected rather than T3.FundingType or T2."School Type".
+INSERT INTO schools (CDSCode, StatusType, County, District, FundingType, DOC, DOCType, LastUpdate) VALUES ('CDS1', 'Active', 'CountyA', 'DistA', 'WrongFunding1', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, FundingType, DOC, DOCType, LastUpdate) VALUES ('CDS2', 'Active', 'CountyA', 'DistA', 'WrongFunding2', '01', 'TypeA', '2020-01-01');
+
+-- Group with NULL Charter Funding Type, but AvgScrMath > 400 (Should be included, since COUNT(T1.cds) counts non-null cds, not Charter Funding Type)
+-- A mutant using COUNT(T2."Charter Funding Type") would divide by 0 here!
+INSERT INTO frpm (CDSCode, "District Name", "School Name", "School Type", "Charter Funding Type") VALUES ('CDS1', 'Riverside North', 'AltName1', 'High School', NULL);
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS1', 'S', 'Riverside Tech', 100, 50, 480);
+
+-- Group with NULL sname, and valid Charter Funding Type, AvgScrMath > 400 (Should be included; a mutant using COUNT(T1.sname) would divide by 0)
+INSERT INTO frpm (CDSCode, "District Name", "School Name", "School Type", "Charter Funding Type") VALUES ('CDS2', 'Riverside South', 'AltName2', 'Elementary', 'Directly funded');
+INSERT INTO satscores (cds, rtype, sname, enroll12, NumTstTakr, AvgScrMath) VALUES ('CDS2', 'S', NULL, 100, 50, 490);
+```

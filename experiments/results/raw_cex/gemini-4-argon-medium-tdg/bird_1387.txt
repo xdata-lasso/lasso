@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, duplicate results (SELECT vs SELECT DISTINCT), and filtering on event_name ('Yearly Kickoff' vs others).
+-- Also populates attendance and income for a different member to kill mutants that join via attendance or income instead of budget/expense.
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'CS', 'Eng', 'Tech');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'NYC', 'NY', 'New York', 'NY');
+
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Yearly Kickoff', '2023-09-01', 'Social', 'Notes 1', 'Hall A', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Monthly Meetup', '2023-10-01', 'Social', 'Notes 2', 'Hall B', 'Open');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'Alice', 'Smith', 'alice@example.com', 'Member', 'M', '111-2222', 10001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM2', 'Bob', 'Jones', 'bob@example.com', 'President', 'L', '333-4444', 10001, 'M1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM3', 'Charlie', 'Brown', 'charlie@example.com', 'Treasurer', 'S', '555-6666', 10001, 'M1');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 50.0, 50.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Drinks', 20.0, 30.0, 50, 'Open', 'E2');
+
+-- MEM1 has two expenses for E1 (tests duplicate preservation in SELECT without DISTINCT, and approved='false' vs 'true')
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Pizza', '2023-08-30', 30.0, 'true', 'MEM1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Soda', '2023-08-31', 20.0, 'false', 'MEM1', 'B1');
+
+-- MEM2 has an expense for E2 (should be excluded by event_name filter)
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Water', '2023-09-30', 20.0, 'true', 'MEM2', 'B2');
+
+-- MEM3 attends E1 and has income, but no expenses for E1 (kills mutants using attendance or income)
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'MEM3');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2023-09-01', 100, 'Dues', 'Yearly Kickoff', 'MEM3');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/OUTER JOIN behavior, dangling/NULL foreign keys, and partial/case-sensitive string matching on 'Yearly Kickoff'.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Yearly Kickoff', '2023-01-01', 'Meeting', 'None', 'Room 1', 'Active');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Yearly Kickoff 2023', '2023-01-02', 'Meeting', 'None', 'Room 2', 'Active');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'yearly kickoff', '2023-01-03', 'Meeting', 'None', 'Room 3', 'Active');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E4', 'Yearly Kickoff', '2023-01-04', 'Meeting', 'No budget event', 'Room 4', 'Active');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'David', 'Miller', NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM2', 'Eve', 'Davis', NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM3', 'Frank', 'Wilson', NULL, NULL, NULL, NULL, NULL, NULL);
+
+-- B1 links to E1 ('Yearly Kickoff') and has an expense with a valid member (MEM1) and an expense with NULL member
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Supplies', 10.0, 0.0, 10, 'Planning', 'E1');
+-- B2 links to E1 ('Yearly Kickoff') but has no expenses
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Decor', 0.0, 50.0, 50, 'Planning', 'E1');
+-- B3 links to E2 ('Yearly Kickoff 2023' - tests LIKE '%Yearly Kickoff%' mutants)
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Supplies', 10.0, 0.0, 10, 'Planning', 'E2');
+-- B4 links to E3 ('yearly kickoff' - tests case-insensitive mutants)
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Supplies', 10.0, 0.0, 10, 'Planning', 'E3');
+-- B5 has NULL link_to_event
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Misc', 10.0, 0.0, 10, 'Planning', NULL);
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Pens', '2023-01-01', 10.0, 'true', 'MEM1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Anon Expense', '2023-01-01', 5.0, 'true', NULL, 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Banner', '2023-01-02', 10.0, 'true', 'MEM2', 'B3');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Flyers', '2023-01-03', 10.0, 'true', 'MEM2', 'B4');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP5', 'Unbudgeted', '2023-01-01', 10.0, 'true', 'MEM3', NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP6', 'Orphan Budget', '2023-01-01', 10.0, 'true', 'MEM3', 'B5');
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple distinct events named 'Yearly Kickoff', multiple members, and ensures cross-join / broken join condition mutants are killed.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E10', 'Yearly Kickoff', '2022-09-01', 'General', '2022 Kickoff', 'Auditorium', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E20', 'Yearly Kickoff', '2023-09-01', 'General', '2023 Kickoff', 'Gym', 'Open');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M10', 'Grace', 'Hopper', 'grace@navy.mil', 'Guest', 'S', '000-0001', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M20', 'Alan', 'Turing', 'alan@bletchley.uk', 'Member', 'M', '000-0002', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M30', 'Ada', 'Lovelace', 'ada@analytical.uk', 'VP', 'S', '000-0003', NULL, NULL);
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B10', 'Catering', 200.0, 0.0, 200, 'Closed', 'E10');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B20', 'Audio', 150.0, 50.0, 200, 'Open', 'E20');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X10', 'Sandwiches', '2022-08-29', 200.0, 'Yes', 'M10', 'B10');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('X20', 'Mic Rental', '2023-08-29', 150.0, 'No', 'M20', 'B20');
+
+-- M30 only attended both events, no expenses
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E10', 'M30');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E20', 'M30');
+-- M10 also attended E10 (if mutant additionally joins attendance, M10 might appear, but M20 did not attend E20 so M20 would be lost!)
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E10', 'M10');
+```

@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality, GROUP BY (card_number, level), DISTINCT, and ORDER BY.
+-- Includes:
+-- 1) Multiple groups for the same level to test DISTINCT.
+-- 2) Same card_number across different levels to test composite GROUP BY vs GROUP BY card_number only.
+-- 3) Different card_numbers within the same level to test composite GROUP BY vs GROUP BY level only.
+-- 4) Out-of-order insertion to test ORDER BY.
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (10, 'C1', 'Alice', 'NY', 30);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (1, 'C2', 'Bob', 'LA', 30);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (2, 'C3', 'Charlie', 'SF', 10);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (3, 'C3', 'David', 'SF', 10);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (4, 'C1', 'Eve', 'TX', 20);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (5, 'C4', 'Frank', 'FL', 20);
+```
+
+```sql
+-- DATASET 2
+-- Tests the INNER JOIN condition (LHS.level = RHS.level AND LHS.n = RHS.member_id).
+-- Specifically catches mutants that drop either part of the conjunction or use OR.
+-- Group ('C1', 5) has count n = 2.
+-- Member_ID 2 exists, but has Level 99 (matches n = member_id, fails level = level).
+-- Member_ID 10 and 11 have Level 5 (matches level = level, fails n = member_id).
+-- Expected output for Reference Query: Empty set.
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (10, 'C1', 'Alice', 'NY', 5);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (11, 'C1', 'Bob', 'LA', 5);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (2, 'C2', 'Charlie', 'SF', 99);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in GROUP BY and JOIN conditions, as well as COUNT(*) vs COUNT(column).
+-- Group (NULL, 5) has 2 rows -> n = 2. Member_ID 2 has Level 5 -> Joins and outputs Level 5.
+-- (Catches COUNT(card_number) which would evaluate to 0 instead of 2).
+-- Group ('C_NULL_LVL', NULL) has 1 row -> n = 1. Member_ID 1 has Level NULL -> Fails join because NULL = NULL is unknown.
+-- (Catches mutants using IS NOT DISTINCT FROM or omitting the level join condition).
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (2, NULL, 'Alice', 'NY', 5);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (3, NULL, 'Bob', 'LA', 5);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (1, 'C_NULL_LVL', 'Charlie', 'SF', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests COUNT(*) vs COUNT(DISTINCT ...) and joins where the matching RHS.member_id is NOT part of the LHS group that generated the count.
+-- Group ('C1', 1) has 3 identical rows (except PK) -> n = 3.
+-- Member_ID 3 has Card_Number 'C2' and Level 1 -> Joins with Group ('C1', 1) to output Level 1.
+-- Group ('C2', 1) has 1 row -> n = 1, but Member_ID 1 does not exist.
+-- (Catches mutants that accidentally join LHS.card_number = RHS.card_number or use COUNT(DISTINCT Name/Hometown)).
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (10, 'C1', 'SameName', 'SameTown', 1);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (11, 'C1', 'SameName', 'SameTown', 1);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (12, 'C1', 'SameName', 'SameTown', 1);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (3, 'C2', 'OtherName', 'OtherTown', 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests whether a mutant erroneously joins with other tables in the schema (branch, membership_register_branch, purchase).
+-- The Reference Query only queries "member". Here, "member" has rows that match the Reference Query,
+-- while child tables are empty or only reference a subset of members.
+INSERT INTO "branch" ("Branch_ID", "Name", "Open_year", "Address_road", "City", "membership_amount") VALUES (100, 'Main', '2000', '1st St', 'Metropolis', '500');
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (1, 'C1', 'Alice', 'NY', 7);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (2, 'C2', 'Bob', 'LA', 8);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (3, 'C2', 'Charlie', 'SF', 8);
+INSERT INTO "membership_register_branch" ("Member_ID", "Branch_ID", "Register_Year") VALUES (1, '100', '2020');
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (1, '100', '2021', 50.5);
+```
+
+```sql
+-- DATASET 6
+-- Tests boundary values (0, negative numbers) for Level and Member_ID, and ensures numeric sorting (ORDER BY LEVEL) rather than lexicographical sorting.
+-- Levels: -5, 0, 2, 10.
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (1, 'C_NEG', 'Alice', 'NY', -5);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (2, 'C_ZERO', 'Bob', 'LA', 0);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (3, 'C_ZERO', 'Charlie', 'SF', 0);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (4, 'C_TEN', 'David', 'TX', 10);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (10, 'C_TWO', 'Eve', 'FL', 2);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (11, 'C_TEN', 'Frank', 'WA', 10);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (12, 'C_TEN', 'Grace', 'OR', 10);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (13, 'C_TEN', 'Heidi', 'NV', 10);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (14, 'C_TWO', 'Ivan', 'AZ', 2);
+```

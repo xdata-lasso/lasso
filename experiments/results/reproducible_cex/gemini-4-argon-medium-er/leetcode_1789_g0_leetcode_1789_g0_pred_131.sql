@@ -1,0 +1,25 @@
+-- Schema DDL
+CREATE TABLE "Employee" ("employee_id" INTEGER, "department_id" INTEGER, "primary_flag" TEXT(255), PRIMARY KEY ("employee_id", "department_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO Employee (employee_id, department_id, primary_flag) VALUES (1, 1, 'N');
+INSERT INTO Employee (employee_id, department_id, primary_flag) VALUES (1, 2, 'N');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT EMPLOYEE_ID, DEPARTMENT_ID FROM EMPLOYEE GROUP BY EMPLOYEE_ID HAVING COUNT(*) = 1 UNION SELECT EMPLOYEE_ID, DEPARTMENT_ID FROM EMPLOYEE WHERE PRIMARY_FLAG = 'Y';
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH E1 AS (SELECT EMPLOYEE_ID, DEPARTMENT_ID FROM EMPLOYEE WHERE PRIMARY_FLAG = 'Y'), E2 AS (SELECT EMPLOYEE_ID, DEPARTMENT_ID FROM EMPLOYEE WHERE NOT EMPLOYEE_ID IN (SELECT EMPLOYEE_ID FROM E1)) SELECT EMPLOYEE_ID, DEPARTMENT_ID FROM E1 UNION ALL SELECT EMPLOYEE_ID, DEPARTMENT_ID FROM E2;
+
+/*
+Prediction Result:
+(1, 1)
+(1, 2)
+*/

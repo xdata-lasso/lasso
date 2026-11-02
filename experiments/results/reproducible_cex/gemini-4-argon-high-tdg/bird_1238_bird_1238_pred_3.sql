@@ -1,0 +1,42 @@
+-- Schema DDL
+CREATE TABLE Examination (ID INTEGER NULL, "Examination Date" DATE NULL, "aCL IgG" REAL NULL, "aCL IgM" REAL NULL, ANA INTEGER NULL, "ANA Pattern" TEXT NULL, "aCL IgA" INTEGER NULL, Diagnosis TEXT NULL, KCT TEXT NULL, RVVT TEXT NULL, LAC TEXT NULL, Symptoms TEXT NULL, Thrombosis INTEGER NULL, FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE Patient (ID INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, SEX TEXT NULL, Birthday DATE NULL, Description DATE NULL, "First Date" DATE NULL, Admission TEXT NULL, Diagnosis TEXT NULL);
+
+CREATE TABLE Laboratory (ID INTEGER DEFAULT 0 NOT NULL, Date DATE DEFAULT '0000-00-00' NOT NULL, GOT INTEGER NULL, GPT INTEGER NULL, LDH INTEGER NULL, ALP INTEGER NULL, TP REAL NULL, ALB REAL NULL, UA REAL NULL, UN INTEGER NULL, CRE REAL NULL, "T-BIL" REAL NULL, "T-CHO" INTEGER NULL, TG INTEGER NULL, CPK INTEGER NULL, GLU INTEGER NULL, WBC REAL NULL, RBC REAL NULL, HGB REAL NULL, HCT REAL NULL, PLT INTEGER NULL, PT REAL NULL, APTT INTEGER NULL, FG REAL NULL, PIC INTEGER NULL, TAT INTEGER NULL, TAT2 INTEGER NULL, "U-PRO" TEXT NULL, IGG INTEGER NULL, IGA INTEGER NULL, IGM INTEGER NULL, CRP TEXT NULL, RA TEXT NULL, RF TEXT NULL, C3 INTEGER NULL, C4 INTEGER NULL, RNP TEXT NULL, SM TEXT NULL, SC170 TEXT NULL, SSA TEXT NULL, SSB TEXT NULL, CENTROMEA TEXT NULL, DNA TEXT NULL, "DNA-II" INTEGER NULL, PRIMARY KEY (ID, Date), FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'M', '1940-01-01', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', '1945-01-01', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'M', '1950-01-01', '2000-01-01', '2000-01-01', '+', 'APS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (4, 'M', '1955-01-01', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (20, 'F', '1960-05-15', '2010-01-01', '2010-01-01', '-', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (10, 'M', '1985-12-20', '1995-01-01', '1995-01-01', '+', 'SLE');
+INSERT INTO Laboratory (ID, Date, HGB, HCT, WBC, RBC) VALUES (1, '2000-02-01', 10.0, 14.0, 14.0, 14.0);
+INSERT INTO Laboratory (ID, Date, HGB, HCT, WBC, RBC) VALUES (2, '2000-02-01', 17.0, 14.0, 14.0, 14.0);
+INSERT INTO Laboratory (ID, Date, HGB, HCT, WBC, RBC) VALUES (3, '2000-02-01', 13.0, 14.0, 14.0, 14.0);
+INSERT INTO Laboratory (ID, Date, HGB, HCT, WBC, RBC) VALUES (20, '2010-06-01', 14.5, 40.0, 5.0, 4.5);
+INSERT INTO Laboratory (ID, Date, HGB, HCT, WBC, RBC) VALUES (10, '1995-02-01', 11.5, 14.0, 14.0, 14.0);
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (3, '2000-02-01', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (20, '2010-06-01', 'APS');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (10, '1995-02-01', 'SLE');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1.ID, T1.SEX FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.Diagnosis = 'SLE' AND T2.HGB > 10 AND T2.HGB < 17 ORDER BY T1.Birthday ASC, T1.id NULLS LAST, T2.id NULLS LAST, T2.date NULLS LAST LIMIT 1;
+
+/*
+Gold Result:
+(20, 'F')
+*/
+
+-- Prediction Query
+SELECT T1.ID, T1.SEX FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.Diagnosis = 'SLE' AND 10 < T2.HGB < 17 ORDER BY T1.Birthday ASC, T1.id NULLS LAST, T2.id NULLS LAST, T2.date NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+(1, 'M')
+*/

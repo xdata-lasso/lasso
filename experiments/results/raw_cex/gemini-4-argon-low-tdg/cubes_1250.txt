@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (out-of-order insertion, inverse correlation between customer_event_id, date_moved_in, and property_id),
+-- and refutes extra INNER JOINs with Customer_Event_Notes (by only matching 1 out of 3 events).
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (1, 'Cust 1');
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (2, 'Cust 2');
+
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (100, 'APT', '100 Main St', 'Details 1');
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (200, 'HSE', '200 Oak St', 'Details 2');
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (300, 'CND', '300 Pine St', 'Details 3');
+
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (10, 100, '2023-03-01 00:00:00', '2023-12-01 00:00:00', 'Res 1');
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (20, 200, '2023-02-01 00:00:00', '2023-11-01 00:00:00', 'Res 2');
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (30, 300, '2023-01-01 00:00:00', '2023-10-01 00:00:00', 'Res 3');
+
+INSERT INTO "Organizations" ("organization_id", "parent_organization_id", "organization_details") VALUES (1, NULL, 'Org 1');
+
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (50, 1, 'T1', 'S1', 'Thing 1');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (60, 1, 'T2', 'S2', 'Thing 2');
+
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (30, 10, 100, '2023-03-01 00:00:00', 1, 50);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (10, 30, 300, '2023-01-01 00:00:00', 2, 60);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (20, 20, 200, '2023-02-01 00:00:00', 1, 50);
+
+INSERT INTO "Customer_Event_Notes" ("Customer_Event_Note_ID", "Customer_Event_ID", "service_type_code", "resident_id", "property_id", "date_moved_in") VALUES (1, 10, 'S1', 999, 999, '1999-01-01 00:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in foreign keys (refutes unnecessary INNER JOINs to Residents, Customers, Things),
+-- tests duplicate values in (date_moved_in, property_id) to refute SELECT DISTINCT or GROUP BY mutants,
+-- and tests multiple notes per event to refute LEFT JOIN with Customer_Event_Notes.
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (1, 'Cust 1');
+
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (500, 'APT', '500 Elm St', 'Details');
+
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (100, 500, '2022-05-15 10:00:00', '2022-06-15 10:00:00', 'Res 100');
+
+INSERT INTO "Organizations" ("organization_id", "parent_organization_id", "organization_details") VALUES (1, NULL, 'Org 1');
+
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (10, 1, 'T1', 'S1', 'Thing 10');
+
+-- Duplicate (date_moved_in, property_id) across different Customer_Event_IDs
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (2, 100, 500, '2022-05-15 10:00:00', 1, 10);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (1, 100, 500, '2022-05-15 10:00:00', 1, 10);
+
+-- Rows with NULL foreign keys
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (4, NULL, 500, NULL, NULL, NULL);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (3, 100, NULL, '2022-05-15 10:00:00', NULL, NULL);
+
+-- Multiple notes for a single event to cause row multiplication if joined
+INSERT INTO "Customer_Event_Notes" ("Customer_Event_Note_ID", "Customer_Event_ID", "service_type_code", "resident_id", "property_id", "date_moved_in") VALUES (101, 1, 'SVC1', 100, 500, '2022-05-15 10:00:00');
+INSERT INTO "Customer_Event_Notes" ("Customer_Event_Note_ID", "Customer_Event_ID", "service_type_code", "resident_id", "property_id", "date_moved_in") VALUES (102, 1, 'SVC2', 100, 500, '2022-05-15 10:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests mismatched composite keys between Customer_Events and Residents (where resident_id, property_id, and date_moved_in
+-- belong to different rows in Residents). This refutes mutants that join Residents on resident_id and project
+-- Residents.property_id or Residents.date_moved_in instead of Customer_Events columns, or join on all three columns.
+-- Also tests negative IDs and string vs integer sorting (1, 2, 10, -5).
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (10, 'P1', 'Addr 1', 'D1');
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (20, 'P2', 'Addr 2', 'D2');
+
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (1, 10, '2020-01-01', '2020-06-01', 'R1');
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (2, 20, '2021-01-01', '2021-06-01', 'R2');
+
+-- Customer_Events mixes resident_id=1 with property_id=20 and date_moved_in='2021-01-01' (valid individually per FK definitions, but not a single Residents row)
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (10, 1, 20, '2021-01-01', NULL, NULL);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (2, 2, 10, '2020-01-01', NULL, NULL);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (-5, 1, 10, '2020-01-01', NULL, NULL);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (1, 2, 20, '2021-01-01', NULL, NULL);
+
+-- Populate Residents_Services and Customer_Event_Notes with different data to refute mutants querying the wrong table
+INSERT INTO "Organizations" ("organization_id", "parent_organization_id", "organization_details") VALUES (1, NULL, 'Org');
+INSERT INTO "Services" ("service_id", "organization_id", "service_type_code", "service_details") VALUES (99, 1, 'S', 'Svc');
+INSERT INTO "Residents_Services" ("resident_id", "service_id", "property_id", "date_moved_in", "date_requested", "date_provided", "other_details") VALUES (1, 99, 10, '2020-01-01', '2020-02-01', '2020-02-02', 'RS');
+INSERT INTO "Customer_Event_Notes" ("Customer_Event_Note_ID", "Customer_Event_ID", "service_type_code", "resident_id", "property_id", "date_moved_in") VALUES (500, 10, 'S', 1, 9999, '1900-01-01');
+```

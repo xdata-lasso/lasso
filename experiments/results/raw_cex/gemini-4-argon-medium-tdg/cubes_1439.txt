@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests basic count logic (n=1, n=2, n=3), grouping by both (department_id, employee_id) vs grouping by only employee_id or only department_id, and ordering.
+INSERT INTO "departments" ("DEPARTMENT_ID", "DEPARTMENT_NAME") VALUES (10, 'Admin');
+INSERT INTO "departments" ("DEPARTMENT_ID", "DEPARTMENT_NAME") VALUES (20, 'Sales');
+INSERT INTO "departments" ("DEPARTMENT_ID", "DEPARTMENT_NAME") VALUES (30, 'IT');
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE") VALUES ('J1', 'Clerk');
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE") VALUES ('J2', 'Manager');
+
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (101, 'J1', 10, 'Smith', 'SMITH', '2020-01-01');
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (102, 'J1', 10, 'Jones', 'JONES', '2020-01-01');
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (103, 'J1', 20, 'Williams', 'WILLIAMS', '2020-01-01');
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (104, 'J1', 30, 'Brown', 'BROWN', '2020-01-01');
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (105, 'J2', 30, 'Davis', 'DAVIS', '2020-01-01');
+
+-- Employee 105: 2 records in the SAME department (Dept 30), with the SAME job_id -> Should be returned (tests COUNT(*) vs COUNT(DISTINCT job_id) and ORDER BY with 102)
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (105, '2018-01-01', '2018-06-01', 'J1', 30);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (105, '2019-01-01', '2019-06-01', 'J1', 30);
+
+-- Employee 102: 2 records in the SAME department (Dept 10), different jobs -> Should be returned
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (102, '2018-01-01', '2018-06-01', 'J1', 10);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (102, '2019-01-01', '2019-06-01', 'J2', 10);
+
+-- Employee 101: 1 record in Dept 10, 1 record in Dept 20 (Total=2, but n=1 per dept) -> Should NOT be returned (kills GROUP BY employee_id only)
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (101, '2018-01-01', '2018-06-01', 'J1', 10);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (101, '2019-01-01', '2019-06-01', 'J1', 20);
+
+-- Employee 103: 1 record in Dept 20 (Note: Dept 20 now has 2 records total: one from 101, one from 103) -> Should NOT be returned (kills GROUP BY department_id only)
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (103, '2018-01-01', '2018-06-01', 'J1', 20);
+
+-- Employee 104: 3 records in Dept 30 -> Should NOT be returned (kills n >= 2 or n > 1)
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (104, '2017-01-01', '2017-06-01', 'J1', 30);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (104, '2018-01-01', '2018-06-01', 'J2', 30);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (104, '2019-01-01', '2019-06-01', 'J1', 30);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate employee_id output (an employee having n=2 in two DIFFERENT departments) to kill SELECT DISTINCT mutants, and tests employee with n=2 in one dept and n=1 in another (total=3).
+INSERT INTO "departments" ("DEPARTMENT_ID", "DEPARTMENT_NAME") VALUES (10, 'Admin');
+INSERT INTO "departments" ("DEPARTMENT_ID", "DEPARTMENT_NAME") VALUES (20, 'Sales');
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE") VALUES ('J1', 'Clerk');
+
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (201, 'J1', 10, 'Miller', 'MILLER', '2020-01-01');
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (202, 'J1', 20, 'Wilson', 'WILSON', '2020-01-01');
+
+-- Employee 201: 2 records in Dept 10 AND 2 records in Dept 20 -> Should be returned TWICE (201, 201)
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (201, '2016-01-01', '2016-06-01', 'J1', 10);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (201, '2017-01-01', '2017-06-01', 'J1', 10);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (201, '2018-01-01', '2018-06-01', 'J1', 20);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (201, '2019-01-01', '2019-06-01', 'J1', 20);
+
+-- Employee 202: 2 records in Dept 10 AND 1 record in Dept 20 -> Total history records is 3, but Dept 10 group has n=2 -> Should be returned ONCE (202)
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (202, '2017-01-01', '2017-06-01', 'J1', 10);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (202, '2018-01-01', '2018-06-01', 'J1', 10);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (202, '2019-01-01', '2019-06-01', 'J1', 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in job_history (NULL department_id, job_id, end_date) and join anomalies (when employees.department_id differs from or is NULL compared to job_history.department_id).
+INSERT INTO "departments" ("DEPARTMENT_ID", "DEPARTMENT_NAME") VALUES (10, 'Admin');
+INSERT INTO "departments" ("DEPARTMENT_ID", "DEPARTMENT_NAME") VALUES (20, 'Sales');
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE") VALUES ('J1', 'Clerk');
+
+-- Employee 301 has current DEPARTMENT_ID = 20, while job_history will be in Dept 10
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (301, 'J1', 20, 'Taylor', 'TAYLOR', '2020-01-01');
+-- Employee 302 has current DEPARTMENT_ID = NULL
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (302, 'J1', NULL, 'Anderson', 'ANDERSON', '2020-01-01');
+-- Employee 303 has current DEPARTMENT_ID = 10
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (303, 'J1', 10, 'Thomas', 'THOMAS', '2020-01-01');
+
+-- Employee 301: 2 records in Dept 10, but with NULL end_date and NULL job_id -> Tests COUNT(*) vs COUNT(end_date)/COUNT(job_id) and kills natural joins with employees table
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (301, '2018-01-01', NULL, NULL, 10);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (301, '2019-01-01', NULL, 'J1', 10);
+
+-- Employee 302: 2 records with NULL department_id -> In SQL, GROUP BY groups NULLs together, so n=2 for (NULL, 302). Kills COUNT(department_id) and INNER JOIN departments.
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (302, '2018-01-01', '2018-06-01', 'J1', NULL);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (302, '2019-01-01', '2019-06-01', 'J1', NULL);
+
+-- Employee 303: 1 record in Dept 10, 1 record in NULL dept -> Should NOT be returned
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (303, '2018-01-01', '2018-06-01', 'J1', 10);
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (303, '2019-01-01', '2019-06-01', 'J1', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests edge case where no employee has n=2 in job_history, and where department_id = 2 exists (to kill mutants confusing n = 2 with department_id = 2 or employee_id = 2).
+INSERT INTO "departments" ("DEPARTMENT_ID", "DEPARTMENT_NAME") VALUES (2, 'TwoDept');
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE") VALUES ('J1', 'Clerk');
+
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (2, 'J1', 2, 'TwoEmp', 'TWO', '2020-01-01');
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (401, 'J1', 2, 'Jackson', 'JACKSON', '2020-01-01');
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "LAST_NAME", "EMAIL", "HIRE_DATE") VALUES (402, 'J1', 2, 'White', 'WHITE', '2020-01-01');
+
+-- Employee 2: only 1 record in Dept 2 -> Should NOT be returned (kills WHERE department_id = 2 or WHERE employee_id = 2)
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (2, '2019-01-01', '2019-06-01', 'J1', 2);
+
+-- Employee 401: only 1 record in Dept 2 -> Should NOT be returned
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID") VALUES (401, '2019-01-01', '2019-06-01', 'J1', 2);
+```

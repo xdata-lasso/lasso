@@ -1,0 +1,60 @@
+```sql
+-- DATASET 1
+-- General case: Multiple staff rows with distinct date_from values, distinct date_to values, and different roles/projects.
+-- Tests MIN vs MAX, date_from vs date_to, LIMIT 1 without ORDER BY, and unnecessary GROUP BY.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('UNI', 'University');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'UNI', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (10, 1, 'Project Alpha');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (20, 1, 'Project Beta');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('RES', 'Researcher');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('MGR', 'Manager');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, 'RES', 10, '2022-05-15 00:00:00', '2020-01-01 00:00:00', 'Row 1');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, 'MGR', 20, '2019-03-10 00:00:00', '2023-12-31 00:00:00', 'Row 2 - Min date_from');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (3.0, 'RES', 10, '2021-08-20 00:00:00', '2022-08-20 00:00:00', 'Row 3');
+```
+
+```sql
+-- DATASET 2
+-- Tie for minimum date_from, NULLs in foreign keys, and NULLs in date_from.
+-- Tests INNER JOIN vs no join, WHERE date_from = (SELECT MIN(...)) without DISTINCT, and NULL handling in MIN().
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, NULL, NULL, NULL, '2018-01-01 00:00:00', 'Null date_from');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (2.0, NULL, NULL, '2020-01-01 00:00:00', '2021-01-01 00:00:00', 'Min date_from tie 1');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (3.0, NULL, NULL, '2020-01-01 00:00:00', '2022-01-01 00:00:00', 'Min date_from tie 2');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (4.0, NULL, NULL, '2021-06-01 00:00:00', '2022-06-01 00:00:00', 'Later date_from');
+```
+
+```sql
+-- DATASET 3
+-- Empty Project_Staff table, while other tables with dates (Grants, Documents, Research_Staff) are populated.
+-- Tests behavior on empty table (MIN returns 1 row with NULL, whereas SELECT date_from ... LIMIT 1 returns 0 rows) and catches wrong table references.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('GOV', 'Government');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'GOV', 'Gov Agency');
+INSERT INTO "Grants" ("grant_id", "organisation_id", "grant_amount", "grant_start_date", "grant_end_date", "other_details") VALUES (100, 1, 50000.0, '2015-01-01 00:00:00', '2016-01-01 00:00:00', 'Grant');
+INSERT INTO "Document_Types" ("document_type_code", "document_description") VALUES ('REP', 'Report');
+INSERT INTO "Documents" ("document_id", "grant_id", "document_type_code", "sent_date", "response_received_date", "other_details") VALUES (200, 100, 'REP', '2015-06-01 00:00:00', '2015-07-01 00:00:00', 'Doc');
+INSERT INTO "Research_Staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (1, 1, 'Some staff not in Project_Staff');
+```
+
+```sql
+-- DATASET 4
+-- Project_Staff has rows where all date_from values are NULL.
+-- Tests queries that filter out NULLs (e.g., WHERE date_from IS NOT NULL) without aggregation.
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (10.0, NULL, NULL, NULL, '2019-05-05 00:00:00', 'All date_from are NULL 1');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (20.0, NULL, NULL, NULL, '2020-05-05 00:00:00', 'All date_from are NULL 2');
+```
+
+```sql
+-- DATASET 5
+-- Cross-table trap: Project_Staff has staff_id values that do NOT exist in Research_Staff, plus dates in Grants/Documents that are earlier than Project_Staff.
+-- Tests erroneous joins to Research_Staff on staff_id and wrong table selections.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('CORP', 'Corporation');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'CORP', 'Corp 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Proj 1');
+INSERT INTO "Staff_Roles" ("role_code", "role_description") VALUES ('LEAD', 'Leader');
+INSERT INTO "Research_Staff" ("staff_id", "employer_organisation_id", "staff_details") VALUES (1, 1, 'Staff 1 in Research_Staff');
+INSERT INTO "Grants" ("grant_id", "organisation_id", "grant_amount", "grant_start_date", "grant_end_date", "other_details") VALUES (1, 1, 1000.0, '1990-01-01 00:00:00', '1995-01-01 00:00:00', 'Very old grant');
+
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (1.0, 'LEAD', 1, '2025-01-01 00:00:00', '2026-01-01 00:00:00', 'Matches Research_Staff');
+INSERT INTO "Project_Staff" ("staff_id", "role_code", "project_id", "date_from", "date_to", "other_details") VALUES (99.5, 'LEAD', 1, '2010-01-01 00:00:00', '2011-01-01 00:00:00', 'Does not match Research_Staff, has min date');
+```

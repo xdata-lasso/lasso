@@ -1,0 +1,43 @@
+-- Schema DDL
+CREATE TABLE frpm (CDSCode TEXT NOT NULL PRIMARY KEY, "Academic Year" TEXT NULL, "County Code" TEXT NULL, "District Code" INTEGER NULL, "School Code" TEXT NULL, "County Name" TEXT NULL, "District Name" TEXT NULL, "School Name" TEXT NULL, "District Type" TEXT NULL, "School Type" TEXT NULL, "Educational Option Type" TEXT NULL, "NSLP Provision Status" TEXT NULL, "Charter School (Y/N)" INTEGER NULL, "Charter School Number" TEXT NULL, "Charter Funding Type" TEXT NULL, IRC INTEGER NULL, "Low Grade" TEXT NULL, "High Grade" TEXT NULL, "Enrollment (K-12)" REAL NULL, "Free Meal Count (K-12)" REAL NULL, "Percent (%) Eligible Free (K-12)" REAL NULL, "FRPM Count (K-12)" REAL NULL, "Percent (%) Eligible FRPM (K-12)" REAL NULL, "Enrollment (Ages 5-17)" REAL NULL, "Free Meal Count (Ages 5-17)" REAL NULL, "Percent (%) Eligible Free (Ages 5-17)" REAL NULL, "FRPM Count (Ages 5-17)" REAL NULL, "Percent (%) Eligible FRPM (Ages 5-17)" REAL NULL, "2013-14 CALPADS Fall 1 Certification Status" INTEGER NULL, FOREIGN KEY (CDSCode) REFERENCES schools (CDSCode));
+
+CREATE TABLE satscores (cds TEXT NOT NULL PRIMARY KEY, rtype TEXT NOT NULL, sname TEXT NULL, dname TEXT NULL, cname TEXT NULL, enroll12 INTEGER NOT NULL, NumTstTakr INTEGER NOT NULL, AvgScrRead INTEGER NULL, AvgScrMath INTEGER NULL, AvgScrWrite INTEGER NULL, NumGE1500 INTEGER NULL, FOREIGN KEY (cds) REFERENCES schools (CDSCode));
+
+CREATE TABLE schools (CDSCode TEXT NOT NULL PRIMARY KEY, NCESDist TEXT NULL, NCESSchool TEXT NULL, StatusType TEXT NOT NULL, County TEXT NOT NULL, District TEXT NOT NULL, School TEXT NULL, Street TEXT NULL, StreetAbr TEXT NULL, City TEXT NULL, Zip TEXT NULL, State TEXT NULL, MailStreet TEXT NULL, MailStrAbr TEXT NULL, MailCity TEXT NULL, MailZip TEXT NULL, MailState TEXT NULL, Phone TEXT NULL, Ext TEXT NULL, Website TEXT NULL, OpenDate DATE NULL, ClosedDate DATE NULL, Charter INTEGER NULL, CharterNum TEXT NULL, FundingType TEXT NULL, DOC TEXT NOT NULL, DOCType TEXT NOT NULL, SOC TEXT NULL, SOCType TEXT NULL, EdOpsCode TEXT NULL, EdOpsName TEXT NULL, EILCode TEXT NULL, EILName TEXT NULL, GSoffered TEXT NULL, GSserved TEXT NULL, Virtual TEXT NULL, Magnet INTEGER NULL, Latitude REAL NULL, Longitude REAL NULL, AdmFName1 TEXT NULL, AdmLName1 TEXT NULL, AdmEmail1 TEXT NULL, AdmFName2 TEXT NULL, AdmLName2 TEXT NULL, AdmEmail2 TEXT NULL, AdmFName3 TEXT NULL, AdmLName3 TEXT NULL, AdmEmail3 TEXT NULL, LastUpdate DATE NOT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Charter, CharterNum, DOC, DOCType, LastUpdate) VALUES ('01000000000001', 'Active', 'Alameda', 'Alameda Unified', 'School A', 1, '0101', '54', 'Unified School District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Charter, CharterNum, DOC, DOCType, LastUpdate) VALUES ('01000000000002', 'Active', 'Alameda', 'Alameda Unified', 'School B', 1, '0102', '54', 'Unified School District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Charter, CharterNum, DOC, DOCType, LastUpdate) VALUES ('01000000000003', 'Active', 'Alameda', 'Alameda Unified', 'School C', 1, '0103', '54', 'Unified School District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Charter, CharterNum, DOC, DOCType, LastUpdate) VALUES ('01000000000004', 'Active', 'Alameda', 'Alameda Unified', 'School D', 1, '0104', '54', 'Unified School District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Charter, CharterNum, DOC, DOCType, LastUpdate) VALUES ('01000000000005', 'Active', 'Alameda', 'Alameda Unified', 'School E', 1, '0105', '54', 'Unified School District', '2020-01-01');
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('01000000000001', 'S', 'School A', 'Alameda Unified', 'Alameda', 120, 90, 510, 520, 499, 50);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('01000000000002', 'S', 'School B', 'Alameda Unified', 'Alameda', 130, 85, 499, 505, 498, 40);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('01000000000003', 'S', 'School C', 'Alameda Unified', 'Alameda', 140, 95, 500, 499, 500, 45);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('01000000000004', 'S', 'School D', 'Alameda Unified', 'Alameda', 600, 550, 480, 470, NULL, 499);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('01000000000005', 'S', 'School E', 'Alameda Unified', 'Alameda', 499, 499, 450, 460, 440, 200);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Charter School Number") VALUES ('01000000000001', 1, '0101');
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Charter School Number") VALUES ('01000000000002', 1, '0102');
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Charter School Number") VALUES ('01000000000003', 1, '0103');
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Charter School Number") VALUES ('01000000000004', 1, '0104');
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Charter School Number") VALUES ('01000000000005', 1, '0105');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1.CharterNum FROM schools AS T1 INNER JOIN satscores AS T2 ON T1.CDSCode = T2.cds WHERE T2.AvgScrWrite = 499;
+
+/*
+Gold Result:
+('0101',)
+*/
+
+-- Prediction Query
+SELECT DISTINCT s."CharterNum" FROM schools AS s INNER JOIN frpm AS f ON s.CDSCode = f.CDSCode INNER JOIN satscores AS sa ON s.CDSCode = sa.cds WHERE sa."AvgScrWrite" > 499 AND NOT s."CharterNum" IS NULL ORDER BY sa."AvgScrWrite" DESC, s."CharterNum" NULLS LAST;
+
+/*
+Prediction Result:
+('0103',)
+*/

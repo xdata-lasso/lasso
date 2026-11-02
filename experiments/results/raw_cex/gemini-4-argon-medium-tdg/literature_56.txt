@@ -1,0 +1,116 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT on outer SELECT (multiple courses in dept 10 have credits = 4).
+-- 2. MAX(CREDITS) vs MIN/AVG/SUM/COUNT (dept 10 has credits 2, 3, 4; max is 4).
+-- 3. HAVING COUNT(COURSE_ID) > 2 vs >= 2 (dept 20 has exactly 2 'CS' courses with higher credits 5).
+-- 4. WHERE TITLE = 'CS' filter inside subquery (dept 10 has a non-'CS' course with credits 6; dept 20 has a non-'CS' course that would bring its total count to 3 if unfiltered).
+-- 5. Outer query matching a department not qualifying in the subquery (dept 30 has a course with credits = 4).
+-- 6. Outer query filtering (dept 40 has credits 3, should not be in result).
+INSERT INTO department (dept_name, building, budget) VALUES (10, 1, 1000);
+INSERT INTO department (dept_name, building, budget) VALUES (20, 2, 2000);
+INSERT INTO department (dept_name, building, budget) VALUES (30, 3, 3000);
+INSERT INTO department (dept_name, building, budget) VALUES (40, 4, 4000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (101, 'CS', 10, 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (102, 'CS', 10, 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (103, 'CS', 10, 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (104, 'Math', 10, 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (105, 'Math', 10, 6);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (201, 'CS', 20, 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (202, 'CS', 20, 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (203, 'Math', 20, 5);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (301, 'Bio', 30, 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (401, 'Chem', 40, 3);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NATURAL JOIN with DEPARTMENT (dept 99 has 3 'CS' courses with max credits 10, but dept 99 is missing from DEPARTMENT table).
+-- 2. GROUP BY DEPT_NAME (depts 10 and 20 each have 2 'CS' courses; without GROUP BY, their combined count is 4 > 2, which would falsely return a row from the subquery).
+-- 3. Empty subquery handling (Gold subquery returns NULL, so outer query returns empty set).
+INSERT INTO department (dept_name, building, budget) VALUES (10, 1, 1000);
+INSERT INTO department (dept_name, building, budget) VALUES (20, 2, 2000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (101, 'CS', 10, 8);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (102, 'CS', 10, 8);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (201, 'CS', 20, 9);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (202, 'CS', 20, 9);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (901, 'CS', 99, 10);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (902, 'CS', 99, 10);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (903, 'CS', 99, 10);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. COUNT(COURSE_ID) vs COUNT(*) vs COUNT(DISTINCT COURSE_ID) vs COUNT(CREDITS).
+-- Dept 10 has 2 'CS' courses with non-null course_id, and 1 'CS' course with NULL course_id (and high credits 10).
+-- COUNT(COURSE_ID) is 2 (fails HAVING > 2), whereas COUNT(*) is 3 (passes HAVING > 2).
+-- Dept 20 has 3 'CS' courses, where one has NULL credits, and two share the same course_id (if PK isn't enforced) or distinct course_ids.
+-- Here we use distinct course_ids for Dept 20, with one having NULL credits to differentiate COUNT(COURSE_ID) = 3 from COUNT(CREDITS) = 2.
+INSERT INTO department (dept_name, building, budget) VALUES (10, 1, 1000);
+INSERT INTO department (dept_name, building, budget) VALUES (20, 2, 2000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (101, 'CS', 10, 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (102, 'CS', 10, 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (NULL, 'CS', 10, 10);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (201, 'CS', 20, 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (202, 'CS', 20, 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (203, 'CS', 20, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. HAVING COUNT(COURSE_ID) > 2 vs HAVING COUNT(COURSE_ID) > 3 or = 3.
+-- Dept 10 has 4 'CS' courses (passes > 2, > 3, != 3).
+-- Dept 20 has 1 'CS' course (fails > 2).
+-- 2. Outer query CREDITS = (...) vs CREDITS >= (...) or CREDITS <= (...) or CREDITS != (...).
+-- Subquery returns 5.
+-- Dept 30 has credits 3 (< 5), Dept 40 has credits 5 (= 5), Dept 50 has credits 7 (> 5).
+INSERT INTO department (dept_name, building, budget) VALUES (10, 1, 1000);
+INSERT INTO department (dept_name, building, budget) VALUES (20, 2, 2000);
+INSERT INTO department (dept_name, building, budget) VALUES (30, 3, 3000);
+INSERT INTO department (dept_name, building, budget) VALUES (40, 4, 4000);
+INSERT INTO department (dept_name, building, budget) VALUES (50, 5, 5000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (101, 'CS', 10, 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (102, 'CS', 10, 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (103, 'CS', 10, 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (104, 'CS', 10, 2);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (201, 'CS', 20, 9);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (301, 'History', 30, 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (401, 'Art', 40, 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (501, 'Music', 50, 7);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Multiple groups qualifying in the subquery in SQLite (scalar subquery returns the first group's MAX(CREDITS)).
+-- Dept 10 has 3 'CS' courses with max credits 4.
+-- Dept 20 has 3 'CS' courses with max credits 8.
+-- Kills mutants that replace GROUP BY inside scalar subquery with overall MAX(CREDITS) without GROUP BY, or IN instead of =.
+INSERT INTO department (dept_name, building, budget) VALUES (10, 1, 1000);
+INSERT INTO department (dept_name, building, budget) VALUES (20, 2, 2000);
+INSERT INTO department (dept_name, building, budget) VALUES (30, 3, 3000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (101, 'CS', 10, 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (102, 'CS', 10, 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (103, 'CS', 10, 4);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (201, 'CS', 20, 8);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (202, 'CS', 20, 8);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (203, 'CS', 20, 8);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES (301, 'Physics', 30, 4);
+```

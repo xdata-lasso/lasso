@@ -1,0 +1,118 @@
+```sql
+-- DATASET 1
+-- Comprehensive test: Tests NOT EXISTS vs EXISTS/INNER JOIN, string predicates ('Master', 'Bachelor', 'PhD', 'Master of Science', 'master'), duplicates (SELECT vs SELECT DISTINCT), and ORDER BY (ASC vs DESC vs insertion order).
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (10, 'Computer Science');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (20, 'Mathematics');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (30, 'Physics');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (40, 'Biology');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (50, 'Chemistry');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (60, 'Engineering');
+
+INSERT INTO "Addresses" ("address_id", "city") VALUES (1, 'Boston');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (1, 1, 1, 'Alice');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall 2023');
+
+-- Unenrolled Master programs (inserted out of department_id order, with duplicates for dept 20)
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 30, 'Master');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (2, 10, 'Master');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (3, 20, 'Master');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (4, 20, 'Master');
+
+-- Enrolled Master program (should be excluded by NOT EXISTS)
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (5, 40, 'Master');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 5);
+
+-- Unenrolled non-Master programs (should be excluded by WHERE clause)
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (6, 50, 'Bachelor');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (7, 50, 'PhD');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (8, 50, 'Master of Science');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (9, 50, 'master');
+
+-- Enrolled non-Master programs
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (10, 60, 'Bachelor');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (11, 60, 'PhD');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (2, 1, 1, 10);
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (3, 1, 1, 11);
+```
+
+```sql
+-- DATASET 2
+-- NULL handling test: Tests NOT IN vs NOT EXISTS when Student_Enrolment.degree_program_id contains NULL.
+-- Also tests NULL in Degree_Programs.department_id and Degree_Programs.degree_summary_name.
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (100, 'History');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (200, 'Literature');
+
+INSERT INTO "Addresses" ("address_id", "city") VALUES (1, 'New York');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (1, 1, 1, 'Bob');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Spring 2024');
+
+-- Unenrolled Master with valid department_id
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 200, 'Master');
+-- Unenrolled Master with NULL department_id
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (2, NULL, 'Master');
+-- Unenrolled program with NULL degree_summary_name
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (3, 100, NULL);
+
+-- Student enrolment with NULL degree_program_id (breaks NOT IN (SELECT degree_program_id FROM Student_Enrolment))
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Join key confusion test: Catches mutants that join on wrong columns (e.g., department_id = degree_program_id, degree_program_id = student_enrolment_id, degree_program_id = student_id, degree_program_id = semester_id).
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'Dept 1');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (2, 'Dept 2');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (3, 'Dept 3');
+
+INSERT INTO "Addresses" ("address_id", "city") VALUES (1, 'Chicago');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (10, 1, 1, 'Charlie');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (20, 'Summer 2024');
+
+-- Program 10: matches student_id (10), unenrolled
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (10, 1, 'Master');
+-- Program 20: matches semester_id (20), unenrolled
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (20, 2, 'Master');
+-- Program 30: matches student_enrolment_id (30), unenrolled
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (30, 3, 'Master');
+-- Program 99: actually enrolled in Student_Enrolment (degree_program_id = 99), with department_id = 1
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (99, 1, 'Master');
+
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (30, 10, 20, 99);
+```
+
+```sql
+-- DATASET 4
+-- Empty Student_Enrolment table and orphaned Department test:
+-- Catches mutants querying Departments directly without checking Degree_Programs, or failing when RHS of NOT EXISTS is completely empty.
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (5, 'Philosophy');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (15, 'Art');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (25, 'Music');
+
+-- Only Dept 15 and 5 have Master programs; Dept 25 has no programs at all.
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (101, 15, 'Master');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (102, 5, 'Master');
+```
+
+```sql
+-- DATASET 5
+-- Multiple enrolments per program test:
+-- Catches mutants that use LEFT JOIN ... WHERE RHS.id IS NOT NULL (or INNER JOIN) without DISTINCT, or HAVING COUNT(*) = 1.
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (7, 'Economics');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (8, 'Sociology');
+
+INSERT INTO "Addresses" ("address_id", "city") VALUES (1, 'Seattle');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (1, 1, 1, 'Dave');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name") VALUES (2, 1, 1, 'Eve');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall 2022');
+
+-- Program 1 is enrolled twice
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 7, 'Master');
+-- Program 2 is enrolled once
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (2, 7, 'Master');
+-- Program 3 is not enrolled
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (3, 8, 'Master');
+
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (2, 2, 1, 1);
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (3, 1, 1, 2);
+```

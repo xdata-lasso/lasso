@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, sorting by payment_id (inverse to date and amount), case sensitivity, substring matching, and NULLs in WHERE clause.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'John Doe');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'Auto', '2020-01-01', '2025-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (1, 1, '2021-01-10', '2021-01-20', 1000, 900);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1, 1, '2021-01-10', '2021-01-20', 1000, 900, 1);
+
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (30, 1, 'Visa', '2021-01-10', 100);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (10, 1, 'Visa', '2021-03-10', 500);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (20, 1, 'Visa', '2021-02-10', 300);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (15, 1, 'MasterCard', '2021-02-15', 200);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (25, 1, 'visa', '2021-02-25', 400);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (35, 1, 'Visa Debit', '2021-03-15', 600);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (40, 1, NULL, '2021-04-01', 700);
+```
+
+```sql
+-- DATASET 2
+-- Tests unnecessary INNER JOIN with Settlements (via NULL Settlement_ID) and unnecessary DISTINCT / GROUP BY (via duplicate date and amount values).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Jane Smith');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'Home', '2019-05-01', '2024-05-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (1, 1, '2022-03-01', '2022-03-15', 2000, 2000);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1, 1, '2022-03-01', '2022-03-15', 2000, 2000, 1);
+
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (2, NULL, 'Visa', '2022-04-01', 1000);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (1, 1, 'Visa', '2022-04-01', 1000);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (3, 1, 'Amex', '2022-04-01', 1000);
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple payments per settlement (catches cardinality changes from wrong joins or GROUP BY settlement_id) and NULLs in projected columns.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (10, 'Alice Brown');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 10, 'Life', '2018-01-01', '2028-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (10, 10, '2020-06-01', '2020-06-10', 5000, 4500);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (10, 10, '2020-06-01', '2020-06-10', 5000, 4500, 10);
+
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (105, 10, 'Visa', NULL, 1500);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (102, 10, 'Visa', '2020-06-12', NULL);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (108, 10, 'Visa', '2020-06-15', 0);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (101, 10, 'Cash', '2020-06-11', 3000);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when 'Visa' is absent, and catches queries that wrongly query Settlements/Claims dates and amounts instead of Payments.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Bob White');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (1, 1, 'Visa', '2021-01-01', '2022-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (1, 1, '2021-05-01', '2021-05-05', 800, 750);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1, 1, '2021-05-01', '2021-05-05', 800, 750, 1);
+
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (1, 1, 'Check', '2021-05-10', 750);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (2, 1, 'MasterCard', '2021-05-11', 250);
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion between Payments, Settlements, and Claims when joined, and tests negative/boundary IDs and amounts.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Charlie Green');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (100, 1, 'Auto', '2020-01-01', '2023-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (200, 100, '2022-01-01', '2022-01-02', 9999, 8888);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (300, 200, '2022-01-03', '2022-01-04', 7777, 6666, 100);
+
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (5, 300, 'Visa', '2022-01-05', 5555);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (-5, 300, 'Visa', '2022-01-06', -100);
+```

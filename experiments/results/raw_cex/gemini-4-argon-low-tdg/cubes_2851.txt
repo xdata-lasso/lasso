@@ -1,0 +1,96 @@
+```sql
+-- DATASET 1
+-- Kills mutants that GROUP BY only classroom, GROUP BY only grade, ORDER BY ASC, omit LIMIT 1, or select grade instead of classroom.
+-- (Classroom, Grade) counts: (101, 1)->2, (101, 2)->2, (102, 3)->3, (103, 1)->1, (104, 1)->2.
+-- Expected winner: Classroom 102 (from pair (102, 3) with count 3).
+-- If GROUP BY classroom only: Classroom 101 wins (count 4 vs 3).
+-- If GROUP BY grade only: Grade 1 wins (count 5 vs 3).
+-- If ORDER BY n ASC: Classroom 103 wins (count 1).
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('A1', 'F1', 1, 101);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('A2', 'F2', 1, 101);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('A3', 'F3', 2, 101);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('A4', 'F4', 2, 101);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('B1', 'F1', 3, 102);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('B2', 'F2', 3, 102);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('B3', 'F3', 3, 102);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('C1', 'F1', 1, 103);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('D1', 'F1', 1, 104);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('D2', 'F2', 1, 104);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T1', 'TF1', 101);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T2', 'TF2', 102);
+```
+
+```sql
+-- DATASET 2
+-- Kills mutants that unnecessarily INNER JOIN with the teachers table, or query teachers instead of list.
+-- Expected winner: Classroom 201 (count 3), which has NO corresponding entry in the teachers table.
+-- Classroom 202 has count 2 in list, and 5 teachers in teachers table.
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S1', 'F1', 4, 201);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S2', 'F2', 4, 201);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S3', 'F3', 4, 201);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S4', 'F4', 5, 202);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S5', 'F5', 5, 202);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T1', 'F1', 202);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T2', 'F2', 202);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T3', 'F3', 202);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T4', 'F4', 202);
+```
+
+```sql
+-- DATASET 3
+-- Kills mutants using COUNT(DISTINCT LastName) or COUNT(DISTINCT FirstName) instead of COUNT(*).
+-- Kills mutants using SUM(Grade) or MAX(Grade) instead of COUNT(*).
+-- Pair (301, 1) has 3 students sharing the same LastName ('Smith') and small Grade (1). Sum of grades = 3.
+-- Pair (302, 10) has 2 students with distinct names and high Grade (10). Sum of grades = 20.
+-- Expected winner: Classroom 301 (count 3).
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Smith', 'Alice', 1, 301);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Smith', 'Bob', 1, 301);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Smith', 'Charlie', 1, 301);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Jones', 'David', 10, 302);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Adams', 'David', 10, 302);
+```
+
+```sql
+-- DATASET 4
+-- Kills mutants using COUNT(Grade) instead of COUNT(*), or filtering WHERE Grade IS NOT NULL.
+-- Pair (401, NULL) has 3 rows. COUNT(*) is 3, whereas COUNT(Grade) is 0.
+-- Pair (402, 2) has 2 rows.
+-- Expected winner: Classroom 401.
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('N1', 'F1', NULL, 401);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('N2', 'F2', NULL, 401);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('N3', 'F3', NULL, 401);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('V1', 'F4', 2, 402);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('V2', 'F5', 2, 402);
+```
+
+```sql
+-- DATASET 5
+-- Kills mutants that order by classroom DESC or grade DESC instead of n DESC, or use MIN/MAX(classroom).
+-- Winning classroom (502) is neither the minimum (501) nor the maximum (503) classroom number, nor does it have the max grade.
+-- Counts: (501, 9)->1, (502, 2)->3, (503, 5)->2.
+-- Expected winner: Classroom 502.
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('P1', 'F1', 9, 501);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('P2', 'F2', 2, 502);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('P3', 'F3', 2, 502);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('P4', 'F4', 2, 502);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('P5', 'F5', 5, 503);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('P6', 'F6', 5, 503);
+```
+
+```sql
+-- DATASET 6
+-- Kills mutants that add arbitrary filters like Grade > 0 or fail on Grade = 0 (e.g., Kindergarten).
+-- Also tests when multiple teachers exist for the losing classroom (kills ungrouped JOINs that multiply student counts by teacher counts).
+-- In list: (601, 0) has 3 students. (602, 1) has 2 students.
+-- In teachers: 601 has 1 teacher, 602 has 3 teachers. If joined without distinct aggregation, (602, 1) gets 2 * 3 = 6 rows and wrongly wins.
+-- Expected winner: Classroom 601.
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('K1', 'F1', 0, 601);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('K2', 'F2', 0, 601);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('K3', 'F3', 0, 601);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('G1', 'F4', 1, 602);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('G2', 'F5', 1, 602);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T1', 'TF1', 601);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T2', 'TF2', 602);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T3', 'TF3', 602);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T4', 'TF4', 602);
+```

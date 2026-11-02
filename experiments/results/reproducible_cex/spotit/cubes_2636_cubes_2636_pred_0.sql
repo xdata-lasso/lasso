@@ -1,0 +1,53 @@
+-- Schema DDL
+CREATE TABLE "DEVICE" (
+    "DEVICE_ID" INT,
+    "DEVICE" TEXT,
+    "CARRIER" TEXT,
+    "PACKAGE_VERSION" TEXT,
+    "APPLICATIONS" TEXT,
+    "SOFTWARE_PLATFORM" TEXT,
+    PRIMARY KEY ("DEVICE_ID")
+);
+CREATE TABLE "SHOP" (
+    "SHOP_ID" INT,
+    "SHOP_NAME" TEXT,
+    "LOCATION" TEXT,
+    "OPEN_DATE" TEXT,
+    "OPEN_YEAR" INT,
+    PRIMARY KEY ("SHOP_ID")
+);
+CREATE TABLE "STOCK" (
+    "SHOP_ID" INT,
+    "DEVICE_ID" INT,
+    "QUANTITY" INT,
+    PRIMARY KEY ("SHOP_ID", "DEVICE_ID"),
+    FOREIGN KEY ("DEVICE_ID") REFERENCES "DEVICE"("DEVICE_ID"),
+    FOREIGN KEY ("SHOP_ID") REFERENCES "SHOP"("SHOP_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO DEVICE VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO DEVICE VALUES (1, 0, -1, 0, 0, 0);
+INSERT INTO SHOP VALUES (0, 0, 0, 0, 0);
+INSERT INTO SHOP VALUES (1, 0, 0, 0, 0);
+INSERT INTO STOCK VALUES (0, 1, 0);
+INSERT INTO STOCK VALUES (1, 1, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT carrier FROM (SELECT * FROM device AS LHS WHERE NOT EXISTS(SELECT 1 FROM stock AS RHS WHERE (LHS.device_id = RHS.device_id))) ORDER BY carrier;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT Carrier FROM device WHERE NOT Device_ID IN (SELECT Device_ID FROM stock);
+
+/*
+Prediction Result:
+('0',)
+*/

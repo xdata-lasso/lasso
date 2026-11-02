@@ -1,0 +1,117 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, DISTINCT (multiple laps in race 161 with '1:27%' for same driver),
+-- raceId boundaries (160, 162), and LIKE pattern boundaries (exact '1:27', '1:26%', '1:28%', prefix before '1:27', NULL).
+INSERT INTO seasons (year, url) VALUES (2020, 'http://seasons.com/2020');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://circuits.com/1');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (160, 2020, 1, 1, 'Race 160', '2020-07-05', 'http://races.com/160');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (161, 2020, 2, 1, 'Race 161', '2020-07-12', 'http://races.com/161');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (162, 2020, 3, 1, 'Race 162', '2020-07-19', 'http://races.com/162');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'ham', 'Lewis', 'Hamilton', 'http://drivers.com/ham');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'ver', 'Max', 'Verstappen', 'http://drivers.com/ver');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'lec', 'Charles', 'Leclerc', 'http://drivers.com/lec');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'nor', 'Lando', 'Norris', 'http://drivers.com/nor');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (5, 'sai', 'Carlos', 'Sainz', 'http://drivers.com/sai');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (6, 'alo', 'Fernando', 'Alonso', 'http://drivers.com/alo');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (7, 'rus', 'George', 'Russell', 'http://drivers.com/rus');
+
+-- Driver 1: Multiple matching laps in race 161 (tests DISTINCT)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 1, 1, 1, '1:27.456', 87456);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 1, 2, 1, '1:27.001', 87001);
+
+-- Driver 2: Exact prefix match '1:27' without trailing characters
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 2, 1, 2, '1:27', 87000);
+
+-- Driver 3: Matching time '1:27%' but in wrong raceIds (160 and 162)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (160, 3, 1, 1, '1:27.123', 87123);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (162, 3, 1, 1, '1:27.123', 87123);
+
+-- Driver 4: Correct raceId 161, but times just outside '1:27%' range
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 4, 1, 3, '1:26.999', 86999);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 4, 2, 3, '1:28.000', 88000);
+
+-- Driver 5: Correct raceId 161, but '1:27' is not at the start of the string (tests '%1:27%' vs '1:27%')
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 5, 1, 4, '01:27.500', 87500);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 5, 2, 4, '11:27.500', 687500);
+
+-- Driver 6: Correct raceId 161, NULL time
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 6, 1, 5, NULL, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests mistaken table usage (pitStops, results, qualifying instead of lapTimes)
+-- and mistaken join conditions (e.g., joining on driverId = raceId or driverId = lap/position).
+INSERT INTO seasons (year, url) VALUES (2021, 'http://seasons.com/2021');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://circuits.com/1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'merc', 'Mercedes', 'http://constructors.com/1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (161, 2021, 1, 1, 'Race 161', '2021-08-29', 'http://races.com/161');
+
+-- Driver 161: traps join mutant T2.driverId = T1.raceId or T2.driverId = T1.lap
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (161, 'trap_id', 'Trap', 'Driver161', 'http://drivers.com/161');
+-- Driver 10: actual driver in lapTimes
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'real_drv', 'Real', 'Driver10', 'http://drivers.com/10');
+-- Driver 20: only has '1:27%' in pitStops, results, and qualifying, NOT in lapTimes
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'other_tbl', 'Other', 'Tables', 'http://drivers.com/20');
+-- Driver 30: has '1:27%' in lapTimes on lap 5, while Driver 5 exists (traps T2.driverId = T1.lap)
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (5, 'lap_trap', 'LapFive', 'Trap', 'http://drivers.com/5');
+
+-- Driver 10 has valid match on lap 5
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 10, 5, 1, '1:27.888', 87888);
+
+-- Driver 20 has non-matching lapTime, but matching times in other tables for race 161
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 20, 1, 2, '1:29.000', 89000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (161, 20, 1, 10, '1:27.111', '25.0', 25000);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 161, 20, 1, 20, 1, '1:27.111', '1:27.222', '1:27.333');
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, fastestLapTime, statusId) VALUES (1, 161, 20, 1, 20, 1, 1, '1', 1, 25, 50, '1:27.111', '1:27.111', 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests OR vs AND mutant in WHERE clause, and DISTINCT over (forename, surname, url)
+-- where two different drivers share the same forename and surname (only url differs),
+-- and where one driver has both a matching lap and a non-matching lap in race 161.
+INSERT INTO seasons (year, url) VALUES (2022, 'http://seasons.com/2022');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://circuits.com/1');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (161, 2022, 1, 1, 'Race 161', '2022-07-03', 'http://races.com/161');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (999, 2022, 2, 1, 'Race 999', '2022-07-10', 'http://races.com/999');
+
+-- Two distinct drivers with identical forename and surname, distinguished by url
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (1, 'smith1', 'SM1', 'John', 'Smith', 'http://drivers.com/john_smith_1');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (2, 'smith2', 'SM2', 'John', 'Smith', 'http://drivers.com/john_smith_2');
+
+-- Driver 3: In race 161 with non-matching time, AND in race 999 with matching time.
+-- Kills mutants using (T1.raceId = 161 OR T1.time LIKE '1:27%') or missing link between conditions in subqueries.
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (3, 'doe', 'DOE', 'Jane', 'Doe', 'http://drivers.com/jane_doe');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 1, 1, 1, '1:27.000', 87000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 1, 2, 1, '1:30.000', 90000);
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 2, 1, 2, '1:27.999', 87999);
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 3, 1, 3, '1:40.000', 100000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (999, 3, 1, 1, '1:27.555', 87555);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set scenario when race 161 exists and '1:27%' exists,
+-- but never together in the same row, plus outer join traps (drivers with no lapTimes).
+INSERT INTO seasons (year, url) VALUES (2023, 'http://seasons.com/2023');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'interlagos', 'Interlagos', 'http://circuits.com/1');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (161, 2023, 1, 1, 'Race 161', '2023-11-05', 'http://races.com/161');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (162, 2023, 2, 1, 'Race 162', '2023-11-12', 'http://races.com/162');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'drv1', 'Alice', 'Wonder', 'http://drivers.com/1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'drv2', 'Bob', 'Builder', 'http://drivers.com/2');
+
+-- Driver 1 has race 161 (wrong time) and race 162 (matching time)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 1, 1, 1, '1:28.001', 88001);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (162, 1, 1, 1, '1:27.001', 87001);
+```

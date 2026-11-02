@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE customer (c_id INTEGER PRIMARY KEY, c_name TEXT);
+
+CREATE TABLE orders (o_id INTEGER PRIMARY KEY, o_c_id INTEGER, o_comment TEXT);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO customer (c_id, c_name) VALUES (1, 'Alice');
+INSERT INTO orders (o_id, o_c_id, o_comment) VALUES (1, 1, 'pendingaccounts');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT c_id, COUNT(o_id) AS cnt FROM customer LEFT JOIN orders ON c_id = o_c_id AND o_comment NOT LIKE '%pending%accounts%' GROUP BY c_id;
+
+/*
+Gold Result:
+(1, 0)
+*/
+
+-- Prediction Query
+SELECT c_id, COUNT(o_id) AS cnt FROM customer LEFT JOIN orders ON c_id = o_c_id AND o_comment NOT LIKE '%pending_accounts%' GROUP BY c_id;
+
+/*
+Prediction Result:
+(1, 1)
+*/

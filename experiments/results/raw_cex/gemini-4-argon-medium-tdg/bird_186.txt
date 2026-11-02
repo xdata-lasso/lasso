@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1.Join condition: T1.district_id = T2.district_id vs joining via disp (client -> disp -> account) vs joining on client_id = account_id.
+-- 2.Multiplicity / DISTINCT: One male client shares district with two 'POPLATEK TYDNE' accounts (counts twice in join), one female client shares district with one 'POPLATEK TYDNE' account (counts once). 
+-- 3.Floating point vs integer division: 2 Males out of 3 joined rows -> 66.6666...% (kills mutants without CAST AS REAL or * 100.0).
+-- 4.Frequency filter: Includes 'POPLATEK MESICNE' and 'POPLATEK PO OBRATU' to kill mutants with wrong/missing WHERE clause.
+-- 5.Unmatched rows: District with client but no accounts, and district with account but no clients (kills LEFT/RIGHT JOIN mutants).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '1000', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D3', 'R3', '1000', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (4, 'D4', 'R4', '1000', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1975-05-05', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'M', '1980-10-10', 3);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 2, 'POPLATEK TYDNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK TYDNE', '1995-01-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 1, 'POPLATEK TYDNE', '1995-01-03');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (4, 2, 'POPLATEK MESICNE', '1995-01-04');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (5, 4, 'POPLATEK TYDNE', '1995-01-05');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 4, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 2, 1, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (3, 3, 2, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (4, 2, 3, 'DISPONENT');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1.Zero numerator edge case: 0 'M' clients and 3 'F' clients matching 'POPLATEK TYDNE'.
+-- 2.Result should be 0.0 (kills mutants that check gender = 'F' or gender != 'M', or use COUNT(gender) in numerator).
+-- 3.Includes 'M' clients in districts that only have 'POPLATEK PO OBRATU' accounts.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'D10', 'R1', '2000', '2', '2', '2', 2, 2, 60.0, 2000, 2.0, 2.0, 20, 20, 20);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'D20', 'R2', '2000', '2', '2', '2', 2, 2, 60.0, 2000, 2.0, 2.0, 20, 20, 20);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'F', '1985-03-15', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (11, 'F', '1988-07-20', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (12, 'M', '1990-11-11', 20);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (13, 'M', '1992-12-12', 20);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (100, 10, 'POPLATEK TYDNE', '1996-02-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 20, 'POPLATEK PO OBRATU', '1996-02-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 20, 'POPLATEK MESICNE', '1996-02-03');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (10, 12, 100, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (11, 13, 100, 'DISPONENT');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (12, 10, 101, 'OWNER');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1.Multiple clients per account vs multiple accounts per client in the same district.
+-- 2.Tests COUNT(DISTINCT T1.client_id) vs COUNT(DISTINCT T2.account_id) vs COUNT(T1.client_id).
+-- 3.In District 1: 3 clients (1 M, 2 F) and 2 'POPLATEK TYDNE' accounts -> 6 joined rows (2 M, 4 F).
+-- 4.In District 2: 1 client (1 M) and 1 'POPLATEK TYDNE' account -> 1 joined row (1 M).
+-- Total joined rows: 7 (3 M, 4 F) -> 300.0 / 7 = 42.857142857142854.
+-- Distinct clients: 4 (2 M, 2 F). Distinct accounts: 3.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '5000', '5', '5', '5', 5, 5, 75.0, 5000, 3.0, 3.0, 50, 50, 50);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '5000', '5', '5', '5', 5, 5, 75.0, 5000, 3.0, 3.0, 50, 50, 50);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1960-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1961-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'F', '1962-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'M', '1963-01-01', 2);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'POPLATEK TYDNE', '1993-05-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 1, 'POPLATEK TYDNE', '1993-05-02');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (30, 2, 'POPLATEK TYDNE', '1993-05-03');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 10, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 2, 20, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (3, 4, 30, 'OWNER');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1.Empty result set after WHERE filter (no accounts with 'POPLATEK TYDNE').
+-- 2.Checks NULL handling when SUM is NULL and COUNT is 0 (0 division / NULL propagation).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '1000', '1', '1', '1', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1975-01-01', 1);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK PO OBRATU', '1995-01-02');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 1, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 2, 2, 'OWNER');
+```

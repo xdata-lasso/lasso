@@ -1,0 +1,46 @@
+-- Schema DDL
+CREATE TABLE "Allergy_Type" ("Allergy" TEXT(20) PRIMARY KEY, "AllergyType" TEXT(20));
+
+CREATE TABLE "Has_Allergy" ("Allergy" TEXT(20), "StuID" INTEGER, FOREIGN KEY ("Allergy") REFERENCES "Allergy_Type" ("Allergy"), FOREIGN KEY ("StuID") REFERENCES "Student" ("StuID"));
+
+CREATE TABLE "Student" ("StuID" INTEGER PRIMARY KEY, "LName" TEXT(12), "Fname" TEXT(12), "Age" INTEGER, "Sex" TEXT(1), "Major" INTEGER, "Advisor" INTEGER, "city_code" TEXT(3));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Soy', 'Food');
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Milk', 'Food');
+INSERT INTO "Allergy_Type" ("Allergy", "AllergyType") VALUES ('Nuts', 'Food');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1001, 'Smith', 'Zoe', 20, 'F', 600, 1121, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1002, 'Jones', 'Bob', 21, 'M', 520, 1121, 'BOS');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1003, 'Adams', 'Amy', 19, 'F', 550, 1148, 'CHI');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1004, 'Clark', 'Dan', 22, 'M', 100, 1148, 'LAX');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1005, 'Evans', 'Bob', 20, 'M', 150, 1121, 'SFO');
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Soy', 1001);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Milk', 1002);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Soy', 1003);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Milk', 1003);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Milk', 1005);
+INSERT INTO "Has_Allergy" ("Allergy", "StuID") VALUES ('Nuts', 1005);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT "fname", "major" FROM (SELECT * FROM "student" AS "LHS" WHERE NOT EXISTS(SELECT 1 FROM (SELECT * FROM "has_allergy" WHERE ("allergy" = 'Soy')) AS RHS WHERE (LHS.stuid = RHS.stuid))) ORDER BY fname, "fname" NULLS LAST, "major" NULLS LAST;
+
+/*
+Gold Result:
+('Bob', 150)
+('Bob', 520)
+('Dan', 100)
+*/
+
+-- Prediction Query
+SELECT fname, major FROM Student WHERE NOT StuID IN (SELECT StuID FROM Has_allergy WHERE Allergy = 'Soy');
+
+/*
+Prediction Result:
+('Bob', 520)
+('Dan', 100)
+('Bob', 150)
+*/

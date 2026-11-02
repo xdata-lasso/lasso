@@ -1,0 +1,3 @@
+INSERT INTO "library_course_instructor" ("library_course_instructor_key", "course_name", "instructor_name", "department", "date_from", "date_to", "unit_code", "unit", "warehouse_load_date") VALUES ('purpose', 'Patrick Sanchez', 'Brian Yang', '18 - Mathematics', '1970-01-01', '1971-02-02', 'offer', 'Hayden', '1972-03-03');
+INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('begin', 'Amanda Davis', 'Brian Yang', 'early', 'Risk analyst', 'play', '863 Lawrence Valleys
+Port Lindachester, MA 36922', 'Lewis LLC', 'Curtis', 'James', 'Gregory Baker', 'animal');

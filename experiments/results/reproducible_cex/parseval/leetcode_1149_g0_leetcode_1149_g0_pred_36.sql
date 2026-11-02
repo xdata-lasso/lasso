@@ -1,0 +1,64 @@
+-- Schema DDL
+CREATE TABLE "Views" ("article_id" INTEGER, "author_id" INTEGER, "viewer_id" INTEGER, "view_date" DATE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: views --
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -55602865, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -59984348, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -664303813, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -1022641847, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -1726781632, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 247012447, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -1980249628, 1, NULL);
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -734455130, 1, NULL);
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1744686505, 1, NULL);
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -1633151678, NULL, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -252690330, NULL, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1115440883, NULL, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (NULL, 1644814318, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (NULL, 1465859724, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (NULL, -1349201381, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1019800248, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -1910425938, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -845863578, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, -1610064545, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 429706943, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 462974032, 1, '2024-06-15');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT VIEWER_ID AS ID FROM VIEWS GROUP BY VIEW_DATE, VIEWER_ID HAVING COUNT(DISTINCT ARTICLE_ID) > 1 ORDER BY ID;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT VIEWER_ID AS ID FROM (SELECT VIEWER_ID FROM (SELECT VIEWER_ID, VIEW_DATE, ARTICLE_ID FROM VIEWS GROUP BY VIEWER_ID, VIEW_DATE, ARTICLE_ID) AS NP GROUP BY VIEWER_ID, VIEW_DATE HAVING COUNT(*) > 1) AS NP2 GROUP BY ID ORDER BY ID;
+
+/*
+Prediction Result:
+(1,)
+*/

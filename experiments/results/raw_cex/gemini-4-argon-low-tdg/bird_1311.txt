@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match and 1:N join multiplicity (kills COUNT(DISTINCT T1.ID) vs COUNT(T1.ID) mutants, and Date-join mutants).
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (1, 'F', 'SLE');
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2020-01-01', 12.5);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2020-01-02', 13.9);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2020-01-03', 1);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2020-01-04', 2);
+```
+
+```sql
+-- DATASET 2
+-- Tests exact boundary conditions for PT (< 14) and Thrombosis (> 0 AND < 3).
+INSERT INTO Patient (ID) VALUES (1);
+INSERT INTO Patient (ID) VALUES (2);
+INSERT INTO Patient (ID) VALUES (3);
+INSERT INTO Patient (ID) VALUES (4);
+INSERT INTO Patient (ID) VALUES (5);
+
+-- Boundary: PT = 14.0 (should be excluded; kills PT <= 14 mutant)
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2021-01-01', 14.0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2021-01-01', 1);
+
+-- Boundary: Thrombosis = 0 (should be excluded; kills Thrombosis >= 0 mutant)
+INSERT INTO Laboratory (ID, Date, PT) VALUES (2, '2021-01-01', 10.0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2021-01-01', 0);
+
+-- Boundary: Thrombosis = 3 (should be excluded; kills Thrombosis <= 3 mutant)
+INSERT INTO Laboratory (ID, Date, PT) VALUES (3, '2021-01-01', 10.0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (3, '2021-01-01', 3);
+
+-- Valid values: Thrombosis = 1 and Thrombosis = 2 with PT just below 14 (kills Thrombosis = 1 or Thrombosis = 2 only mutants)
+INSERT INTO Laboratory (ID, Date, PT) VALUES (4, '2021-01-01', 13.99);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (4, '2021-01-01', 1);
+
+INSERT INTO Laboratory (ID, Date, PT) VALUES (5, '2021-01-01', 0.0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (5, '2021-01-01', 2);
+```
+
+```sql
+-- DATASET 3
+-- Tests logical operator mutations (AND vs OR), NULL handling, and outer join mutations (INNER JOIN vs LEFT JOIN).
+INSERT INTO Patient (ID) VALUES (10);
+INSERT INTO Patient (ID) VALUES (20);
+INSERT INTO Patient (ID) VALUES (30);
+INSERT INTO Patient (ID) VALUES (40);
+
+-- Patient 10: Valid PT, but NULL Thrombosis
+INSERT INTO Laboratory (ID, Date, PT) VALUES (10, '2022-05-01', 11.0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (10, '2022-05-01', NULL);
+
+-- Patient 20: NULL PT, but valid Thrombosis
+INSERT INTO Laboratory (ID, Date, PT) VALUES (20, '2022-05-01', NULL);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (20, '2022-05-01', 1);
+
+-- Patient 30: Missing Examination record altogether (kills LEFT JOIN Examination mutants)
+INSERT INTO Laboratory (ID, Date, PT) VALUES (30, '2022-05-01', 12.0);
+
+-- Patient 40: Missing Laboratory record altogether (kills LEFT JOIN Laboratory mutants)
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (40, '2022-05-01', 2);
+```
+
+```sql
+-- DATASET 4
+-- Tests negative numbers and extreme values (kills mutants omitting Thrombosis > 0 or Thrombosis < 3 or PT < 14).
+INSERT INTO Patient (ID) VALUES (100);
+INSERT INTO Patient (ID) VALUES (200);
+INSERT INTO Patient (ID) VALUES (300);
+
+-- Negative Thrombosis (kills mutant missing T3.Thrombosis > 0)
+INSERT INTO Laboratory (ID, Date, PT) VALUES (100, '2023-01-01', 11.5);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (100, '2023-01-01', -1);
+
+-- High Thrombosis (kills mutant missing T3.Thrombosis < 3)
+INSERT INTO Laboratory (ID, Date, PT) VALUES (200, '2023-01-01', 11.5);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (200, '2023-01-01', 4);
+
+-- High PT (kills mutant missing T2.PT < 14)
+INSERT INTO Laboratory (ID, Date, PT) VALUES (300, '2023-01-01', 15.2);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (300, '2023-01-01', 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests mixed valid and invalid child records for the same patient, plus column confusion (e.g. PLT or APTT vs PT, ANA vs Thrombosis).
+INSERT INTO Patient (ID) VALUES (1);
+INSERT INTO Patient (ID) VALUES (2);
+
+-- Patient 1 has one valid Lab and one invalid Lab; one valid Exam and one invalid Exam.
+INSERT INTO Laboratory (ID, Date, PT, PLT, APTT) VALUES (1, '2020-01-01', 12.0, 20, 20);
+INSERT INTO Laboratory (ID, Date, PT, PLT, APTT) VALUES (1, '2020-01-02', 16.0, 10, 10);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis, ANA) VALUES (1, '2020-01-01', 2, 5);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis, ANA) VALUES (1, '2020-01-02', 0, 1);
+
+-- Patient 2 has invalid PT (18.0) and Thrombosis (0), but valid-looking decoy columns PLT (10) and ANA (1).
+INSERT INTO Laboratory (ID, Date, PT, PLT, APTT) VALUES (2, '2020-01-01', 18.0, 10, 10);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis, ANA) VALUES (2, '2020-01-01', 0, 1);
+```

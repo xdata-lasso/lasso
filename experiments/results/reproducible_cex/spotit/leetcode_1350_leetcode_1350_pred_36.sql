@@ -1,0 +1,38 @@
+-- Schema DDL
+CREATE TABLE "DEPARTMENTS" (
+    "ID" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "STUDENTS" (
+    "ID" INT,
+    "NAME" TEXT,
+    "DEPARTMENT_ID" INT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("DEPARTMENT_ID") REFERENCES "DEPARTMENTS"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO DEPARTMENTS VALUES (1, 8);
+INSERT INTO DEPARTMENTS VALUES (0, NULL);
+INSERT INTO STUDENTS VALUES (0, NULL, 0);
+INSERT INTO STUDENTS VALUES (1, 12, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT id, name FROM Students WHERE NOT department_id IN (SELECT id FROM departments);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT DISTINCT ID, NAME FROM (SELECT S.*, D.NAME AS DEP_NAME FROM STUDENTS AS S LEFT JOIN DEPARTMENTS AS D ON S.DEPARTMENT_ID = D.ID) AS TEMP WHERE DEP_NAME IS NULL;
+
+/*
+Prediction Result:
+(0, None)
+(1, '12')
+*/

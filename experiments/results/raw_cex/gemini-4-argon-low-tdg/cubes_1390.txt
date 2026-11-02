@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests basic count boundary conditions (1, 2, 3), ordering by company_name vs count vs insertion order, and queries that omit the > 1 filter.
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('Chip_A', 2020.0, 4096.0, 65536.0, '2', 'Yes', '5.0');
+INSERT INTO "screen_mode" ("Graphics_mode", "Char_cells", "Pixels", "Hardware_colours", "used_kb", "map", "Type") VALUES (1.0, '80x25', '1920x1080', 16777216.0, 64.0, 'Linear', 'OLED');
+
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Model_Z1', 'Chip_A', '1.0', 'ZetaCorp', 'Full', 'Level 1', '2021-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Model_Z2', 'Chip_A', '1.0', 'ZetaCorp', 'Full', 'Level 2', '2021-02-01');
+
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Model_A1', 'Chip_A', '1.0', 'AlphaInc', 'Provisional', 'Level 1', '2022-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Model_A2', 'Chip_A', '1.0', 'AlphaInc', 'Full', 'Level 2', '2022-02-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Model_A3', 'Chip_A', '1.0', 'AlphaInc', 'Full', 'Level 3', '2022-03-01');
+
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Model_B1', 'Chip_A', '1.0', 'BetaLLC', 'Full', 'Level 1', '2020-05-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Company_name (COUNT(*) vs COUNT(company_name)), NULLs in foreign keys (INNER JOIN vs Direct table scan), and identical attribute values across rows for the same company (COUNT(DISTINCT col) vs COUNT(*)).
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('Chip_X', 2019.0, 2048.0, 32768.0, '1', 'Yes', '4.2');
+INSERT INTO "screen_mode" ("Graphics_mode", "Char_cells", "Pixels", "Hardware_colours", "used_kb", "map", "Type") VALUES (2.0, '40x25', '1280x720', 65536.0, 32.0, 'Planar', 'LCD');
+
+-- Two rows with NULL Company_name: COUNT(*) is 2, whereas COUNT(company_name) is 0.
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('NullCo_1', 'Chip_X', '2.0', NULL, 'TypeA', 'L1', '2021-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('NullCo_2', 'Chip_X', '2.0', NULL, 'TypeA', 'L1', '2021-01-01');
+
+-- Company with NULL foreign keys: Fails if mutant does INNER JOIN with chip_model or screen_mode, or if mutant does COUNT(chip_model).
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Ghost_1', NULL, NULL, 'GhostTech', NULL, NULL, NULL);
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Ghost_2', NULL, NULL, 'GhostTech', NULL, NULL, NULL);
+
+-- Company where all non-PK columns are identical: Fails if mutant uses COUNT(DISTINCT chip_model) or COUNT(DISTINCT Accreditation_type).
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Clone_1', 'Chip_X', '2.0', 'CloneCorp', 'SameType', 'SameLevel', '2021-09-09');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Clone_2', 'Chip_X', '2.0', 'CloneCorp', 'SameType', 'SameLevel', '2021-09-09');
+```
+
+```sql
+-- DATASET 3
+-- Tests edge case where no company has > 1 phone (empty result set expected) and parent tables have unused records (kills mutants using RIGHT/OUTER joins or querying parent tables improperly).
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('Chip_1', 2021.0, 8192.0, 131072.0, '2', 'Yes', '5.2');
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('Chip_2', 2022.0, 16384.0, 262144.0, '1', 'Yes', '5.3');
+
+INSERT INTO "screen_mode" ("Graphics_mode", "Char_cells", "Pixels", "Hardware_colours", "used_kb", "map", "Type") VALUES (10.0, '100x50', '2560x1440', 16777216.0, 128.0, 'Linear', 'AMOLED');
+INSERT INTO "screen_mode" ("Graphics_mode", "Char_cells", "Pixels", "Hardware_colours", "used_kb", "map", "Type") VALUES (20.0, '120x60', '3840x2160', 16777216.0, 256.0, 'Linear', 'MicroLED');
+
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Solo_1', 'Chip_1', '10.0', 'SoloA', 'Full', '1', '2023-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Solo_2', 'Chip_1', '10.0', 'SoloB', 'Full', '1', '2023-01-02');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('Solo_3', NULL, NULL, NULL, 'Full', '1', '2023-01-03');
+```
+
+```sql
+-- DATASET 4
+-- Tests sorting order (lexicographical vs count descending/ascending), case sensitivity in GROUP BY and ORDER BY, and kills mutants that omit GROUP BY or DISTINCT.
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('C1', 2018.0, 1024.0, 16384.0, '1', 'No', '4.0');
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('C2', 2020.0, 2048.0, 32768.0, '2', 'Yes', '5.0');
+
+INSERT INTO "screen_mode" ("Graphics_mode", "Char_cells", "Pixels", "Hardware_colours", "used_kb", "map", "Type") VALUES (5.0, '80x40', '800x600', 256.0, 16.0, 'Packed', 'TFT');
+INSERT INTO "screen_mode" ("Graphics_mode", "Char_cells", "Pixels", "Hardware_colours", "used_kb", "map", "Type") VALUES (6.0, '80x50', '1024x768', 65536.0, 32.0, 'Packed', 'IPS');
+
+-- 'Omega' inserted first with 2 phones (lowest count among qualifying, highest alphabetically)
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('O1', 'C1', '5.0', 'Omega', 'A', '1', '2020-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('O2', 'C2', '6.0', 'Omega', 'B', '2', '2020-01-02');
+
+-- 'Delta' inserted second with 4 phones (highest count, middle alphabetically)
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('D1', 'C1', '5.0', 'Delta', 'A', '1', '2020-01-03');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('D2', 'C2', '6.0', 'Delta', 'B', '2', '2020-01-04');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('D3', 'C1', '6.0', 'Delta', 'C', '3', '2020-01-05');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('D4', 'C2', '5.0', 'Delta', 'D', '4', '2020-01-06');
+
+-- 'Gamma' inserted third with 3 phones
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('G1', 'C1', '5.0', 'Gamma', 'A', '1', '2020-01-07');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('G2', 'C2', '6.0', 'Gamma', 'B', '2', '2020-01-08');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('G3', 'C1', '6.0', 'Gamma', 'C', '3', '2020-01-09');
+
+-- Case sensitivity check: 'delta' vs 'Delta' (Each has 1 if case-sensitive, or 'delta' has 1 so it shouldn't appear unless grouped case-insensitively)
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('d_lower_1', 'C1', '5.0', 'delta', 'A', '1', '2020-01-10');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('o_lower_1', 'C1', '5.0', 'omega', 'A', '1', '2020-01-11');
+```

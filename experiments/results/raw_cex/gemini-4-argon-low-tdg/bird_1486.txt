@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests asymmetric counts (3 CZK, 2 EUR), other currencies ('USD'), NULL currencies, 
+-- other segments ('KAM', 'LAM'), NULL segments, and unreferenced vs referenced customers in child tables.
+-- Gold result: 3 - 2 = 1.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (6, 'SME', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (7, 'SME', NULL);
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (8, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (9, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (11, NULL, 'CZK');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (101, 1, 'CZE', 'SME');
+INSERT INTO products (ProductID, Description) VALUES (201, 'Diesel');
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2020-01-01', '12:00', 1, 1001, 101, 201, 50, 1500.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2020-01-02', '13:00', 1, 1001, 101, 201, 60, 1800.0);
+INSERT INTO "yearmonth" (CustomerID, Date, Consumption) VALUES (1, '202001', 110.0);
+INSERT INTO "yearmonth" (CustomerID, Date, Consumption) VALUES (1, '202002', 90.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set for WHERE clause (no 'SME' customers).
+-- SUM(...) in SQLite returns NULL when 0 rows match, so NULL - NULL = NULL.
+-- Kills mutants using COUNT(...) - COUNT(...) which would return 0 - 0 = 0.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, NULL, 'CZK');
+```
+
+```sql
+-- DATASET 3
+-- Tests when 'SME' rows exist, but all of them have Currency = NULL.
+-- SUM(NULL = 'CZK') evaluates to NULL, so NULL - NULL = NULL.
+-- Kills mutants using CASE WHEN Currency = 'CZK' THEN 1 ELSE 0 END which would return 0.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', NULL);
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', NULL);
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'CZK');
+```
+
+```sql
+-- DATASET 4
+-- Tests when 'SME' rows exist, and they have non-NULL currencies, but neither 'CZK' nor 'EUR'.
+-- SUM(Currency = 'CZK') evaluates to 0, SUM(Currency = 'EUR') evaluates to 0.
+-- Gold result: 0 - 0 = 0.
+-- Kills mutants using COUNT(CASE WHEN Currency = 'CZK' THEN 1 END) without COALESCE, or separate subqueries with WHERE where COUNT vs SUM behave differently.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'GBP');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests when only 'CZK' exists for 'SME' (0 'EUR'), and tests negative/zero edge cases for EUR.
+-- In SQLite, SUM(Currency = 'EUR') is 0 (because 'CZK' = 'EUR' is 0).
+-- Gold result: 2 - 0 = 2.
+-- Kills mutants using (SELECT SUM(1) FROM customers WHERE Segment='SME' AND Currency='CZK') - (SELECT SUM(1) FROM customers WHERE Segment='SME' AND Currency='EUR'), where the second subquery returns NULL, making 2 - NULL = NULL.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'EUR');
+```
+
+```sql
+-- DATASET 6
+-- Tests when more 'EUR' than 'CZK' exist for 'SME' (yielding a negative result), and 0 'CZK' exists.
+-- Gold result: 0 - 3 = -3.
+-- Kills mutants using ABS(), swapped operands, or subqueries returning NULL when CZK count is 0.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'KAM', 'CZK');
+```
+
+```sql
+-- DATASET 7
+-- Tests case sensitivity, partial string matches (LIKE '%SME%', LIKE '%CZK%'), and whitespace padding.
+-- Only exact matches should be counted.
+-- Gold result: 1 - 0 = 1.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'sme', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME ', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'czk');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'SME', 'EUR ');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (6, 'SME', 'eur');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (7, 'SME_2', 'EUR');
+```

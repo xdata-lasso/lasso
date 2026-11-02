@@ -1,0 +1,55 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by Age DESC, ensuring the oldest conductor is selected over younger ones,
+-- and tests whether extraneous joins to orchestra/performance/show filter out the oldest conductor (who has no orchestra).
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (1, 'John Williams', 88, 'USA', 60);
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (2, 'Gustavo Dudamel', 40, 'Venezuela', 22);
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (3, 'Hans Zimmer', 64, 'Germany', 45);
+INSERT INTO orchestra (Orchestra_ID, Conductor_ID, Orchestra, Record_Company, Year_of_Founded, Major_Record_Format) VALUES (10, 2, 'LA Phil', 'DG', 1919.0, 'CD');
+INSERT INTO performance (Performance_ID, Orchestra_ID, Type, Date, "Official_ratings_(millions)", Weekly_rank, Share) VALUES (100, 10, 'Concert', '2023-05-01', 1.5, '1', '12%');
+INSERT INTO show (Performance_ID, Show_ID, If_first_show, Result, Attendance) VALUES (100, 1000, 1, 'Success', 2000.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests the secondary tie-breaker: ORDER BY age DESC, conductor_id ASC (default).
+-- Two conductors share the maximum age; the one with the smaller Conductor_ID must be returned.
+-- Also includes a younger conductor with a larger Year_of_Work to kill mutants ordering by Year_of_Work instead of Age.
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (10, 'Herbert von Karajan', 75, 'Austria', 40);
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (5, 'Leonard Bernstein', 75, 'USA', 35);
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (1, 'Young Prodigy', 50, 'UK', 45);
+```
+
+```sql
+-- DATASET 3
+-- Tests handling of NULL in Age and NULLS LAST in Conductor_ID.
+-- In SQLite, NULLs are considered smaller than any non-NULL value, so ORDER BY age DESC puts NULL ages at the bottom.
+-- If a mutant uses NULLS FIRST on age DESC or sorts ASC, it will fail.
+-- Also tests a tie at max age where one Conductor_ID is NULL (allowed by SQLite INTEGER PRIMARY KEY only if not strict, wait: in SQLite, INTEGER PRIMARY KEY cannot be NULL, it auto-generates an ID if NULL is inserted!).
+-- So we test negative vs positive Conductor_IDs on tied max Age, and NULL Age.
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (1, 'Unknown Age Conductor', NULL, 'France', 50);
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (2, 'Senior Conductor B', 80, 'Italy', 30);
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (-5, 'Senior Conductor A', 80, 'Italy', 25);
+```
+
+```sql
+-- DATASET 4
+-- Tests killing mutants that omit LIMIT 1, or use MIN(Age) instead of MAX(Age),
+-- or select Orchestra name instead of Conductor name when joined.
+-- Here the oldest conductor IS linked to an orchestra with a different name.
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (1, 'Simon Rattle', 68, 'UK', 40);
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (2, 'Daniel Barenboim', 80, 'Argentina', 65);
+INSERT INTO orchestra (Orchestra_ID, Conductor_ID, Orchestra, Record_Company, Year_of_Founded, Major_Record_Format) VALUES (1, 1, 'London Symphony', 'EMI', 1904.0, 'CD');
+INSERT INTO orchestra (Orchestra_ID, Conductor_ID, Orchestra, Record_Company, Year_of_Founded, Major_Record_Format) VALUES (2, 2, 'Berlin State Opera', 'Teldec', 1570.0, 'Vinyl');
+```
+
+```sql
+-- DATASET 5
+-- Tests tie-breaking when multiple conductors have the exact same Name vs different Names,
+-- and ensures alphabetical ordering on Name isn't mistakenly used as a tie-breaker instead of Conductor_ID.
+-- Conductor_ID 3 has Name 'Zubin Mehta' (alphabetically last, but smaller ID than 4).
+-- Conductor_ID 4 has Name 'Abbado' (alphabetically first, larger ID).
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (4, 'Claudio Abbado', 85, 'Italy', 55);
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (3, 'Zubin Mehta', 85, 'India', 60);
+INSERT INTO conductor (Conductor_ID, Name, Age, Nationality, Year_of_Work) VALUES (2, 'Alan Gilbert', 55, 'USA', 25);
+```

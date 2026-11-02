@@ -1,0 +1,60 @@
+```sql
+-- DATASET 1
+-- Tests standard anti-join, ordering, duplicate product_names across unordered products, and NULL values in Order_Items.product_id (which breaks NOT IN mutants).
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('CAT1', 'Electronics', 0.20);
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'John', 'Doe');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (10, 1, '2023-01-01 10:00:00');
+
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (1, 'CAT1', NULL, 100.00, 'Zebra Phone', 'Black', 'Medium');
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (2, 'CAT1', 1, 50.00, 'Alpha Case', 'Red', 'Small');
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (3, 'CAT1', 1, 60.00, 'Alpha Case', 'Blue', 'Large');
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (4, 'CAT1', 5, 200.00, 'Beta Tablet', 'Silver', 'Large');
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (5, 'CAT1', NULL, 300.00, 'Gamma Laptop', 'Grey', '15 inch');
+
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (100, 10, 1, '1');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (101, 10, 1, '2');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (102, 10, 5, '1');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (103, 10, NULL, '1');
+```
+
+```sql
+-- DATASET 2
+-- Tests ID collisions across different tables (product_id matching order_item_id or order_id), same product_name for an ordered and an unordered product (breaks EXCEPT on product_name), and products appearing in Invoice_Line_Items but not Order_Items.
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('CAT2', 'Books', 0.05);
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Alice', 'Smith');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (1, 1, '2023-02-01 12:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (2, 1, '2023-02-02 12:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (1, 1, '2023-02-01 15:00:00');
+
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (1, 'CAT2', 2, 15.00, 'Shared Name Book', 'White', 'A4');
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (2, 'CAT2', 3, 25.00, 'Shared Name Book', 'Black', 'A5');
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (3, 'CAT2', 1, 35.00, 'Invoiced Only Book', 'Green', 'A4');
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (4, 'CAT2', NULL, 45.00, 'Null Name Book', 'Yellow', 'A3');
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (5, 'CAT2', NULL, 10.00, NULL, 'Red', 'A5');
+
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (2, 1, 1, '5');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (3, 2, 1, '1');
+
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price") VALUES (3, 1, 2, 'Invoiced Only Book', '1', 35.00);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty Order_Items table, products with NULL foreign keys (production_type_code), and reverse insertion order to verify ORDER BY.
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (10, NULL, NULL, 9.99, 'Omega Widget', NULL, NULL);
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (20, NULL, 10, 19.99, 'Delta Gadget', NULL, NULL);
+INSERT INTO "Products" ("product_id", "production_type_code", "parent_product_id", "unit_price", "product_name", "product_color", "product_size") VALUES (30, NULL, 20, 29.99, 'Alpha Gizmo', NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary condition where ALL products are present in Order_Items (expected output is empty set).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Bob');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (100, 1);
+
+INSERT INTO "Products" ("product_id", "product_name") VALUES (1, 'Product A');
+INSERT INTO "Products" ("product_id", "product_name") VALUES (2, 'Product B');
+
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (1, 100, 1, '0');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (2, 100, 2, '10');
+```

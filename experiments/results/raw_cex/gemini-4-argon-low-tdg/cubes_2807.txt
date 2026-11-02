@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Empty Apartment_Bookings table, but populated parent tables.
+-- Distinguishes window function COUNT(*) OVER () (returns 0 rows on empty table) from aggregate COUNT(*) (returns 1 row with value 0), and catches queries counting wrong tables.
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (1, 'B1', 'Building One', 'Desc 1', '123 Main St', 'Alice', '555-0101');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (10, 1, 'STUDIO', '101', 1, 1, '2');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (11, 1, '1BR', '102', 1, 1, '3');
+INSERT INTO Guests (guest_id, gender_code, guest_first_name, guest_last_name, date_of_birth) VALUES (100, 'M', 'John', 'Doe', '1980-01-01 00:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Multiple bookings with duplicate foreign keys, duplicate status codes, NULL values, and unreferenced parent rows.
+-- Catches missing DISTINCT (returns 4 rows instead of 1), PARTITION BY clauses, WHERE filters, INNER JOINs with nullable FKs, and COUNT(col) vs COUNT(*).
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (1, 'B1', 'Building One', 'Desc 1', '123 Main St', 'Alice', '555-0101');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (10, 1, 'STUDIO', '101', 1, 1, '2');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (20, 1, '2BR', '201', 2, 2, '4');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (30, 1, '3BR', '301', 2, 3, '5');
+INSERT INTO Guests (guest_id, gender_code, guest_first_name, guest_last_name, date_of_birth) VALUES (100, 'M', 'John', 'Doe', '1980-01-01 00:00:00');
+INSERT INTO Guests (guest_id, gender_code, guest_first_name, guest_last_name, date_of_birth) VALUES (200, 'F', 'Jane', 'Smith', '1990-05-15 00:00:00');
+INSERT INTO Guests (guest_id, gender_code, guest_first_name, guest_last_name, date_of_birth) VALUES (300, 'M', 'Bob', 'Brown', '1985-08-20 00:00:00');
+INSERT INTO Apartment_Bookings (apt_booking_id, guest_id, apt_id, booking_status_code, booking_start_date, booking_end_date) VALUES (1, 100, 10, 'CONFIRMED', '2023-01-01 12:00:00', '2023-01-05 12:00:00');
+INSERT INTO Apartment_Bookings (apt_booking_id, guest_id, apt_id, booking_status_code, booking_start_date, booking_end_date) VALUES (2, 100, 10, 'CONFIRMED', '2023-02-01 12:00:00', '2023-02-05 12:00:00');
+INSERT INTO Apartment_Bookings (apt_booking_id, guest_id, apt_id, booking_status_code, booking_start_date, booking_end_date) VALUES (3, 200, 20, 'CANCELLED', '2023-03-01 12:00:00', '2023-03-05 12:00:00');
+INSERT INTO Apartment_Bookings (apt_booking_id, guest_id, apt_id, booking_status_code, booking_start_date, booking_end_date) VALUES (4, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO View_Unit_Status (status_date, apt_booking_id, apt_id, available_yn) VALUES ('2023-01-01 00:00:00', 1, 10, 0);
+INSERT INTO View_Unit_Status (status_date, apt_booking_id, apt_id, available_yn) VALUES ('2023-01-02 00:00:00', 1, 10, 0);
+```
+
+```sql
+-- DATASET 3
+-- Single booking with non-1 IDs and multiple child records in View_Unit_Status and Apartment_Facilities.
+-- Catches mutants projecting apt_booking_id instead of COUNT, or joining with child tables without proper grouping.
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (5, 'B5', 'Building Five', 'Desc 5', '500 Elm St', 'Charlie', '555-0505');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (50, 5, 'LUX', '501', 3, 3, '6');
+INSERT INTO Apartment_Facilities (apt_id, facility_code) VALUES (50, 'WIFI');
+INSERT INTO Apartment_Facilities (apt_id, facility_code) VALUES (50, 'POOL');
+INSERT INTO Guests (guest_id, gender_code, guest_first_name, guest_last_name, date_of_birth) VALUES (500, 'F', 'Eve', 'Adams', '1995-12-12 00:00:00');
+INSERT INTO Apartment_Bookings (apt_booking_id, guest_id, apt_id, booking_status_code, booking_start_date, booking_end_date) VALUES (99, 500, 50, 'PROVISIONAL', '2023-06-01 14:00:00', '2023-06-10 11:00:00');
+INSERT INTO View_Unit_Status (status_date, apt_booking_id, apt_id, available_yn) VALUES ('2023-06-01 00:00:00', 99, 50, 0);
+INSERT INTO View_Unit_Status (status_date, apt_booking_id, apt_id, available_yn) VALUES ('2023-06-02 00:00:00', 99, 50, 0);
+INSERT INTO View_Unit_Status (status_date, apt_booking_id, apt_id, available_yn) VALUES ('2023-06-03 00:00:00', 99, 50, 1);
+```
+
+```sql
+-- DATASET 4
+-- Skewed distribution of bookings across guests and apartments (e.g., 1 booking for Guest 1, 2 bookings for Guest 2).
+-- Specifically catches mutants that introduce GROUP BY or PARTITION BY with different cardinalities per group, verifying both DISTINCT and ORDER BY behavior on counts.
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (1, 'B1', 'Building One', 'Desc 1', '123 Main St', 'Alice', '555-0101');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (10, 1, '1BR', '101', 1, 1, '3');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (20, 1, '2BR', '102', 2, 2, '4');
+INSERT INTO Guests (guest_id, gender_code, guest_first_name, guest_last_name, date_of_birth) VALUES (100, 'M', 'John', 'Doe', '1980-01-01 00:00:00');
+INSERT INTO Guests (guest_id, gender_code, guest_first_name, guest_last_name, date_of_birth) VALUES (200, 'F', 'Jane', 'Smith', '1990-05-15 00:00:00');
+INSERT INTO Apartment_Bookings (apt_booking_id, guest_id, apt_id, booking_status_code, booking_start_date, booking_end_date) VALUES (10, 200, 20, 'CONFIRMED', '2023-01-01 00:00:00', '2023-01-02 00:00:00');
+INSERT INTO Apartment_Bookings (apt_booking_id, guest_id, apt_id, booking_status_code, booking_start_date, booking_end_date) VALUES (20, 200, 20, 'CANCELLED', '2023-01-03 00:00:00', '2023-01-04 00:00:00');
+INSERT INTO Apartment_Bookings (apt_booking_id, guest_id, apt_id, booking_status_code, booking_start_date, booking_end_date) VALUES (30, 100, 10, 'CONFIRMED', '2023-01-05 00:00:00', '2023-01-06 00:00:00');
+```

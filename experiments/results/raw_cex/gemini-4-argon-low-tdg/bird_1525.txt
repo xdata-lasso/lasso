@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Floating-point division (1/3 = 33.3333%) vs integer division (33 or 0).
+-- 2. COUNT(T1.CustomerID) vs COUNT(DISTINCT T1.CustomerID) (Customer 1 has 2 transactions, Customer 2 has 1; distinct would give 1/2 = 50% instead of 1/3).
+-- 3. JOIN vs subquery without join (Customer 3 has EUR, Customer 4 has CZK, neither has transactions on target date).
+-- 4. Date filter boundary ('2012-08-24', '2012-08-25', '2012-08-26').
+-- 5. Orphan transaction (CustomerID 999 not in customers) to kill LEFT JOIN mutants.
+-- 6. NULL Currency handling.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'KAM', NULL);
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '10:00:00', 1, 101, 1, 1, 10, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '11:00:00', 1, 101, 1, 1, 20, 200.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '12:00:00', 2, 102, 1, 1, 15, 150.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-24', '12:00:00', 3, 103, 1, 1, 15, 150.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-26', '12:00:00', 3, 103, 1, 1, 15, 150.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (6, '2012-08-25', '13:00:00', 999, 104, 1, 1, 15, 150.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Multiple transactions for an EUR customer on the target date (tests SUM vs COUNT(DISTINCT) in numerator: 2/3 = 66.6667% vs 1/2 = 50% or 1/3 = 33.3333%).
+-- 2. Unnecessary joins with gasstations, products, or yearmonth (foreign keys in transactions_1k point to non-existent gasstations/products, and yearmonth is empty).
+-- 3. Case sensitivity and substring matching on Currency ('eur', 'EURO' vs 'EUR').
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'LAM', 'eur');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'EURO');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '08:00:00', 1, 201, 99, 99, 5, 50.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '09:00:00', 1, 201, 99, 99, 10, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '10:00:00', 2, 202, 99, 99, 15, 150.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Zero EUR matches on target date (0 / 2 = 0.0).
+-- 2. Kills mutants using COUNT(CASE WHEN T2.Currency = 'EUR' THEN 1 ELSE 0 END) which evaluates to 2 instead of 0.
+-- 3. Kills mutants using SUM(CASE WHEN T2.Currency = 'EUR' THEN 1 END) without ELSE 0, which evaluates to NULL instead of 0.0.
+-- 4. Confusing '2012-08-25' in yearmonth.Date with transactions_1k.Date.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'LAM', NULL);
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'EUR');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Value for money');
+INSERT INTO products (ProductID, Description) VALUES (1, 'Diesel');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '14:00:00', 1, 301, 1, 1, 50, 1000.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '15:00:00', 2, 302, 1, 1, 30, 600.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-01', '15:00:00', 3, 303, 1, 1, 30, 600.0);
+
+INSERT INTO "yearmonth" (CustomerID, Date, Consumption) VALUES (3, '2012-08-25', 500.0);
+INSERT INTO "yearmonth" (CustomerID, Date, Consumption) VALUES (1, '201208', 1000.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Join condition confusion (e.g., T1.TransactionID = T2.CustomerID or T1.CardID = T2.CustomerID or T1.GasStationID = T2.CustomerID).
+-- 2. Confusing gasstations.Country = 'EUR' or Segment = 'EUR' with customers.Currency = 'EUR'.
+-- 3. 100% EUR transactions on target date when joined on CustomerID, but 0% if joined on TransactionID, CardID, or GasStationID.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'EUR', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'KAM', 'EUR');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'EUR', 'EUR');
+INSERT INTO products (ProductID, Description) VALUES (1, 'EUR');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '10:00:00', 10, 2, 1, 1, 1, 1.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '11:00:00', 1, 10, 1, 1, 1, 1.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Empty result set on target date (division by zero -> NULL in SQLite).
+-- 2. Kills mutants that omit the WHERE clause or use wrong date literals.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-24', '23:59:59', 1, 101, 1, 1, 10, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-26', '00:00:01', 2, 102, 1, 1, 20, 200.0);
+```

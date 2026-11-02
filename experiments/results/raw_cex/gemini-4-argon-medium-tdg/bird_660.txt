@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests ties for the maximum FavoriteCount across different users and the same user.
+-- Catches mutants using ORDER BY ... LIMIT 1, SELECT DISTINCT OwnerUserId, or selecting wrong columns (Id, LastEditorUserId) or aggregating wrong columns (Score, ViewCount).
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (101, 'Alice', 500);
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (102, 'Bob', 1500);
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (103, 'Charlie', 200);
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (104, 'Dave', 800);
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount, AnswerCount, CommentCount) VALUES (1, 101, 104, 50, 10, 100, 2, 1);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount, AnswerCount, CommentCount) VALUES (2, 102, 103, 50, 20, 200, 3, 2);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount, AnswerCount, CommentCount) VALUES (3, 101, 102, 50, 5, 50, 1, 0);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount, AnswerCount, CommentCount) VALUES (4, 103, 101, 10, 100, 1000, 10, 20);
+```
+
+```sql
+-- DATASET 2
+-- Tests unique maximum FavoriteCount with NULLs in FavoriteCount and negative/zero values, plus NULL OwnerUserId on non-max rows.
+-- Catches mutants using MIN instead of MAX, < or != instead of =, or mishandling NULL FavoriteCount.
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (201, 'UserA', 100);
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (202, 'UserB', 200);
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount) VALUES (10, 201, 202, -5, 50, 500);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount) VALUES (11, 202, 201, 0, 10, 100);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount) VALUES (12, NULL, 201, -10, 5, 50);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount) VALUES (13, 201, NULL, NULL, 100, 1000);
+```
+
+```sql
+-- DATASET 3
+-- Tests when the post with the maximum FavoriteCount has a NULL OwnerUserId, and another post has a valid OwnerUserId with a lower FavoriteCount.
+-- Catches mutants that inner join with the users table or filter out NULL OwnerUserIds (e.g., WHERE OwnerUserId IS NOT NULL).
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (301, 'EditorOnly', 300);
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (302, 'RegularOwner', 400);
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount) VALUES (20, NULL, 301, 100, 10, 50);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount) VALUES (21, 302, 301, 25, 200, 500);
+```
+
+```sql
+-- DATASET 4
+-- Tests when all posts have NULL FavoriteCount.
+-- The subquery (SELECT MAX(FavoriteCount) FROM posts) evaluates to NULL, so FavoriteCount = NULL is UNKNOWN, returning 0 rows.
+-- Catches mutants using IS NOT DISTINCT FROM, COALESCE, or ORDER BY FavoriteCount DESC LIMIT 1 without filtering.
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (401, 'NullFavUser1', 10);
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (402, 'NullFavUser2', 20);
+
+INSERT INTO posts (Id, OwnerUserId, FavoriteCount, Score, ViewCount) VALUES (30, 401, NULL, 10, 100);
+INSERT INTO posts (Id, OwnerUserId, FavoriteCount, Score, ViewCount) VALUES (31, 402, NULL, 20, 200);
+```
+
+```sql
+-- DATASET 5
+-- Tests a single-row vs multi-row distribution where AVG, SUM, COUNT, and MAX all produce different numbers, and tests PostTypeId / ParentId variations.
+-- Catches mutants replacing MAX with SUM, AVG, or COUNT, or adding arbitrary WHERE clauses on PostTypeId (e.g. PostTypeId = 1).
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (501, 'UserOne', 111);
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (502, 'UserTwo', 222);
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (503, 'UserThree', 333);
+
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, FavoriteCount, Score) VALUES (40, 2, 501, 6, 1);
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, FavoriteCount, Score) VALUES (41, 1, 502, 4, 6);
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, FavoriteCount, Score) VALUES (42, 1, 503, 2, 6);
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, FavoriteCount, Score) VALUES (43, 1, 502, 3, 6);
+```

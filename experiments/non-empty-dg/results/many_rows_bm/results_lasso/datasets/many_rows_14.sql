@@ -1,0 +1,12 @@
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1001, 'Allison Hill', 'Anguilla', 'BRONZE', 1005.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1002, 'Noah Rhodes', 'Monaco', 'BRONZE', 1016.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1003, 'Angie Henderson', 'Congo', 'BRONZE', 1027.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1004, 'Daniel Wagner', 'Saint Barthelemy', 'BRONZE', 1038.5);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1009, 1001, 'discussion', 'DELIVERED', 1013.5);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1010, 1001, 'list', 'DELIVERED', 1024.5);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1011, 1001, 'perform', 'DELIVERED', 1035.5);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1012, 1001, 'fall', 'DELIVERED', 1046.5);
+INSERT INTO "shipments" ("shipment_id", "order_id", "carrier", "tracking_status", "delivery_days") VALUES (1017, 1009, 'UPS', 'LABEL_CREATED', 0);
+INSERT INTO "shipments" ("shipment_id", "order_id", "carrier", "tracking_status", "delivery_days") VALUES (1018, 1010, 'UPS', 'LABEL_CREATED', 0);
+INSERT INTO "shipments" ("shipment_id", "order_id", "carrier", "tracking_status", "delivery_days") VALUES (1019, 1011, 'UPS', 'LABEL_CREATED', 0);
+INSERT INTO "shipments" ("shipment_id", "order_id", "carrier", "tracking_status", "delivery_days") VALUES (1020, 1012, 'UPS', 'LABEL_CREATED', 0);

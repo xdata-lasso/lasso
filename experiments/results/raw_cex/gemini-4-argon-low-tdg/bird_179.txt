@@ -1,0 +1,122 @@
+```sql
+-- DATASET 1
+-- Tests join path differentiation (client->district->account vs client->disp->account), SUM(DISTINCT) vs SUM(ALL), date filtering, and column confusion.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '200', '2', '2', '2', 2, 2, 2.0, 2, 2.0, 2.0, 2, 2, 2);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (617, 'M', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (618, 'F', '1998-05-05', 1);
+
+-- Account 10 is in District 1 (same district as client 617), NOT linked to 617 via disp.
+-- Account 20 is in District 2 (different district), BUT linked to 617 via disp.
+-- Account 30 is in District 1 (same district as client 617), AND linked to 617 via disp.
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'MONTHLY', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 2, 'MONTHLY', '1998-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (30, 1, 'MONTHLY', '1998-06-01');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 617, 20, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 617, 30, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (3, 618, 10, 'OWNER');
+
+-- Transactions for Account 10 (Valid for Gold Query, missed if joined via disp)
+-- Includes duplicate amounts (100, 100) to kill SUM(DISTINCT T3.amount) mutants
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (101, 10, '1998-01-01', 'PRIJEM', 'VKLAD', 100, 1000, 'UROK', 'AB', 999);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (102, 10, '1998-12-31', 'PRIJEM', 'VKLAD', 100, 1100, 'UROK', 'AB', 999);
+-- Out-of-bounds dates for Account 10 to kill date range / inequality mutants
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (103, 10, '1997-12-31', 'PRIJEM', 'VKLAD', 500, 500, 'UROK', 'AB', 999);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (104, 10, '1999-01-01', 'PRIJEM', 'VKLAD', 700, 1800, 'UROK', 'AB', 999);
+
+-- Transactions for Account 20 (Invalid for Gold Query, included if joined via disp)
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (201, 20, '1998-06-15', 'PRIJEM', 'VKLAD', 2000, 2000, 'UROK', 'CD', 888);
+
+-- Transactions for Account 30 (Valid for both Gold Query and disp join)
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (301, 30, '1998-07-20', 'VYDAJ', 'VYBER', 50, 500, 'SLUZBY', 'EF', 777);
+```
+
+```sql
+-- DATASET 2
+-- Tests date column confusion (T2.date or T1.birth_date vs T3.date) and client_id boundary conditions (616, 617, 618).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'D10', 'R10', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'D20', 'R20', '200', '2', '2', '2', 2, 2, 2.0, 2, 2.0, 2.0, 2, 2, 2);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (30, 'D30', 'R30', '300', '3', '3', '3', 3, 3, 3.0, 3, 3.0, 3.0, 3, 3, 3);
+
+-- Client 617 has birth_date in 1998 (traps STRFTIME('%Y', T1.birth_date) = '1998')
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (616, 'M', '1980-01-01', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (617, 'F', '1998-03-15', 20);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (618, 'M', '1985-07-20', 30);
+
+-- Account 1 (District 10, Client 616)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 10, 'MONTHLY', '1998-01-01');
+-- Account 2 (District 20, Client 617): Account opened in 1998, but trans is in 1999 (traps STRFTIME('%Y', T2.date) = '1998')
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 20, 'MONTHLY', '1998-05-05');
+-- Account 3 (District 20, Client 617): Account opened in 1995, trans is in 1998 (Gold match)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 20, 'MONTHLY', '1995-05-05');
+-- Account 4 (District 30, Client 618)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (4, 30, 'MONTHLY', '1998-01-01');
+
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 1, '1998-06-01', 'PRIJEM', 'VKLAD', 1000, 1000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 2, '1999-06-01', 'PRIJEM', 'VKLAD', 2000, 2000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (3, 3, '1998-08-15', 'PRIJEM', 'VKLAD', 350, 3500, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (4, 4, '1998-06-01', 'PRIJEM', 'VKLAD', 4000, 4000, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests single matching row where SUM == AVG == MIN == MAX, and tests empty result set (NULL return) if 1998 filter is strictly applied vs other years.
+-- Here, Client 617 has NO transactions in 1998 (Gold returns NULL), while other clients/years have transactions.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '200', '2', '2', '2', 2, 2, 2.0, 2, 2.0, 2.0, 2, 2, 2);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (617, 'M', '1975-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (999, 'F', '1975-01-01', 2);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'MONTHLY', '1996-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 2, 'MONTHLY', '1996-01-01');
+
+-- Client 617's district only has transactions in 1997
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 10, '1997-05-05', 'PRIJEM', 'VKLAD', 500, 500, NULL, NULL, NULL);
+-- Client 999's district has transactions in 1998
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 20, '1998-05-05', 'PRIJEM', 'VKLAD', 800, 800, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong join conditions (e.g. T1.client_id = T2.account_id, T2.account_id = T3.trans_id, T2.account_id = T3.account) and loan/order table confusion.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (5, 'D5', 'R5', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (6, 'D6', 'R6', '200', '2', '2', '2', 2, 2, 2.0, 2, 2.0, 2.0, 2, 2, 2);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (617, 'M', '1960-01-01', 5);
+
+-- Account 50 is in District 5 (matches T1.district_id = T2.district_id)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (50, 5, 'MONTHLY', '1995-01-01');
+-- Account 617 is in District 6 (traps T1.client_id = T2.account_id)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (617, 6, 'MONTHLY', '1995-01-01');
+
+-- Trans 1000: belongs to Account 50 (Gold match), partner account is 617
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1000, 50, '1998-04-10', 'PRIJEM', 'VKLAD', 123, 1000, 'UROK', 'AB', 617);
+-- Trans 50: belongs to Account 617 (traps T2.account_id = T3.trans_id when T2.account_id = 50, and traps T1.client_id = T2.account_id)
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (50, 617, '1998-04-10', 'PRIJEM', 'VKLAD', 9999, 9999, 'UROK', 'AB', 50);
+
+-- Populate loan and order for Account 50 to kill mutants querying loan or order instead of trans
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 50, '1998-04-10', 5555, 12, 462.9, 'A');
+INSERT INTO "order" (order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (1, 50, 'AB', 12345, 7777.0, 'SIPO');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple accounts in the same district as client 617, negative/zero amounts, and multiple clients in the same district (testing missing T1.client_id = 617 filter).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Two clients in District 1 (if WHERE T1.client_id = 617 is omitted, rows are duplicated due to 2 clients in district 1)
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (617, 'F', '1972-09-09', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (619, 'M', '1973-09-09', 1);
+
+-- Two accounts in District 1
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'MONTHLY', '1993-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 1, 'WEEKLY', '1994-01-01');
+
+-- Transactions across both accounts in 1998
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 101, '1998-02-14', 'PRIJEM', 'VKLAD', 250, 1250, 'UROK', 'AB', 111);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 101, '1998-11-30', 'VYDAJ', 'VYBER', 0, 1250, 'SLUZBY', 'CD', 222);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (3, 102, '1998-09-01', 'VYDAJ', 'VYBER', 400, 600, 'SIPO', 'EF', 333);
+```

@@ -1,0 +1,45 @@
+-- Schema DDL
+CREATE TABLE "ELECTION" (
+    "ELECTION_ID" INT,
+    "REPRESENTATIVE_ID" INT,
+    "DATE" TEXT,
+    "VOTES" FLOAT,
+    "VOTE_PERCENT" FLOAT,
+    "SEATS" FLOAT,
+    "PLACE" FLOAT,
+    PRIMARY KEY ("ELECTION_ID"),
+    FOREIGN KEY ("REPRESENTATIVE_ID") REFERENCES "REPRESENTATIVE"("REPRESENTATIVE_ID")
+);
+CREATE TABLE "REPRESENTATIVE" (
+    "REPRESENTATIVE_ID" INT,
+    "NAME" TEXT,
+    "STATE" TEXT,
+    "PARTY" TEXT,
+    "LIFESPAN" TEXT,
+    PRIMARY KEY ("REPRESENTATIVE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ELECTION VALUES (3, 0, 22, NULL, 23, 24, 25);
+INSERT INTO ELECTION VALUES (2, 0, 30, 1, 31, 32, 33);
+INSERT INTO REPRESENTATIVE VALUES (-1, 26, 27, 28, 29);
+INSERT INTO REPRESENTATIVE VALUES (0, 34, 35, 36, 37);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT party FROM (SELECT * FROM representative AS LHS WHERE NOT EXISTS(SELECT 1 FROM election AS RHS WHERE (LHS.representative_id = RHS.representative_id))) ORDER BY party;
+
+/*
+Gold Result:
+('28',)
+*/
+
+-- Prediction Query
+SELECT T2.Party FROM election AS T1 JOIN representative AS T2 ON T1.Representative_ID = T2.Representative_ID ORDER BY votes ASC, T1.election_id NULLS LAST, T2.representative_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('36',)
+*/

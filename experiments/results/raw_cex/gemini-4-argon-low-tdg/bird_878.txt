@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering on raceId = 348, ordering by time ASC, and distinguishes time vs milliseconds / position / lap / driverId ordering, plus decoy tables (results, qualifying, pitStops).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://url1.com');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://s2010.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'ferrari', 'Ferrari', 'http://c1.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (347, 2010, 1, 1, 'Race 347', '2010-03-14', 'http://r347.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (348, 2010, 2, 1, 'Race 348', '2010-03-28', 'http://r348.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (349, 2010, 3, 1, 'Race 349', '2010-04-04', 'http://r349.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'd1', 'Zack', 'Zimmer', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'd2', 'Aaron', 'Aaronson', 'http://d2.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'd3', 'Mike', 'Middle', 'http://d3.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'd4', 'Fast', 'WrongRace', 'http://d4.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (348, 'd348', 'Id', 'ThreeFourEight', 'http://d348.com');
+
+-- Faster time in wrong races (347, 349) and driverId = 348 trap
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (347, 4, 1, 1, '1:05.000', 65000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (349, 348, 1, 1, '1:01.000', 61000);
+
+-- In race 348:
+-- Driver 3 has the smallest time string ('1:10.000'), though larger milliseconds/position/lap to kill mutants sorting by wrong columns
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (348, 3, 50, 10, '1:10.000', 999999);
+-- Driver 1 has smallest driverId, smallest lap, position 1, and smallest milliseconds, but slower time ('1:20.000')
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (348, 1, 1, 1, '1:20.000', 50000);
+-- Driver 2 has largest time ('1:30.000') to kill DESC sorting mutants
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (348, 2, 5, 2, '1:30.000', 90000);
+
+-- Decoys in other tables for race 348 (Driver 1 is fastest in results, qualifying, pitStops)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, statusId) VALUES (1, 348, 1, 1, 1, 1, '1', 1, 25, 50, '1:00.000', 60000, 1, 1, '1:02.000', 1);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 348, 1, 1, 1, 1, '1:01.000', '1:01.000', '1:01.000');
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (348, 1, 1, 10, '0:15.000', '15.000', 15000);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in lapTimes.time (in SQLite, NULLs are considered smaller than any non-NULL value in ASC order), and tie-breaking by driverId.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://url1.com');
+INSERT INTO seasons (year, url) VALUES (2011, 'http://s2011.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (348, 2011, 1, 1, 'Race 348', '2011-05-01', 'http://r348.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'd10', 'NullWinner', 'Ten', 'http://d10.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'd20', 'NullLoser', 'Twenty', 'http://d20.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (5, 'd5', 'NonNull', 'Five', 'http://d5.com');
+
+-- Driver 10 and 20 both have NULL time; Driver 10 wins tie-breaker via T1.driverId ASC (10 < 20), even though Driver 20 has smaller lap (1 < 5)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (348, 20, 1, 1, NULL, 70000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (348, 10, 5, 2, NULL, 80000);
+-- Driver 5 has non-null time, which comes after NULL in SQLite ASC ordering
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (348, 5, 1, 1, '0:01.000', 1000);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on non-NULL identical T1.time values, and lexicographical string sorting vs numerical milliseconds sorting.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://url1.com');
+INSERT INTO seasons (year, url) VALUES (2012, 'http://s2012.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (348, 2012, 1, 1, 'Race 348', '2012-06-01', 'http://r348.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (15, 'd15', 'Tie', 'Winner', 'http://d15.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (25, 'd25', 'Tie', 'Loser', 'http://d25.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (35, 'd35', 'Numeric', 'Fastest', 'http://d35.com');
+
+-- Lexicographically '01:40.000' < '2:00.000', even if milliseconds say otherwise.
+-- Between Driver 15 and Driver 25 (both '01:40.000'), Driver 15 has smaller driverId (15 < 25) and wins, despite Driver 25 having smaller lap (1 < 9).
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (348, 25, 1, 1, '01:40.000', 100000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (348, 15, 9, 2, '01:40.000', 100000);
+-- Driver 35 has smaller milliseconds (85000 < 100000), but '1:25.000' > '01:40.000' lexicographically ('1' > '0').
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (348, 35, 1, 1, '1:25.000', 85000);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result for raceId = 348 when other races and drivers exist (kills mutants that omit WHERE clause or use OUTER JOIN on drivers without proper filtering).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Monaco', 'http://url1.com');
+INSERT INTO seasons (year, url) VALUES (2013, 'http://s2013.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (100, 2013, 1, 1, 'Race 100', '2013-05-01', 'http://r100.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (348, 2013, 2, 1, 'Race 348', '2013-05-15', 'http://r348.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'd1', 'Ghost', 'Driver', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (348, 'd348', 'TargetId', 'Driver', 'http://d348.com');
+
+-- Lap times only for race 100, none for race 348
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (100, 1, 1, 1, '1:15.000', 75000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (100, 348, 348, 1, '1:12.000', 72000);
+```

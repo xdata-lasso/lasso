@@ -1,0 +1,42 @@
+-- Schema DDL
+CREATE TABLE "i021" ("ID" INTEGER, "CHARGEID" INTEGER, "CHARGETYPE" TEXT, "SERVICEMONTH" TEXT);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 2
+INSERT INTO i021 (ID, CHARGEID, CHARGETYPE, SERVICEMONTH) VALUES (1, 10, 'TypeB', '2023-05');
+INSERT INTO i021 (ID, CHARGEID, CHARGETYPE, SERVICEMONTH) VALUES (2, 10, NULL, '2023-06');
+INSERT INTO i021 (ID, CHARGEID, CHARGETYPE, SERVICEMONTH) VALUES (3, 10, NULL, '2023-02');
+INSERT INTO i021 (ID, CHARGEID, CHARGETYPE, SERVICEMONTH) VALUES (4, 10, 'TypeA', NULL);
+INSERT INTO i021 (ID, CHARGEID, CHARGETYPE, SERVICEMONTH) VALUES (5, NULL, 'TypeA', '2023-08');
+INSERT INTO i021 (ID, CHARGEID, CHARGETYPE, SERVICEMONTH) VALUES (6, NULL, NULL, NULL);
+INSERT INTO i021 (ID, CHARGEID, CHARGETYPE, SERVICEMONTH) VALUES (7, 5, 'TypeC', '2023-01');
+INSERT INTO i021 (ID, CHARGEID, CHARGETYPE, SERVICEMONTH) VALUES (8, 5, 'TypeC', NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT chargeid, chargetype, maxservicemonth FROM (SELECT chargeid, chargetype, MAX(servicemonth) AS maxservicemonth FROM i021 GROUP BY chargeid, chargetype) ORDER BY chargeid, chargetype NULLS LAST, maxservicemonth NULLS LAST;
+
+/*
+Gold Result:
+(None, 'TypeA', '2023-08')
+(None, None, None)
+(5, 'TypeC', '2023-01')
+(10, 'TypeA', None)
+(10, 'TypeB', '2023-05')
+(10, None, '2023-06')
+*/
+
+-- Prediction Query
+SELECT CHARGEID, CHARGETYPE, MAX(SERVICEMONTH) AS "MostRecentServiceMonth" FROM i021 GROUP BY CHARGEID, CHARGETYPE;
+
+/*
+Prediction Result:
+(None, None, None)
+(None, 'TypeA', '2023-08')
+(5, 'TypeC', '2023-01')
+(10, None, '2023-06')
+(10, 'TypeA', None)
+(10, 'TypeB', '2023-05')
+*/

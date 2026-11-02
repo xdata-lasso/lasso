@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Missing DISTINCT in outer query (multiple addresses yielding the same count 1).
+-- 2. Missing GROUP BY in inner query (total count vs per-address count).
+-- 3. GROUP BY only on other_address_details (multiple addresses sharing identical other_address_details).
+-- 4. COUNT(other_address_details) instead of COUNT(*) (NULL in other_address_details).
+-- 5. Boundary and operator mutations on zip_postcode <> 197 (values 196, 197, 198, NULL).
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (1, '10 A St', NULL, NULL, 'CityA', 196, 'StateA', 'CountryA', 'SameDetail');
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (2, '20 B St', NULL, NULL, 'CityB', 198, 'StateB', 'CountryB', 'SameDetail');
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (3, '30 C St', NULL, NULL, 'CityC', 200, 'StateC', 'CountryC', NULL);
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (4, '40 D St', NULL, NULL, 'CityD', 197, 'StateD', 'CountryD', 'SameDetail');
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (5, '50 E St', NULL, NULL, 'CityE', NULL, 'StateE', 'CountryE', 'NullZip');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Empty result set when all rows have zip_postcode = 197 or NULL.
+-- 2. Kills mutants that use zip_postcode = 197, zip_postcode IS NULL, or omit the WHERE clause.
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (1, '10 A St', 'Apt 1', 'Floor 1', 'CityA', 197, 'StateA', 'CountryA', 'Detail1');
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (2, '20 B St', 'Apt 2', 'Floor 2', 'CityB', 197, 'StateB', 'CountryB', 'Detail1');
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (3, '30 C St', 'Apt 3', 'Floor 3', 'CityC', NULL, 'StateC', 'CountryC', 'Detail2');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Single row with zip_postcode < 197 and NULL in all non-key/non-filtered columns.
+-- 2. Kills mutants using zip_postcode > 197, >= 197, = 197, or COUNT(line_1) / COUNT(other_address_details).
+-- 3. Kills mutants doing INNER JOIN with Students, Teachers, or Student_Addresses (since those tables are empty).
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (10, NULL, NULL, NULL, NULL, 100, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Single row with zip_postcode > 197.
+-- 2. Kills mutants using zip_postcode < 197 or <= 197.
+-- 3. Populates child tables (Students, Student_Addresses, Teachers) with multiple references to the same address_id to kill mutants that unnecessarily join Addresses with child tables without proper deduplication.
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (1, '100 Main St', 'Suite 200', 'Bldg A', 'Metropolis', 500, 'NY', 'USA', 'HQ');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name", "cell_mobile_number", "email_address", "date_first_rental", "date_left_university", "other_student_details") VALUES (1, 1, 'John', 'M', 'Doe', '123-456', 'john@example.com', '2020-01-01 00:00:00', '2024-01-01 00:00:00', 'None');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name", "cell_mobile_number", "email_address", "date_first_rental", "date_left_university", "other_student_details") VALUES (2, 1, 'Jane', 'A', 'Smith', '789-012', 'jane@example.com', '2021-01-01 00:00:00', '2025-01-01 00:00:00', 'None');
+INSERT INTO "Student_Addresses" ("student_id", "address_id", "date_address_from", "date_address_to", "monthly_rental", "other_details") VALUES (1, 1, '2020-01-01 00:00:00', '2021-01-01 00:00:00', 500.0, 'First year');
+INSERT INTO "Student_Addresses" ("student_id", "address_id", "date_address_from", "date_address_to", "monthly_rental", "other_details") VALUES (2, 1, '2021-01-01 00:00:00', '2022-01-01 00:00:00', 550.0, 'Second year');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "middle_name", "last_name", "gender", "cell_mobile_number", "email_address", "other_details") VALUES (1, 1, 'Alan', 'T', 'Turing', 1, '555-0199', 'alan@example.com', 'Prof');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "middle_name", "last_name", "gender", "cell_mobile_number", "email_address", "other_details") VALUES (2, 1, 'Ada', 'L', 'Lovelace', 0, '555-0198', 'ada@example.com', 'Prof');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Kills mutants that select address_id or zip_postcode instead of COUNT(*), or SUM(address_id) instead of COUNT(*), by using non-1 address_ids (e.g., 10, 20) where zip_postcode <> 197.
+-- 2. Also tests negative and zero values for zip_postcode.
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (10, 'Zero Zip', NULL, NULL, 'CityZ', 0, 'StateZ', 'CountryZ', '2');
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (20, 'Neg Zip', NULL, NULL, 'CityN', -197, 'StateN', 'CountryN', '2');
+```

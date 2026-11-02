@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests basic join conditions (self-join matching vs non-matching on same row), cross-row join prevention, and ordering/duplicates.
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('Y', 'Star Y');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('N', 'Star N');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('5', '5 Stars');
+
+-- Matches: hotel_id=1, star_rating_code='Y', pets_allowed_yn='Y'
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (1, 'Y', 'Y', 200.0, 'Zebra Hotel');
+
+-- Does not match on same row ('N' != 'Y'), but matches Hotel 1's star_rating_code ('Y') if hotel_id = hotel_id is omitted
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (2, 'N', 'Y', 150.0, 'Alpha Hotel');
+
+-- Matches: hotel_id=3, star_rating_code='N', pets_allowed_yn='N'
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (3, 'N', 'N', 100.0, 'Beta Hotel');
+
+-- Duplicate other_hotel_details to kill DISTINCT mutants, also tests ORDER BY
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (4, 'Y', 'Y', 300.0, 'Beta Hotel');
+
+-- Does not match at all ('5' != 'N')
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (5, '5', 'N', 250.0, 'Gamma Hotel');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in star_rating_code, pets_allowed_yn, and other_hotel_details (kills IS NOT DISTINCT FROM, LEFT JOIN, and NOT NULL filter mutants).
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('Y', 'Star Y');
+
+-- Both star_rating_code and pets_allowed_yn are NULL (should NOT match in standard SQL equality)
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (1, NULL, NULL, 100.0, 'Null Both Hotel');
+
+-- One is NULL, one is not
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (2, 'Y', NULL, 120.0, 'Null Pets Hotel');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (3, NULL, 'Y', 130.0, 'Null Star Hotel');
+
+-- Valid match, but other_hotel_details and price_range are NULL (should be included in output and sorted first/last depending on NULL ordering)
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (4, 'Y', 'Y', NULL, NULL);
+
+-- Valid match with non-null details
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (5, 'Y', 'Y', 150.0, 'Valid Hotel');
+```
+
+```sql
+-- DATASET 3
+-- Tests ordering mutants (kills ORDER BY hotel_id, ORDER BY price_range, ORDER BY star_rating_code, and DESC mutants).
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('A', 'Rating A');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('B', 'Rating B');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('C', 'Rating C');
+
+-- hotel_id ascending: 1, 2, 3
+-- star_rating_code ascending: A, B, C
+-- price_range ascending: 100, 200, 300 (for hotels 3, 1, 2)
+-- other_hotel_details ascending: 'First Details' (id 2), 'Second Details' (id 3), 'Third Details' (id 1)
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (1, 'A', 'A', 200.0, 'Third Details');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (2, 'B', 'B', 300.0, 'First Details');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (3, 'C', 'C', 100.0, 'Second Details');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when table is populated but no rows satisfy the self-join equality condition.
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('1', '1 Star');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('2', '2 Stars');
+
+-- Symmetric cross-row trap: Hotel 1 has ('1', '2') and Hotel 2 has ('2', '1').
+-- If a mutant joins LHS.star_rating_code = RHS.pets_allowed_yn without LHS.hotel_id = RHS.hotel_id, these will match each other.
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (1, '1', '2', 100.0, 'Trap Hotel One');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (2, '2', '1', 200.0, 'Trap Hotel Two');
+```
+
+```sql
+-- DATASET 5
+-- Tests case sensitivity and whitespace sensitivity in join condition (LHS.star_rating_code = RHS.pets_allowed_yn) and column projection traps.
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('y', 'Lowercase y');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('Y', 'Uppercase Y');
+
+-- Case mismatch ('y' != 'Y'), should not match in standard SQLite "=" operator
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (1, 'y', 'Y', 99.5, 'Case Mismatch Hotel');
+
+-- Exact lowercase match ('y' = 'y'), with numeric string in other_hotel_details to catch wrong column projection (e.g., projecting star_rating_code or price_range)
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (2, 'y', 'y', 50.0, 'Exact Lowercase Match');
+```

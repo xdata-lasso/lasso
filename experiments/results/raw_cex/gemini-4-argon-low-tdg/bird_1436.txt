@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions on expense.cost: = 50, < 50, > 50, and NULL.
+-- 2. Wrong join path: expense -> budget -> event vs expense -> member -> attendance -> event.
+-- 3. Wrong column projection: projecting event.event_name vs event_id.
+-- 4. Outer join mutations: members with expenses but no attendance, and members with attendance but no expenses.
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Science', 'CS', 'Engineering');
+
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_ATTENDED_51', 'Gala', '2023-01-01', 'Social', 'Note1', 'Hall A', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_BUDGET_51', 'Meeting', '2023-01-02', 'Business', 'Note2', 'Room 1', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_ATTENDED_50', 'Workshop', '2023-01-03', 'Academic', 'Note3', 'Lab 1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_ATTENDED_49', 'Seminar', '2023-01-04', 'Academic', 'Note4', 'Hall B', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_ATTENDED_NULL_COST', 'Retreat', '2023-01-05', 'Social', 'Note5', 'Camp', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_NO_EXPENSE', 'Picnic', '2023-01-06', 'Social', 'Note6', 'Park', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 10.0, 100.0, 20, 'Open', 'E_BUDGET_51');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Supplies', 60.0, 60.0, 60, 'Open', 'E_ATTENDED_50');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_51', 'Alice', 'Smith', 'a@test.com', 'Member', 'M', '111-1111', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_50', 'Bob', 'Jones', 'b@test.com', 'President', 'L', '222-2222', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_49', 'Charlie', 'Brown', 'c@test.com', 'Treasurer', 'S', '333-3333', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_NULL_COST', 'David', 'Wilson', 'd@test.com', 'Secretary', 'XL', '444-4444', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_NO_ATTEND', 'Eve', 'Davis', 'e@test.com', 'Member', 'M', '555-5555', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_NO_EXP', 'Frank', 'Miller', 'f@test.com', 'Member', 'L', '666-6666', 10001, 'MAJ1');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_ATTENDED_51', 'M_51');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_ATTENDED_50', 'M_50');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_ATTENDED_49', 'M_49');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_ATTENDED_NULL_COST', 'M_NULL_COST');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_NO_EXPENSE', 'M_NO_EXP');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_51', 'Catering', '2023-01-01', 50.01, 'false', 'M_51', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_50', 'Handouts', '2023-01-02', 50.00, 'true', 'M_50', 'B2');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_49', 'Pens', '2023-01-03', 49.99, 'true', 'M_49', 'B2');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_NULL', 'Misc', '2023-01-04', NULL, 'true', 'M_NULL_COST', 'B2');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_NO_ATT', 'Travel', '2023-01-05', 100.00, 'true', 'M_NO_ATTEND', 'B2');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. DISTINCT requirement: One member with multiple expenses > 50 attending the same event, and multiple members with expenses > 50 attending the same event.
+-- 2. Aggregation mutation: A member with two expenses of 30.0 (SUM(cost) = 60 > 50, but no single expense > 50).
+-- 3. Unnecessary table joins: Valid members with NULL zip and NULL link_to_major, and expenses with NULL link_to_budget (kills mutants that INNER JOIN zip_code, major, or budget).
+-- 4. Hallucinated predicates: expense.approved = 'No', event.status = 'Cancelled'.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_DUP_TEST', 'Conference', '2023-02-01', 'Academic', NULL, 'Center', 'Cancelled');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_SUM_TRAP', 'Bake Sale', '2023-02-02', 'Fundraiser', NULL, 'Quad', 'Active');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_MULTI_EXP', 'Grace', 'Hopper', 'g@test.com', 'Member', 'S', '777-7777', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_SECOND_MEM', 'Alan', 'Turing', 'a@test.com', 'Member', 'M', '888-8888', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_SUM_TRAP', 'Ada', 'Lovelace', 'ada@test.com', 'Member', 'M', '999-9999', NULL, NULL);
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_DUP_TEST', 'M_MULTI_EXP');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_DUP_TEST', 'M_SECOND_MEM');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_SUM_TRAP', 'M_SUM_TRAP');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_DUP1', 'Flight', '2023-02-01', 120.0, 'No', 'M_MULTI_EXP', NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_DUP2', 'Hotel', '2023-02-01', 200.0, NULL, 'M_MULTI_EXP', NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_DUP3', 'Registration', '2023-02-01', 75.0, 'No', 'M_SECOND_MEM', NULL);
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_SUM1', 'Flour', '2023-02-02', 30.0, 'Yes', 'M_SUM_TRAP', NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_SUM2', 'Sugar', '2023-02-02', 30.0, 'Yes', 'M_SUM_TRAP', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Wrong table / column confusion: income.amount > 50 vs expense.cost > 50, and budget.spent / budget.amount / budget.remaining > 50 vs expense.cost > 50.
+-- 2. Orphaned/NULL foreign keys: expense with NULL link_to_member, attendance with NULL link_to_member.
+-- 3. Multiple events per member: Ensure all events attended by a qualifying member are returned (kills LIMIT 1 or MAX(link_to_event) mutants).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_INCOME_TRAP', 'Charity', '2023-03-01', 'Fundraiser', 'N', 'Loc1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_VALID_A', 'Party A', '2023-03-02', 'Social', 'N', 'Loc2', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_VALID_B', 'Party B', '2023-03-03', 'Social', 'N', 'Loc3', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_NULL_MEM_ATT', 'Ghost Event', '2023-03-04', 'Social', 'N', 'Loc4', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_HIGH', 'Venue', 500.0, 500.0, 1000, 'Open', 'E_INCOME_TRAP');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_LOW', 'Snacks', 10.0, 5.0, 15, 'Open', 'E_VALID_A');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_INC', 'Rich', 'Guy', 'r@test.com', 'Member', 'L', '123-4567', NULL, NULL);
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M_MULTI_EV', 'Busy', 'Bee', 'b@test.com', 'Member', 'S', '234-5678', NULL, NULL);
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_INCOME_TRAP', 'M_INC');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_VALID_A', 'M_MULTI_EV');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_VALID_B', 'M_MULTI_EV');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_NULL_MEM_ATT', NULL);
+
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC_1', '2023-03-01', 500, 'Donation', 'Big', 'M_INC');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_LOW', 'Water', '2023-03-01', 10.0, 'Yes', 'M_INC', 'B_HIGH');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_HIGH', 'DJ', '2023-03-02', 150.0, 'Yes', 'M_MULTI_EV', 'B_LOW');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP_ORPHAN', 'Mystery', '2023-03-04', 999.0, 'Yes', NULL, 'B_HIGH');
+```

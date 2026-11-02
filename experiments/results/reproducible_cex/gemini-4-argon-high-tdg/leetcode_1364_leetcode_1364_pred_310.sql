@@ -1,0 +1,37 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "customer_name" TEXT(255), "email" TEXT(255));
+
+CREATE TABLE "Contacts" ("user_id" INTEGER, "contact_email" TEXT(255), "contact_name" TEXT(255), PRIMARY KEY ("user_id", "contact_email"), FOREIGN KEY ("user_id") REFERENCES "Customers" ("customer_id"));
+
+CREATE TABLE "Invoices" ("invoice_id" INTEGER PRIMARY KEY, "user_id" INTEGER, "price" INTEGER, FOREIGN KEY ("user_id") REFERENCES "Customers" ("customer_id"), CHECK ("price" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 3
+INSERT INTO Customers (customer_id, customer_name, email) VALUES (1, 'UserOne', 'shared@example.com');
+INSERT INTO Customers (customer_id, customer_name, email) VALUES (2, 'UserTwo', 'shared@example.com');
+INSERT INTO Customers (customer_id, customer_name, email) VALUES (3, 'UserThree', 'unique@example.com');
+INSERT INTO Contacts (user_id, contact_email, contact_name) VALUES (3, 'shared@example.com', 'DupContactName');
+INSERT INTO Contacts (user_id, contact_email, contact_name) VALUES (3, 'outsider@example.com', 'DupContactName');
+INSERT INTO Invoices (invoice_id, user_id, price) VALUES (10, 3, 500);
+INSERT INTO Invoices (invoice_id, user_id, price) VALUES (5, 1, 100);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT invoice_id, t.customer_name, price, contacts_cnt, trusted_contacts_cnt FROM Invoices AS I LEFT JOIN (SELECT a.customer_id, customer_name, COUNT(contact_name) AS contacts_cnt, SUM(CASE WHEN contact_email IN (SELECT email FROM customers) THEN 1 ELSE 0 END) AS trusted_contacts_cnt FROM Customers AS a LEFT JOIN Contacts AS b ON a.customer_id = b.user_id GROUP BY a.customer_id, customer_name) AS t ON I.user_id = t.customer_id ORDER BY 1, I.invoice_id NULLS LAST;
+
+/*
+Gold Result:
+(5, 'UserOne', 100, 0, 0)
+(10, 'UserThree', 500, 2, 1)
+*/
+
+-- Prediction Query
+WITH TMP AS (SELECT USER_ID, COUNT(B.CUSTOMER_NAME) AS TRUSTED_CONTACTS_CNT, COUNT(CONTACT_NAME) AS CONTACTS_CNT FROM CONTACTS AS A LEFT JOIN CUSTOMERS AS B ON A.CONTACT_EMAIL = B.EMAIL GROUP BY USER_ID), TMP1 AS (SELECT CUSTOMER_ID, CUSTOMER_NAME, COALESCE(TRUSTED_CONTACTS_CNT, 0) AS TRUSTED_CONTACTS_CNT, COALESCE(CONTACTS_CNT, 0) AS CONTACTS_CNT FROM CUSTOMERS AS A LEFT JOIN TMP AS B ON CUSTOMER_ID = USER_ID) SELECT INVOICE_ID, CUSTOMER_NAME, PRICE, CONTACTS_CNT, TRUSTED_CONTACTS_CNT FROM INVOICES AS A LEFT JOIN TMP1 AS B ON USER_ID = CUSTOMER_ID ORDER BY INVOICE_ID;
+
+/*
+Prediction Result:
+(5, 'UserOne', 100, 0, 0)
+(10, 'UserThree', 500, 3, 2)
+*/

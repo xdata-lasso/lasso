@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Integer division vs floating point division (AVG vs SUM/COUNT): SUM is 155, COUNT is 2 -> 155/2 = 77 (integer) vs 77.5 (float).
+-- 2. Boundary conditions on birthday year: '1985' (< '1986'), '1986' (= '1986', excluded), '1987' (> '1986', excluded).
+-- 3. Duplicate overall_rating values across multiple Player_Attributes for the same player (tests COUNT(DISTINCT t1.id) and SUM(DISTINCT t2.overall_rating) mutants).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 101, 'Player 1985', 1001, '1985-12-31 00:00:00', 180, 75);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 102, 'Player 1986', 1002, '1986-01-01 00:00:00', 182, 78);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (3, 103, 'Player 1987', 1003, '1987-06-15 00:00:00', 175, 70);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (1, 1001, 101, '2015-01-01 00:00:00', 80, 85);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (2, 1001, 101, '2016-01-01 00:00:00', 75, 85);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (3, 1002, 102, '2015-01-01 00:00:00', 90, 92);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (4, 1003, 103, '2015-01-01 00:00:00', 60, 65);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL in overall_rating: AVG(overall_rating) or COUNT(overall_rating) divides by non-null count (1), whereas SUM(overall_rating)/COUNT(t1.id) divides by total joined rows (2). (80 / 2 = 40 vs 80 / 1 = 80).
+-- 2. Unmatched Player row (LEFT JOIN vs INNER JOIN): A player born before 1986 with no attributes would increment COUNT(t1.id) in a LEFT JOIN, changing the denominator.
+-- 3. NULL birthday handling.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 201, 'Valid With Null Rating', 2001, '1980-05-10 00:00:00', 180, 75);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 202, 'Valid Without Attributes', 2002, '1979-03-20 00:00:00', 185, 80);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (3, 203, 'Null Birthday', 2003, NULL, 178, 72);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (1, 2001, 201, '2014-01-01 00:00:00', 80, 82);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (2, 2001, 201, '2015-01-01 00:00:00', NULL, 82);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (3, 2003, 203, '2015-01-01 00:00:00', 95, 95);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Join condition mutations: t1.player_api_id = t2.player_api_id vs t1.player_fifa_api_id = t2.player_fifa_api_id vs t1.id = t2.id.
+--    Here, player_fifa_api_id and id links point to different players with different birthdays/ratings than player_api_id.
+-- 2. Date column confusion: t1.birthday vs t2.date (t2.date has year < '1986' for a player born >= '1986', and vice versa).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 301, 'Old Player', 3001, '1982-07-14 00:00:00', 175, 70);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 302, 'Young Player', 3002, '1990-11-02 00:00:00', 190, 85);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (1, 3002, 301, '2016-05-01 00:00:00', 70, 75);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (2, 3001, 302, '1980-05-01 00:00:00', 99, 99);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. SUBSTRING(t1.birthday, 1, 4) < '1986' vs direct string comparison t1.birthday < '1986'.
+--    In SQLite, '1986-01-01' > '1986', so both exclude 1986-01-01. However, if birthday is just '1985-10-10', '1985-10-10' < '1986' is true.
+--    What if birthday has leading characters or a shorter string like '1986'? '1986' < '1986' is false.
+-- 2. Multiple players born before 1986 having identical overall_rating (tests SUM(DISTINCT t2.overall_rating) vs SUM(t2.overall_rating)).
+-- 3. Column confusion in SUM: overall_rating vs potential vs height vs weight.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (10, 401, 'Twin Rating A', 4001, '1984-04-04 00:00:00', 180, 75);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (20, 402, 'Twin Rating B', 4002, '1975-08-19 00:00:00', 180, 75);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (30, 403, 'Exact 1986 String', 4003, '1986', 180, 75);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (100, 4001, 401, '2015-01-01 00:00:00', 84, 90);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (200, 4002, 402, '2015-01-01 00:00:00', 84, 88);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (300, 4003, 403, '2015-01-01 00:00:00', 50, 60);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Empty result set for the WHERE filter (all players born >= 1986).
+--    Checks whether mutants without WHERE clause or with inverted WHERE clause (> '1986', >= '1986') return non-NULL instead of NULL.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 501, 'Modern Player 1', 5001, '1986-01-01 00:00:00', 170, 68);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 502, 'Modern Player 2', 5002, '1995-12-12 00:00:00', 185, 82);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (1, 5001, 501, '2016-01-01 00:00:00', 88, 90);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (2, 5002, 502, '2016-01-01 00:00:00', 76, 84);
+```

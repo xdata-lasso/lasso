@@ -1,0 +1,116 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, column confusion (eye vs hair vs skin), and DISTINCT vs non-DISTINCT behavior.
+INSERT INTO colour (id, colour) VALUES (1, 'Gold');
+INSERT INTO colour (id, colour) VALUES (2, 'Blue');
+INSERT INTO colour (id, colour) VALUES (3, 'Green');
+INSERT INTO colour (id, colour) VALUES (4, 'Red');
+
+-- Hero 1 & 2: Both have Gold skin and Blue eyes (Tests if query wrongly applies DISTINCT).
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (1, 'GoldenBoy', 2, 3, 1);
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (2, 'Aurum', 2, 4, 1);
+
+-- Hero 3: Gold eyes, Red skin (Catches swapped eye_colour_id and skin_colour_id conditions).
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (3, 'GoldEye', 1, 3, 4);
+
+-- Hero 4: Green eyes, Gold hair, Red skin (Catches hair_colour_id used instead of skin_colour_id).
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (4, 'GoldHair', 3, 1, 4);
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT JOIN mutations and NULL foreign key handling.
+INSERT INTO colour (id, colour) VALUES (1, 'Gold');
+INSERT INTO colour (id, colour) VALUES (2, 'Brown');
+INSERT INTO colour (id, colour) VALUES (3, NULL);
+
+-- Hero 1: Gold skin, NULL eye_colour_id (Catches LEFT JOIN on eye_colour_id which would output a NULL row).
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (1, 'BlindGold', NULL, 2, 1);
+
+-- Hero 2: Brown eyes, NULL skin_colour_id (Tests NULL handling in WHERE/JOIN for skin_colour_id).
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (2, 'Skinless', 2, 2, NULL);
+
+-- Hero 3: Gold skin, eye_colour_id points to a colour row where the colour text is NULL.
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (3, 'NullEyeName', 3, 2, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests single-join mutations (e.g., failing to join colour twice, or requiring eye_colour_id = skin_colour_id).
+INSERT INTO colour (id, colour) VALUES (1, 'Gold');
+INSERT INTO colour (id, colour) VALUES (2, 'Silver');
+
+-- Hero 1: Gold skin AND Gold eyes (Matches even if mutant only joins colour once and checks both IDs against it).
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (1, 'AllGold', 1, 1, 1);
+
+-- Hero 2: Gold skin, Silver eyes (Differentiates proper two-table join from single-table join or T1.eye_colour_id = T1.skin_colour_id).
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (2, 'SilverEyeGoldSkin', 2, 1, 1);
+
+-- Hero 3: Silver skin, Silver eyes (Catches missing WHERE clause when T1.eye_colour_id = T1.skin_colour_id is wrongly enforced).
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (3, 'AllSilver', 2, 2, 2);
+```
+
+```sql
+-- DATASET 4
+-- Tests string literal mutations (LIKE '%Gold%', case sensitivity 'gold', != 'Gold') and hardcoded ID assumptions.
+INSERT INTO colour (id, colour) VALUES (10, 'Golden');
+INSERT INTO colour (id, colour) VALUES (20, 'gold');
+INSERT INTO colour (id, colour) VALUES (30, 'Gold');
+INSERT INTO colour (id, colour) VALUES (40, 'Black');
+INSERT INTO colour (id, colour) VALUES (50, 'White');
+INSERT INTO colour (id, colour) VALUES (1, 'Purple');
+
+-- Hero 1: Skin is 'Golden' (Catches LIKE 'Gold%').
+INSERT INTO superhero (id, superhero_name, eye_colour_id, skin_colour_id) VALUES (1, 'HeroGolden', 40, 10);
+
+-- Hero 2: Skin is 'gold' (Catches case-insensitive comparisons or LOWER(colour) = 'gold').
+INSERT INTO superhero (id, superhero_name, eye_colour_id, skin_colour_id) VALUES (2, 'HeroLowerGold', 50, 20);
+
+-- Hero 3: Skin is 'Purple' with ID=1 (Catches mutants that hardcode skin_colour_id = 1 instead of joining and filtering on 'Gold').
+INSERT INTO superhero (id, superhero_name, eye_colour_id, skin_colour_id) VALUES (3, 'HeroIdOne', 40, 1);
+
+-- Hero 4: Actual 'Gold' skin (ID=30) with 'Black' eyes (ID=40).
+INSERT INTO superhero (id, superhero_name, eye_colour_id, skin_colour_id) VALUES (4, 'HeroTrueGold', 40, 30);
+```
+
+```sql
+-- DATASET 5
+-- Tests unnecessary joins with other foreign key tables (gender, race, publisher, alignment, hero_power, hero_attribute).
+INSERT INTO colour (id, colour) VALUES (1, 'Gold');
+INSERT INTO colour (id, colour) VALUES (2, 'Yellow');
+INSERT INTO colour (id, colour) VALUES (3, 'Hazel');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO race (id, race) VALUES (1, 'Mutant');
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel');
+INSERT INTO alignment (id, alignment) VALUES (1, 'Good');
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO superpower (id, power_name) VALUES (1, 'Flight');
+
+-- Hero 1: Has Gold skin and Yellow eyes, but all other FKs are NULL and has no powers/attributes.
+-- (Catches mutants that unnecessarily INNER JOIN gender, race, publisher, alignment, hero_power, or hero_attribute).
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (1, 'MinimalHero', NULL, NULL, 2, NULL, 1, NULL, NULL, NULL, NULL, NULL);
+
+-- Hero 2: Has Gold skin, Hazel eyes, and all FKs populated, plus multiple powers and attributes.
+-- (Catches mutants that join 1-to-many tables like hero_power/hero_attribute without DISTINCT, which would duplicate 'Hazel').
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (2, 'MaximalHero', 'Max Power', 1, 3, 1, 1, 1, 1, 1, 190, 95);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 200);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 1);
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set when 'Gold' exists in the colour table and in superhero names, but no hero has 'Gold' skin.
+INSERT INTO colour (id, colour) VALUES (1, 'Gold');
+INSERT INTO colour (id, colour) VALUES (2, 'Blue');
+
+-- Hero has 'Gold' in superhero_name and full_name, and 'Gold' hair/eyes, but 'Blue' skin.
+-- (Catches mutants filtering on superhero_name = 'Gold' or checking 'Gold' on the wrong column).
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id) 
+VALUES (1, 'Gold', 'Gold', 1, 1, 2);
+```

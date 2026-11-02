@@ -1,0 +1,57 @@
+-- Schema DDL
+CREATE TABLE "COMPANY" (
+    "COMPANY_ID" INT,
+    "RANK" INT,
+    "COMPANY" TEXT,
+    "HEADQUARTERS" TEXT,
+    "MAIN_INDUSTRY" TEXT,
+    "SALES_BILLION" FLOAT,
+    "PROFITS_BILLION" FLOAT,
+    "ASSETS_BILLION" FLOAT,
+    "MARKET_VALUE" FLOAT,
+    PRIMARY KEY ("COMPANY_ID")
+);
+CREATE TABLE "GAS_STATION" (
+    "STATION_ID" INT,
+    "OPEN_YEAR" INT,
+    "LOCATION" TEXT,
+    "MANAGER_NAME" TEXT,
+    "VICE_MANAGER_NAME" TEXT,
+    "REPRESENTATIVE_NAME" TEXT,
+    PRIMARY KEY ("STATION_ID")
+);
+CREATE TABLE "STATION_COMPANY" (
+    "STATION_ID" INT,
+    "COMPANY_ID" INT,
+    "RANK_OF_THE_YEAR" INT,
+    PRIMARY KEY ("COMPANY_ID", "STATION_ID"),
+    FOREIGN KEY ("COMPANY_ID") REFERENCES "COMPANY"("COMPANY_ID"),
+    FOREIGN KEY ("STATION_ID") REFERENCES "GAS_STATION"("STATION_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO COMPANY VALUES (0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO COMPANY VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO GAS_STATION VALUES (-1, 0, 0, 0, 0, 0);
+INSERT INTO GAS_STATION VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO STATION_COMPANY VALUES (-1, 0, 0);
+INSERT INTO STATION_COMPANY VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT company, main_industry FROM (SELECT * FROM company AS LHS WHERE NOT EXISTS(SELECT 1 FROM station_company AS RHS WHERE (LHS.company_id = RHS.company_id))) ORDER BY company, main_industry NULLS LAST;
+
+/*
+Gold Result:
+('0', '0')
+*/
+
+-- Prediction Query
+SELECT company, main_industry FROM company WHERE NOT company_id IN (SELECT company_id FROM station_company);
+
+/*
+Prediction Result:
+('0', '0')
+*/

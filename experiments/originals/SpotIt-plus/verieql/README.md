@@ -1,0 +1,214 @@
+VeriEQL
+=======
+
+## 📝 Introduction
+
+VeriEQL is an equivalence verifier for complex SQL queries with integrity constraints using bounded model checking, and
+reachs the S.O.T.A. performance over three benchmarks.
+
+![An example checked by VeriEQL.](__figures__/overview.png)
+
+A SQL pair refuted by VeriEQL.
+
+![An example checked by VeriEQL.](__figures__/example.png)
+
+## Extension Testing
+
+------------------
+
+This framework provides systematic testing of VeriEQL's SQL equivalence verification across different SQL language extensions and features.
+
+### Files
+
+#### `extension_test.py`
+Main test runner that evaluates SQL equivalence for different categories of SQL extensions:
+
+- **Real**: Standard SQL queries `REAL` data type
+- **Datetime**: Queries using `STRFTIME()` and date/time functions  
+- **Substring**: Queries using `SUBSTR()` function
+- **Subquery**: Queries with subqueries in FROM/SELECT clauses
+- **LIKE**: Queries using pattern matching with `LIKE` operator
+- **IIF**: Queries using conditional `IIF()` function
+
+#### `table_definitions.json`
+Complete schema definitions with column names and data types for all supported databases from BIRD-SQL benchmark, including:
+- `california_schools`, `debit_card_specializing`, `financial`, `formula_1`
+- `card_games`, `european_football_2`, `thrombosis_prediction`, `toxicology`
+- `student_club`, `superhero`, `codebase_community`
+
+#### `dev_constraints.json`
+Database constraints including primary keys, foreign keys, and referential integrity rules for BIRD-SQL databases. Used by VeriEQL to understand table relationships during equivalence checking.
+
+### Usage
+
+Run tests for a specific SQL extension category:
+
+```bash
+# Test datetime functions
+python extension_test.py --extension_type datetime
+
+# Test substring operations  
+python extension_test.py --extension_type substring
+
+# Test subquery handling
+python extension_test.py --extension_type subquery
+
+# Other available types: real, like, iif
+```
+
+## 🛠️ Installation
+
+------------------
+
+### Prerequisites
+
+Python 3.10 or later. (Python 3.11 is recommended.)
+
+1) To install dependencies, run:
+
+```shell
+pip install -r requirements.txt
+```
+
+2) **Important**: Replacing z3 python scripts with [files](./z3py_libs) in your environments could save 10%~20% time in formulation.
+
+If you use conda, please refer to the following commands.
+
+```shell
+sudo mv ./z3py_libs/*.py ~/anaconda3/envs/z3py311/lib/python3.11/site-packages/z3/
+```
+
+3) To test your environment with the following command:
+```shell
+python -m test.test_env
+```
+
+## 🔖 How to use
+
+1) Try a toy example
+
+```shell
+python -m __main__
+```
+
+2) Check massive SQL pairs (in parallel) with a 10-min timeout/a max bound size.
+
+```shell
+# 10-min timeout
+python -m parallel.run_with_max_timeout -f benchmarks/leetcode/leetcode.jsonlines -t 600 -o benchmarks/leetcode/leetcode.out
+
+# 10 bound size
+python -m parallel.run_with_max_bound -f benchmarks/leetcode/leetcode.jsonlines -s 10 -o benchmarks/leetcode/leetcode.out
+```
+
+## ➕ Supported Features
+
+### Syntax
+
+![Syntax of SQL queries.](__figures__/grammar.png)
+
+### Semantics
+
+- List semantic (only works for `OrderBy`)
+- Bag semantics
+
+## 🐎 Experiments
+
+-----------------
+
+### Benchmarks
+
+1) [Calcite](./benchmarks/calcite2): 397 pairs
+
+2) [Literature](./benchmarks/literature): 64 pairs
+
+3) [LeetCode](./benchmarks/leetcode): 23,224 pairs
+
+### Baselines
+
+- Bounded Model Checking
+    - Cosette
+    - Qex
+- Testing
+    - DataFiller
+    - XData
+- Fully Prover
+    - SPES
+    - HoTTSQL
+
+### Comparison
+
+#### RQ1: Coverage and Comparison against State-of-the-Art Techniques
+
+Experimental results on the **ALL** benchmarks.
+
+|       Model       | Unsupported | Checked / Not-refuted / Verified | Refuted / Not-verified |
+|:-----------------:|:-----------:|:--------------------------------:|:----------------------:|
+| **VeriEQL(ours)** |  **5636**   |            **15200**             |        **3619**        |
+|      Cossete      |    24399    |                23                |           33           |
+|        Qex        |    24399    |                29                |           27           |
+|    DataFiller     |    10722    |              13599               |          134           |
+|       XData       |    19451    |               2964               |           1            |
+|       SPES        |    24169    |                60                |          226           |
+|      HoTTSQL      |    24434    |                21                |           0            |
+
+The results obtained in **03/27/2023** are available [here](experiments/2023_03_27).
+
+#### RQ2: Effectiveness at Generating Counterexamples to Facilitate Downstream Tasks
+
+Experimental results on the **ALL** benchmarks.
+
+|       Model       | Genuine  |   All    |
+|:-----------------:|:--------:|:--------:|
+| **VeriEQL(ours)** | **3617** | **3619** |
+|      Cossete      |    17    |    33    |
+|        Qex        |    14    |    27    |
+|    DataFiller     |   325    |   325    |
+|       XData       |    1     |    1     |
+
+For more details, please read our paper.
+
+## 🔧 Other tools
+
+--------------
+
+### Formula writer
+
+Auto dump formulas of a SQL pair in `test/test.py` for manual inspection.
+
+When instantiate the `Environment` class, please
+
+1) set `verbose=True` to record SQL query equivalence formulas, and
+2) set `out_file="YourFilePath"` as the automated script path.
+
+![Autogenerated Code Script](__figures__/automation.png)
+
+### Spurious counterexample checker
+
+1) install MySQL
+2) create MySQL users for parallel checking by [create_mysql_users.py](dbms_checker/create_mysql_users.py)
+3) check counterexamples by [counterexample_checker.py](dbms_checker/counterexample_checker.py)
+
+## Citation
+
+-----------
+
+If you use this tool in your research, please cite this project as follows,
+
+```latex
+@article{DBLP:journals/pacmpl/HeZWW24,
+  author       = {Yang He and
+                  Pinhan Zhao and
+                  Xinyu Wang and
+                  Yuepeng Wang},
+  title        = {VeriEQL: Bounded Equivalence Verification for Complex {SQL} Queries
+                  with Integrity Constraints},
+  journal      = {Proc. {ACM} Program. Lang.},
+  volume       = {8},
+  number       = {{OOPSLA1}},
+  pages        = {1071--1099},
+  year         = {2024},
+  url          = {https://doi.org/10.1145/3649849},
+  doi          = {10.1145/3649849}
+}
+```

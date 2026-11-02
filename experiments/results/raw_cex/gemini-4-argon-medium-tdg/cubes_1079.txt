@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT/RIGHT JOIN (Account 3 has 0 transactions; Financial_Transactions has a row with NULL account_id).
+-- 2. GROUP BY account_id vs GROUP BY account_name (Accounts 1 and 2 share 'Alpha' name, different transaction counts).
+-- 3. ORDER BY account_name ASC, account_id ASC tie-breaking (Account 2 has smaller count than Account 1, so sorting by count first would invert their order).
+-- 4. COUNT(*) vs COUNT(column) vs COUNT(DISTINCT column) vs SUM(amount) (Transactions for Account 1 have NULLs and duplicate values across columns, and amounts not equal to 1).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Alice');
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (1, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (1, 1);
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (1, 1, 'Alpha');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (2, 1, 'Alpha');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (3, 1, 'Beta');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (4, 1, 'Gamma');
+
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 101, 'TypeA', 50.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 101, 'TypeA', 50.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, NULL, NULL, NULL, NULL);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_amount") VALUES (2, 1, 102, 'TypeB', 20.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_amount") VALUES (4, 1, 103, 'TypeC', 10.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_amount") VALUES (4, 1, 104, 'TypeD', 15.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_type", "transaction_amount") VALUES (NULL, 1, 105, 'TypeE', 100.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Handling of NULL account_name in Accounts and ORDER BY NULLS FIRST vs NULLS LAST on account_name.
+-- 2. Tie-breaking on account_id when account_name is NULL (Account 10 vs Account 20, with inverse transaction counts).
+-- 3. Account vs Customer ID confusion (account_id != customer_id).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (100, 'Bob');
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (200, 'Charlie');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (10, 200, NULL);
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (20, 100, NULL);
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (30, 100, 'Zeta');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (40, 200, 'Aardvark');
+
+INSERT INTO "Financial_Transactions" ("account_id", "transaction_id", "transaction_amount") VALUES (10, 1, 10.0);
+INSERT INTO "Financial_Transactions" ("account_id", "transaction_id", "transaction_amount") VALUES (10, 2, 20.0);
+INSERT INTO "Financial_Transactions" ("account_id", "transaction_id", "transaction_amount") VALUES (20, 3, 30.0);
+INSERT INTO "Financial_Transactions" ("account_id", "transaction_id", "transaction_amount") VALUES (30, 4, 40.0);
+INSERT INTO "Financial_Transactions" ("account_id", "transaction_id", "transaction_amount") VALUES (30, 5, 50.0);
+INSERT INTO "Financial_Transactions" ("account_id", "transaction_id", "transaction_amount") VALUES (30, 6, 60.0);
+INSERT INTO "Financial_Transactions" ("account_id", "transaction_id", "transaction_amount") VALUES (40, 7, 70.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Join condition mutations (e.g., joining on LHS.account_id = RHS.customer_id or LHS.invoice_number = RHS.account_id or LHS.transaction_id = RHS.account_id).
+-- 2. Distinctness of IDs across tables so accidental wrong column joins produce different results.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Cust1');
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (2, 'Cust2');
+
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (1, 1);
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (2, 2);
+
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (1, 1);
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (2, 2);
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (1, 2, 'Acc_One');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (2, 1, 'Acc_Two');
+
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (1, 2, 2, 500.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (1, 2, 2, 500.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (2, 1, 1, 100.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty Financial_Transactions table (with non-empty Accounts table).
+-- 2. Refutes mutants that use LEFT JOIN from Accounts or return 0-count rows.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'LonelyCustomer');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (1, 1, 'EmptyAccount1');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (2, 1, 'EmptyAccount2');
+```

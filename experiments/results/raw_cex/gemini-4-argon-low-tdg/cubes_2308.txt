@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests basic join, WHERE filter on Statement_Details = 'Private Project', ORDER BY Document_Name ASC NULLS LAST, and duplicate row preservation (SELECT vs SELECT DISTINCT).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Contract', 'Legal Contract');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Project Alpha');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 1, 'DT1', '2023-01-01 10:00:00', 'Zebra Doc', 'Desc 1', 'Other 1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 1, 'DT1', '2023-01-02 10:00:00', 'Alpha Doc', 'Desc 2', 'Other 2');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 1, 'DT1', '2023-01-03 10:00:00', NULL, 'Desc 3', 'Other 3');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 1, 'DT1', '2023-01-04 10:00:00', 'Alpha Doc', 'Desc 4', 'Other 4');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 1, 'DT1', '2023-01-05 10:00:00', 'Public Doc', 'Desc 5', 'Other 5');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (6, 1, 'DT1', '2023-01-06 10:00:00', 'Unjoined Doc', 'Private Project', 'Other 6');
+
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (1, 'Private Project');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (2, 'Private Project');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (3, 'Private Project');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (4, 'Private Project');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (5, 'Public Project');
+```
+
+```sql
+-- DATASET 2
+-- Tests column confusion (where 'Private Project' appears in Project_Details, Document_Name, Document_Description, Other_Details, etc., instead of Statement_Details) and case/substring sensitivity.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Private Project', 'Private Project');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('BC1', 'Private Project');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Private Project');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (10, 1, 'DT1', '2023-02-01', 'Private Project', 'Normal Desc', 'Normal Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (20, 1, 'DT1', '2023-02-02', 'Doc 20', 'Private Project', 'Private Project');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (30, 1, 'DT1', '2023-02-03', 'Doc 30', 'Desc 30', 'Other 30');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (40, 1, 'DT1', '2023-02-04', 'Doc 40', 'Desc 40', 'Other 40');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (50, 1, 'DT1', '2023-02-05', 'Valid Doc', 'Desc 50', 'Other 50');
+
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (10, 'Other Project');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (20, 'private project');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (30, 'Private Project Extra');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (40, NULL);
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (50, 'Private Project');
+
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (10, 'BC1', 'Private Project');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (100, 10, 'Private Project');
+```
+
+```sql
+-- DATASET 3
+-- Tests incorrect join conditions (e.g. joining Documents.Project_ID = Statements.Statement_ID instead of Documents.Document_ID = Statements.Statement_ID, or Cartesian product).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type 1', 'Desc 1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Proj 1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (2, 'Proj 2');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 2, 'T1', '2023-03-01', 'Doc ID 1 (Proj 2)', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 1, 'T1', '2023-03-02', 'Doc ID 2 (Proj 1)', 'Desc', 'Other');
+
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (1, 'Not Private');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (2, 'Private Project');
+```
+
+```sql
+-- DATASET 4
+-- Tests unnecessary INNER JOINs with other tables (Ref_Document_Types, Projects, Accounts, Documents_with_Expenses) by having NULL FKs in Documents and no child records in Accounts/Expenses.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (101, NULL, NULL, NULL, 'Standalone Doc B', NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (102, NULL, NULL, NULL, 'Standalone Doc A', NULL, NULL);
+
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (101, 'Private Project');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (102, 'Private Project');
+```
+
+```sql
+-- DATASET 5
+-- Tests join fan-out mutations (e.g. if a mutant joins with Accounts where multiple accounts reference the same Statement_ID) and ordering vs Document_ID / Document_Date.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DOC', 'General', 'General');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (10, 'P10');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 10, 'DOC', '2023-01-01', 'Doc C', 'First ID, Earliest Date, Last Name', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 10, 'DOC', '2023-01-02', 'Doc B', 'Second ID, Middle Date, Middle Name', 'O2');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 10, 'DOC', '2023-01-03', 'Doc A', 'Third ID, Latest Date, First Name', 'O3');
+
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (1, 'Private Project');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (2, 'Private Project');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (3, 'Private Project');
+
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (1, 1, 'Acc 1 for Stmt 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (2, 1, 'Acc 2 for Stmt 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (3, 2, 'Acc 1 for Stmt 2');
+```

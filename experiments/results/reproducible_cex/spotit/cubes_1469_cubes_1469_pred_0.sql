@@ -1,0 +1,46 @@
+-- Schema DDL
+CREATE TABLE "SCIENTISTS" (
+    "SSN" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("SSN")
+);
+CREATE TABLE "PROJECTS" (
+    "CODE" TEXT,
+    "NAME" TEXT,
+    "HOURS" INT,
+    PRIMARY KEY ("CODE")
+);
+CREATE TABLE "ASSIGNEDTO" (
+    "SCIENTIST" INT,
+    "PROJECT" TEXT,
+    PRIMARY KEY ("SCIENTIST", "PROJECT"),
+    FOREIGN KEY ("PROJECT") REFERENCES "PROJECTS"("CODE"),
+    FOREIGN KEY ("SCIENTIST") REFERENCES "SCIENTISTS"("SSN")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO SCIENTISTS VALUES (0, 0);
+INSERT INTO SCIENTISTS VALUES (-1, 0);
+INSERT INTO PROJECTS VALUES (0, 9, 0);
+INSERT INTO PROJECTS VALUES (-1, 8, 0);
+INSERT INTO ASSIGNEDTO VALUES (0, 0);
+INSERT INTO ASSIGNEDTO VALUES (-1, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT * FROM (SELECT * FROM projects ORDER BY name, projects.code NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+('8',)
+*/
+
+-- Prediction Query
+SELECT name FROM projects ORDER BY hours DESC, projects.code NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('8',)
+*/

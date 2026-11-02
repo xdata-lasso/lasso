@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests standard join condition vs anomalous join condition (LHS.name = RHS.project)
+-- Reference query joins Scientists.Name = AssignedTo.Project (returns 0 here), whereas standard join on SSN = Scientist would return 2.
+INSERT INTO Scientists (SSN, Name) VALUES (101, 'Alice');
+INSERT INTO Scientists (SSN, Name) VALUES (102, 'Bob');
+INSERT INTO Projects (Code, Name, Hours) VALUES ('P001', 'Alpha', 100);
+INSERT INTO Projects (Code, Name, Hours) VALUES ('P002', 'Beta', 200);
+INSERT INTO AssignedTo (Scientist, Project) VALUES (101, 'P001');
+INSERT INTO AssignedTo (Scientist, Project) VALUES (102, 'P002');
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(DISTINCT ssn) vs COUNT(ssn) or COUNT(*) and COUNT(DISTINCT name)
+-- Two scientists share the name 'P001' which matches a project code assigned to multiple scientists.
+-- Reference returns 2 (SSNs 1 and 2). COUNT(*) would return 4. COUNT(DISTINCT name) would return 1. COUNT(DISTINCT scientist) would return 2, so we add a 3rd scientist to AssignedTo to make COUNT(DISTINCT scientist) = 3.
+INSERT INTO Scientists (SSN, Name) VALUES (1, 'P001');
+INSERT INTO Scientists (SSN, Name) VALUES (2, 'P001');
+INSERT INTO Scientists (SSN, Name) VALUES (3, 'Charlie');
+INSERT INTO Scientists (SSN, Name) VALUES (4, 'David');
+INSERT INTO Projects (Code, Name, Hours) VALUES ('P001', 'Project One', 50);
+INSERT INTO Projects (Code, Name, Hours) VALUES ('P002', 'Project Two', 60);
+INSERT INTO AssignedTo (Scientist, Project) VALUES (1, 'P001');
+INSERT INTO AssignedTo (Scientist, Project) VALUES (3, 'P001');
+INSERT INTO AssignedTo (Scientist, Project) VALUES (4, 'P001');
+INSERT INTO AssignedTo (Scientist, Project) VALUES (2, 'P002');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN / RIGHT JOIN and NULL handling
+-- Scientist 10 has a NULL name, Scientist 20 has a name not in AssignedTo, Scientist 30 matches.
+-- Reference returns 1 (SSN 30). LEFT JOIN on Scientists would include 10 and 20 (returning 3).
+INSERT INTO Scientists (SSN, Name) VALUES (10, NULL);
+INSERT INTO Scientists (SSN, Name) VALUES (20, 'P999');
+INSERT INTO Scientists (SSN, Name) VALUES (30, 'P100');
+INSERT INTO Projects (Code, Name, Hours) VALUES ('P100', 'Active Project', 10);
+INSERT INTO Projects (Code, Name, Hours) VALUES ('P200', 'Unmatched Name Project', 20);
+INSERT INTO Projects (Code, Name, Hours) VALUES ('P999', 'Unassigned Project', 30);
+INSERT INTO AssignedTo (Scientist, Project) VALUES (10, 'P100');
+INSERT INTO AssignedTo (Scientist, Project) VALUES (20, 'P200');
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between Projects.Name and Projects.Code, or joining Scientists with Projects directly without AssignedTo
+-- Scientist 1 has Name 'P001' (which is in Projects, but NOT in AssignedTo).
+-- Scientist 2 has Name 'Apollo' (which is Projects.Name, not Projects.Code).
+-- Scientist 3 has Name 'P002' (which IS in AssignedTo).
+-- Reference returns 1 (SSN 3). Joining Scientists to Projects.Code returns 2 (SSNs 1, 3). Joining to Projects.Name returns 1 (SSN 2).
+INSERT INTO Scientists (SSN, Name) VALUES (1, 'P001');
+INSERT INTO Scientists (SSN, Name) VALUES (2, 'Apollo');
+INSERT INTO Scientists (SSN, Name) VALUES (3, 'P002');
+INSERT INTO Projects (Code, Name, Hours) VALUES ('P001', 'Gemini', 100);
+INSERT INTO Projects (Code, Name, Hours) VALUES ('P002', 'Apollo', 200);
+INSERT INTO AssignedTo (Scientist, Project) VALUES (1, 'P002');
+```
+
+```sql
+-- DATASET 5
+-- Tests type coercion and self-matching vs cross-matching on (LHS.name = RHS.project) and (LHS.ssn = RHS.scientist)
+-- Scientist 1's Name ('2') matches Project '2', and is assigned to Scientist 1.
+-- Scientist 2's Name ('1') matches Project '1', and is assigned to Scientist 2.
+-- Scientist 3's Name ('3') matches Project '3', and is assigned to Scientist 3.
+-- Reference returns 3. A mutant requiring BOTH LHS.name = RHS.project AND LHS.ssn = RHS.scientist returns 1 (only SSN 3).
+INSERT INTO Scientists (SSN, Name) VALUES (1, '2');
+INSERT INTO Scientists (SSN, Name) VALUES (2, '1');
+INSERT INTO Scientists (SSN, Name) VALUES (3, '3');
+INSERT INTO Projects (Code, Name, Hours) VALUES ('1', 'One', 10);
+INSERT INTO Projects (Code, Name, Hours) VALUES ('2', 'Two', 20);
+INSERT INTO Projects (Code, Name, Hours) VALUES ('3', 'Three', 30);
+INSERT INTO AssignedTo (Scientist, Project) VALUES (1, '2');
+INSERT INTO AssignedTo (Scientist, Project) VALUES (2, '1');
+INSERT INTO AssignedTo (Scientist, Project) VALUES (3, '3');
+```
+
+```sql
+-- DATASET 6
+-- Empty tables edge case
+-- Tests behavior when relations are completely empty (COUNT should return 0, not NULL or empty result set).
+-- Using a single unreferenced row in Projects so the block has a valid INSERT while Scientists and AssignedTo remain empty.
+INSERT INTO Projects (Code, Name, Hours) VALUES ('P000', 'Empty Test', 0);
+```

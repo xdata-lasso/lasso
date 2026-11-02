@@ -1,0 +1,28 @@
+-- Schema DDL
+CREATE TABLE PAYROLL (SSNO INTEGER, DEPTNO INTEGER);
+
+CREATE TABLE APPLICANT (SSNO INTEGER, JOBTITILE INTEGER, OFFICENO INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO applicant (ssno, jobtitile, officeno) VALUES (0, 30, 1), (0, NULL, 1), (29, NULL, 1), (28, NULL, 30), (29, 29, 28);
+INSERT INTO payroll (ssno, deptno) VALUES (29, 0), (1, 1), (30, 1), (28, 1), (NULL, 0), (28, 29);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT Y.* FROM PAYROLL AS X CROSS JOIN APPLICANT AS Y WHERE X.SSNO = Y.SSNO AND X.DEPTNO = 29;
+
+/*
+Gold Result:
+(28, None, 30)
+*/
+
+-- Prediction Query
+SELECT C.* FROM PAYROLL AS A CROSS JOIN (SELECT Y.SSNO, Y.DEPTNO FROM PAYROLL AS Y) AS B CROSS JOIN APPLICANT AS C WHERE A.SSNO = B.SSNO AND C.SSNO = A.SSNO AND B.DEPTNO = 29;
+
+/*
+Prediction Result:
+(28, None, 30)
+(28, None, 30)
+*/

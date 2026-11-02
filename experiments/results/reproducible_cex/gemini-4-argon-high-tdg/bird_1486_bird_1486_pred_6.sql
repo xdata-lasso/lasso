@@ -1,0 +1,55 @@
+-- Schema DDL
+CREATE TABLE customers (CustomerID INTEGER UNIQUE NOT NULL PRIMARY KEY, Segment TEXT NULL, Currency TEXT NULL);
+
+CREATE TABLE gasstations (GasStationID INTEGER UNIQUE NOT NULL PRIMARY KEY, ChainID INTEGER NULL, Country TEXT NULL, Segment TEXT NULL);
+
+CREATE TABLE products (ProductID INTEGER UNIQUE NOT NULL PRIMARY KEY, Description TEXT NULL);
+
+CREATE TABLE "transactions_1k" (TransactionID INTEGER PRIMARY KEY AUTOINCREMENT, Date DATE, Time TEXT, CustomerID INTEGER, CardID INTEGER, GasStationID INTEGER, ProductID INTEGER, Amount INTEGER, Price REAL);
+
+CREATE TABLE "yearmonth" (CustomerID INTEGER NOT NULL REFERENCES customers ON update CASCADE ON delete CASCADE REFERENCES customers, Date TEXT NOT NULL, Consumption REAL, PRIMARY KEY (Date, CustomerID));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (6, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (7, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (8, 'SME', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (9, 'SME', NULL);
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'LAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (11, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (12, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (13, NULL, 'CZK');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (101, 1, 'CZE', 'SME');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (102, 2, 'DEU', 'Other');
+INSERT INTO products (ProductID, Description) VALUES (201, 'Diesel');
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-24', '10:00:00', 1, 1001, 101, 201, 10, 300.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '11:00:00', 1, 1001, 101, 201, 20, 600.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-26', '12:00:00', 6, 1002, 102, 201, 15, 450.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-27', '13:00:00', 10, 1003, 101, 201, 25, 750.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201208', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201209', 600.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (6, '201208', 300.0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT SUM(Currency = 'CZK') - SUM(Currency = 'EUR') FROM customers WHERE Segment = 'SME';
+
+/*
+Gold Result:
+(3,)
+*/
+
+-- Prediction Query
+SELECT (czk_count - eur_count) AS difference FROM (SELECT COUNT(*) AS czk_count FROM transactions_1k AS t INNER JOIN customers AS c ON t.customerid = c.customerid WHERE c.currency = 'CZK' AND c.segment = 'SME') AS czk CROSS JOIN (SELECT COUNT(*) AS eur_count FROM transactions_1k AS t INNER JOIN customers AS c ON t.customerid = c.customerid WHERE c.currency = 'EUR' AND c.segment = 'SME') AS eur;
+
+/*
+Prediction Result:
+(1,)
+*/

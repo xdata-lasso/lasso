@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- Tests standard case: multiple flights with maximum price, multiple flights with strictly lower prices.
+-- Kills mutants missing DISTINCT, selecting RHS columns instead of LHS, or using MIN/AVG instead of MAX.
+INSERT INTO aircraft (aid, name, distance) VALUES (1, 'Boeing 737', 3000);
+INSERT INTO aircraft (aid, name, distance) VALUES (2, 'Airbus A320', 4000);
+
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (101, 1, 'NYC', 'LAX', 2500, '2023-01-01', '2023-01-02', 500.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (102, 2, 'LAX', 'NYC', NULL, '2023-01-03', '2023-01-04', 500.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (103, 1, 'SFO', 'SEA', 800, '2023-01-05', '2023-01-05', 200.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (104, 2, 'SEA', 'SFO', 800, '2023-01-06', '2023-01-06', 100.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (105, 1, 'DEN', 'ORD', 1000, '2023-01-07', '2023-01-07', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests edge case: all flights have the exact same price (no strictly lower price exists).
+-- Reference query must return 0 rows. Kills mutants that simply select flights where price = MAX(price) or change < to <=.
+INSERT INTO aircraft (aid, name, distance) VALUES (1, 'Boeing 747', 6000);
+
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (201, 1, 'LHR', 'JFK', 3400, '2023-02-01', '2023-02-01', 450.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (202, 1, 'JFK', 'LHR', 3400, '2023-02-02', '2023-02-02', 450.00);
+```
+
+```sql
+-- DATASET 3
+-- Tests edge case: single flight in the table.
+-- Reference query must return 0 rows. Kills mutants that omit the existence check of a cheaper flight.
+INSERT INTO aircraft (aid, name, distance) VALUES (1, 'Cessna 172', 800);
+
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (301, 1, 'BOS', 'PHL', 300, '2023-03-01', '2023-03-01', 150.00);
+```
+
+```sql
+-- DATASET 4
+-- Tests partitioning mutants (e.g., MAX(price) OVER (PARTITION BY origin/aid/destination)) and JOIN condition mutants.
+-- Global max is 1000.00 (flno 401), while other origins/aids have local maxes (600.00) with cheaper flights (300.00).
+INSERT INTO aircraft (aid, name, distance) VALUES (1, 'Jet A', 5000);
+INSERT INTO aircraft (aid, name, distance) VALUES (2, 'Jet B', 5000);
+
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (401, 1, 'ATL', 'MIA', 600, '2023-04-01', '2023-04-01', 1000.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (402, 2, 'ORD', 'DFW', 800, '2023-04-02', '2023-04-02', 600.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (403, 2, 'ORD', 'DFW', 800, '2023-04-03', '2023-04-03', 300.00);
+```
+
+```sql
+-- DATASET 5
+-- Tests negative prices, zero prices, and ordering (ORDER BY flno, distance).
+-- Max price is 0.00 (flno 503), lower price is -50.00 (flno 501). Also tests joins against aircraft/certificate if mutated.
+INSERT INTO aircraft (aid, name, distance) VALUES (10, 'Concorde', 4000);
+INSERT INTO employee (eid, name, salary) VALUES (1, 'John Doe', 90000.00);
+INSERT INTO certificate (eid, aid) VALUES (1, 10);
+
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (503, 10, 'CDG', 'JFK', 3600, '2023-05-01', '2023-05-01', 0.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (501, NULL, 'JFK', 'CDG', 3600, '2023-05-02', '2023-05-02', -50.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (502, NULL, 'CDG', 'LHR', 200, '2023-05-03', '2023-05-03', 0.00);
+```
+
+```sql
+-- DATASET 6
+-- Tests edge case: one flight has a price, another flight has a NULL price.
+-- Reference query must return 0 rows because NULL < maxprice evaluates to UNKNOWN. Kills mutants using COALESCE(price, 0) or IS NULL checks.
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (601, NULL, 'HKG', 'NRT', 1800, '2023-06-01', '2023-06-01', 800.00);
+INSERT INTO flight (flno, aid, origin, destination, distance, departure_date, arrival_date, price) VALUES (602, NULL, 'NRT', 'HKG', 1800, '2023-06-02', '2023-06-02', NULL);
+```

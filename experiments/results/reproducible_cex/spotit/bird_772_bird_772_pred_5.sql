@@ -1,0 +1,110 @@
+-- Schema DDL
+CREATE TABLE "ALIGNMENT" (
+    "ID" INT,
+    "ALIGNMENT" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "ATTRIBUTE" (
+    "ID" INT,
+    "ATTRIBUTE_NAME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "COLOUR" (
+    "ID" INT,
+    "COLOUR" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "GENDER" (
+    "ID" INT,
+    "GENDER" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "PUBLISHER" (
+    "ID" INT,
+    "PUBLISHER_NAME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "RACE" (
+    "ID" INT,
+    "RACE" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "SUPERHERO" (
+    "ID" INT,
+    "SUPERHERO_NAME" TEXT,
+    "FULL_NAME" TEXT,
+    "GENDER_ID" INT,
+    "EYE_COLOUR_ID" INT,
+    "HAIR_COLOUR_ID" INT,
+    "SKIN_COLOUR_ID" INT,
+    "RACE_ID" INT,
+    "PUBLISHER_ID" INT,
+    "ALIGNMENT_ID" INT,
+    "HEIGHT_CM" INT,
+    "WEIGHT_KG" INT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("ALIGNMENT_ID") REFERENCES "ALIGNMENT"("ID"),
+    FOREIGN KEY ("EYE_COLOUR_ID") REFERENCES "COLOUR"("ID"),
+    FOREIGN KEY ("GENDER_ID") REFERENCES "GENDER"("ID"),
+    FOREIGN KEY ("HAIR_COLOUR_ID") REFERENCES "COLOUR"("ID"),
+    FOREIGN KEY ("PUBLISHER_ID") REFERENCES "PUBLISHER"("ID"),
+    FOREIGN KEY ("RACE_ID") REFERENCES "RACE"("ID"),
+    FOREIGN KEY ("SKIN_COLOUR_ID") REFERENCES "COLOUR"("ID")
+);
+CREATE TABLE "HERO_ATTRIBUTE" (
+    "HERO_ID" INT,
+    "ATTRIBUTE_ID" INT,
+    "ATTRIBUTE_VALUE" INT,
+    FOREIGN KEY ("ATTRIBUTE_ID") REFERENCES "ATTRIBUTE"("ID"),
+    FOREIGN KEY ("HERO_ID") REFERENCES "SUPERHERO"("ID")
+);
+CREATE TABLE "SUPERPOWER" (
+    "ID" INT,
+    "POWER_NAME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "HERO_POWER" (
+    "HERO_ID" INT,
+    "POWER_ID" INT,
+    FOREIGN KEY ("HERO_ID") REFERENCES "SUPERHERO"("ID"),
+    FOREIGN KEY ("POWER_ID") REFERENCES "SUPERPOWER"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ALIGNMENT VALUES (0, 0);
+INSERT INTO ALIGNMENT VALUES (-1, 0);
+INSERT INTO ATTRIBUTE VALUES (-1, 0);
+INSERT INTO ATTRIBUTE VALUES (0, 0);
+INSERT INTO COLOUR VALUES (0, 33);
+INSERT INTO COLOUR VALUES (-1, 34);
+INSERT INTO GENDER VALUES (1, 36);
+INSERT INTO GENDER VALUES (0, 1007190360668850024);
+INSERT INTO PUBLISHER VALUES (-1, 35);
+INSERT INTO PUBLISHER VALUES (0, 5535469174478834587);
+INSERT INTO RACE VALUES (0, 0);
+INSERT INTO RACE VALUES (1, 0);
+INSERT INTO SUPERHERO VALUES (0, 37, 38, 0, 0, -1, -1, 0, 0, -1, 0, 0);
+INSERT INTO SUPERHERO VALUES (-1, 39, 40, 0, -1, -1, 0, 0, 0, -1, 0, 0);
+INSERT INTO HERO_ATTRIBUTE VALUES (-1, 0, 0);
+INSERT INTO HERO_ATTRIBUTE VALUES (-1, -1, 0);
+INSERT INTO SUPERPOWER VALUES (0, 0);
+INSERT INTO SUPERPOWER VALUES (-1, 0);
+INSERT INTO HERO_POWER VALUES (-1, -1);
+INSERT INTO HERO_POWER VALUES (0, -1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1.eye_colour_id, T1.hair_colour_id, T1.skin_colour_id FROM superhero AS T1 INNER JOIN publisher AS T2 ON T2.id = T1.publisher_id INNER JOIN gender AS T3 ON T3.id = T1.gender_id WHERE T2.publisher_name = 'Dark Horse Comics' AND T3.gender = 'Female';
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT eye_colour.colour AS eye_colour, hair_colour.colour AS hair_colour, skin_colour.colour AS skin_colour FROM superhero INNER JOIN gender ON superhero.gender_id = gender.id INNER JOIN colour AS eye_colour ON superhero.eye_colour_id = eye_colour.id INNER JOIN colour AS hair_colour ON superhero.hair_colour_id = hair_colour.id INNER JOIN colour AS skin_colour ON superhero.skin_colour_id = skin_colour.id INNER JOIN publisher ON superhero.publisher_id = publisher.id WHERE gender.gender = 'Female' AND publisher.publisher_name = 'Dark Horse Comics';
+
+/*
+Prediction Result:
+*/

@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT molecule_id) vs COUNT(*), COUNT(atom_id), COUNT(bond_id).
+-- Also tests queries that improperly require the 'connected' table (which is empty here).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M1', '=');
+```
+
+```sql
+-- DATASET 2
+-- Tests queries that mistakenly join through 'connected' to verify the 'o' atom is directly attached to the '=' bond.
+-- Here, 'M1' has BOTH an 'o' atom and an '=' bond, but the '=' bond connects two 'c' atoms, while the 'o' atom is connected via a '-' bond.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A1', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A2', 'B2');
+```
+
+```sql
+-- DATASET 3
+-- Tests AND vs OR in the WHERE clause, and missing predicates (missing element='o' or missing bond_type='=').
+-- Also tests INNER JOIN vs LEFT/RIGHT JOIN when one side has no matching rows in the other table.
+-- Reference Query should return 0.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M3', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M4', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M2', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M2', '=');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M3', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M4', '=');
+```
+
+```sql
+-- DATASET 4
+-- Tests missing JOIN condition (Cartesian product) when no single molecule satisfies both conditions,
+-- and tests exact string matching / case sensitivity ('O' vs 'o', '==' vs '='), as well as NULL handling.
+-- Reference Query should return 1 (only M1).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M3', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M4', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A1', 'B1');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M2', 'O');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M2', '=');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M3', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M3', '==');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M4', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'M4', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', NULL, 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', NULL, '=');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple distinct qualifying molecules alongside mixed valid/invalid bonds and elements within the same molecule,
+-- plus extra unreferenced molecules to catch queries that count from the 'molecule' table directly without proper filtering.
+-- Reference Query should return 2 (M1 and M2).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M3', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A1', 'B1');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M2', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M2', 'h');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M2', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A4', 'B3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A4', 'A3', 'B3');
+```

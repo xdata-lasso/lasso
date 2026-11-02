@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, multiple matches (COUNT(T1.id) vs COUNT(DISTINCT T2.id/T3.id)), and wrong column joins (eye_colour_id, hair_colour_id vs skin_colour_id)
+INSERT INTO alignment (id, alignment) VALUES (1, 'Bad');
+INSERT INTO alignment (id, alignment) VALUES (2, 'Good');
+
+INSERT INTO colour (id, colour) VALUES (1, 'Green');
+INSERT INTO colour (id, colour) VALUES (2, 'Blue');
+
+-- Matches both conditions (Count = 1)
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id, alignment_id) VALUES (10, 'HulkVillain', 2, 2, 1, 1);
+-- Matches both conditions (Count = 2)
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id, alignment_id) VALUES (11, 'Goblin', 2, 2, 1, 1);
+-- Trap: Green eyes and hair, Bad alignment, but Blue skin
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id, alignment_id) VALUES (12, 'GreenEyeBad', 1, 1, 2, 1);
+-- Trap: Green skin, Good alignment
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id, alignment_id) VALUES (13, 'GreenGood', 2, 2, 1, 2);
+-- Trap: Blue skin, Bad alignment
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id, alignment_id) VALUES (14, 'BlueBad', 2, 2, 2, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL foreign keys, outer join mutations, and COUNT(column) vs COUNT(*)
+INSERT INTO alignment (id, alignment) VALUES (1, 'Bad');
+INSERT INTO colour (id, colour) VALUES (1, 'Green');
+
+-- Superhero with NULL alignment_id but Green skin
+INSERT INTO superhero (id, superhero_name, skin_colour_id, alignment_id) VALUES (1, 'NullAlign', 1, NULL);
+-- Superhero with Bad alignment but NULL skin_colour_id
+INSERT INTO superhero (id, superhero_name, skin_colour_id, alignment_id) VALUES (2, 'NullSkin', NULL, 1);
+-- Superhero with both NULL
+INSERT INTO superhero (id, superhero_name, skin_colour_id, alignment_id) VALUES (3, 'NullBoth', NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests accidental cross-joins or joining on mismatched IDs (e.g., T1.id = T2.id or T2.id = T3.id)
+INSERT INTO alignment (id, alignment) VALUES (10, 'Good');
+INSERT INTO alignment (id, alignment) VALUES (20, 'Bad');
+
+INSERT INTO colour (id, colour) VALUES (20, 'Red');
+INSERT INTO colour (id, colour) VALUES (30, 'Green');
+
+-- Hero ID 20 matches alignment 20 and colour 20 if joined on T1.id, but actual FKs point to non-matching records
+INSERT INTO superhero (id, superhero_name, skin_colour_id, alignment_id) VALUES (20, 'IDTrap1', 20, 10);
+-- Hero ID 30 has alignment 20 (Bad) and skin 30 (Green) -> Valid match
+INSERT INTO superhero (id, superhero_name, skin_colour_id, alignment_id) VALUES (30, 'ValidHero', 30, 20);
+```
+
+```sql
+-- DATASET 4
+-- Tests string predicate mutations (LIKE '%Bad%', case-sensitivity,!=, OR vs AND) and COUNT(superhero_name) when name is NULL
+INSERT INTO alignment (id, alignment) VALUES (1, 'Bad');
+INSERT INTO alignment (id, alignment) VALUES (2, 'bad');
+INSERT INTO alignment (id, alignment) VALUES (3, 'Bad ');
+INSERT INTO alignment (id, alignment) VALUES (4, 'Neutral');
+
+INSERT INTO colour (id, colour) VALUES (1, 'Green');
+INSERT INTO colour (id, colour) VALUES (2, 'green');
+INSERT INTO colour (id, colour) VALUES (3, 'Greenish');
+
+-- Valid match, but superhero_name and full_name are NULL (kills COUNT(T1.superhero_name))
+INSERT INTO superhero (id, superhero_name, full_name, skin_colour_id, alignment_id) VALUES (1, NULL, NULL, 1, 1);
+-- Case sensitivity traps
+INSERT INTO superhero (id, superhero_name, full_name, skin_colour_id, alignment_id) VALUES (2, 'LowerAlign', 'Name', 1, 2);
+INSERT INTO superhero (id, superhero_name, full_name, skin_colour_id, alignment_id) VALUES (3, 'LowerColour', 'Name', 2, 1);
+-- Substring / LIKE traps
+INSERT INTO superhero (id, superhero_name, full_name, skin_colour_id, alignment_id) VALUES (4, 'LikeTrap1', 'Name', 1, 3);
+INSERT INTO superhero (id, superhero_name, full_name, skin_colour_id, alignment_id) VALUES (5, 'LikeTrap2', 'Name', 3, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests mutations that unnecessarily join child tables (hero_power, hero_attribute) without DISTINCT, or drop superhero table
+INSERT INTO alignment (id, alignment) VALUES (1, 'Bad');
+INSERT INTO colour (id, colour) VALUES (1, 'Green');
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO superpower (id, power_name) VALUES (1, 'Flight');
+INSERT INTO superpower (id, power_name) VALUES (2, 'Stealth');
+
+-- Single valid superhero
+INSERT INTO superhero (id, superhero_name, skin_colour_id, alignment_id) VALUES (1, 'MultiPowerBadGreen', 1, 1);
+
+-- Multiple child rows for the single hero (would inflate count if joined)
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 200);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 2);
+```
+
+```sql
+-- DATASET 6
+-- Tests empty superhero table with matching dimension tables (kills RIGHT JOIN or queries counting from dimension tables)
+INSERT INTO alignment (id, alignment) VALUES (1, 'Bad');
+INSERT INTO colour (id, colour) VALUES (1, 'Green');
+```

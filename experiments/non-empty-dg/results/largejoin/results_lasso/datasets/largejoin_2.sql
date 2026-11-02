@@ -1,0 +1,16 @@
+INSERT INTO "ra" ("a1", "b") VALUES ('1001', 'face');
+INSERT INTO "ra" ("a1", "b") VALUES ('1002', 'face');
+INSERT INTO "ra" ("a1", "b") VALUES ('ago', 'face');
+INSERT INTO "ra" ("a1", "b") VALUES ('site', 'face');
+INSERT INTO "rb" ("a2", "b") VALUES ('face', '1001');
+INSERT INTO "rb" ("a2", "b") VALUES ('1003', '1001');
+INSERT INTO "rb" ("a2", "b") VALUES ('dog', '1001');
+INSERT INTO "rb" ("a2", "b") VALUES ('chair', '1001');
+INSERT INTO "rc" ("a3", "b") VALUES ('1001', 'face');
+INSERT INTO "rc" ("a3", "b") VALUES ('1002', 'face');
+INSERT INTO "rc" ("a3", "b") VALUES ('ago', 'face');
+INSERT INTO "rc" ("a3", "b") VALUES ('site', 'face');
+INSERT INTO "rd" ("a4", "b") VALUES ('face', '1001');
+INSERT INTO "rd" ("a4", "b") VALUES ('1003', '1001');
+INSERT INTO "rd" ("a4", "b") VALUES ('dog', '1001');
+INSERT INTO "rd" ("a4", "b") VALUES ('chair', '1001');

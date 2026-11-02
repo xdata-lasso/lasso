@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (1, 'Chardonnay', 'White');
+INSERT INTO "appellations" ("No", "Appelation", "County", "State", "Area", "isAVA") VALUES (1, 'Napa Valley', 'Napa', 'California', 'Napa', 'Yes');
+INSERT INTO "appellations" ("No", "Appelation", "County", "State", "Area", "isAVA") VALUES (2, 'Willamette Valley', 'Yamhill', 'Oregon', 'Willamette', 'Yes');
+INSERT INTO "appellations" ("No", "Appelation", "County", "State", "Area", "isAVA") VALUES (3, 'Columbia Valley', 'Benton', 'Washington', 'Columbia', 'Yes');
+
+-- Group 1: (CA, 2010) -> AVG(Price) = (10 + 15) / 2 = 12.5. Tests floating point average, AVG(DISTINCT) vs AVG, and SUM vs AVG.
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Chardonnay', 1, 'W1', 'California', 'N1', 2010, 10, 90, 100, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Chardonnay', 2, 'W2', 'California', 'N2', 2010, 15, 92, 200, 'Now');
+
+-- Group 2: (OR, 2010) -> AVG(Price) = (20 + 20 + 50) / 3 = 30.0. Tests AVG(DISTINCT) (which would be 35.0) and GROUP BY state, year vs GROUP BY year.
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Willamette Valley', 'Chardonnay', 3, 'W3', 'Oregon', 'N3', 2010, 20, 88, 150, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Willamette Valley', 'Chardonnay', 4, 'W4', 'Oregon', 'N4', 2010, 20, 89, 150, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Willamette Valley', 'Chardonnay', 5, 'W5', 'Oregon', 'N5', 2010, 50, 95, 50, 'Hold');
+
+-- Group 3: (CA, 2012) -> AVG(Price) = 30.0. Ties with Group 2 on avg_price_ (30.0) to test secondary sort on YEAR (2010 vs 2012) and SELECT DISTINCT mutations.
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Chardonnay', 6, 'W6', 'California', 'N6', 2012, 30, 91, 300, 'Now');
+
+-- Group 4: (WA, 2010) -> AVG(Price) = 30.0. Ties with Group 2 on both avg_price_ (30.0) and YEAR (2010) to kill outer SELECT DISTINCT or GROUP BY year.
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Columbia Valley', 'Chardonnay', 7, 'W7', 'Washington', 'N7', 2010, 30, 85, 500, 'Now');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY (State, Year), AVG(Price), and ORDER BY (avg_price_, YEAR NULLS LAST).
+-- Also tests missing JOINs by having NULLs in foreign key columns Appelation and Grape.
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (1, 'Merlot', 'Red');
+INSERT INTO "appellations" ("No", "Appelation", "County", "State", "Area", "isAVA") VALUES (1, 'Sonoma', 'Sonoma', 'California', 'Sonoma', 'Yes');
+
+-- Group 1: (CA, NULL) -> AVG(Price) = 25.0. Ties on avg_price_ with Group 2 & 3 to test YEAR NULLS LAST.
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Sonoma', 'Merlot', 1, 'W1', 'California', 'N1', NULL, 25, 88, 100, 'Now');
+
+-- Group 2: (CA, 2015) -> AVG(Price) = 25.0 (with one NULL price ignored by AVG).
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Sonoma', 'Merlot', 2, 'W2', 'California', 'N2', 2015, 25, 90, 120, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Sonoma', 'Merlot', 3, 'W3', 'California', 'N3', 2015, NULL, 85, 110, 'Now');
+
+-- Group 3: (NULL, 2010) -> AVG(Price) = 25.0. Tests NULL State grouping and NULL foreign keys (kills unnecessary INNER JOINs to appellations/grapes).
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES (NULL, NULL, 4, 'W4', NULL, 'N4', 2010, 25, 87, 90, 'Now');
+
+-- Group 4: (OR, 2018) -> AVG(Price) = NULL. Tests ordering of NULL avg_price_ (comes first in SQLite ASC) vs non-NULL avg_price_.
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES (NULL, 'Merlot', 5, 'W5', 'Oregon', 'N5', 2018, NULL, 82, 50, 'Now');
+```
+
+```sql
+-- DATASET 3
+-- Tests incorrect column reference in GROUP BY or SELECT (e.g. using appellations.State instead of wine.State via an erroneous JOIN).
+-- Also tests confusion between Price, Score, Cases, No, and Year.
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (1, 'Pinot Noir', 'Red');
+INSERT INTO "appellations" ("No", "Appelation", "County", "State", "Area", "isAVA") VALUES (1, 'Rogue Valley', 'Jackson', 'Oregon', 'Rogue', 'Yes');
+INSERT INTO "appellations" ("No", "Appelation", "County", "State", "Area", "isAVA") VALUES (2, 'Walla Walla', 'Walla Walla', 'Washington', 'Columbia', 'Yes');
+
+-- In wine table, State is 'California' for both rows, even though Appelation belongs to Oregon and Washington in the appellations table.
+-- If a mutant joins appellations and groups by appellations.State, it will produce 2 groups (40.0 and 100.0) instead of 1 group for California (70.0).
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Rogue Valley', 'Pinot Noir', 10, 'W1', 'California', 'N1', 2005, 40, 95, 1000, 'Hold');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Walla Walla', 'Pinot Noir', 20, 'W2', 'California', 'N2', 2005, 100, 80, 500, 'Now');
+
+-- Group with 0 Price to test filtering mutations (e.g. WHERE price > 0) and MIN/MAX vs AVG mutations.
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Rogue Valley', 'Pinot Noir', 30, 'W3', 'Texas', 'N3', 2001, 0, 70, 50, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Rogue Valley', 'Pinot Noir', 40, 'W4', 'Texas', 'N4', 2001, 10, 75, 60, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Rogue Valley', 'Pinot Noir', 50, 'W5', 'Texas', 'N5', 2001, 50, 85, 70, 'Now');
+```

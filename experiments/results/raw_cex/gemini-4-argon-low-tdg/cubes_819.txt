@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests CROSS JOIN vs INNER JOIN (LHS.SSN = RHS.Patient), ORDER BY Phone DESC vs ASC, and column selection accuracy.
+-- The patient with the highest Phone (101) has NO appointment. An INNER JOIN mutant would fail and return the patient with the appointment (102).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Smith', 'Attending', 111111);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'Nurse Joy', 'Head Nurse', 1, 222222);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (101, 1, 'Alice_NoAppt_MaxPhone', '999 Z St', '555-9999', 1001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (102, 1, 'Zack_HasAppt_MinPhone', '111 A St', '555-0001', 9999);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (501, 1, 1, 102, '2023-05-01 10:00:00', '2023-05-01 11:00:00', 'Room A');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty Appointment table behavior with CROSS JOIN vs LEFT JOIN.
+-- Since Appointment is empty, CROSS JOIN must return 0 rows, whereas a LEFT JOIN mutant on Patient would return 1 row.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. House', 'Diagnostician', 333333);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (201, 1, 'Lonely_Patient', '123 Main St', '555-5555', 2001);
+```
+
+```sql
+-- DATASET 3
+-- Tests lexicographical string sorting on Phone (TEXT) vs numerical sorting, and ensures ordering is strictly on Phone rather than SSN, InsuranceID, or Name.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Strange', 'Surgeon', 444444);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Dr. Fate', 'Specialist', 555555);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'Nurse Ratched', 'RN', 1, 666666);
+
+-- Lexicographically '9' > '100000'. Also 'Charlie' is in the middle alphabetically, with middle SSN/InsuranceID, isolating the Phone sort.
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (301, 2, 'Bob_NumMaxPhone', '789 Oak St', '100000', 3001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (302, 1, 'Charlie_LexMaxPhone', '456 Pine St', '9', 2000);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (303, 1, 'Wanda_MinPhone', '101 Maple St', '000000', 9000);
+
+-- Appointment links to Patient 303 and Physician 2.
+-- If a mutant joins on Patient.PCP = Appointment.Physician, only Patient 301 matches Physician 2.
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (601, 2, 1, 303, '2023-06-01 08:00:00', '2023-06-01 09:00:00', 'Room B');
+```
+
+```sql
+-- DATASET 4
+-- Tests LIMIT 1 enforcement and multiple rows in both tables.
+-- Without LIMIT 1, this dataset produces 4 rows (2 patients x 2 appointments).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Who', 'Time Lord', 777777);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (20, 'Clara Oswald', 'Assistant', 0, 888888);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (401, 10, 'Patient_Alpha', 'Addr 1', '888-8888', 4001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (402, 10, 'Patient_Beta', 'Addr 2', '777-7777', 4002);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (701, 10, 20, 402, '2023-07-01 09:00:00', '2023-07-01 09:30:00', 'Exam 1');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (702, 10, 20, 402, '2023-07-02 10:00:00', '2023-07-02 10:30:00', 'Exam 2');
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL handling in ORDER BY Phone DESC (in SQLite, NULLs are considered smaller than any non-NULL value, so DESC places NULLs last).
+-- A mutant without ORDER BY or with ASC might pick the NULL phone patient first.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Jekyll', 'Researcher', 999999);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'Nurse Poole', 'Assistant', 1, 121212);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (501, 1, 'NullPhone_Patient', 'Unknown', NULL, 5001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (502, 1, 'ValidPhone_Patient', 'Known', '111-2222', 5002);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (801, 1, 1, 501, '2023-08-01 12:00:00', '2023-08-01 13:00:00', 'Lab 1');
+```

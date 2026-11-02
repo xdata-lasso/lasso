@@ -1,0 +1,103 @@
+```sql
+-- DATASET 1
+-- Tests basic scenarios:
+-- 1. Classroom 101: Only grade 5 students (multiple) -> Should return teacher ('Smith'). Kills INNER JOIN mutants without DISTINCT.
+-- 2. Classroom 102: Mixed grades (5 and 4) -> Should NOT return teacher ('Jones'). Kills INNER JOIN WHERE Grade = 5 mutants.
+-- 3. Classroom 103: Only non-5 grade (6) -> Should NOT return teacher ('Taylor'). Kills EXISTS / IN mutants.
+-- 4. Classroom 104: No students in list -> Should return teacher ('Adams'). Kills INNER JOIN mutants.
+-- 5. Ordering: 'Adams' and 'Smith' -> Tests ORDER BY LastName.
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Smith', 'John', 101);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Jones', 'Alice', 102);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Taylor', 'Bob', 103);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Adams', 'Eve', 104);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('StudentA', 'One', 5, 101);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('StudentB', 'Two', 5, 101);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('StudentC', 'Three', 5, 102);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('StudentD', 'Four', 4, 102);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('StudentE', 'Five', 6, 103);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate teacher last names and multiple teachers per classroom:
+-- 1. Two teachers with the same LastName ('Brown') in valid classrooms -> Should return 'Brown' twice. Kills SELECT DISTINCT lastname mutants.
+-- 2. Two teachers in the same valid classroom (201) -> Should return both ('Clark', 'Davis'). Kills GROUP BY Classroom mutants.
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Brown', 'Charlie', 201);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Brown', ' Sally', 202);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Clark', 'Kent', 201);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('KidA', 'First', 5, 201);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('KidB', 'Second', 5, 202);
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary values for Grade (4, 5, 6, 0, -5) and ordering (ASC vs DESC):
+-- Classroom 301 has Grade 4 -> Excluded
+-- Classroom 302 has Grade 6 -> Excluded
+-- Classroom 303 has Grade 0 -> Excluded
+-- Classroom 304 has Grade 5 -> Included ('Zeta')
+-- Classroom 305 has Grade 5 -> Included ('Alpha')
+-- Kills mutants using Grade < 5, Grade <= 5, Grade > 5, Grade >= 5, or missing/reversed ORDER BY.
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Zeta', 'First', 304);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Alpha', 'Second', 305);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Beta', 'Third', 301);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Gamma', 'Fourth', 302);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('Delta', 'Fifth', 303);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S1', 'F1', 4, 301);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S2', 'F2', 6, 302);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S3', 'F3', 0, 303);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S4', 'F4', 5, 304);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S5', 'F5', 5, 305);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in Classroom and Grade:
+-- 1. Teacher with NULL classroom -> NOT EXISTS condition (NULL = RHS.classroom) is UNKNOWN, so NOT EXISTS is TRUE. Included ('NullRoomTeacher').
+-- 2. Student with NULL grade in Classroom 401 -> (NULL <> 5) is UNKNOWN, filtered out of subquery. Teacher in 401 is Included ('NullGradeTeacher').
+-- 3. Student with non-5 grade and NULL classroom -> Does not affect valid teachers. Kills NOT IN (SELECT classroom FROM list WHERE grade <> 5) mutants because NOT IN with NULL returns empty set!
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('NullRoomTeacher', 'T1', NULL);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('NullGradeTeacher', 'T2', 401);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('ValidTeacher', 'T3', 402);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Stu1', 'S1', NULL, 401);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Stu2', 'S2', 3, NULL);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Stu3', 'S3', 5, 402);
+```
+
+```sql
+-- DATASET 5
+-- Tests aggregate/group-by traps (e.g., AVG(Grade) = 5, MIN(Grade) = 5, MAX(Grade) = 5):
+-- 1. Classroom 501 has grades 4 and 6 (AVG is 5, but neither is 5) -> Should be Excluded ('AvgTrap').
+-- 2. Classroom 502 has grades 5 and 6 (MIN is 5) -> Should be Excluded ('MinTrap').
+-- 3. Classroom 503 has grades 4 and 5 (MAX is 5) -> Should be Excluded ('MaxTrap').
+-- 4. Classroom 504 has only grade 5 -> Should be Included ('TrueFive').
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('AvgTrap', 'T1', 501);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('MinTrap', 'T2', 502);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('MaxTrap', 'T3', 503);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('TrueFive', 'T4', 504);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L1', 'F1', 4, 501);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L2', 'F2', 6, 501);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L3', 'F3', 5, 502);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L4', 'F4', 6, 502);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L5', 'F5', 4, 503);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L6', 'F6', 5, 503);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L7', 'F7', 5, 504);
+```
+
+```sql
+-- DATASET 6
+-- Tests column confusion (FirstName vs LastName, or joining on names instead of Classroom):
+-- Teacher and Student share LastName/FirstName, or Teacher FirstName/LastName swap.
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('sharedName', 'TeacherFirst', 601);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('OtherTeacher', 'sharedName', 602);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('sharedName', 'TeacherFirst', 3, 699);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('StudentLast', 'StudentFirst', 5, 601);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('OtherTeacher', 'sharedName', 5, 602);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('BadStudent', 'BadFirst', 2, 602);
+```

@@ -1,0 +1,96 @@
+```sql
+-- DATASET 1
+-- Tests: 
+-- 1. Floating-point division vs integer division (1 out of 3 = 33.333... vs 33).
+-- 2. IN subquery vs INNER JOIN (Set S1 has multiple 'Portuguese (Brazil)' translation rows; a JOIN without DISTINCT would duplicate S1 and skew the ratio to 2/4 = 50%).
+-- 3. Filtering by language = 'Portuguese (Brazil)' vs other languages (e.g., 'Portuguese', 'Spanish') or no translations.
+-- 4. Correct column usage (sets.isOnlineOnly vs sets.isFoilOnly / sets.isForeignOnly).
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "isFoilOnly", "isForeignOnly") VALUES (1, 'S1', 1, 0, 0);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "isFoilOnly", "isForeignOnly") VALUES (2, 'S2', 0, 1, 1);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "isFoilOnly", "isForeignOnly") VALUES (3, 'S3', 0, 0, 0);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "isFoilOnly", "isForeignOnly") VALUES (4, 'S4', 1, 1, 1);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "isFoilOnly", "isForeignOnly") VALUES (5, 'S5', 1, 0, 0);
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Portuguese (Brazil)', 'S1', 'Trans 1A');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Portuguese (Brazil)', 'S1', 'Trans 1B');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'Portuguese (Brazil)', 'S2', 'Trans 2');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (4, 'Portuguese (Brazil)', 'S3', 'Trans 3');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (5, 'Portuguese', 'S4', 'Trans 4');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (6, 'Spanish', 'S4', 'Trans 4 ES');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Boundary condition where 0 matching sets have isOnlineOnly = 1 (Result should be 0.0).
+-- 2. Differentiating SUM(CASE WHEN isOnlineOnly = 1 THEN 1 ELSE 0 END) from COUNT(CASE WHEN isOnlineOnly = 1 THEN 1 ELSE 0 END) or COUNT(isOnlineOnly).
+-- 3. Sets that are online-only exist in the database, but do not have 'Portuguese (Brazil)' translations.
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (1, 'SET_A', 0);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (2, 'SET_B', 0);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (3, 'SET_C', 1);
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Portuguese (Brazil)', 'SET_A', 'Set A PT-BR');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Portuguese (Brazil)', 'SET_B', 'Set B PT-BR');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'French', 'SET_C', 'Set C FR');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Boundary condition where 100% of matching sets have isOnlineOnly = 1 (Result should be 100.0).
+-- 2. Handling of NULLs in set_translations (NULL setCode, NULL language) to ensure NOT IN / EXISTS / JOIN mutants handle NULLs properly.
+-- 3. Decoy data in the `cards` table (which also has `isOnlineOnly` and `setCode` columns) and `foreign_data` table (which also has `language`), catching mutants that query the wrong tables.
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (1, 'ONL1', 1);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (2, 'ONL2', 1);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (3, 'OFF1', 0);
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Portuguese (Brazil)', 'ONL1', 'Online 1');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Portuguese (Brazil)', 'ONL2', 'Online 2');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'Portuguese (Brazil)', NULL, 'Null SetCode');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (4, NULL, 'OFF1', 'Null Language');
+
+INSERT INTO "cards" ("id", "uuid", "setCode", "isOnlineOnly") VALUES (1, 'uuid-1', 'ONL1', 0);
+INSERT INTO "cards" ("id", "uuid", "setCode", "isOnlineOnly") VALUES (2, 'uuid-2', 'OFF1', 0);
+
+INSERT INTO "foreign_data" ("id", "uuid", "language", "name") VALUES (1, 'uuid-1', 'Portuguese (Brazil)', 'Card 1');
+INSERT INTO "foreign_data" ("id", "uuid", "language", "name") VALUES (2, 'uuid-2', 'Portuguese (Brazil)', 'Card 2');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Non-binary values in isOnlineOnly (e.g. 2 or -1, since SQLite INTEGER allows any integer).
+--    Tests `CASE WHEN isOnlineOnly = 1` vs `SUM(isOnlineOnly)` vs `CASE WHEN isOnlineOnly > 0` vs `CASE WHEN isOnlineOnly != 0`.
+-- 2. Exact fractional percentage (3 out of 8 = 37.5%).
+-- 3. Join condition confusion (e.g. joining sets.id = set_translations.id instead of sets.code = set_translations.setCode).
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (10, 'C1', 1);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (20, 'C2', 1);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (30, 'C3', 1);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (40, 'C4', 0);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (50, 'C5', 0);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (60, 'C6', 0);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (70, 'C7', 2);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (80, 'C8', -1);
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Portuguese (Brazil)', 'C1', 'T1');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Portuguese (Brazil)', 'C2', 'T2');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'Portuguese (Brazil)', 'C3', 'T3');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (4, 'Portuguese (Brazil)', 'C4', 'T4');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (5, 'Portuguese (Brazil)', 'C5', 'T5');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (6, 'Portuguese (Brazil)', 'C6', 'T6');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (7, 'Portuguese (Brazil)', 'C7', 'T7');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (8, 'Portuguese (Brazil)', 'C8', 'T8');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Empty result set for the WHERE filter (no translations match 'Portuguese (Brazil)').
+--    SUM(...) is NULL, COUNT(id) is 0, result should be NULL.
+-- 2. Case sensitivity and substring matching mutants (e.g., 'portuguese (brazil)' or 'Portuguese (Brazil) ' or 'Brazil').
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (1, 'S1', 1);
+INSERT INTO "sets" ("id", "code", "isOnlineOnly") VALUES (2, 'S2', 0);
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'portuguese (brazil)', 'S1', 'Lower');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Brazil', 'S2', 'Substring');
+```

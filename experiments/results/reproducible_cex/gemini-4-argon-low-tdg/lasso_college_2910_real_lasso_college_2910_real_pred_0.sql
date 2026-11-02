@@ -1,0 +1,37 @@
+-- Schema DDL
+CREATE TABLE EMPLOYEE (EMP_NUM INTEGER PRIMARY KEY, EMP_LNAME TEXT(15), EMP_FNAME TEXT(12), EMP_INITIAL TEXT(1), EMP_JOBCODE TEXT(5), EMP_HIREDATE INTEGER, EMP_DOB INTEGER);
+
+CREATE TABLE DEPARTMENT (DEPT_CODE TEXT(10) PRIMARY KEY, EMP_NUM INTEGER, DEPT_NAME TEXT(30), SCHOOL_CODE TEXT(8), DEPT_ADDRESS TEXT(20), DEPT_EXTENSION TEXT(4), FOREIGN KEY (EMP_NUM) REFERENCES EMPLOYEE (EMP_NUM));
+
+CREATE TABLE PROFESSOR (DEPT_CODE TEXT(10), EMP_NUM INTEGER, PROF_OFFICE TEXT(50), PROF_EXTENSION TEXT(4), PROF_HIGH_DEGREE TEXT(5), FOREIGN KEY (DEPT_CODE) REFERENCES DEPARTMENT (DEPT_CODE), FOREIGN KEY (EMP_NUM) REFERENCES EMPLOYEE (EMP_NUM));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 2
+-- Tests the composite join condition (DEPARTMENT.dept_code = PROFESSOR.dept_code AND DEPARTMENT.emp_num = PROFESSOR.emp_num).
+-- Kills mutants that omit one of the join keys (e.g., joining PROFESSOR only on dept_code or only on emp_num).
+INSERT INTO EMPLOYEE (EMP_NUM, EMP_LNAME, EMP_FNAME, EMP_INITIAL, EMP_JOBCODE, EMP_HIREDATE, EMP_DOB) VALUES (10, 'Davis', 'Diana', 'D', 'PROF', 2005, 1975);
+INSERT INTO EMPLOYEE (EMP_NUM, EMP_LNAME, EMP_FNAME, EMP_INITIAL, EMP_JOBCODE, EMP_HIREDATE, EMP_DOB) VALUES (20, 'Evans', 'Evan', 'E', 'PROF', 2008, 1978);
+INSERT INTO DEPARTMENT (DEPT_CODE, EMP_NUM, DEPT_NAME, SCHOOL_CODE, DEPT_ADDRESS, DEPT_EXTENSION) VALUES ('HIST', 10, 'History', 'ARTS', 'Hall A', '3001');
+INSERT INTO DEPARTMENT (DEPT_CODE, EMP_NUM, DEPT_NAME, SCHOOL_CODE, DEPT_ADDRESS, DEPT_EXTENSION) VALUES ('ENGL', 20, 'English', 'ARTS', 'Hall B', '3002');
+-- Emp 10 chairs HIST, but is listed as a professor in ENGL
+INSERT INTO PROFESSOR (DEPT_CODE, EMP_NUM, PROF_OFFICE, PROF_EXTENSION, PROF_HIGH_DEGREE) VALUES ('ENGL', 10, 'Office 10A', '4001', 'Ph.D.');
+-- Emp 20 is a professor in HIST, but is not the chair of HIST
+INSERT INTO PROFESSOR (DEPT_CODE, EMP_NUM, PROF_OFFICE, PROF_EXTENSION, PROF_HIGH_DEGREE) VALUES ('HIST', 20, 'Office 20B', '4002', 'Ph.D.');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT LHS.emp_fname, RHS.prof_office FROM (SELECT LHS.dept_code, LHS.dept_name, LHS.school_code, LHS.emp_num, LHS.dept_address, LHS.dept_extension, RHS.emp_lname, RHS.emp_fname, RHS.emp_initial, RHS.emp_jobcode, RHS.emp_hiredate, RHS.emp_dob FROM DEPARTMENT AS LHS INNER JOIN EMPLOYEE AS RHS ON LHS.emp_num = RHS.emp_num) AS LHS INNER JOIN PROFESSOR AS RHS ON LHS.dept_code = RHS.dept_code AND LHS.emp_num = RHS.emp_num WHERE dept_name = 'History' AND prof_high_degree = 'Ph.D.';
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT T1.emp_fname, T2.prof_office FROM EMPLOYEE AS T1 JOIN PROFESSOR AS T2 ON T1.emp_num = T2.emp_num JOIN DEPARTMENT AS T3 ON T3.dept_code = T2.dept_code WHERE T3.dept_name = 'History' AND T2.prof_high_degree = 'Ph.D.';
+
+/*
+Prediction Result:
+('Evan', 'Office 20B')
+*/

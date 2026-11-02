@@ -1,0 +1,68 @@
+```sql
+-- DATASET 1
+-- Tests core aggregation logic:
+-- 1. DEPT 10: Duplicate SAL values (1000, 1000, 2000) to distinguish SUM(DISTINCT SAL) from SUM(SAL), and COUNT(*) from COUNT(DISTINCT SAL). Also includes a NULL MGR to distinguish COUNT(*) from COUNT(MGR).
+-- 2. DEPT 20: Single row to test base aggregation.
+-- 3. DEPT 30: Empty department (no employees) to refute mutants that erroneously use LEFT JOIN from DEPT.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'SALES');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'ALICE', 'CLERK', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 10, 'BOB', 'CLERK', 1, '2020-01-02', 1000, 500, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 10, 'CHARLIE', 'MANAGER', 1, '2020-01-03', 2000, 500, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 20, 'DAVID', 'ANALYST', 3, '2020-01-04', 3000, 100, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests cross-group duplicate SAL values and aggregate function replacements:
+-- 1. Different departments sharing the exact same SAL (1500) to kill mutants that compute global SUM(DISTINCT SAL) or group by SAL instead of DEPTNO.
+-- 2. Values chosen (1000, 2000, 4000) so SUM (7000) != AVG (2333.33) != MAX (4000) != MIN (1000).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'EMP1', 'CLERK', 2, '2021-05-01', 1500, 10, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 20, 'EMP2', 'MANAGER', NULL, '2021-05-02', 1500, 20, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 20, 'EMP3', 'ANALYST', 2, '2021-05-03', 1000, 30, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 20, 'EMP4', 'ANALYST', 2, '2021-05-04', 2000, 40, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 20, 'EMP5', 'ANALYST', 2, '2021-05-05', 4000, 50, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests edge cases with zero, negative numbers, and table confusion:
+-- 1. SAL = 0 and negative SAL (-500) to check handling of non-positive numbers in SUM(DISTINCT).
+-- 2. Populates other tables (EMPNULLABLES, EMP_B, BONUS) with different data to kill mutants querying the wrong table.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (40, 'OPERATIONS');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (50, 'IT');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 40, 'ZACK', 'CLERK', NULL, '2019-01-01', 0, 100, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (11, 40, 'YANN', 'CLERK', 10, '2019-01-02', 0, 200, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (12, 40, 'XENA', 'MANAGER', NULL, '2019-01-03', -500, 300, 0);
+
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (99, 50, 'GHOST', 'NONE', NULL, '2000-01-01', 9999, 0, 0);
+INSERT INTO "EMPNULLABLES_20" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (98, 50, 'GHOST2', 'NONE', NULL, '2000-01-01', 8888, 0, 0);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (97, 50, 'GHOST3', 'NONE', NULL, '2000-01-01', 7777, 0, 0, '1980-01-01');
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('GHOST4', 'NONE', 6666, 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty EMP table behavior:
+-- Ensures that GROUP BY returns 0 rows (not 1 row with NULL/0) when the target table is empty.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion and filtering mutations:
+-- 1. All employees have SLACKER = 1, COMM = 0, and identical JOB/ENAME prefixes to kill mutants that inject arbitrary WHERE predicates (e.g., WHERE NOT SLACKER, WHERE COMM > 0) or group by wrong columns (e.g., GROUP BY JOB, GROUP BY MGR).
+-- 2. Distinct DEPTNOs have identical MGR and JOB values across departments to ensure GROUP BY is strictly on DEPTNO.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (100, 'D1');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (200, 'D2');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (101, 100, 'SAME_NAME', 'SAME_JOB', 999, '2022-01-01', 50, 0, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (102, 100, 'SAME_NAME', 'SAME_JOB', 999, '2022-01-01', 50, 0, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (103, 200, 'SAME_NAME', 'SAME_JOB', 999, '2022-01-01', 75, 0, 1);
+```

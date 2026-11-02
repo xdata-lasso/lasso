@@ -1,0 +1,95 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (DESC vs ASC), WHERE vs no WHERE, LIMIT 1 vs no LIMIT, and schema confusion (Laboratory.IGA vs IGG/IGM or Examination."aCL IgA" / Diagnosis).
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (1, 'F', 'Diag_Low_Out_79');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (2, 'M', 'Diag_In_150');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (3, 'F', 'Diag_In_350_Winner');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (4, 'M', 'Diag_High_Out_501');
+
+INSERT INTO Laboratory (ID, Date, IGA, IGG, IGM) VALUES (1, '2020-01-01', 79, 450, 450);
+INSERT INTO Laboratory (ID, Date, IGA, IGG, IGM) VALUES (2, '2020-01-01', 150, 200, 200);
+INSERT INTO Laboratory (ID, Date, IGA, IGG, IGM) VALUES (3, '2020-01-01', 350, 50, 50);
+INSERT INTO Laboratory (ID, Date, IGA, IGG, IGM) VALUES (4, '2020-01-01', 501, 490, 490);
+
+INSERT INTO Examination (ID, "Examination Date", "aCL IgA", Diagnosis) VALUES (1, '2020-01-01', 480, 'Exam_Diag_1');
+INSERT INTO Examination (ID, "Examination Date", "aCL IgA", Diagnosis) VALUES (2, '2020-01-01', 490, 'Exam_Diag_2');
+INSERT INTO Examination (ID, "Examination Date", "aCL IgA", Diagnosis) VALUES (3, '2020-01-01', 10, 'Exam_Diag_3');
+INSERT INTO Examination (ID, "Examination Date", "aCL IgA", Diagnosis) VALUES (4, '2020-01-01', 495, 'Exam_Diag_4');
+```
+
+```sql
+-- DATASET 2
+-- Tests upper boundary inclusiveness (IGA = 500 vs IGA < 500 or <= 501) and NULL IGA handling (in SQLite, NULL is largest in DESC order if WHERE is omitted).
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'Diag_At_499');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'Diag_At_500_Winner');
+INSERT INTO Patient (ID, Diagnosis) VALUES (3, 'Diag_At_501');
+INSERT INTO Patient (ID, Diagnosis) VALUES (4, 'Diag_Null_IGA');
+
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (1, '2021-05-01', 499);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (2, '2021-05-01', 500);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (3, '2021-05-01', 501);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (4, '2021-05-01', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests lower boundary inclusiveness (IGA = 80 vs IGA > 80 or >= 79).
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'Diag_At_79');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'Diag_At_80_Winner');
+
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (1, '2021-06-01', 79);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (2, '2021-06-01', 80);
+```
+
+```sql
+-- DATASET 4
+-- Tests secondary sort tie-breaker: patientData.id ASC (when labData.IGA is tied).
+INSERT INTO Patient (ID, Diagnosis) VALUES (10, 'Diag_Tie_ID_10_Winner');
+INSERT INTO Patient (ID, Diagnosis) VALUES (20, 'Diag_Tie_ID_20');
+
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (20, '2020-01-01', 400);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (10, '2020-12-31', 400);
+```
+
+```sql
+-- DATASET 5
+-- Tests quaternary sort tie-breaker: labData.date ASC (when IGA and ID are tied, across patients with distinct diagnoses).
+INSERT INTO Patient (ID, Diagnosis) VALUES (5, 'Diag_Early_Date_Winner');
+INSERT INTO Patient (ID, Diagnosis) VALUES (6, 'Diag_Late_Date');
+
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (5, '2022-03-15', 300);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (5, '2022-01-10', 300);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (6, '2022-02-20', 300);
+```
+
+```sql
+-- DATASET 6
+-- Tests JOIN condition accuracy (missing ON clause / Cartesian product, or inverted/wrong join keys) and multiple Lab records per patient.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'Diag_Patient_1_Unmatched_High');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'Diag_Patient_2_Matched_Winner');
+
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (1, '2020-01-01', 40);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (2, '2020-01-01', 420);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (2, '2020-01-02', 410);
+```
+
+```sql
+-- DATASET 7
+-- Tests handling of NULL Diagnosis on the winning row (catches mutants adding WHERE Diagnosis IS NOT NULL) vs non-NULL Diagnosis on losing rows.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, NULL);
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'Diag_Runner_Up');
+
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (1, '2021-01-01', 480);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (2, '2021-01-01', 450);
+```
+
+```sql
+-- DATASET 8
+-- Tests empty result set when no rows satisfy the BETWEEN 80 AND 500 predicate (catches LEFT JOIN mutants or OR predicates).
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'Diag_No_Lab_Row');
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'Diag_Lab_Too_Low');
+INSERT INTO Patient (ID, Diagnosis) VALUES (3, 'Diag_Lab_Too_High');
+
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (2, '2021-01-01', 10);
+INSERT INTO Laboratory (ID, Date, IGA) VALUES (3, '2021-01-01', 900);
+```

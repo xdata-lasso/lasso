@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering: 1 exact match, 1 wrong language, 1 wrong isReprint, 1 NULL language, 1 unmatched card, and 1 distractor in set_translations.
+INSERT INTO sets (id, code, name) VALUES (1, 'LEA', 'Limited Edition Alpha');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'German', 'LEA', 'Alpha Edition');
+
+INSERT INTO cards (id, uuid, name, isReprint, setCode) VALUES (10, 'uuid-1', 'Card One', 1, 'LEA');
+INSERT INTO cards (id, uuid, name, isReprint, setCode) VALUES (20, 'uuid-2', 'Card Two', 1, 'LEA');
+INSERT INTO cards (id, uuid, name, isReprint, setCode) VALUES (30, 'uuid-3', 'Card Three', 0, 'LEA');
+INSERT INTO cards (id, uuid, name, isReprint, setCode) VALUES (40, 'uuid-4', 'Card Four', 1, 'LEA');
+INSERT INTO cards (id, uuid, name, isReprint, setCode) VALUES (50, 'uuid-5', 'Card Five', 1, 'LEA');
+
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (100, 'uuid-1', 'German', 'Karte Eins');
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (200, 'uuid-2', 'French', 'Carte Deux');
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (300, 'uuid-3', 'German', 'Karte Drei');
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (400, 'uuid-4', NULL, 'Karte Vier');
+```
+
+```sql
+-- DATASET 2
+-- Tests 1-to-N join cardinality vs DISTINCT: A single reprint card has multiple 'German' foreign_data entries.
+-- Kills mutants using COUNT(DISTINCT T1.id) or COUNT(DISTINCT T1.uuid) or EXISTS subqueries.
+INSERT INTO cards (id, uuid, name, isReprint) VALUES (1, 'uuid-multi-1', 'Dual Print German Card', 1);
+INSERT INTO cards (id, uuid, name, isReprint) VALUES (2, 'uuid-multi-2', 'Multi Lang Reprint Card', 1);
+
+INSERT INTO foreign_data (id, uuid, language, name, multiverseid) VALUES (10, 'uuid-multi-1', 'German', 'Variant A', 1001);
+INSERT INTO foreign_data (id, uuid, language, name, multiverseid) VALUES (11, 'uuid-multi-1', 'German', 'Variant B', 1002);
+INSERT INTO foreign_data (id, uuid, language, name, multiverseid) VALUES (12, 'uuid-multi-2', 'German', 'German Version', 1003);
+INSERT INTO foreign_data (id, uuid, language, name, multiverseid) VALUES (13, 'uuid-multi-2', 'Spanish', 'Spanish Version', 1004);
+```
+
+```sql
+-- DATASET 3
+-- Tests incorrect join condition (e.g. T1.id = T2.id instead of T1.uuid = T2.uuid) and other boolean flags (isPromo, isAlternative, etc.).
+INSERT INTO cards (id, uuid, name, isReprint, isPromo, isAlternative, isStarter, isOnlineOnly) VALUES (1, 'uuid-A', 'Trap Card 1', 1, 0, 0, 0, 0);
+INSERT INTO cards (id, uuid, name, isReprint, isPromo, isAlternative, isStarter, isOnlineOnly) VALUES (2, 'uuid-B', 'Trap Card 2', 0, 1, 1, 1, 1);
+INSERT INTO cards (id, uuid, name, isReprint, isPromo, isAlternative, isStarter, isOnlineOnly) VALUES (3, 'uuid-C', 'Valid Card', 1, 0, 0, 0, 0);
+
+-- Note how foreign_data id=1 matches cards id=1, but points to uuid-B (where isReprint=0).
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (1, 'uuid-B', 'German', 'Falsch Join 1');
+-- foreign_data id=2 matches cards id=2, points to uuid-A (where isReprint=1), but language is Italian.
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (2, 'uuid-A', 'Italian', 'Falsch Join 2');
+-- foreign_data id=99 points to uuid-C (valid match, id 3 != id 99).
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (99, 'uuid-C', 'German', 'Richtig Join');
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary values for isReprint (0, 2, -1 vs 1), string matching nuances ('german', 'German Relic'), and NULLs in foreign_data.
+-- Expected COUNT is 0. Kills mutants using LIKE '%German%', case-insensitive match, or isReprint != 0 / isReprint >= 1.
+INSERT INTO cards (id, uuid, name, isReprint) VALUES (1, 'u-1', 'Card NonReprint', 0);
+INSERT INTO cards (id, uuid, name, isReprint) VALUES (2, 'u-2', 'Card Reprint 2', 2);
+INSERT INTO cards (id, uuid, name, isReprint) VALUES (3, 'u-3', 'Card Reprint Neg', -1);
+INSERT INTO cards (id, uuid, name, isReprint) VALUES (4, 'u-4', 'German Name Card', 1);
+INSERT INTO cards (id, uuid, name, isReprint) VALUES (5, 'u-5', 'Lowercase German Card', 1);
+
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (1, 'u-1', 'German', 'Deutscher Name 1');
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (2, 'u-2', 'German', 'Deutscher Name 2');
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (3, 'u-3', 'German', 'Deutscher Name 3');
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (4, 'u-4', 'English', 'German');
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (5, 'u-5', 'german', 'Kleinschreibung');
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (6, NULL, 'German', 'Orphan Foreign Data');
+```
+
+```sql
+-- DATASET 5
+-- Tests COUNT(T1.id) vs COUNT(T2.multiverseid) or COUNT(T2.flavorText) when nullable columns in foreign_data are NULL,
+-- and tests against joining with legalities or rulings tables by mistake.
+INSERT INTO cards (id, uuid, name, isReprint) VALUES (101, 'u-null-test-1', 'Reprint With Nulls', 1);
+INSERT INTO cards (id, uuid, name, isReprint) VALUES (102, 'u-null-test-2', 'Reprint With Full Data', 1);
+
+INSERT INTO foreign_data (id, uuid, language, name, flavorText, multiverseid, text, type) VALUES (501, 'u-null-test-1', 'German', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO foreign_data (id, uuid, language, name, flavorText, multiverseid, text, type) VALUES (502, 'u-null-test-2', 'German', 'Volle Karte', 'Flavor', 4005, 'Text', 'Type');
+
+INSERT INTO legalities (id, uuid, format, status) VALUES (1, 'u-null-test-2', 'Vintage', 'Legal');
+INSERT INTO rulings (id, uuid, date, text) VALUES (1, 'u-null-test-2', '2020-01-01', 'Some ruling');
+```

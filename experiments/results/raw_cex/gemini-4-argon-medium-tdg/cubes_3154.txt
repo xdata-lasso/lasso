@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (Policy_ID DESC vs ASC), LIMIT 1, and ensures ordering by Policy_ID differs from ordering by policy_type_code or Customer_Phone.
+-- Also tests mutants that group ONLY by policy_type_code and order by COUNT(*) DESC (here 'Auto' has count 2, 'Home' has count 1, but 'Home' has the highest Policy_ID).
+-- Also includes Customers_Policies for only a subset of policies to kill mutants that unnecessarily INNER JOIN Customers_Policies.
+INSERT INTO Customers (Customer_ID, Customer_name) VALUES (1, 'Alice');
+INSERT INTO Customers (Customer_ID, Customer_name) VALUES (2, 'Bob');
+
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (10, 'Auto', '999-999-9999');
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (20, 'Auto', '555-555-5555');
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (30, 'Home', '111-111-1111');
+
+INSERT INTO Customers_Policies (Customer_ID, Policy_ID, Date_Opened, Date_Closed) VALUES (1, 10, '2020-01-01', '2021-01-01');
+INSERT INTO Customers_Policies (Customer_ID, Policy_ID, Date_Opened, Date_Closed) VALUES (2, 20, '2020-06-01', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests reverse correlation between Policy_ID and policy_type_code (highest Policy_ID has lexicographically smallest policy_type_code 'AAA').
+-- Also tests when the highest frequency policy_type_code ('ZZZ', count 2) has the lowest Policy_IDs, while the highest Policy_ID has count 1.
+-- Also includes FNOL/Claims/Settlements on lower Policy_IDs to catch mutants joining downstream tables.
+INSERT INTO Customers (Customer_ID, Customer_name) VALUES (1, 'Charlie');
+INSERT INTO Services (Service_ID, Service_name) VALUES (1, 'Towing');
+
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (1, 'ZZZ', '123-456-7890');
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (2, 'ZZZ', '234-567-8901');
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (100, 'AAA', '999-999-9999');
+
+INSERT INTO Customers_Policies (Customer_ID, Policy_ID, Date_Opened, Date_Closed) VALUES (1, 1, '2019-01-01', '2020-01-01');
+INSERT INTO First_Notification_of_Loss (FNOL_ID, Customer_ID, Policy_ID, Service_ID) VALUES (1, 1, 1, 1);
+INSERT INTO Claims (Claim_ID, FNOL_ID, Effective_Date) VALUES (1, 1, '2019-05-01');
+INSERT INTO Settlements (Settlement_ID, Claim_ID, Effective_Date, Settlement_Amount) VALUES (1, 1, '2019-06-01', 500.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in policy_type_code and negative/zero Policy_IDs.
+-- Highest Policy_ID (0) has a NULL policy_type_code, testing mutants that filter out NULLs (e.g., WHERE policy_type_code IS NOT NULL or COUNT(policy_type_code) > 0).
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (-10, 'Life', '111-222-3333');
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (-5, 'Health', '444-555-6666');
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (0, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests integer vs lexicographical sorting on Policy_ID (e.g., if a mutant casts Policy_ID to TEXT before ORDER BY DESC, '9' > '10').
+-- Also tests case where the highest Policy_ID belongs to the policy_type_code that also has the most rows, but another policy_type_code has the minimum count.
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (2, 'TypeB', '000-000-0002');
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (9, 'TypeA', '000-000-0009');
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (10, 'TypeC', '000-000-0010');
+```
+
+```sql
+-- DATASET 5
+-- Single row dataset to test boundary conditions (OFFSET 1 mutants, HAVING COUNT(*) > 1 mutants, or empty result bugs).
+INSERT INTO Available_Policies (Policy_ID, policy_type_code, Customer_Phone) VALUES (42, 'SoloPolicy', '888-888-8888');
+```

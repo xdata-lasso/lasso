@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Tests basic grouping by (dept_store_chain_name, store_name), filtering by 'South', 
+-- DISTINCT vs ALL in outer SELECT (multiple groups having the same count), 
+-- and ORDER BY count___ ascending vs descending or insertion order.
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (1, 'South');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (2, 'North');
+
+-- Store 'Alpha' has 3 stores -> count = 3 (inserted first to test sorting)
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (101, 1, 'Alpha', 'Addr 1', '111', 'a1@store.com');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (102, 1, 'Alpha', 'Addr 2', '222', 'a2@store.com');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (103, 1, 'Alpha', 'Addr 3', '333', 'a3@store.com');
+
+-- Store 'Beta' has 1 store -> count = 1
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (104, 1, 'Beta', 'Addr 4', '444', 'b1@store.com');
+
+-- Store 'Gamma' also has 1 store -> count = 1 (tests if outer SELECT wrongly uses DISTINCT)
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (105, 1, 'Gamma', 'Addr 5', '555', 'g1@store.com');
+
+-- Non-matching chain 'North' with 'Alpha' (tests WHERE filter and cross-chain grouping)
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (106, 2, 'Alpha', 'Addr 6', '666', 'n1@store.com');
+```
+
+```sql
+-- DATASET 2
+-- Tests grouping by dept_store_chain_name vs dept_store_chain_id when multiple chain IDs share the name 'South',
+-- and tests GROUP BY store_name vs GROUP BY dept_store_id.
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (10, 'South');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (20, 'South');
+
+-- Both belong to chains named 'South' and have store_name 'Downtown'.
+-- Grouping by (dept_store_chain_name, store_name) yields 1 row with count 2.
+-- Grouping by (dept_store_chain_id, store_name) or (dept_store_id) would yield two rows of count 1.
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 10, 'Downtown', '123 Main', '555-0101', 'd1@south.com');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (2, 20, 'Downtown', '456 Main', '555-0102', 'd2@south.com');
+
+-- Another store under chain 10 with same address/phone/email as store 1 but different store_name
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (3, 10, 'Uptown', '123 Main', '555-0101', 'd1@south.com');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN, and COUNT(*) vs COUNT(column) in presence of NULLs.
+-- Chain 1 ('South') has no stores at all (LEFT JOIN would produce a row with count 1 for COUNT(*) or 0 for COUNT(RHS.col)).
+-- Chain 2 ('South') has stores with NULL store_name and NULL attributes (tests if COUNT(*) vs COUNT(store_name) or COUNT(store_address) differs).
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (1, 'South');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (2, 'South');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (3, NULL);
+
+-- Two stores with NULL store_name and NULL other fields in 'South'
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (10, 2, NULL, NULL, NULL, NULL);
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (11, 2, NULL, NULL, NULL, NULL);
+
+-- One store with non-null store_name but NULL address/phone/email
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (12, 2, 'Central', NULL, NULL, NULL);
+
+-- Orphan store with NULL dept_store_chain_id
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (13, NULL, 'South', 'Addr', 'Phone', 'Email');
+
+-- Store linked to chain with NULL name, where store_name itself is 'South' (tests filtering on wrong column store_name = 'South')
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (14, 3, 'South', 'Addr', 'Phone', 'Email');
+```
+
+```sql
+-- DATASET 4
+-- Tests exact string matching ('South' vs LIKE '%South%', case sensitivity 'south', 'SOUTH')
+-- and ensures empty result or boundary behavior when similar names exist.
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (1, 'south');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (2, 'SOUTH');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (3, 'SouthWest');
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (4, 'South');
+
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 1, 'S1', 'A1', 'P1', 'E1');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (2, 1, 'S1', 'A2', 'P2', 'E2');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (3, 2, 'S1', 'A3', 'P3', 'E3');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (4, 3, 'S1', 'A4', 'P4', 'E4');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (5, 4, 'S1', 'A5', 'P5', 'E5');
+```
+
+```sql
+-- DATASET 5
+-- Tests if a mutant unnecessarily joins child table "Departments" (which would multiply the count or drop stores without departments).
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (1, 'South');
+
+-- Store 1 has no departments
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 1, 'Mall A', 'Addr A', '111', 'a@mall.com');
+
+-- Store 2 has 3 departments
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (2, 1, 'Mall B', 'Addr B', '222', 'b@mall.com');
+
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (10, 2, 'Shoes');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (20, 2, 'Clothing');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (30, 2, 'Electronics');
+```

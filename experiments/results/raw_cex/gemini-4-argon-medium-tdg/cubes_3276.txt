@@ -1,0 +1,39 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Insertion order vs ORDER BY asset_id (30, 10, 20)
+-- 2. Inverse correlation between asset_id and asset_details/asset_make/asset_model to catch wrong ORDER BY column or DESC ordering
+-- 3. Assets without any related rows in Fault_Log, Asset_Parts, Maintenance_Contracts, or Third_Party_Companies (catches unnecessary INNER JOINs)
+-- 4. Assets with multiple child rows in Asset_Parts and Fault_Log (catches unnecessary JOINs without DISTINCT that cause row duplication)
+-- 5. Distinct values across asset_details, asset_make, asset_model, and other_asset_details (catches wrong column projections)
+
+INSERT INTO Third_Party_Companies (company_id, company_type, company_name, company_address, other_company_details) VALUES (1, 'SUP', 'TechCorp', '123 Tech Lane', 'None');
+INSERT INTO Maintenance_Contracts (maintenance_contract_id, maintenance_contract_company_id, contract_start_date, contract_end_date, other_contract_details) VALUES (1, 1, '2022-01-01 00:00:00', '2025-01-01 00:00:00', 'Standard');
+INSERT INTO Parts (part_id, part_name, chargeable_yn, chargeable_amount, other_part_details) VALUES (1, 'Power Supply', 1, 100, 'PSU');
+INSERT INTO Parts (part_id, part_name, chargeable_yn, chargeable_amount, other_part_details) VALUES (2, 'Cooling Fan', 0, 0, 'Fan');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (1, 'Alice Smith', 1, 'Manager');
+
+INSERT INTO Assets (asset_id, supplier_company_id, maintenance_contract_id, asset_details, asset_make, asset_model, asset_acquired_date, asset_disposed_date, other_asset_details) VALUES (30, 1, 1, 'ADet_100', 'Make_A', 'Mod_X', '2020-01-01 00:00:00', '2024-01-01 00:00:00', 'Other_30');
+INSERT INTO Assets (asset_id, supplier_company_id, maintenance_contract_id, asset_details, asset_make, asset_model, asset_acquired_date, asset_disposed_date, other_asset_details) VALUES (10, NULL, NULL, 'ZDet_900', 'Make_Z', 'Mod_Z', '2023-06-15 00:00:00', NULL, 'Other_10');
+INSERT INTO Assets (asset_id, supplier_company_id, maintenance_contract_id, asset_details, asset_make, asset_model, asset_acquired_date, asset_disposed_date, other_asset_details) VALUES (20, 1, NULL, 'MDet_500', 'Make_M', 'Mod_Y', '2021-03-10 00:00:00', NULL, 'Other_20');
+
+INSERT INTO Asset_Parts (asset_id, part_id) VALUES (30, 1);
+INSERT INTO Asset_Parts (asset_id, part_id) VALUES (30, 2);
+
+INSERT INTO Fault_Log (fault_log_entry_id, recorded_by_staff_id, asset_id, fault_log_entry_datetime, fault_description, other_fault_details) VALUES (1, 1, 30, '2023-01-10 10:00:00', 'Overheating', 'Urgent');
+INSERT INTO Fault_Log (fault_log_entry_id, recorded_by_staff_id, asset_id, fault_log_entry_datetime, fault_description, other_fault_details) VALUES (2, 1, 30, '2023-02-15 14:30:00', 'Will not boot', 'Routine');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Duplicate values in (asset_details, asset_make, asset_model) across different asset_ids (catches improper GROUP BY on non-key columns)
+-- 2. NULL values in asset_details, asset_make, and asset_model (catches spurious WHERE IS NOT NULL filters)
+-- 3. Negative, zero, and multi-digit asset_ids (tests numerical sorting vs lexicographical string sorting if cast to text)
+
+INSERT INTO Assets (asset_id, supplier_company_id, maintenance_contract_id, asset_details, asset_make, asset_model, asset_acquired_date, asset_disposed_date, other_asset_details) VALUES (100, NULL, NULL, 'Identical Details', 'SameMake', 'SameModel', '2021-01-01 00:00:00', NULL, 'Note A');
+INSERT INTO Assets (asset_id, supplier_company_id, maintenance_contract_id, asset_details, asset_make, asset_model, asset_acquired_date, asset_disposed_date, other_asset_details) VALUES (2, NULL, NULL, 'Identical Details', 'SameMake', 'SameModel', '2021-01-01 00:00:00', NULL, 'Note A');
+INSERT INTO Assets (asset_id, supplier_company_id, maintenance_contract_id, asset_details, asset_make, asset_model, asset_acquired_date, asset_disposed_date, other_asset_details) VALUES (15, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO Assets (asset_id, supplier_company_id, maintenance_contract_id, asset_details, asset_make, asset_model, asset_acquired_date, asset_disposed_date, other_asset_details) VALUES (-5, NULL, NULL, 'Negative ID Asset', 'Make_Neg', 'Mod_Neg', '2019-05-05 00:00:00', '2020-05-05 00:00:00', 'Disposed');
+INSERT INTO Assets (asset_id, supplier_company_id, maintenance_contract_id, asset_details, asset_make, asset_model, asset_acquired_date, asset_disposed_date, other_asset_details) VALUES (0, NULL, NULL, 'Zero ID Asset', 'Make_Zero', 'Mod_Zero', '2020-01-01 00:00:00', NULL, 'Zero');
+```

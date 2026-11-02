@@ -1,0 +1,56 @@
+```sql
+-- DATASET 1
+-- Tests standard ordering by NumGE1500 DESC, differentiating NumGE1500 from other score/enrollment columns (enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) and testing INNER JOIN vs LEFT JOIN on schools (unmatched school has alphabetically earlier CDSCode and City).
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('S001', 'Active', 'CountyA', 'DistA', 'CityAlpha', '01', 'DocTypeA', '2023-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('S002', 'Active', 'CountyB', 'DistB', 'CityBeta', '02', 'DocTypeB', '2023-01-02');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('S003', 'Active', 'CountyC', 'DistC', 'CityGamma', '03', 'DocTypeC', '2023-01-03');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('S002', 'S', 500, 400, 600, 650, 550, 100);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('S003', 'S', 100, 90, 450, 480, 420, 250);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T1.cds ASC when T1.NumGE1500 is tied, and ensures all rows have distinct AvgScrWrite and City values.
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('CDS_B', 'Active', 'County1', 'Dist1', 'Los Angeles', '10', 'Doc1', '2023-05-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('CDS_A', 'Active', 'County2', 'Dist2', 'San Diego', '20', 'Doc2', '2023-05-02');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('CDS_C', 'Active', 'County3', 'Dist3', 'San Jose', '30', 'Doc3', '2023-05-03');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_B', 'S', 200, 150, 510, 520, 530, 80);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_A', 'S', 200, 150, 540, 550, 560, 80);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_C', 'S', 300, 250, 600, 610, 620, 40);
+```
+
+```sql
+-- DATASET 3
+-- Tests handling of NULL values in T1.AvgScrWrite, T2.City, and T1.NumGE1500. Specifically catches mutants that filter out NULLs in the SELECT target columns (e.g., IS NOT NULL) or mishandle NULL ordering in NumGE1500 DESC (in SQLite, NULLs are considered smallest, so DESC puts non-NULLs first unless NULLS FIRST is used).
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('10001', 'Active', 'Alameda', 'Oakland', NULL, '50', 'Unified', '2022-10-10');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('10002', 'Active', 'Alameda', 'Berkeley', 'Berkeley', '50', 'Unified', '2022-10-11');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('10003', 'Active', 'Alameda', 'Fremont', 'Fremont', '50', 'Unified', '2022-10-12');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('10001', 'S', 300, 200, 500, 500, NULL, 150);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('10002', 'S', 400, 300, 550, 560, 570, 120);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('10003', 'S', 500, 400, 600, 610, 620, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests mutants that mistakenly join with the `frpm` table (where the top-scoring school is absent from `frpm`) or confuse `schools.City` with `schools.MailCity`, `schools.County`, or `schools.District`.
+INSERT INTO schools (CDSCode, StatusType, County, District, City, MailCity, DOC, DOCType, LastUpdate) VALUES ('90001', 'Active', 'Orange', 'Irvine Unified', 'Irvine', 'Santa Ana', '54', 'Unified', '2021-08-15');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, MailCity, DOC, DOCType, LastUpdate) VALUES ('90002', 'Active', 'Orange', 'Anaheim Union', 'Anaheim', 'Anaheim', '54', 'High', '2021-08-16');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('90001', 'S', 'Irvine High', 'Irvine Unified', 'Orange', 600, 500, 610, 640, 620, 450);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('90002', 'D', 'Anaheim High', 'Anaheim Union', 'Orange', 550, 300, 480, 490, 470, 110);
+
+INSERT INTO frpm (CDSCode, "Academic Year", "County Name", "District Name", "School Name") VALUES ('90002', '2014-2015', 'Orange', 'Anaheim Union', 'Anaheim High');
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary values (0 vs NULL in NumGE1500) and rtype variations (e.g. if a mutant adds WHERE rtype = 'S' when the top row has rtype = 'D').
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('20001', 'Active', 'Sacramento', 'Sac City', 'Sacramento', '11', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, DOC, DOCType, LastUpdate) VALUES ('20002', 'Closed', 'Sacramento', 'Elk Grove', 'Elk Grove', '11', 'Unified', '2020-01-02');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('20001', 'S', 50, 10, 400, 410, 420, NULL);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('20002', 'D', 80, 20, 430, 440, 450, 0);
+```

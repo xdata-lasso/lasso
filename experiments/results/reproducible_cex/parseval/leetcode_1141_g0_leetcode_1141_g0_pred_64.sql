@@ -1,0 +1,54 @@
+-- Schema DDL
+CREATE TABLE "Activity" ("user_id" INTEGER, "session_id" INTEGER, "activity_date" DATE, "activity_type" TEXT(255));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: activity --
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (-55602865, -59984348, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (-664303813, -1022641847, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (-1726781632, 247012447, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (-1980249628, -734455130, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (1744686505, -1633151678, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (-252690330, 1115440883, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (1644814318, 1465859724, '2019-07-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (-1349201381, 1019800248, '2019-07-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (-1910425938, -845863578, '2019-07-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (-1610064545, 429706943, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (462974032, -1137908826, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (-918961358, -1602639011, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (-45536098, 1861536320, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (44952191, 1151980946, '2019-06-28', 'act_d0588c');
+
+INSERT INTO "activity" ("user_id", "session_id", "activity_date", "activity_type") VALUES (1620389964, 546571701, '2019-06-28', 'act_d0588c');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ACTIVITY_DATE AS DAY, COUNT(DISTINCT USER_ID) AS ACTIVE_USERS FROM ACTIVITY WHERE ACTIVITY_DATE BETWEEN '2019-06-28' AND '2019-07-27' GROUP BY ACTIVITY_DATE;
+
+/*
+Gold Result:
+('2019-06-28', 12)
+*/
+
+-- Prediction Query
+SELECT ACTIVITY_DATE AS DAY, COUNT(DISTINCT USER_ID) AS ACTIVE_USERS FROM ACTIVITY GROUP BY 1 HAVING ACTIVITY_DATE > DATE('2019-07-27', '-30 DAY');
+
+/*
+Prediction Result:
+('2019-06-28', 12)
+('2019-07-28', 3)
+*/

@@ -1,0 +1,95 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary condition (AVG = 50000), WHERE vs HAVING (employees below 50000 pulling average up/down), and SUM vs AVG.
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (1, 'HR', 101, 'NY');
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (2, 'IT', 102, 'SF');
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (3, 'Sales', 103, 'LA');
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (4, 'Marketing', 104, 'CHI');
+
+INSERT INTO Jobs (job_id, job_title, min_salary, max_salary) VALUES ('J1', 'Dev', 30000, 100000);
+
+-- Dept 1: AVG = 50000 (Boundary: should be excluded by > 50000, included if >= 50000)
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (1, 'A', 'B', 'a@b.com', '111', '2020-01-01', 'J1', 50000.0, NULL, NULL, 1);
+
+-- Dept 2: Salaries 40000 and 70000. AVG = 55000 (> 50000).
+-- Catches mutant with WHERE salary > 50000 (which would compute AVG as 70000).
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (2, 'C', 'D', 'c@d.com', '222', '2020-01-01', 'J1', 40000.0, NULL, NULL, 2);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (3, 'E', 'F', 'e@f.com', '333', '2020-01-01', 'J1', 70000.0, NULL, NULL, 2);
+
+-- Dept 3: Salaries 30000 and 60000. AVG = 45000 (< 50000), SUM = 90000 (> 50000), MAX = 60000 (> 50000).
+-- Catches WHERE salary > 50000 (would include Dept 3 with AVG 60000), HAVING SUM(salary) > 50000, or HAVING MAX(salary) > 50000.
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (4, 'G', 'H', 'g@h.com', '444', '2020-01-01', 'J1', 30000.0, NULL, NULL, 3);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (5, 'I', 'J', 'i@j.com', '555', '2020-01-01', 'J1', 60000.0, NULL, NULL, 3);
+```
+
+```sql
+-- DATASET 2
+-- Tests AVG(DISTINCT salary) vs AVG(salary), NULL salaries, and NULL department_id.
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (10, 'Finance', 201, 'BOS');
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (20, 'Legal', 202, 'SEA');
+
+INSERT INTO Jobs (job_id, job_title, min_salary, max_salary) VALUES ('J2', 'Analyst', 20000, 120000);
+
+-- Dept 10: Salaries 60000, 60000, 33000.
+-- True AVG = 153000 / 3 = 51000 (> 50000).
+-- AVG(DISTINCT salary) = (60000 + 33000) / 2 = 46500 (< 50000).
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (10, 'K', 'L', 'k@l.com', '123', '2021-01-01', 'J2', 60000.0, 0.1, NULL, 10);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (11, 'M', 'N', 'm@n.com', '124', '2021-01-01', 'J2', 60000.0, 0.1, NULL, 10);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (12, 'O', 'P', 'o@p.com', '125', '2021-01-01', 'J2', 33000.0, 0.1, NULL, 10);
+
+-- Dept 20: Salaries 80000 and NULL.
+-- True AVG = 80000 (> 50000).
+-- Catches mutants using SUM(salary)/COUNT(*) which yields 80000/2 = 40000 (< 50000).
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (13, 'Q', 'R', 'q@r.com', '126', '2021-01-01', 'J2', 80000.0, NULL, NULL, 20);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (14, 'S', 'T', 's@t.com', '127', '2021-01-01', 'J2', NULL, NULL, NULL, 20);
+
+-- Dept NULL: Employee with NULL department_id and salary > 50000.
+-- Catches mutants that INNER JOIN with Departments or add WHERE department_id IS NOT NULL.
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (15, 'U', 'V', 'u@v.com', '128', '2021-01-01', 'J2', 90000.0, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests missing GROUP BY clause, grouping by wrong column (job_id or manager_id), and floating-point precision.
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (100, 'R&D', 301, 'AUS');
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (200, 'Support', 302, 'DEN');
+
+INSERT INTO Jobs (job_id, job_title, min_salary, max_salary) VALUES ('J_HIGH', 'Senior', 50000, 150000);
+INSERT INTO Jobs (job_id, job_title, min_salary, max_salary) VALUES ('J_LOW', 'Junior', 20000, 60000);
+
+-- Dept 100: Salaries 50001 and 50000. AVG = 50000.5 (> 50000).
+-- Different job_ids and manager_ids within the same department to break GROUP BY job_id or manager_id.
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (101, 'W', 'X', 'w@x.com', '991', '2022-01-01', 'J_HIGH', 50001.0, NULL, 101, 100);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (102, 'Y', 'Z', 'y@z.com', '992', '2022-01-01', 'J_LOW', 50000.0, NULL, 102, 100);
+
+-- Dept 200: Salary 10000. AVG = 10000.
+-- Pulls the global average across the entire table to (50001 + 50000 + 10000) / 3 = 36667 (< 50000).
+-- If GROUP BY is omitted, the whole query returns 0 rows instead of returning Dept 100.
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (103, 'AA', 'BB', 'aa@bb.com', '993', '2022-01-01', 'J_LOW', 10000.0, NULL, 101, 200);
+```
+
+```sql
+-- DATASET 4
+-- Tests MIN(salary) vs AVG(salary), and ensures global AVG > 50000 while having multiple qualifying and non-qualifying groups.
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (1, 'D1', 1, 'L1');
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (2, 'D2', 2, 'L2');
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (3, 'D3', 3, 'L3');
+
+INSERT INTO Jobs (job_id, job_title, min_salary, max_salary) VALUES ('J1', 'T1', 10000, 200000);
+
+-- Dept 1: Salaries 55000, 65000. AVG = 60000, MIN = 55000 (> 50000).
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (1, 'F1', 'L1', 'e1@test.com', '1', '2020-01-01', 'J1', 55000.0, NULL, NULL, 1);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (2, 'F2', 'L2', 'e2@test.com', '2', '2020-01-01', 'J1', 65000.0, NULL, NULL, 1);
+
+-- Dept 2: Salaries 45000, 75000. AVG = 60000 (> 50000), MIN = 45000 (< 50000).
+-- Catches HAVING MIN(salary) > 50000.
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (3, 'F3', 'L3', 'e3@test.com', '3', '2020-01-01', 'J1', 45000.0, NULL, NULL, 2);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (4, 'F4', 'L4', 'e4@test.com', '4', '2020-01-01', 'J1', 75000.0, NULL, NULL, 2);
+
+-- Dept 3: Salary 49999.9. AVG = 49999.9 (< 50000).
+-- Catches boundary mutants and ensures a group is filtered out when global AVG (289999.9 / 5 = 57999.98) > 50000.
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (5, 'F5', 'L5', 'e5@test.com', '5', '2020-01-01', 'J1', 49999.9, NULL, NULL, 3);
+
+-- JobHistory entries to catch mutants that unnecessarily INNER JOIN JobHistory.
+INSERT INTO JobHistory (employee_id, start_date, end_date, job_id, department_id) VALUES (1, '2019-01-01', '2019-12-31', 'J1', 1);
+```

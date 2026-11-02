@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- General case: Mix of owners with 0, 1, and multiple dogs, plus a dog with NULL owner_id.
+-- Tests: NOT IN vs NOT EXISTS with NULLs, DISTINCT in outer query, duplicate elimination, basic subtraction logic.
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Bulldog');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Small');
+
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'Alice', 'Smith');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (2, 'Bob', 'Smith');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (3, 'Alice', 'Smith');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (4, 'Charlie', 'Brown');
+
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (10, 1, 'S1', 'B1', 'Rex');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (20, 1, 'S1', 'B1', 'Max');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (30, 2, 'S1', 'B1', 'Bella');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (40, NULL, 'S1', 'B1', 'Stray');
+```
+
+```sql
+-- DATASET 2
+-- Boundary case: All owners have at least one dog (0 owners without dogs).
+-- Tests: Empty result set from window function vs scalar COUNT(*) returning 0.
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Poodle');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Medium');
+
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'John', 'Doe');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (2, 'Jane', 'Doe');
+
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (1, 1, 'S1', 'B1', 'Fido');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (2, 2, 'S1', 'B1', 'Spot');
+```
+
+```sql
+-- DATASET 3
+-- Join confusion & ID collision case: dog_id overlaps with owner_id of dogless owners; abandoned_yn flags set.
+-- Tests: Joining on dog_id = owner_id by mistake, or filtering by abandoned_yn = 'Y' instead of checking owner_id existence.
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Terrier');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Large');
+
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'OwnerOne', 'LastOne');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (2, 'OwnerTwo', 'LastTwo');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (3, 'OwnerThree', 'LastThree');
+
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "abandoned_yn", "name") VALUES (2, 1, 'S1', 'B1', 'Y', 'DogTwo');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "abandoned_yn", "name") VALUES (3, 1, 'S1', 'B1', 'N', 'DogThree');
+```
+
+```sql
+-- DATASET 4
+-- Empty Dogs table: Owners exist, but Dogs table is completely empty.
+-- Tests: Anti-join behavior when right-hand table is empty, and total owner count != total dog count.
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (10, 'lonely1', NULL);
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (20, 'lonely2', NULL);
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (30, NULL, 'lonely3');
+```
+
+```sql
+-- DATASET 5
+-- Arithmetic subtraction trap: Number of unique owners with dogs != number of dogs, and total owners - total dogs != answer.
+-- 5 owners total. 1 owner has 4 dogs. 4 owners have 0 dogs.
+-- Tests: Mutants doing COUNT(Owners) - COUNT(Dogs) (5 - 4 = 1 != 4), or COUNT(Dogs) (4) vs COUNT(DISTINCT owner_id) (1).
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Beagle');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Small');
+
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'Hoarder', 'Person');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (2, 'Dogless', 'One');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (3, 'Dogless', 'Two');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (4, 'Dogless', 'Three');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (5, 'Dogless', 'Four');
+
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (101, 1, 'S1', 'B1', 'D1');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (102, 1, 'S1', 'B1', 'D2');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (103, 1, 'S1', 'B1', 'D3');
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (104, 1, 'S1', 'B1', 'D4');
+```
+
+```sql
+-- DATASET 6
+-- Empty Owners and Dogs tables (only unrelated tables populated).
+-- Tests: Behavior on empty target tables (window function over empty set returns 0 rows, whereas COUNT(*) without GROUP BY returns 1 row with 0).
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Chihuahua');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Toy');
+INSERT INTO "Charges" ("charge_id", "charge_type", "charge_amount") VALUES (1, 'Daily', 25.00);
+```
+
+```sql
+-- DATASET 7
+-- Other tables populated (Professionals, Treatments) to catch mutants querying the wrong entity table (e.g. Professionals instead of Owners, or Treatments instead of Dogs).
+INSERT INTO "Breeds" ("breed_code", "breed_name") VALUES ('B1', 'Hound');
+INSERT INTO "Sizes" ("size_code", "size_description") VALUES ('S1', 'Large');
+INSERT INTO "Treatment_Types" ("treatment_type_code", "treatment_type_description") VALUES ('T1', 'Vaccine');
+
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (1, 'O1', 'L1');
+INSERT INTO "Owners" ("owner_id", "first_name", "last_name") VALUES (2, 'O2', 'L2');
+
+INSERT INTO "Dogs" ("dog_id", "owner_id", "size_code", "breed_code", "name") VALUES (1, 1, 'S1', 'B1', 'Dog1');
+
+INSERT INTO "Professionals" ("professional_id", "first_name", "last_name") VALUES (1, 'P1', 'PL1');
+INSERT INTO "Professionals" ("professional_id", "first_name", "last_name") VALUES (2, 'P2', 'PL2');
+INSERT INTO "Professionals" ("professional_id", "first_name", "last_name") VALUES (3, 'P3', 'PL3');
+INSERT INTO "Professionals" ("professional_id", "first_name", "last_name") VALUES (4, 'P4', 'PL4');
+
+INSERT INTO "Treatments" ("treatment_id", "dog_id", "professional_id", "treatment_type_code", "cost_of_treatment") VALUES (1, 1, 1, 'T1', 50.0);
+```

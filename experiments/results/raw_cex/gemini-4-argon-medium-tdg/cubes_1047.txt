@@ -1,0 +1,100 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (city = 'San Francisco'), exact boundary conditions for AVG(bikes_available) > 10.0 (including 10.0, 10.5, 9.5), and integer vs float division.
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (1, 'SF Boundary Exact 10', 37.77, -122.41, 15, 'San Francisco', '2013-08-01');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (2, 'SF Boundary Fractional 10.5', 37.78, -122.42, 15, 'San Francisco', '2013-08-02');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (3, 'SF Below Boundary 9.5', 37.79, -122.43, 15, 'San Francisco', '2013-08-03');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (4, 'Non-SF High Bikes', 37.33, -121.89, 15, 'San Jose', '2013-08-04');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (1, 10, 5, '2013-08-29 12:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (1, 10, 5, '2013-08-29 12:01:00');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (2, 10, 5, '2013-08-29 12:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (2, 11, 4, '2013-08-29 12:01:00');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (3, 9, 6, '2013-08-29 12:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (3, 10, 5, '2013-08-29 12:01:00');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (4, 15, 0, '2013-08-29 12:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (4, 20, 0, '2013-08-29 12:01:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests AVG vs SUM/MAX/MIN/COUNT and pre-aggregation WHERE filtering vs post-aggregation HAVING filtering.
+-- Station 10 has one record > 10 (15), sum > 10 (17), but AVG is 8.5 (should be excluded).
+-- Station 20 has all records > 10 (11, 12), AVG is 11.5 (should be included).
+-- Station 5 has one record <= 10 (6) and one record > 10 (16), AVG is 11.0 (should be included; kills mutants that filter status.bikes_available > 10 before grouping).
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (10, 'High Max Low Avg', 37.77, -122.41, 20, 'San Francisco', '2013-08-01');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (20, 'Consistent High', 37.78, -122.42, 20, 'San Francisco', '2013-08-02');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (5, 'Mixed High Low', 37.79, -122.43, 20, 'San Francisco', '2013-08-03');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (10, 15, 5, '2013-08-29 10:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (10, 2, 18, '2013-08-29 11:00:00');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (20, 11, 9, '2013-08-29 10:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (20, 12, 8, '2013-08-29 11:00:00');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (5, 6, 14, '2013-08-29 10:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (5, 16, 4, '2013-08-29 11:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests column confusion (bikes_available vs docks_available vs station.dock_count), ORDER BY id ASC vs DESC vs ordering by name or meanbikes_available, and stations without status records (INNER vs LEFT JOIN).
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (30, 'A_First_Name_High_ID', 37.77, -122.41, 5, 'San Francisco', '2013-08-01');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (10, 'Z_Last_Name_Low_ID', 37.78, -122.42, 5, 'San Francisco', '2013-08-02');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (20, 'M_Mid_Name_Mid_ID_High_Docks', 37.79, -122.43, 25, 'San Francisco', '2013-08-03');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (40, 'No_Status_Station', 37.80, -122.44, 30, 'San Francisco', '2013-08-04');
+
+-- ID 30: avg bikes = 12 (lower avg than ID 10, higher ID, alphabetically first name), docks_available = 2
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (30, 12, 2, '2013-08-29 10:00:00');
+
+-- ID 10: avg bikes = 18 (higher avg than ID 30, lower ID, alphabetically last name), docks_available = 3
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (10, 18, 3, '2013-08-29 10:00:00');
+
+-- ID 20: avg bikes = 4 (<= 10), but docks_available = 21 (> 10) and dock_count = 25 (> 10)
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (20, 4, 21, '2013-08-29 10:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in status.bikes_available, duplicate values (AVG vs AVG(DISTINCT)), and grouping by station_id vs grouping only by city or station.name.
+-- Stations 1 and 2 share the same name and city; combined average is (9+9+12)/3 = 10.0, but Station 2 alone has AVG = 12.0 and Station 1 has AVG = 9.0.
+-- Station 3 has duplicate values (14, 14, 5): AVG is 11.0 (> 10), whereas AVG(DISTINCT) is (14+5)/2 = 9.5 (<= 10).
+-- Station 4 has a NULL in bikes_available: (12 + NULL)/1 = 12.0 vs if NULL treated as 0: 12/2 = 6.0.
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (1, 'Market St', 37.77, -122.41, 15, 'San Francisco', '2013-08-01');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (2, 'Market St', 37.78, -122.42, 15, 'San Francisco', '2013-08-02');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (3, 'Duplicate Test', 37.79, -122.43, 15, 'San Francisco', '2013-08-03');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (4, 'Null Bikes Test', 37.80, -122.44, 15, 'San Francisco', '2013-08-04');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (1, 9, 6, '2013-08-29 10:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (1, 9, 6, '2013-08-29 11:00:00');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (2, 12, 3, '2013-08-29 10:00:00');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (3, 14, 1, '2013-08-29 10:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (3, 14, 1, '2013-08-29 11:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (3, 5, 10, '2013-08-29 12:00:00');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (4, 12, 3, '2013-08-29 10:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (4, NULL, 3, '2013-08-29 11:00:00');
+```
+
+```sql
+-- DATASET 5
+-- Tests logical operator mutations (AND vs OR in WHERE city = 'San Francisco' AND meanbikes_available > 10.0), string matching sensitivity on city, and wrong table usage (e.g. joining trip instead of status).
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (101, 'SF Low Bikes', 37.77, -122.41, 15, 'San Francisco', '2013-08-01');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (102, 'Palo Alto High Bikes', 37.44, -122.16, 15, 'Palo Alto', '2013-08-02');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (103, 'SF Case/Substring Test', 37.78, -122.42, 15, 'San Francisco ', '2013-08-03');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (104, 'SF Null City', 37.79, -122.43, 15, NULL, '2013-08-04');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (105, 'SF Valid', 37.80, -122.44, 15, 'San Francisco', '2013-08-05');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (101, 3, 12, '2013-08-29 10:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (102, 14, 1, '2013-08-29 10:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (103, 15, 0, '2013-08-29 10:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (104, 15, 0, '2013-08-29 10:00:00');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (105, 11, 4, '2013-08-29 10:00:00');
+
+INSERT INTO "trip" ("id", "duration", "start_date", "start_station_name", "start_station_id", "end_date", "end_station_name", "end_station_id", "bike_id", "subscription_type", "zip_code") VALUES (1, 500, '2013-08-29 10:00:00', 'SF Low Bikes', 101, '2013-08-29 10:08:20', 'SF Valid', 105, 50, 'Subscriber', 94107);
+```

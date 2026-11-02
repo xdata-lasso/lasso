@@ -1,0 +1,56 @@
+-- Schema DDL
+CREATE TABLE "FILM" (
+    "FILM_ID" INT,
+    "RANK_IN_SERIES" INT,
+    "NUMBER_IN_SEASON" INT,
+    "TITLE" TEXT,
+    "DIRECTED_BY" TEXT,
+    "ORIGINAL_AIR_DATE" TEXT,
+    "PRODUCTION_CODE" TEXT,
+    PRIMARY KEY ("FILM_ID")
+);
+CREATE TABLE "CINEMA" (
+    "CINEMA_ID" INT,
+    "NAME" TEXT,
+    "OPENNING_YEAR" INT,
+    "CAPACITY" INT,
+    "LOCATION" TEXT,
+    PRIMARY KEY ("CINEMA_ID")
+);
+CREATE TABLE "SCHEDULE" (
+    "CINEMA_ID" INT,
+    "FILM_ID" INT,
+    "DATE" TEXT,
+    "SHOW_TIMES_PER_DAY" INT,
+    "PRICE" FLOAT,
+    PRIMARY KEY ("CINEMA_ID", "FILM_ID"),
+    FOREIGN KEY ("CINEMA_ID") REFERENCES "CINEMA"("CINEMA_ID"),
+    FOREIGN KEY ("FILM_ID") REFERENCES "FILM"("FILM_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO FILM VALUES (1, 0, 0, 0, 0, 0, 0);
+INSERT INTO FILM VALUES (0, 0, 0, 0, 0, 0, 0);
+INSERT INTO CINEMA VALUES (-1, NULL, 0, NULL, 0);
+INSERT INTO CINEMA VALUES (0, 0, 0, 0, 0);
+INSERT INTO SCHEDULE VALUES (0, 0, 0, 0, 0);
+INSERT INTO SCHEDULE VALUES (0, 1, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name, LOCATION FROM (SELECT * FROM (SELECT * FROM cinema ORDER BY LOCATION DESC, cinema.cinema_id NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+(None, '0')
+*/
+
+-- Prediction Query
+SELECT name, LOCATION FROM cinema ORDER BY capacity DESC, cinema.cinema_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('0', '0')
+*/

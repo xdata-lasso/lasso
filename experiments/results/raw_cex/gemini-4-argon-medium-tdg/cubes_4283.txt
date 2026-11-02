@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (DESC vs ASC), column confusion (Sales vs Profits/Assets/Market_Value), and SUM/COUNT vs MAX on Headquarters.
+-- Reference returns 'USA' (single company with max sales 50.0).
+-- Mutants using SUM(Sales_in_Billion) by Headquarters will return 'UK' (40 + 40 = 80).
+-- Mutants using COUNT(*) by Headquarters will return 'UK' (2 rows vs 1).
+-- Mutants using ASC will return 'Japan' (10.0).
+-- Mutants ordering by Profits, Assets, or Market_Value will return 'Germany', 'France', or 'Japan' respectively.
+-- Mutants doing INNER JOIN with employment will fail to return 'USA' because Company 1 has no employees.
+INSERT INTO "people" ("People_ID", "Age", "Name", "Nationality", "Graduation_College") VALUES (1, 30, 'John Doe', 'UK', 'Oxford');
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (1.0, 'Alpha', 'USA', 'Tech', 50.0, 5.0, 10.0, 20.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (2.0, 'Beta', 'UK', 'Finance', 40.0, 10.0, 20.0, 30.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (3.0, 'Gamma', 'UK', 'Retail', 40.0, 15.0, 30.0, 40.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (4.0, 'Delta', 'Germany', 'Auto', 30.0, 100.0, 40.0, 50.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (5.0, 'Epsilon', 'France', 'Luxury', 20.0, 20.0, 200.0, 60.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (6.0, 'Zeta', 'Japan', 'Robotics', 10.0, 1.0, 5.0, 500.0);
+INSERT INTO "employment" ("Company_ID", "People_ID", "Year_working") VALUES (2, 1, 5);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Sales_in_Billion (in SQLite, NULL is considered smaller than any non-NULL value, so ORDER BY DESC puts non-NULL first) and string vs numeric sorting (9.0 vs 10.0).
+-- Reference returns 'Canada' (Sales 10.0).
+-- Mutants casting Sales_in_Billion to TEXT before ordering will return 'Brazil' ('9.0' > '10.0').
+-- Mutants that put NULLs first on DESC or filter out valid rows will return 'Australia'.
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (1.0, 'NullCorp', 'Australia', 'Mining', NULL, 50.0, 50.0, 50.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (2.0, 'TenCorp', 'Canada', 'Energy', 10.0, 5.0, 5.0, 5.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (3.0, 'NineCorp', 'Brazil', 'Agri', 9.0, 8.0, 8.0, 8.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests negative numbers and zero in Sales_in_Billion.
+-- Reference returns 'Switzerland' (0.0 is greater than -5.0 and -100.0).
+-- Mutants using ABS(Sales_in_Billion) or ignoring signs will return 'Russia' (-100.0).
+-- Mutants filtering out Sales_in_Billion <= 0 will return empty result.
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (1.0, 'ZeroCorp', 'Switzerland', 'Banking', 0.0, -1.0, 10.0, 10.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (2.0, 'NegSmall', 'Sweden', 'Forestry', -5.0, 2.0, 20.0, 20.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (3.0, 'NegLarge', 'Russia', 'Oil', -100.0, 50.0, 300.0, 300.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY headquarters, sales_in_billion behavior vs GROUP BY headquarters with AVG/MIN/SUM, and LIMIT 1 vs no LIMIT.
+-- Here 'India' has one company with 90.0 and one with 1.0 (AVG = 45.5, MIN = 1.0, SUM = 91.0).
+-- 'China' has two companies with 60.0 and 60.0 (AVG = 60.0, MIN = 60.0, SUM = 120.0).
+-- Reference returns 'India' (max single sales_in_billion is 90.0).
+-- Mutants grouping only by Headquarters and ordering by AVG(Sales_in_Billion) or MIN(Sales_in_Billion) or SUM(Sales_in_Billion) will return 'China'.
+-- Mutants omitting LIMIT 1 will return multiple rows.
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (1.0, 'IndHigh', 'India', 'IT', 90.0, 10.0, 10.0, 10.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (2.0, 'IndLow', 'India', 'Textiles', 1.0, 1.0, 1.0, 1.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (3.0, 'Chi1', 'China', 'Mfg', 60.0, 20.0, 20.0, 20.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (4.0, 'Chi2', 'China', 'Mfg', 60.0, 20.0, 20.0, 20.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests column selection mistake (e.g., selecting Name or Industry instead of Headquarters) and tie-breaking / duplicate Headquarters with identical max sales.
+-- Both top companies have Headquarters = 'South Korea' and Sales = 500.0, so Reference deterministically returns 1 row: 'South Korea' (grouped by headquarters, sales_in_billion).
+-- Mutants without LIMIT 1 or grouping by Company_ID without LIMIT 1 will return multiple rows.
+-- Mutants selecting Name or Industry will return 'SK_One'/'SK_Two' or 'Electronics'.
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (1.0, 'SK_One', 'South Korea', 'Electronics', 500.0, 50.0, 100.0, 200.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (2.0, 'SK_Two', 'South Korea', 'Electronics', 500.0, 40.0, 90.0, 180.0);
+INSERT INTO "company" ("Company_ID", "Name", "Headquarters", "Industry", "Sales_in_Billion", "Profits_in_Billion", "Assets_in_Billion", "Market_Value_in_Billion") VALUES (3.0, 'Other', 'Mexico', 'Telecom', 50.0, 5.0, 10.0, 20.0);
+```

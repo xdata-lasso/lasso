@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests basic join, WHERE clauses (league name, date substring), and column selection
+INSERT INTO Country (id, name) VALUES (1, 'Belgium');
+INSERT INTO Country (id, name) VALUES (2, 'England');
+
+INSERT INTO League (id, country_id, name) VALUES (10, 1, 'Belgium Jupiler League');
+INSERT INTO League (id, country_id, name) VALUES (20, 2, 'England Premier League');
+
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 1001, 2001, 'Anderlecht', 'AND');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 1002, 2002, 'Club Brugge', 'BRU');
+
+-- Target match: Exact match on league_id, name, and date substring (with timestamp)
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (100, 1, 10, '2008-09-24 20:00:00', 1001, 1002, 3, 1);
+
+-- Wrong date (day before)
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (101, 1, 10, '2008-09-23 20:00:00', 1001, 1002, 2, 2);
+
+-- Wrong league, right date
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (102, 2, 20, '2008-09-24 20:00:00', 1001, 1002, 0, 4);
+```
+
+```sql
+-- DATASET 2
+-- Tests incorrect join conditions (e.g., t1.country_id = t2.country_id or t1.id = t2.id) and DISTINCT vs ALL
+INSERT INTO Country (id, name) VALUES (1, 'Belgium');
+
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'Belgium Jupiler League');
+INSERT INTO League (id, country_id, name) VALUES (2, 1, 'Belgium Second Division');
+
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 1001, 2001, 'Standard Liege', 'STA');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 1002, 2002, 'Genk', 'GNK');
+
+-- Two matches with identical goal counts on the target date to kill mutants adding DISTINCT
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (10, 1, 1, '2008-09-24 18:00:00', 1001, 1002, 2, 1);
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (11, 1, 1, '2008-09-24 20:30:00', 1002, 1001, 2, 1);
+
+-- Match where match.id = league.id (1), and country_id = league.country_id (1), but league_id is different (2)
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, 1, 2, '2008-09-24 20:00:00', 1001, 1002, 5, 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests SUBSTRING boundary conditions, exact string equality vs substring, and NULL handling
+INSERT INTO Country (id, name) VALUES (1, 'Belgium');
+
+-- Test exact league name vs LIKE '%Belgium%'
+INSERT INTO League (id, country_id, name) VALUES (10, 1, 'Belgium Jupiler League');
+INSERT INTO League (id, country_id, name) VALUES (11, 1, 'Belgium Jupiler League Pro');
+
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 1001, 2001, 'Gent', 'GNT');
+
+-- Exact 10-character date (kills mutants requiring >10 chars or specific timestamps)
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (201, 1, 10, '2008-09-24', 1001, 1001, 1, 0);
+
+-- Date where '2008-09-24' is not at index 1 (kills LIKE '%2008-09-24%' or SUBSTRING(date, 2, 10))
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (202, 1, 10, ' 2008-09-24 00:00:00', 1001, 1001, 9, 9);
+
+-- Match in the similarly named league
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (203, 1, 11, '2008-09-24 00:00:00', 1001, 1001, 8, 8);
+
+-- Match with NULL goals on valid date and league (ensures NULLs are projected if present, or tests IS NOT NULL mutants)
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (204, 1, 10, '2008-09-24 15:00:00', 1001, 1001, NULL, 0);
+
+-- Match with NULL league_id or NULL date
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (205, 1, NULL, '2008-09-24 00:00:00', 1001, 1001, 7, 7);
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (206, 1, 10, NULL, 1001, 1001, 6, 6);
+```
+
+```sql
+-- DATASET 4
+-- Tests OUTER JOIN mutants (LEFT JOIN from League to Match) when no matches exist for the target date
+INSERT INTO Country (id, name) VALUES (1, 'Belgium');
+
+INSERT INTO League (id, country_id, name) VALUES (10, 1, 'Belgium Jupiler League');
+
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 1001, 2001, 'Mechelen', 'MEC');
+
+-- Only a match on a different date exists for this league
+INSERT INTO Match (id, country_id, league_id, "date", home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (301, 1, 10, '2008-09-25 00:00:00', 1001, 1001, 4, 2);
+```

@@ -1,0 +1,60 @@
+```sql
+-- DATASET 1
+-- Tests: 1-to-many DEPT to EMP (catches DISTINCT, GROUP BY), unreferenced DEPT rows (catches RIGHT/FULL JOIN or querying DEPT directly), unequal join predicates (<, >, <>), cross join vs equi-join, and wrong column projection (EMPNO, SAL, etc.).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'SALES');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1001, 10, 'ALICE', 'MANAGER', NULL, '2020-01-15', 5000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1002, 10, 'BOB', 'CLERK', 1001, '2020-03-20', 2000, 100, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1003, 20, 'CHARLIE', 'ANALYST', 1001, '2021-06-01', 4000, 500, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests: Empty EMP table with populated DEPT table (catches mutants that swap table order in LEFT JOIN, use RIGHT/FULL JOIN, or select from DEPT instead of EMP).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+```
+
+```sql
+-- DATASET 3
+-- Tests: Wrong table selection (populates EMPNULLABLES, EMPNULLABLES_20, EMP_B, BONUS with distinct values while keeping EMP minimal, catching mutants that query sibling tables).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (40, 'OPERATIONS');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (50, 'IT');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (60, 'HR');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'KING', 'PRESIDENT', NULL, '2019-01-01', 9000, 0, 0);
+
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 40, 'SMITH', 'CLERK', 1, '2021-01-01', 1000, 0, 1);
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, NULL, 'JONES', 'CLERK', 1, '2021-02-01', 1200, 0, 0);
+
+INSERT INTO "EMPNULLABLES_20" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 50, 'ADAMS', 'ANALYST', 1, '2021-03-01', 3000, 0, 0);
+
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (5, 60, 'FORD', 'SALESMAN', 1, '2021-04-01', 2500, 300, 0, '1990-05-15');
+
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('KING', 'PRESIDENT', 9000, 1000);
+```
+
+```sql
+-- DATASET 4
+-- Tests: Boundary values (0, negative integers), self-join / wrong join key confusion (where EMPNO, MGR, SAL, COMM, SLACKER overlap or differ strategically from DEPTNO), and filtering predicates (e.g., WHERE SLACKER = 0, WHERE COMM > 0, WHERE DEPTNO > 0).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (-10, 'NEGATIVE_DEPT');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (0, 'ZERO_DEPT');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (99, 'NINETY_NINE');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (99, -10, 'ZED', 'ADMIN', 0, '2022-12-31', 0, -50, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (0, 0, 'ZERO', 'TEMP', 99, '2022-01-01', -10, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (-10, 99, 'MAX', 'DIRECTOR', NULL, '2018-07-07', 99, 99, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests: Orphaned EMP rows when foreign keys are disabled in the test runner (specifically differentiates LEFT JOIN from INNER JOIN on EMP.DEPTNO = DEPT.DEPTNO, and differentiates SELECT EMP.DEPTNO from SELECT DEPT.DEPTNO).
+-- Note: If FKs are strictly enforced, Datasets 1-4 remain 100% valid; if FKs are off (default in SQLite), this dataset kills INNER JOIN and SELECT DEPT.DEPTNO mutants.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (101, 10, 'VALID_EMP', 'CLERK', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (102, 999, 'ORPHAN_EMP', 'CLERK', 101, '2020-01-02', 1000, 0, 0);
+```

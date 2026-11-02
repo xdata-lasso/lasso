@@ -1,0 +1,18 @@
+{
+  "id": "composite_pk_join_temporal_distinct_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE members (member_id INTEGER NOT NULL PRIMARY KEY, category TEXT, birth_date DATE);\nCREATE TABLE checkups (member_id INTEGER NOT NULL, checkup_date DATE NOT NULL, score INTEGER, PRIMARY KEY (member_id, checkup_date), FOREIGN KEY (member_id) REFERENCES members (member_id));",
+  "correct_query": "SELECT DISTINCT T1.category, T1.birth_date FROM members AS T1 INNER JOIN checkups AS T2 ON T1.member_id = T2.member_id WHERE T2.score < 60 AND STRFTIME('%Y', T2.checkup_date) = '2021'",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "missing_distinct_over_composite_pk_temporal_join",
+      "description": "Omits DISTINCT when projecting parent attributes joined to a composite PRIMARY KEY child table filtered by STRFTIME year equality and a numeric range predicate",
+      "query": "SELECT T2.category, T2.birth_date FROM checkups AS T1 INNER JOIN members AS T2 ON T1.member_id = T2.member_id WHERE STRFTIME('%Y', T1.checkup_date) = '2021' AND T1.score < 60"
+    },
+    {
+      "id": "semi_join_instead_of_non_distinct_join_over_composite_pk_temporal",
+      "description": "Replaces 1-to-many join with IN subquery when outer query has no DISTINCT, collapsing multiple same-year checkups for the same member",
+      "query": "SELECT category, birth_date FROM members WHERE member_id IN (SELECT member_id FROM checkups WHERE score < 60 AND STRFTIME('%Y', checkup_date) = '2021')"
+    }
+  ]
+}

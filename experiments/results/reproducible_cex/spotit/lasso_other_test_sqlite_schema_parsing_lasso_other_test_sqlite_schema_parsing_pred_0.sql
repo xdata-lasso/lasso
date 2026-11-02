@@ -1,0 +1,38 @@
+-- Schema DDL
+CREATE TABLE "SCHOOLS" (
+    "CDSCODE" TEXT,
+    "COUNTY" TEXT NOT NULL,
+    PRIMARY KEY ("CDSCODE")
+);
+CREATE TABLE "FRPM" (
+    "CDSCODE" TEXT,
+    "ACADEMIC_YEAR" TEXT,
+    "DISTRICT_CODE" INT,
+    PRIMARY KEY ("CDSCODE", "ACADEMIC_YEAR"),
+    FOREIGN KEY ("CDSCODE") REFERENCES "SCHOOLS"("CDSCODE")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO SCHOOLS VALUES (2, 0);
+INSERT INTO SCHOOLS VALUES (3, 0);
+INSERT INTO FRPM VALUES (2, 4, 1233);
+INSERT INTO FRPM VALUES (2, 5, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT "ACADEMIC_YEAR" FROM frpm WHERE "DISTRICT_CODE" = 1234;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT "ACADEMIC_YEAR" FROM frpm;
+
+/*
+Prediction Result:
+('4',)
+('5',)
+*/

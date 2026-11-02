@@ -1,0 +1,166 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Filtering out raceId != 933 (even if it has higher fastestLapSpeed).
+-- 2. Filtering out fastestLapTime IS NULL (even if it has higher fastestLapSpeed in raceId = 933).
+-- 3. Ordering by fastestLapSpeed DESC vs ASC.
+-- 4. Anti-correlation with other columns (rank = 1, position = 1, points, fastestLapTime MIN) to kill mutants using wrong columns to find the "fastest lap" or "winner".
+-- 5. Anti-correlation with driverStandings and lapTimes to kill mutants joining the wrong tables.
+INSERT INTO seasons (year, url) VALUES (2015, 'http://en.wikipedia.org/wiki/2015_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'circuit1', 'Circuit 1', 'http://circuit1.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'const1', 'Constructor 1', 'http://const1.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (932, 2015, 1, 1, 'Race 932', '2015-03-15', 'http://race932.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (933, 2015, 2, 1, 'Race 933', '2015-03-29', 'http://race933.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (934, 2015, 3, 1, 'Race 934', '2015-04-12', 'http://race934.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'd1', 'John', 'One', 'British', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'd2', 'Pierre', 'Two', 'French', 'http://d2.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (3, 'd3', 'Hans', 'Three', 'German', 'http://d3.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (4, 'd4', 'Marco', 'Four', 'Italian', 'http://d4.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (5, 'd5', 'Carlos', 'Five', 'Spanish', 'http://d5.com');
+
+-- Decoy 1: Wrong raceId (932), but highest fastestLapSpeed ('250.000')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (1, 932, 1, 1, 1, 1, '1', 1, 25.0, 50, 45, 1, '1:10.000', '250.000', 1);
+
+-- Decoy 2: Right raceId (933), high speed ('240.000'), but fastestLapTime IS NULL
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (2, 933, 2, 1, 1, 1, '1', 1, 25.0, 50, 40, 1, NULL, '240.000', 1);
+
+-- Target Winner: Right raceId (933), valid fastestLapTime ('1:35.000'), highest valid speed ('220.500'), but bad rank (2), bad position (3), higher lap time than Decoy 3
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (3, 933, 3, 1, 3, 3, '3', 3, 15.0, 50, 30, 2, '1:35.000', '220.500', 1);
+
+-- Decoy 3: Right raceId (933), valid fastestLapTime ('1:20.000' - smaller/faster string than target), rank = 1, position = 2, lower speed ('210.000')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (4, 933, 4, 1, 2, 2, '2', 2, 18.0, 50, 55, 1, '1:20.000', '210.000', 1);
+
+-- Decoy 4: Wrong raceId (934), highest speed ('260.000')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (5, 934, 5, 1, 1, 1, '1', 1, 25.0, 50, 10, 1, '1:05.000', '260.000', 1);
+
+-- Decoy tables (driverStandings, lapTimes) pointing to different drivers in race 933
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins)
+VALUES (1, 933, 5, 100.0, 1, '1', 4);
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds)
+VALUES (933, 4, 1, 1, '1:15.000', 75000);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL handling in ORDER BY T2.fastestLapSpeed DESC.
+-- In SQLite, NULLs are considered smaller than any non-NULL value, so in DESC order without NULLS LAST, NULL appears FIRST!
+-- However, a mutant that omits fastestLapSpeed or uses IS NOT NULL on fastestLapSpeed vs fastestLapTime will diverge here.
+-- Also tests when fastestLapSpeed has lexicographical vs numeric ordering differences (e.g. '99.9' vs '200.0'), or tie-breaking on T1.driverId ASC.
+INSERT INTO seasons (year, url) VALUES (2015, 'http://en.wikipedia.org/wiki/2015_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'circuit1', 'Circuit 1', 'http://circuit1.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'const1', 'Constructor 1', 'http://const1.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (933, 2015, 2, 1, 'Race 933', '2015-03-29', 'http://race933.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (10, 'd10', 'Driver', 'Ten', 'Australian', 'http://d10.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (20, 'd20', 'Driver', 'Twenty', 'Brazilian', 'http://d20.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (30, 'd30', 'Driver', 'Thirty', 'Canadian', 'http://d30.com');
+
+-- Tie in fastestLapSpeed ('215.500') between driver 20 and driver 10.
+-- T1.driverId NULLS LAST (which is ASC by default) should pick driverId = 10 ('Australian') over driverId = 20 ('Brazilian').
+-- Note: resultId is inverted (driver 20 has smaller resultId = 1, driver 10 has resultId = 2) to separate driverId tie-breaker from resultId tie-breaker!
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (1, 933, 20, 1, 1, 1, '1', 1, 25.0, 50, 10, 1, '1:30.000', '215.500', 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (2, 933, 10, 1, 2, 2, '2', 2, 18.0, 50, 12, 2, '1:30.000', '215.500', 1);
+
+-- Lower speed row
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (3, 933, 30, 1, 3, 3, '3', 3, 15.0, 50, 15, 3, '1:32.000', '210.100', 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Constructor nationality vs Driver nationality (kills mutants selecting constructors.nationality).
+-- 2. Removal of LIMIT 1 (multiple rows returned if LIMIT 1 is omitted or changed to LIMIT 2).
+-- 3. Lexicographical vs Numeric speed comparison (fastestLapSpeed is TEXT: '98.500' > '230.000' in TEXT DESC, vs CAST(fastestLapSpeed AS REAL)).
+INSERT INTO seasons (year, url) VALUES (2015, 'http://en.wikipedia.org/wiki/2015_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'circuit1', 'Circuit 1', 'http://circuit1.com');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'c1', 'Const 1', 'Austrian', 'http://c1.com');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'c2', 'Const 2', 'Japanese', 'http://c2.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (933, 2015, 2, 1, 'Race 933', '2015-03-29', 'http://race933.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'd1', 'Max', 'One', 'Dutch', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'd2', 'Yuki', 'Two', 'Mexican', 'http://d2.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (3, 'd3', 'Valtteri', 'Three', 'Finnish', 'http://d3.com');
+
+-- Driver 1: speed '95.000' (lexicographically greater than '205.000', numerically smaller)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (10, 933, 1, 1, 2, 2, '2', 2, 18.0, 50, 10, 2, '1:45.000', '95.000', 1);
+
+-- Driver 2: speed '205.000' (numerically largest, lexicographically smaller than '95.000')
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (20, 933, 2, 2, 1, 1, '1', 1, 25.0, 50, 12, 1, '1:25.000', '205.000', 1);
+
+-- Driver 3: fastestLapTime is NULL, fastestLapSpeed is NULL
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (30, 933, 3, 1, 3, 3, '3', 3, 15.0, 50, NULL, 0, NULL, NULL, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Case where all rows in race 933 have fastestLapTime IS NULL (Query should return empty set, whereas a mutant omitting "NOT T2.fastestLapTime IS NULL" or using OR instead of AND will return a row).
+INSERT INTO seasons (year, url) VALUES (2015, 'http://en.wikipedia.org/wiki/2015_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'circuit1', 'Circuit 1', 'http://circuit1.com');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'c1', 'Const 1', 'British', 'http://c1.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (933, 2015, 2, 1, 'Race 933', '2015-03-29', 'http://race933.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (934, 2015, 3, 1, 'Race 934', '2015-04-05', 'http://race934.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'd1', 'Driver', 'One', 'American', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'd2', 'Driver', 'Two', 'Polish', 'http://d2.com');
+
+-- Race 933 has only NULL fastestLapTime
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (1, 933, 1, 1, 1, 1, '1', 1, 25.0, 50, 10, 1, NULL, '210.000', 1);
+
+-- Race 934 has non-NULL fastestLapTime (kills mutant with WHERE T2.raceId = 933 OR NOT T2.fastestLapTime IS NULL)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (2, 934, 2, 1, 1, 1, '1', 1, 25.0, 50, 10, 1, '1:25.000', '200.000', 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Row in race 933 where fastestLapTime IS NOT NULL, but fastestLapSpeed IS NULL, alongside a row where both are NOT NULL.
+-- Kills mutants that swap `NOT T2.fastestLapTime IS NULL` with `NOT T2.fastestLapSpeed IS NULL`.
+-- Also tests INNER JOIN vs LEFT JOIN from drivers when a driver has no results.
+INSERT INTO seasons (year, url) VALUES (2015, 'http://en.wikipedia.org/wiki/2015_F1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'circuit1', 'Circuit 1', 'http://circuit1.com');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'c1', 'Const 1', 'British', 'http://c1.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (933, 2015, 2, 1, 'Race 933', '2015-03-29', 'http://race933.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'd1', 'Driver', 'One', 'Swedish', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'd2', 'Driver', 'Two', 'Danish', 'http://d2.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (3, 'd3', 'Driver', 'Three', 'Norwegian', 'http://d3.com');
+
+-- Driver 2: fastestLapTime is NOT NULL ('1:30.000'), but fastestLapSpeed IS NULL.
+-- In SQLite, ORDER BY fastestLapSpeed DESC puts non-NULL values ('200.000') BEFORE NULL values.
+-- Wait: if Driver 2 is the ONLY row with fastestLapTime IS NOT NULL, then:
+-- Reference query (checks fastestLapTime IS NOT NULL) -> returns 'Danish'.
+-- Mutant query (checks fastestLapSpeed IS NOT NULL) -> returns 'Norwegian' (Driver 3, where fastestLapTime IS NULL but fastestLapSpeed IS NOT NULL).
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (1, 933, 2, 1, 1, 1, '1', 1, 25.0, 50, 10, 1, '1:30.000', NULL, 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId)
+VALUES (2, 933, 3, 1, 2, 2, '2', 2, 18.0, 50, 11, 2, NULL, '215.000', 1);
+```

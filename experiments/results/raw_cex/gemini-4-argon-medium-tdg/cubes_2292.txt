@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests divergence between ordering by Project_ID DESC vs COUNT(*) DESC, Document_ID DESC, or Document_Name DESC.
+-- Also tests INNER JOIN vs FROM Documents by leaving out child rows in Statements/Documents_with_Expenses for Project 30.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type 1', 'Desc 1');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('B1', 'Budget 1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (10, 'Project 10');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (20, 'Project 20');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (30, 'Project 30');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (40, 'Unreferenced Project 40');
+
+-- Project 10 has the highest count (3) and highest Document_Name ('Z_Doc') and highest Document_ID (100)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (98, 10, 'T1', '2023-01-01', 'Z_Doc', 'D1', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (99, 10, 'T1', '2023-01-02', 'Z_Doc', 'D2', 'O2');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (100, 10, 'T1', '2023-01-03', 'Z_Doc', 'D3', 'O3');
+
+-- Project 20 has 2 documents with different names
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (50, 20, 'T1', '2023-02-01', 'M_Doc_1', 'D4', 'O4');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (51, 20, 'T1', '2023-02-02', 'M_Doc_2', 'D5', 'O5');
+
+-- Project 30 has the highest Project_ID in Documents (30), lowest count (1), lowest Document_Name ('A_Doc'), lowest Document_ID (1)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 30, 'T1', '2023-03-01', 'A_Doc', 'D6', 'O6');
+
+-- Child tables populated only for Project 10 to kill erroneous joins with Statements or Documents_with_Expenses
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (100, 'Statement for Doc 100');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (1, 100, 'Account 1');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (100, 'B1', 'Expense for Doc 100');
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY (document_name, project_id) vs GROUP BY (project_id) when a mutant orders or filters by count.
+-- Project 50 has 2 docs with DIFFERENT names (count 1 each per group, total 2 for project).
+-- Project 40 has 2 docs with the SAME name (count 2 in group).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type 1', 'Desc 1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (40, 'Project 40');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (50, 'Project 50');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 40, 'T1', '2023-01-01', 'Shared_Name', 'D1', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 40, 'T1', '2023-01-02', 'Shared_Name', 'D2', 'O2');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 50, 'T1', '2023-01-03', 'Unique_Name_1', 'D3', 'O3');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 50, 'T1', '2023-01-04', 'Unique_Name_2', 'D4', 'O4');
+```
+
+```sql
+-- DATASET 3
+-- Tests handling of NULL values in Project_ID, Document_Name, and Document_Type_Code.
+-- In SQLite, NULLs are considered smaller than any non-NULL value, so ORDER BY project_id DESC places non-NULLs first.
+-- Also tests INNER JOIN vs LEFT JOIN on Ref_Document_Types when Document_Type_Code is NULL for the target row.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type 1', 'Desc 1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Project 1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (5, 'Project 5');
+
+-- Document with NULL Project_ID (has highest count to trap count-based mutants)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, NULL, 'T1', '2023-01-01', 'Null_Proj_Doc', 'D1', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, NULL, 'T1', '2023-01-02', 'Null_Proj_Doc', 'D2', 'O2');
+
+-- Document with Project_ID 1
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 1, 'T1', '2023-01-03', 'Valid_Doc', 'D3', 'O3');
+
+-- Document with highest Project_ID (5), but NULL Document_Name and NULL Document_Type_Code (kills COUNT(document_name) or INNER JOIN Ref_Document_Types)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 5, NULL, '2023-01-04', NULL, 'D4', 'O4');
+```
+
+```sql
+-- DATASET 4
+-- Tests integer vs lexicographical sorting on Project_ID (e.g., if a mutant casts Project_ID to TEXT: '9' > '100', whereas 100 > 9).
+-- Also tests negative Project_IDs.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type 1', 'Desc 1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (-500, 'Negative Project');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (9, 'Project 9');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (100, 'Project 100');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, -500, 'T1', '2023-01-01', 'Doc_A', 'D1', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 9, 'T1', '2023-01-02', 'Doc_B', 'D2', 'O2');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 100, 'T1', '2023-01-03', 'Doc_B', 'D3', 'O3');
+```
+
+```sql
+-- DATASET 5
+-- Tests missing LIMIT 1 clause when the highest Project_ID itself has multiple distinct Document_Name groups.
+-- Without LIMIT 1, a query would return [77, 77] (2 rows) instead of [77] (1 row).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type 1', 'Desc 1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (77, 'Project 77');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 77, 'T1', '2023-01-01', 'Doc_Alpha', 'D1', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 77, 'T1', '2023-01-02', 'Doc_Beta', 'D2', 'O2');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 77, 'T1', '2023-01-03', 'Doc_Gamma', 'D3', 'O3');
+```

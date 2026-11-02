@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests basic execution, join on Physician.Name = Department.Name (disconnected from Head = EmployeeID), CROSS JOIN decoupling, and PrimaryAffiliation filter (1 vs 0 vs NULL).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Cardiology', 'Staff Internist', 1001);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'John Dorian', 'Surgical Attending', 1002);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (3, 'Christopher Turk', 'Resident', 1003);
+
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (10, 2, 'Cardiology');
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (20, 1, 'Surgery');
+
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (3, 20, 1);
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (2, 10, 0);
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (1, 10, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate preservation (bag semantics vs DISTINCT) and ORDER BY physician, department.
+-- Two matching (Physician, Department) pairs on Name produce 2 rows on LHS, duplicating each RHS row from the CROSS JOIN.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Neurology', 'Attending', 2001);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Neurology', 'Resident', 2002);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (3, 'Elliot Reid', 'Specialist', 2003);
+
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (10, 3, 'Neurology');
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (20, 3, 'Oncology');
+
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (3, 20, 1);
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (3, 10, 1);
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (1, 20, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty LHS of the CROSS JOIN: Physician.Name never equals Department.Name, even though Head = EmployeeID and Affiliated_With has PrimaryAffiliation = 1.
+-- The reference query must return 0 rows, killing mutants that omit the LHS join or join on Head = EmployeeID instead of Name = Name.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Perry Cox', 'Chief of Medicine', 3001);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Bob Kelso', 'Chief of Medicine', 3002);
+
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (10, 1, 'General Medicine');
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (20, 2, 'Pediatrics');
+
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (1, 10, 1);
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (2, 20, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty RHS of the CROSS JOIN and boundary values for PrimaryAffiliation (0, 2, -1, NULL).
+-- LHS has matches on Name, but no row in Affiliated_With has PrimaryAffiliation = 1. Must return 0 rows (kills LEFT JOIN mutants or > 0 / != 0 mutants).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Psychiatry', 'Attending', 4001);
+
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (10, 1, 'Psychiatry');
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (20, 1, 'Dermatology');
+
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (1, 10, 0);
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (1, 20, 2);
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL handling in Name join and NULLS LAST in ORDER BY.
+-- Both Physician.Name and Department.Name have NULLs (which must not match in INNER JOIN ON LHS.name = RHS.name).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, NULL, 'Intern', 5001);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Radiology', 'Attending', 5002);
+
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (10, 1, NULL);
+INSERT INTO "Department" ("DepartmentID", "Head", "Name") VALUES (20, 2, 'Radiology');
+
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (2, 10, 1);
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (1, NULL, 1);
+INSERT INTO "Affiliated_With" ("Physician", "Department", "PrimaryAffiliation") VALUES (NULL, 20, 1);
+```

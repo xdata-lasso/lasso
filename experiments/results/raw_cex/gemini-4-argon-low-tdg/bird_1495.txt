@@ -1,0 +1,107 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering by Date ('201309'), ordering by Consumption DESC, and LIMIT 1.
+-- Kills mutants that omit the WHERE clause, invert DESC/ASC, or omit LIMIT 1.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201309', 150.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201309', 300.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201308', 999.9);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201308', 500.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T1.CustomerID ASC when Consumption is equal.
+-- Kills mutants that omit the secondary sort key or sort CustomerID DESC.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (30, 'LAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (30, '201309', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201309', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201309', 250.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests handling of NULL values and negative values in Consumption.
+-- In SQLite, SUM(NULL) is NULL, which sorts lower than any number in DESC order.
+-- Kills mutants using COALESCE improperly or sorting NULLS FIRST.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201309', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201309', -50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201309', -10.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT JOIN when customers exist without '201309' records.
+-- Kills mutants that replace INNER JOIN with LEFT JOIN and place the Date filter in the ON clause.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201309', -100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201310', 500.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests scenario where no records match the Date '201309' (empty result set).
+-- Kills mutants that weaken the WHERE condition (e.g., LIKE '2013%', >= '201309').
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201308', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201310', 200.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201309 ', 300.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests confusion between SUM(T2.Consumption) and COUNT() or MAX() when multiple dates exist.
+-- If GROUP BY is kept but WHERE is omitted, Customer 1 has SUM=600 across dates, while Customer 2 has 400 in '201309'.
+-- Also includes decoy data in transactions_1k to kill mutants that join or query the wrong table.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201309', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201308', 250.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201310', 250.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201309', 400.0);
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 1, 'CZE', 'Value');
+INSERT INTO products (ProductID, Description) VALUES (100, 'Diesel');
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2013-09-01', '12:00', 1, 111, 10, 100, 1000, 2000.0);
+```
+
+```sql
+-- DATASET 7
+-- Tests tie-breaking when all '201309' Consumptions are NULL.
+-- Ensures secondary sort T1.CustomerID ASC works even when primary sort keys are all NULL.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (8, 'LAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (5, '201309', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201309', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (8, '201309', NULL);
+```
+
+```sql
+-- DATASET 8
+-- Tests floating point precision in Consumption ordering and zero consumption values.
+-- Kills mutants that cast Consumption to INTEGER before summing/ordering.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201309', 0.9);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201309', 0.1);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201309', 0.0);
+```

@@ -1,0 +1,68 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality: duplicate removal (DISTINCT), descending insertion order to verify ORDER BY ASC, and standard foreign keys.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'John', 'Doe');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (10, 1, 'Checking');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (100, 1, 'DEBIT', '1234567890');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (10, 100, 1, NULL, 'WITHDRAWAL', '2023-01-01 10:00:00', 100.0, 'ATM', 'None');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (10, 100, 2, 1, 'PAYMENT', '2023-01-02 11:00:00', 50.0, 'Store', 'None');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (10, 100, 3, 2, 'DEPOSIT', '2023-01-03 12:00:00', 200.0, 'Branch', 'None');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (10, 100, 4, 3, 'PAYMENT', '2023-01-04 13:00:00', 25.0, 'Online', 'None');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL foreign keys (account_id and card_id) to kill mutants that unnecessarily INNER JOIN with Accounts or Customers_Cards.
+-- Also tests ordering when sorted by transaction_amount, transaction_date, or transaction_id differs from sorting by transaction_type.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Alice', 'Smith');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (20, 1, 'Savings');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (200, 1, 'CREDIT', '9876543210');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (NULL, 200, 10, NULL, 'FEE', '2023-05-03 09:00:00', 500.0, 'No Account', 'Detail A');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (20, NULL, 20, 10, 'INTEREST', '2023-05-02 09:00:00', 10.0, 'No Card', 'Detail B');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (NULL, NULL, 30, 20, 'ADJUSTMENT', '2023-05-01 09:00:00', 1000.0, 'Neither', 'Detail C');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL values, empty strings, and case sensitivity in transaction_type, as well as zero/negative transaction_amount.
+-- Kills mutants adding "WHERE transaction_type IS NOT NULL", "WHERE transaction_amount > 0", or "GROUP BY LOWER(transaction_type)".
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (30, NULL, 'System Account');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (300, NULL, 'SYSTEM', '0000000000');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (30, 300, 1, NULL, NULL, '2023-06-01 00:00:00', 0.0, 'Null type 1', 'None');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (30, 300, 2, 1, NULL, '2023-06-02 00:00:00', -50.0, 'Null type 2', 'None');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (30, 300, 3, 2, '', '2023-06-03 00:00:00', -10.0, 'Empty string type', 'None');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (30, 300, 4, 3, 'refund', '2023-06-04 00:00:00', 0.0, 'Lowercase', 'None');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (30, 300, 5, 4, 'REFUND', '2023-06-05 00:00:00', 100.0, 'Uppercase', 'None');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong table/column selection mutants (e.g., selecting card_type_code from Customers_Cards, or selecting transaction_comment).
+-- Also includes > 10 distinct transaction types to kill mutants with arbitrary LIMIT clauses (e.g., LIMIT 1, LIMIT 5, LIMIT 10).
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Bob', 'Builder');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (40, 1, 'Main');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (400, 1, 'VISA', '1111');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (401, 1, 'MASTERCARD', '2222');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (402, 1, 'AMEX', '3333');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 400, 1, 'TYPE_L', 'COMM_A');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 400, 2, 'TYPE_K', 'COMM_B');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 400, 3, 'TYPE_J', 'COMM_C');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 400, 4, 'TYPE_I', 'COMM_D');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 401, 5, 'TYPE_H', 'COMM_E');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 401, 6, 'TYPE_G', 'COMM_F');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 401, 7, 'TYPE_F', 'COMM_G');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 401, 8, 'TYPE_E', 'COMM_H');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 401, 9, 'TYPE_D', 'COMM_I');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 401, 10, 'TYPE_C', 'COMM_J');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 401, 11, 'TYPE_B', 'COMM_K');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_comment") VALUES (40, 401, 12, 'TYPE_A', 'COMM_L');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty Financial_Transactions table while other tables are populated.
+-- Kills mutants that query other tables (like Customers_Cards or Accounts) or use RIGHT/OUTER joins improperly.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Empty', 'Tester');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (50, 1, 'Unused Account');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number") VALUES (500, 1, 'UNUSED_CARD', '9999');
+```

@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests basic matching of document_id = 7, boundary conditions (<7, >7), and filters out documents that have no drafts or drafts that have different IDs.
+-- Also includes multiple Draft_Copies for document 7 to catch mutants that erroneously JOIN Draft_Copies without DISTINCT.
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Contract');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Active');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA1', 'FedEx', 'Courier');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (6, 'SA1', 'DS1', 'DT1', '2023-01-01', 'R6', 'Doc 6 Details');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (7, 'SA1', 'DS1', 'DT1', '2023-01-02', 'R7', 'Doc 7 Details');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (8, 'SA1', 'DS1', 'DT1', '2023-01-03', 'R8', 'Doc 8 Details');
+
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (6, 7, 'Draft for Doc 6 with Draft Number 7');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (7, 10, 'Target Draft for Doc 7');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (8, 1, '7');
+
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (7, 10, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests when document_id = 7 has NULL draft_details vs other documents having non-NULL draft_details.
+-- Also tests when document 7 has NO Draft_Copies (catches mutants that INNER JOIN Draft_Copies).
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (7, NULL, NULL, NULL, '2023-05-01', 'R7', 'Doc 7');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, NULL, NULL, NULL, '2023-05-02', 'R1', 'Doc 1');
+
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (7, 2, NULL);
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (1, 7, 'Non-null draft on doc 1');
+```
+
+```sql
+-- DATASET 3
+-- Tests when Document 7 exists in Documents (and Documents_Mailed), but has NO rows in Document_Drafts (empty result expected).
+-- Catches mutants that use LEFT JOIN from Documents to Document_Drafts or query the wrong table.
+INSERT INTO Addresses (address_id, address_details) VALUES (100, '123 Main St');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (7, NULL, NULL, NULL, '2023-06-01', '7', 'Details for 7');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (5, NULL, NULL, NULL, '2023-06-02', '5', 'Details for 5');
+
+INSERT INTO Documents_Mailed (document_id, mailed_to_address_id, mailing_date) VALUES (7, 100, '2023-06-03');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (5, 1, 'Draft for Doc 5');
+```
+
+```sql
+-- DATASET 4
+-- Tests duplicate draft_details values across different documents and ensures proper filtering when WHERE clause might be mutated or omitted.
+-- Also populates all child tables (Draft_Copies, Circulation_History) to catch unnecessary joins.
+INSERT INTO Roles (role_code, role_description) VALUES ('R1', 'Editor');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (7, 'R1', 'Emp 7', 'Details');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, NULL, NULL, NULL, '2023-01-01', 'R2', 'D2');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (7, NULL, NULL, NULL, '2023-01-02', 'R7', 'D7');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (9, NULL, NULL, NULL, '2023-01-03', 'R9', 'D9');
+
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (2, 100, 'Zebra Draft');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (7, 50, 'Alpha Draft');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (9, 10, 'Alpha Draft');
+
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (7, 50, 7);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (7, 50, 7, 7);
+```
+
+```sql
+-- DATASET 5
+-- Tests negative and zero document_ids, and string/numeric edge cases in draft_details and draft_number.
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (-7, NULL, NULL, NULL, '2023-01-01', 'RN7', 'Doc -7');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (0, NULL, NULL, NULL, '2023-01-01', 'R0', 'Doc 0');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (7, NULL, NULL, NULL, '2023-01-01', 'R7', 'Doc 7');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (70, NULL, NULL, NULL, '2023-01-01', 'R70', 'Doc 70');
+
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (-7, 1, 'Negative Seven');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (0, 0, 'Zero');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (7, 7, 'Exact Seven');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (70, 70, 'Seventy');
+```

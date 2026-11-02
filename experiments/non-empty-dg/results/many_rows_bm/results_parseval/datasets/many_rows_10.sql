@@ -1,0 +1,12 @@
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (-2147483648, 'customer_name_1', 'US', 'GOLD', 500.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (-2147483647, 'customer_name_2', 'US', 'GOLD', 501.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (-2147483646, 'customer_name_3', 'US', 'GOLD', 502.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (-2147483645, 'customer_name_4', 'US', 'GOLD', 502.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (2, 'C', 'US', 'GOLD', 500.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (3, 'A', 'US', 'GOLD', 501.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (4, 'customer_name_7', 'US', 'GOLD', 500.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (5, 'customer_name_8', 'US', 'GOLD', 500.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (6, 'customer_name_9', 'US', 'GOLD', 501.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (7, 'customer_name_10', 'US', 'GOLD', 500.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (8, 'customer_name_11', 'US', 'GOLD', 500.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (9, 'customer_name_12', 'US', 'GOLD', 500.0);

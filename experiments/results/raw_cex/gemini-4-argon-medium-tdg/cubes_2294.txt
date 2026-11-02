@@ -1,0 +1,138 @@
+```sql
+-- DATASET 1
+-- Tests basic boundary conditions for COUNT(*) < 3 (counts of 0, 1, 2, 3, and 4), ordering (inserted out of alphabetical order), and unused Ref_Document_Types (catching LEFT JOIN from Ref_Document_Types).
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('DOC_ZERO', 'Zero Docs', 'Count is 0');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('DOC_TWO', 'Two Docs', 'Count is 2');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('DOC_ONE', 'One Doc', 'Count is 1');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('DOC_THREE', 'Three Docs', 'Count is 3');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('DOC_FOUR', 'Four Docs', 'Count is 4');
+
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (1, 'Project Alpha');
+
+-- DOC_TWO: 2 documents (inserted before DOC_ONE to test ORDER BY)
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, 1, 'DOC_TWO', '2023-01-01', 'D1', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, 1, 'DOC_TWO', '2023-01-02', 'D2', 'Desc', 'Other');
+
+-- DOC_ONE: 1 document
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (3, 1, 'DOC_ONE', '2023-01-03', 'D3', 'Desc', 'Other');
+
+-- DOC_THREE: 3 documents (boundary n = 3, should be excluded)
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (4, 1, 'DOC_THREE', '2023-01-04', 'D4', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (5, 1, 'DOC_THREE', '2023-01-05', 'D5', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (6, 1, 'DOC_THREE', '2023-01-06', 'D6', 'Desc', 'Other');
+
+-- DOC_FOUR: 4 documents (boundary n > 3, should be excluded)
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (7, 1, 'DOC_FOUR', '2023-01-07', 'D7', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (8, 1, 'DOC_FOUR', '2023-01-08', 'D8', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (9, 1, 'DOC_FOUR', '2023-01-09', 'D9', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (10, 1, 'DOC_FOUR', '2023-01-10', 'D10', 'Desc', 'Other');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling and COUNT(*) vs COUNT(column) / COUNT(DISTINCT column) mutants.
+-- Also tests ordering when ordering by COUNT(*) differs from ordering by Document_Type_Code.
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('TYPE_A', 'Type A', 'Has 2 docs, opposite order of count vs code');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('TYPE_B', 'Type B', 'Has 1 doc, opposite order of count vs code');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('TYPE_C', 'Type C', 'Has 3 docs with NULLs and duplicates');
+
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (10, 'P10');
+
+-- TYPE_A has 2 docs (Count = 2, Code = 'TYPE_A')
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (101, 10, 'TYPE_A', '2023-01-01', 'SameName', 'SameDesc', 'SameOther');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (102, 10, 'TYPE_A', '2023-01-01', 'SameName', 'SameDesc', 'SameOther');
+
+-- TYPE_B has 1 doc (Count = 1, Code = 'TYPE_B'). If ordered by n ASC, TYPE_B comes before TYPE_A. If ordered by code ASC, TYPE_A comes before TYPE_B.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (103, NULL, 'TYPE_B', NULL, NULL, NULL, NULL);
+
+-- TYPE_C has 3 docs, but Project_ID and other columns are NULL or duplicated.
+-- COUNT(*) is 3 (excluded), but COUNT(Project_ID) is 1 (would be falsely included), and COUNT(DISTINCT Project_ID) is 1.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (104, 10, 'TYPE_C', NULL, 'DupName', NULL, NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (105, NULL, 'TYPE_C', NULL, 'DupName', NULL, NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (106, NULL, 'TYPE_C', NULL, 'DupName', NULL, NULL);
+
+-- Document with NULL Document_Type_Code (1 row, so COUNT(*) is 1, COUNT(Document_Type_Code) is 0).
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (107, 10, NULL, '2023-01-01', 'NullTypeDoc', 'Desc', 'Other');
+```
+
+```sql
+-- DATASET 3
+-- Tests mutants that erroneously INNER JOIN with Projects, Statements, Documents_with_Expenses, or Accounts.
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T_NO_PROJ', 'No Project', 'Doc without project');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T_NO_CHILD', 'No Child', 'Doc without statements or expenses');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T_PARTIAL', 'Partial Child', '3 docs, but only 1 has child rows');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T_FANOUT', 'Fanout', '2 docs, but multiple accounts causing join fanout to 3');
+
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('B1', 'Budget 1');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (1, 'Proj 1');
+
+-- T_NO_PROJ: 1 document, Project_ID is NULL. An INNER JOIN with Projects will drop this.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, NULL, 'T_NO_PROJ', '2023-01-01', 'D1', 'Desc', 'Other');
+
+-- T_NO_CHILD: 1 document, has Project_ID, but no rows in Statements or Documents_with_Expenses.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, 1, 'T_NO_CHILD', '2023-01-02', 'D2', 'Desc', 'Other');
+
+-- T_PARTIAL: 3 documents (should be excluded since n=3), but only 1 has Project/Statement/Expense.
+-- An INNER JOIN with any of those tables reduces the count to 1, falsely including T_PARTIAL.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (3, 1, 'T_PARTIAL', '2023-01-03', 'D3', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (4, NULL, 'T_PARTIAL', '2023-01-04', 'D4', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (5, NULL, 'T_PARTIAL', '2023-01-05', 'D5', 'Desc', 'Other');
+
+INSERT INTO Statements (Statement_ID, Statement_Details) VALUES (3, 'Stmt for D3');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (3, 'B1', 'Exp for D3');
+INSERT INTO Accounts (Account_ID, Statement_ID, Account_Details) VALUES (1, 3, 'Acct 1 for D3');
+
+-- T_FANOUT: 2 documents (should be included since n=2), both have Statements/Expenses, and D6 has 2 Accounts.
+-- Joining with Accounts increases row count for T_FANOUT to 3, falsely excluding it.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (6, 1, 'T_FANOUT', '2023-01-06', 'D6', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (7, 1, 'T_FANOUT', '2023-01-07', 'D7', 'Desc', 'Other');
+
+INSERT INTO Statements (Statement_ID, Statement_Details) VALUES (6, 'Stmt for D6');
+INSERT INTO Statements (Statement_ID, Statement_Details) VALUES (7, 'Stmt for D7');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (6, 'B1', 'Exp for D6');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (7, 'B1', 'Exp for D7');
+INSERT INTO Accounts (Account_ID, Statement_ID, Account_Details) VALUES (2, 6, 'Acct 1 for D6');
+INSERT INTO Accounts (Account_ID, Statement_ID, Account_Details) VALUES (3, 6, 'Acct 2 for D6');
+INSERT INTO Accounts (Account_ID, Statement_ID, Account_Details) VALUES (4, 7, 'Acct 1 for D7');
+```
+
+```sql
+-- DATASET 4
+-- Tests missing GROUP BY mutants (where total count of table is < 3) and GROUP BY wrong column (e.g., Project_ID or Document_Name).
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('CODE_Z', 'Code Z', 'Desc Z');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('CODE_A', 'Code A', 'Desc A');
+
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (1, 'P1');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (2, 'P2');
+
+-- Total rows in Documents = 2 (which is < 3).
+-- A mutant without GROUP BY will return only 1 row instead of 2, or fail to group properly.
+-- Both rows share the same Project_ID (1) and Document_Name ('CommonName'); grouping by Project_ID or Document_Name instead of Document_Type_Code will collapse them into 1 row.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (10, 1, 'CODE_Z', '2023-05-01', 'CommonName', 'CommonDesc', 'CommonOther');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (20, 1, 'CODE_A', '2023-05-01', 'CommonName', 'CommonDesc', 'CommonOther');
+```
+
+```sql
+-- DATASET 5
+-- Tests mutants that group by Project_ID or other attributes where a Document_Type_Code has >= 3 documents across different projects, or where a single project has >= 3 documents of different types.
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T1', 'Type 1', '3 docs across 3 projects');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T2', 'Type 2', '1 doc in busy project');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T3', 'Type 3', '1 doc in busy project');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T4', 'Type 4', '1 doc in busy project');
+
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (1, 'P1');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (2, 'P2');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (3, 'P3');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (4, 'Busy Project');
+
+-- T1 has 3 documents (should be excluded), each in a different project (1, 2, 3).
+-- If grouped by (Document_Type_Code, Project_ID), each group has count 1 (< 3), falsely including T1.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, 1, 'T1', '2023-01-01', 'N1', 'D1', 'O1');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, 2, 'T1', '2023-01-02', 'N2', 'D2', 'O2');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (3, 3, 'T1', '2023-01-03', 'N3', 'D3', 'O3');
+
+-- T2, T3, T4 each have 1 document (should all be included), all in Project 4 (which has 3 documents total).
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (4, 4, 'T4', '2023-01-04', 'N4', 'D4', 'O4');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (5, 4, 'T2', '2023-01-05', 'N5', 'D5', 'O5');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (6, 4, 'T3', '2023-01-06', 'N6', 'D6', 'O6');
+```

@@ -1,0 +1,46 @@
+-- Schema DDL
+CREATE TABLE "MOVIE" (
+    "MID" INT,
+    "TITLE" TEXT,
+    "YEAR" INT,
+    "DIRECTOR" TEXT,
+    PRIMARY KEY ("MID")
+);
+CREATE TABLE "REVIEWER" (
+    "RID" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("RID")
+);
+CREATE TABLE "RATING" (
+    "RID" INT,
+    "MID" INT,
+    "STARS" INT,
+    "RATINGDATE" DATE,
+    FOREIGN KEY ("RID") REFERENCES "REVIEWER"("RID"),
+    FOREIGN KEY ("MID") REFERENCES "MOVIE"("MID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO MOVIE VALUES (1, 1, 0, 0);
+INSERT INTO MOVIE VALUES (0, 0, 0, 0);
+INSERT INTO REVIEWER VALUES (-1, 0);
+INSERT INTO REVIEWER VALUES (0, 0);
+INSERT INTO RATING VALUES (-1, 0, 0, '0001-01-01');
+INSERT INTO RATING VALUES (-1, 1, 0, '0001-01-01');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT title FROM (SELECT * FROM movie AS LHS WHERE NOT EXISTS(SELECT 1 FROM rating AS RHS WHERE (LHS.mid = RHS.mid))) ORDER BY title;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT title FROM Movie WHERE NOT mID IN (SELECT mID FROM Rating);
+
+/*
+Prediction Result:
+*/

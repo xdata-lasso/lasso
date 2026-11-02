@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Core arithmetic, CAST to REAL (non-integer division), column disambiguation (amount vs spent/remaining), and SUM vs AVG/MAX/MIN/COUNT with duplicate amounts.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Yearly Kickoff', '2023-09-01', 'Meeting', 'Notes 1', 'Room A', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'October Meeting', '2023-10-01', 'Meeting', 'Notes 2', 'Room B', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Advertisement', 10.5, 9.5, 20, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Advertisement', 5.0, 15.0, 20, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Advertisement', 1.0, 2.0, 15, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Advertisement', 4.0, 6.0, 10, 'Open', 'E2');
+```
+
+```sql
+-- DATASET 2
+-- Tests WHERE filters (T1.category = 'Advertisement' AND T2.type = 'Meeting') and CASE WHEN conditions against other event names, categories, and event types.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Yearly Kickoff', '2023-09-01', 'Meeting', 'Valid', 'Loc 1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'October Meeting', '2023-10-01', 'Meeting', 'Valid', 'Loc 2', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'Yearly Kickoff', '2023-09-02', 'Social', 'Wrong Type', 'Loc 3', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E4', 'October Meeting', '2023-10-02', 'Event', 'Wrong Type', 'Loc 4', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E5', 'November Meeting', '2023-11-01', 'Meeting', 'Other Event Name', 'Loc 5', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Advertisement', 1.0, 1.0, 35, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 1.0, 1.0, 100, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Advertisement', 1.0, 1.0, 200, 'Open', 'E3');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Advertisement', 1.0, 1.0, 50, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Food', 1.0, 1.0, 300, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B6', 'Advertisement', 1.0, 1.0, 400, 'Open', 'E4');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B7', 'Advertisement', 1.0, 1.0, 500, 'Open', 'E5');
+```
+
+```sql
+-- DATASET 3
+-- Tests ELSE 0 in CASE WHEN for the numerator: no 'Yearly Kickoff' rows match, but 'October Meeting' rows do.
+-- Refutes mutants that omit ELSE 0 (yielding NULL / 50 = NULL instead of 0.0 / 50 = 0.0) or filter event_name in WHERE with AND.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'October Meeting', '2023-10-01', 'Meeting', 'Valid', 'Room 1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Spring Banquet', '2023-04-01', 'Meeting', 'Other', 'Room 2', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Advertisement', 10.0, 40.0, 50, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Advertisement', 20.0, 60.0, 80, 'Open', 'E2');
+```
+
+```sql
+-- DATASET 4
+-- Tests JOIN semantics, orphaned rows, NULL amounts, and multiple events with the same target event_name.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Yearly Kickoff', '2022-09-01', 'Meeting', 'Year 1', 'Hall A', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Yearly Kickoff', '2023-09-01', 'Meeting', 'Year 2', 'Hall B', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'October Meeting', '2022-10-01', 'Meeting', 'Year 1', 'Hall A', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E4', 'October Meeting', '2023-10-01', 'Meeting', 'Year 2', 'Hall B', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E5', 'Yearly Kickoff', '2024-09-01', 'Meeting', 'No Budget', 'Hall C', 'Planned');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Advertisement', 0.0, 0.0, 12, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Advertisement', 0.0, 0.0, 18, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Advertisement', 0.0, 0.0, NULL, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Advertisement', 0.0, 0.0, 16, 'Closed', 'E3');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Advertisement', 0.0, 0.0, 24, 'Open', 'E4');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B6', 'Advertisement', 0.0, 0.0, 99, 'Open', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests substring/LIKE mutations on string literals (e.g., 'Yearly Kickoff Extra', 'Sub Advertisement', 'Board Meeting').
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Yearly Kickoff', '2023-09-01', 'Meeting', 'Exact', 'Loc', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'October Meeting', '2023-10-01', 'Meeting', 'Exact', 'Loc', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'Yearly Kickoff Party', '2023-09-01', 'Meeting', 'Prefix match', 'Loc', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E4', 'Pre October Meeting', '2023-10-01', 'Meeting', 'Suffix match', 'Loc', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E5', 'Yearly Kickoff', '2023-09-01', 'General Meeting', 'Type suffix match', 'Loc', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Advertisement', 5.0, 5.0, 7, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Advertisement', 5.0, 5.0, 8, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Advertisements', 5.0, 5.0, 50, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Advertisement', 5.0, 5.0, 60, 'Open', 'E3');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Advertisement', 5.0, 5.0, 70, 'Open', 'E4');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B6', 'Advertisement', 5.0, 5.0, 80, 'Open', 'E5');
+```

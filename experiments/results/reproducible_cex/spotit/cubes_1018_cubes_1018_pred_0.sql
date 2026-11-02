@@ -1,0 +1,51 @@
+-- Schema DDL
+CREATE TABLE "COLLEGE" (
+    "CNAME" TEXT,
+    "STATE" TEXT,
+    "ENR" FLOAT,
+    PRIMARY KEY ("CNAME")
+);
+CREATE TABLE "PLAYER" (
+    "PID" FLOAT,
+    "PNAME" TEXT,
+    "YCARD" TEXT,
+    "HS" FLOAT,
+    PRIMARY KEY ("PID")
+);
+CREATE TABLE "TRYOUT" (
+    "PID" FLOAT,
+    "CNAME" TEXT,
+    "PPOS" TEXT,
+    "DECISION" TEXT,
+    PRIMARY KEY ("CNAME", "PID"),
+    FOREIGN KEY ("CNAME") REFERENCES "COLLEGE"("CNAME"),
+    FOREIGN KEY ("PID") REFERENCES "PLAYER"("PID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO COLLEGE VALUES (2, 0, 0);
+INSERT INTO COLLEGE VALUES (3, 0, 0);
+INSERT INTO PLAYER VALUES (4, 6, 0, 1500);
+INSERT INTO PLAYER VALUES (0, 0, 0, 500);
+INSERT INTO TRYOUT VALUES (0, 3, 0, 0);
+INSERT INTO TRYOUT VALUES (4, 2, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT pname FROM player WHERE (hs >= 500.0 AND hs < 1500.0) ORDER BY pname, player.pid NULLS LAST;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT pName FROM Player WHERE HS BETWEEN 500 AND 1500;
+
+/*
+Prediction Result:
+('6',)
+('0',)
+*/

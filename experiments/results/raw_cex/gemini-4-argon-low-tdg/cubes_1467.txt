@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (DESC vs ASC), LIMIT boundary (2 vs 1 or 3), and unassigned projects vs assigned projects (kills incorrect JOINs with AssignedTo/Scientists).
+INSERT INTO "Scientists" ("SSN", "Name") VALUES (101, 'Dr. Alice');
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P001', 'Alpha', 100);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P002', 'Beta', 300);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P003', 'Gamma', 200);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P004', 'Delta', 50);
+INSERT INTO "AssignedTo" ("Scientist", "Project") VALUES (101, 'P001');
+INSERT INTO "AssignedTo" ("Scientist", "Project") VALUES (101, 'P004');
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY (hours, name) vs GROUP BY (name) vs no GROUP BY.
+-- Same project name 'Omega' has two different hours (500 and 400).
+-- Grouping by (hours, name) keeps them as 2 separate rows, occupying both LIMIT 2 slots.
+-- Grouping by (name) alone collapses them into 1 row (AVG=450), allowing 'Sigma' (350) into the top 2.
+-- Also includes a duplicate (500, 'Omega') to ensure grouping actually collapses identical (hours, name) pairs.
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P001', 'Omega', 500);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P002', 'Omega', 500);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P003', 'Omega', 400);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P004', 'Sigma', 350);
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY (hours, name) vs GROUP BY (hours).
+-- Two identically named projects ('Zeta') have the highest hours (1000).
+-- Under GROUP BY (hours, name), they collapse into 1 row, so the 2nd output row is 'Eta' (500).
+-- Without GROUP BY, 'Zeta' would appear twice.
+-- Also tests lower hours having multiple distinct names to catch GROUP BY (hours) only if top row is skipped.
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P001', 'Zeta', 1000);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P002', 'Zeta', 1000);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P003', 'Eta', 500);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P004', 'Theta', 100);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in Hours and negative/zero values.
+-- In SQLite, NULLs are considered smaller than any non-NULL value, so ORDER BY hours DESC places NULLs last.
+-- Kills mutants using NULLS FIRST, COALESCE(hours, ...), or WHERE hours IS NOT NULL when fewer than 2 non-null rows exist.
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P001', 'NullProj', NULL);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P002', 'ZeroProj', 0);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P003', 'NegProj', -50);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P004', 'PosProj', 10);
+```
+
+```sql
+-- DATASET 5
+-- Tests cardinality < LIMIT (only 1 row in table, and NULL hours).
+-- Ensures queries with INNER JOINs or strict HAVING COUNT(*) > 1 fail.
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P001', 'SoloNull', NULL);
+```
+
+```sql
+-- DATASET 6
+-- Tests string vs integer sorting on Hours (e.g., if a mutant casts hours to TEXT before ordering: '90' > '800' > '1000').
+-- Also tests Scientist Name vs Project Name confusion in joins.
+INSERT INTO "Scientists" ("SSN", "Name") VALUES (1, 'Sci_One');
+INSERT INTO "Scientists" ("SSN", "Name") VALUES (2, 'Sci_Two');
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P001', 'Proj_1000', 1000);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P002', 'Proj_800', 800);
+INSERT INTO "Projects" ("Code", "Name", "Hours") VALUES ('P003', 'Proj_90', 90);
+INSERT INTO "AssignedTo" ("Scientist", "Project") VALUES (1, 'P001');
+INSERT INTO "AssignedTo" ("Scientist", "Project") VALUES (2, 'P002');
+INSERT INTO "AssignedTo" ("Scientist", "Project") VALUES (1, 'P003');
+```

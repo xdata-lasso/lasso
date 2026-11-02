@@ -1,0 +1,49 @@
+-- Schema DDL
+CREATE TABLE "genre" ("g_name" TEXT(20) PRIMARY KEY, "rating" TEXT(10), "most_popular_in" TEXT(50));
+
+CREATE TABLE "artist" ("artist_name" TEXT(50) PRIMARY KEY, "preferred_genre" TEXT(50), "country" TEXT(20), "gender" TEXT(20), FOREIGN KEY ("preferred_genre") REFERENCES "genre" ("g_name"));
+
+CREATE TABLE "files" ("f_id" REAL(10) PRIMARY KEY, "artist_name" TEXT(50), "file_size" TEXT(20), "duration" TEXT(20), "formats" TEXT(20), FOREIGN KEY ("artist_name") REFERENCES "artist" ("artist_name"));
+
+CREATE TABLE "song" ("song_name" TEXT(50) PRIMARY KEY, "genre_is" TEXT(20), "f_id" REAL(10), "artist_name" TEXT(50), "country" TEXT(20), "rating" REAL(10), "languages" TEXT(20), "releasedate" DATE, "resolution" REAL(10), FOREIGN KEY ("genre_is") REFERENCES "genre" ("g_name"), FOREIGN KEY ("f_id") REFERENCES "files" ("f_id"), FOREIGN KEY ("artist_name") REFERENCES "artist" ("artist_name"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO genre (g_name, rating, most_popular_in) VALUES ('folk', '9', 'Nepal');
+INSERT INTO genre (g_name, rating, most_popular_in) VALUES ('pop', '8', 'USA');
+INSERT INTO genre (g_name, rating, most_popular_in) VALUES ('rock', '7', 'UK');
+INSERT INTO artist (artist_name, preferred_genre, country, gender) VALUES ('Runa', 'folk', 'Bangladesh', 'Female');
+INSERT INTO artist (artist_name, preferred_genre, country, gender) VALUES ('Habib', 'folk', 'Bangladesh', 'Male');
+INSERT INTO artist (artist_name, preferred_genre, country, gender) VALUES ('Mila', 'rock', 'India', 'Female');
+INSERT INTO files (f_id, artist_name, file_size, duration, formats) VALUES (1.0, 'Runa', '4MB', '3:30', 'mp3');
+INSERT INTO files (f_id, artist_name, file_size, duration, formats) VALUES (2.0, 'Runa', '5MB', '4:00', 'wav');
+INSERT INTO files (f_id, artist_name, file_size, duration, formats) VALUES (3.0, 'Habib', '3MB', '2:50', 'mp3');
+INSERT INTO files (f_id, artist_name, file_size, duration, formats) VALUES (4.0, 'Runa', '6MB', '4:10', 'flac');
+INSERT INTO files (f_id, artist_name, file_size, duration, formats) VALUES (5.0, 'Mila', '4MB', '3:45', 'mp3');
+INSERT INTO song (song_name, genre_is, f_id, artist_name, country, rating, languages, releasedate, resolution) VALUES ('Song_Match_1', 'folk', 1.0, 'Runa', 'India', 9.5, 'bangla', '2020-01-15', 320.0);
+INSERT INTO song (song_name, genre_is, f_id, artist_name, country, rating, languages, releasedate, resolution) VALUES ('Song_Wrong_Genre', 'pop', 2.0, 'Runa', 'UK', 8.0, 'bangla', '2020-02-20', 256.0);
+INSERT INTO song (song_name, genre_is, f_id, artist_name, country, rating, languages, releasedate, resolution) VALUES ('Song_Wrong_Gender', 'folk', 3.0, 'Habib', 'Canada', 7.5, 'bangla', '2020-03-10', 192.0);
+INSERT INTO song (song_name, genre_is, f_id, artist_name, country, rating, languages, releasedate, resolution) VALUES ('Song_Wrong_Lang', 'folk', 4.0, 'Runa', 'Australia', 8.5, 'english', '2020-04-05', 320.0);
+INSERT INTO song (song_name, genre_is, f_id, artist_name, country, rating, languages, releasedate, resolution) VALUES ('Song_Match_2', 'rock', 5.0, 'Mila', 'Bangladesh', 9.0, 'bangla', '2021-06-01', 320.0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT "country" FROM (SELECT "song_name", "artist_name", "country", "f_id", "genre_is", "rating", "languages", "releasedate", "resolution", "country_other", "gender", "genre_is" AS "preferred_genre" FROM (SELECT "LHS"."song_name" AS "song_name", "LHS"."artist_name" AS "artist_name", "LHS"."country" AS "country", "LHS"."f_id" AS "f_id", "LHS"."genre_is" AS "genre_is", "LHS"."rating" AS "rating", "LHS"."languages" AS "languages", "LHS"."releasedate" AS "releasedate", "LHS"."resolution" AS "resolution", "RHS"."country" AS "country_other", "RHS"."gender" AS "gender" FROM "song" AS "LHS" INNER JOIN "artist" AS "RHS" ON ("LHS"."artist_name" = "RHS"."artist_name" AND "LHS"."genre_is" = "RHS"."preferred_genre"))) WHERE ("gender" = 'Female' AND "languages" = 'bangla') ORDER BY country, "country" NULLS LAST;
+
+/*
+Gold Result:
+('Bangladesh',)
+('India',)
+*/
+
+-- Prediction Query
+SELECT T1.country FROM artist AS T1 JOIN song AS T2 ON T1.artist_name = T2.artist_name WHERE T1.gender = 'Female' AND T2.languages = 'bangla';
+
+/*
+Prediction Result:
+('Bangladesh',)
+('Bangladesh',)
+('India',)
+*/

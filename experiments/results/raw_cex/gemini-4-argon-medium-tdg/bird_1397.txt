@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (AND vs OR), wrong column selection (spent vs remaining vs amount),
+-- wrong table/join usage (event.status vs budget.event_status), and basic aggregation (SUM/COUNT vs SUM or COUNT).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Gala', '2023-01-01', 'Social', 'None', 'Hall A', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Meeting', '2023-02-01', 'Business', 'None', 'Room 1', 'Closed');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 10.5, 89.5, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 25.0, 75.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Food', 500.0, 0.0, 500, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Drink', 300.0, 100.0, 400, 'Closed', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Decoration', 50.0, 50.0, 100, 'Open', 'E1');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in aggregation: COUNT(spent) vs COUNT(*),
+-- and duplicate values in spent: SUM(spent)/COUNT(spent) vs AVG(DISTINCT spent) / SUM(DISTINCT spent) / COUNT(DISTINCT spent).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Lunch', '2023-03-01', 'Social', 'None', 'Cafe', 'Closed');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 20.0, 80.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 20.0, 30.0, 50, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Food', 50.0, 50.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Food', NULL, 100.0, 100, 'Closed', 'E1');
+```
+
+```sql
+-- DATASET 3
+-- Tests unreferenced foreign keys (INNER JOIN event vs no JOIN),
+-- and 1-to-many join trap with expense table (if mutant joins expense).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Party', '2023-04-01', 'Social', 'None', 'Club', 'Closed');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'CS', 'Eng', 'Tech');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (12345, 'Standard', 'Town', 'County', 'State', 'ST');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'John', 'Doe', 'j@d.com', 'Pres', 'L', '111-2222', 12345, 'M1');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 40.0, 60.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 80.0, 20.0, 100, 'Closed', NULL);
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX1', 'Pizza', '2023-04-01', 20.0, 'Yes', 'MEM1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EX2', 'Soda', '2023-04-01', 20.0, 'Yes', 'MEM1', 'B1');
+```
+
+```sql
+-- DATASET 4
+-- Tests case sensitivity, substring/LIKE mutations (e.g. category LIKE '%Food%', event_status LIKE '%Closed%'),
+-- and NULLs in filter columns.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Dinner', '2023-05-01', 'Social', 'None', 'Diner', 'Closed');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 15.25, 84.75, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Fast Food', 100.0, 0.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'food', 200.0, 0.0, 200, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Food', 300.0, 0.0, 300, 'Closed Early', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Food', 400.0, 0.0, 400, 'closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B6', NULL, 500.0, 0.0, 500, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B7', 'Food', 600.0, 0.0, 600, NULL, 'E1');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set for the target filter (returns NULL vs 0),
+-- and zero spent values (ensures 0.0 is counted in denominator).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Breakfast', '2023-06-01', 'Social', 'None', 'Cafe', 'Closed');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 0.0, 100.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 30.0, 70.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Food', 90.0, 10.0, 100, 'Pending', 'E1');
+```

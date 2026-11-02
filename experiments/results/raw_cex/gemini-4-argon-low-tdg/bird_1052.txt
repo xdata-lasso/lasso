@@ -1,0 +1,78 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT t1.id) vs COUNT(*) / COUNT(t1.id), and tests t1.id vs t2.id / t1.player_name.
+-- One player has multiple matching attribute records; two distinct players share the same player_name.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (1, 1001, 'Alex', 2001, 175, 125);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (2, 1002, 'Alex', 2002, 170, 120);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (10, 2001, 1001, 'left');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (11, 2001, 1001, 'left');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (12, 2002, 1002, 'left');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary conditions on weight (< 130 vs <= 130, > 130, = 130, NULL) and preferred_foot ('left' vs 'right', 'LEFT', NULL), plus height vs weight confusion.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (1, 101, 'Valid_129', 201, 180, 129);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (2, 102, 'Boundary_130', 202, 120, 130);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (3, 103, 'Heavy_131', 203, 125, 131);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (4, 104, 'Null_Weight', 204, 125, NULL);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (5, 105, 'Right_Foot', 205, 170, 120);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (6, 106, 'Case_Left', 206, 170, 120);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (7, 107, 'Null_Foot', 207, 170, 120);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (1, 201, 101, 'left');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (2, 202, 102, 'left');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (3, 203, 103, 'left');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (4, 204, 104, 'left');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (5, 205, 105, 'right');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (6, 206, 106, 'LEFT');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (7, 207, 107, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition mutations: joining on player_api_id vs joining on player_fifa_api_id or id.
+-- Also tests logical AND vs OR in WHERE clause when join keys are decoupled.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (1, 10, 'P1_Valid_Weight_Right_Foot_On_Api', 100, 170, 120);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (2, 20, 'P2_Heavy_Weight_Left_Foot_On_Api', 200, 175, 150);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (3, 30, 'P3_True_Match', 300, 165, 115);
+
+-- Attribute 1 links to P1 via fifa_id (100), but links to P2 via api_id (20).
+-- On api_id join: P2 (weight 150) joins with 'left' -> rejected.
+-- On fifa_id join: P1 (weight 120) joins with 'left' -> falsely accepted!
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (1, 100, 20, 'left');
+
+-- Attribute 2 links to P2 via fifa_id (200), but links to P1 via api_id (10).
+-- On api_id join: P1 (weight 120) joins with 'right' -> rejected.
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (2, 200, 10, 'right');
+
+-- Attribute 3 is a clean match on api_id (30) for P3, but its fifa_id points to P2 (200) and its id is 99.
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot) VALUES (99, 200, 30, 'left');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT JOIN (where t2 condition might be dropped or moved to ON) and player with mixed attributes ('left' and 'right').
+-- Also tests when result should be 0 for strict mutants vs 1 for Gold.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (10, 501, 'No_Attributes_Player', 601, 170, 120);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (20, 502, 'Mixed_Foot_Player', 602, 170, 125);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (30, 503, 'Orphan_Attr_Target', 603, 180, 140);
+
+-- Mixed_Foot_Player has both 'right' and 'left' attributes across different dates
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (1, 602, 502, '2015-01-01', 'right');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (2, 602, 502, '2016-01-01', 'left');
+
+-- Attribute with a player_api_id that does not match any Player's player_api_id (tests RIGHT JOIN / subquery mistakes)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (10, 603, 999, '2016-01-01', 'left');
+```
+
+```sql
+-- DATASET 5
+-- Empty match dataset: all rows fail at least one condition, testing that Gold returns 0 while mutants (e.g., OR, <= 130, missing WHERE clauses) return > 0.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (1, 111, 'Boundary_Weight_Left', 211, 170, 130);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, height, weight) VALUES (2, 112, 'Light_Weight_Right', 212, 170, 120);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (1, 211, 111, 'left', 'left', 'left');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, preferred_foot, attacking_work_rate, defensive_work_rate) VALUES (2, 212, 112, 'right', 'left', 'left');
+```

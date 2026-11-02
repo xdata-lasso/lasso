@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Inner GROUP BY (name, weight) vs grouping by only name or only weight.
+-- 2. Join condition: LHS.n = RHS.people_id AND LHS.weight = RHS.weight (includes decoys failing one or the other).
+-- 3. Outer GROUP BY (birth_date, birth_place) vs grouping by only birth_place (duplicate birth_place with different birth_date).
+-- 4. Duplicate elimination within the same (birth_date, birth_place) group when multiple LHS groups match.
+-- 5. ORDER BY birth_place (ascending vs descending vs insertion order).
+-- 6. Independence from body_builder table (in case mutant joins with body_builder).
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (1, 'Alice', 170.0, 60.0, '1990-01-01', 'Zeta');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (2, 'Bob', 180.0, 75.0, '1985-05-05', 'Alpha');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (10, 'Bob', 175.0, 75.0, '1988-08-08', 'Beta');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (11, 'Alice', 165.0, 80.0, '1992-02-02', 'Gamma');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (12, 'Charlie', 185.0, 60.0, '1990-01-01', 'Delta');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (3, 'Dave', 190.0, 90.0, '1980-10-10', 'Omega');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (4, 'Eve', 160.0, 75.0, '1995-12-12', 'Alpha');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (13, 'Eve', 162.0, 75.0, '1995-12-12', 'Kappa');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (14, 'Frank', 170.0, 50.0, '2000-01-01', 'Sigma');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (15, 'Grace', 172.0, 60.0, '1999-09-09', 'Theta');
+
+INSERT INTO body_builder (Body_Builder_ID, People_ID, Snatch, Clean_Jerk, Total) VALUES (1, 1, 100.0, 120.0, 220.0);
+INSERT INTO body_builder (Body_Builder_ID, People_ID, Snatch, Clean_Jerk, Total) VALUES (2, 3, 150.0, 180.0, 330.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Handling of NULL values in Name, Weight, Birth_Date, and Birth_Place.
+-- 2. In SQL, GROUP BY treats NULLs as equal (so COUNT(*) counts rows with NULL name/weight), whereas INNER JOIN ON LHS.weight = RHS.weight rejects NULL weights.
+-- 3. Outer GROUP BY (birth_date, birth_place) with NULLs in birth_date and birth_place.
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (1, NULL, 170.0, 65.0, NULL, 'NullDateCity');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (2, 'NullWeight', 175.0, NULL, '1990-01-01', 'NullWeightCity');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (10, 'NullWeight', 175.0, NULL, '1990-01-01', 'NullWeightCity');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (3, 'Sam', 180.0, 85.0, '1980-01-01', NULL);
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (11, 'Sam', 182.0, 85.0, '1981-01-01', 'Somewhere');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (12, 'Sam', 184.0, 85.0, '1982-01-01', 'Elsewhere');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Self-join distinction: RHS.name (name_other) vs LHS.name.
+-- 2. Ensures RHS attributes (birth_date, birth_place) are selected from RHS and not from LHS rows.
+-- 3. Multiple distinct (name, weight) groups having the same count (n=2) and same weight (70.0), joining to the exact same RHS person (People_ID=2).
+--    Tests that the outer GROUP BY (birth_date, birth_place) collapses these multiple join matches into a single output row.
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (2, 'TargetPerson', 175.0, 70.0, '1975-03-15', 'TargetCity');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (20, 'GroupA', 160.0, 70.0, '1990-01-01', 'WrongCityA1');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (21, 'GroupA', 161.0, 70.0, '1990-01-02', 'WrongCityA2');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (30, 'GroupB', 165.0, 70.0, '1991-01-01', 'WrongCityB1');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (31, 'GroupB', 166.0, 70.0, '1991-01-02', 'WrongCityB2');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (1, 'GroupA', 160.0, 55.0, '1988-07-07', 'SingleMatchCity');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty join result / boundary conditions where People_IDs exist (1, 2, 3) and counts (n=1, 2, 3) exist,
+--    and weights match across tables, but never both (LHS.n = RHS.people_id AND LHS.weight = RHS.weight) simultaneously,
+--    except for one specific case where LHS.name = RHS.name vs LHS.name != RHS.name.
+-- 2. Catches mutants replacing AND with OR in the JOIN condition, or joining on LHS.name = RHS.name.
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (1, 'X', 170.0, 50.0, '1990-01-01', 'City1');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (10, 'X', 170.0, 50.0, '1990-01-01', 'City10');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (2, 'Y', 175.0, 60.0, '1991-02-02', 'City2');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (3, 'Z', 180.0, 50.0, '1992-03-03', 'City3');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (4, 'W', 185.0, 60.0, '1993-04-04', 'City4');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (11, 'W', 185.0, 60.0, '1993-04-04', 'City11');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (12, 'W', 185.0, 60.0, '1993-04-04', 'City12');
+INSERT INTO people (People_ID, Name, Height, Weight, Birth_Date, Birth_Place) VALUES (13, 'W', 185.0, 60.0, '1993-04-04', 'City13');
+```

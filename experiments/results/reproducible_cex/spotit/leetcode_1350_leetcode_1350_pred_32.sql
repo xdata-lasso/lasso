@@ -1,0 +1,38 @@
+-- Schema DDL
+CREATE TABLE "DEPARTMENTS" (
+    "ID" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "STUDENTS" (
+    "ID" INT,
+    "NAME" TEXT,
+    "DEPARTMENT_ID" INT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("DEPARTMENT_ID") REFERENCES "DEPARTMENTS"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO DEPARTMENTS VALUES (0, 8);
+INSERT INTO DEPARTMENTS VALUES (-1, NULL);
+INSERT INTO STUDENTS VALUES (-1, 7, -1);
+INSERT INTO STUDENTS VALUES (0, 12, -1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT id, name FROM Students WHERE NOT department_id IN (SELECT id FROM departments);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT A.NAME, A.ID FROM STUDENTS AS A LEFT JOIN DEPARTMENTS AS B ON A.DEPARTMENT_ID = B.ID WHERE B.NAME IS NULL;
+
+/*
+Prediction Result:
+('7', -1)
+('12', 0)
+*/

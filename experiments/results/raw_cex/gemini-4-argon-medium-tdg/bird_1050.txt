@@ -1,0 +1,63 @@
+```sql
+-- DATASET 1
+-- Tests basic INNER JOIN on player_api_id, ORDER BY birthday DESC vs ASC, and ensures join isn't performed on id or player_fifa_api_id.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (1, 100, 'Older Player', 1000, '1985-05-10 00:00:00');
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (2, 200, 'Younger Player', 2000, '1998-11-20 00:00:00');
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (10, 1000, 100, '2015-01-01 00:00:00', 'left');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (20, 2000, 200, '2015-01-01 00:00:00', 'right');
+-- Trap row: matches Player 2 on player_fifa_api_id, and matches Player 2 on id if id=2, but has wrong player_api_id
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (2, 2000, 999, '2016-01-01 00:00:00', 'trap_foot');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN when the youngest player has no matching attributes in Player_Attributes.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (1, 101, 'Unmatched Youngest', 1001, '2000-01-01 00:00:00');
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (2, 102, 'Matched Second Youngest', 1002, '1995-06-15 00:00:00');
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (3, 103, 'Matched Oldest', 1003, '1990-01-01 00:00:00');
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (1, 1002, 102, '2015-01-01 00:00:00', 'left');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (2, 1003, 103, '2015-01-01 00:00:00', 'right');
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on t1.id ASC when t1.birthday is identical.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (5, 500, 'Player ID 5', 5000, '1999-09-09 00:00:00');
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (10, 600, 'Player ID 10', 6000, '1999-09-09 00:00:00');
+
+-- Give Player ID 10 a smaller t2.id to catch mutants that order by t2.id before t1.id or order by t1.id DESC
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (1, 6000, 600, '2015-01-01 00:00:00', 'right');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (2, 5000, 500, '2015-01-01 00:00:00', 'left');
+```
+
+```sql
+-- DATASET 4
+-- Tests tie-breaking on t2.id ASC when both t1.birthday and t1.id are identical (one player with multiple attribute rows).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (1, 100, 'Multi Attr Player', 1000, '1997-03-03 00:00:00');
+
+-- Give the higher t2.id a more recent t2.date to also catch mutants ordering by t2.date instead of t1.birthday / t2.id
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (10, 1000, 100, '2014-01-01 00:00:00', 'right');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (20, 1000, 100, '2016-01-01 00:00:00', 'left');
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL handling in t1.birthday with ORDER BY t1.birthday DESC (in SQLite, NULLs are considered smallest, so DESC puts NULLs last).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (1, 100, 'Null Birthday Player', 1000, NULL);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (2, 200, 'Valid Birthday Player', 2000, '1992-04-12 00:00:00');
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (1, 1000, 100, '2015-01-01 00:00:00', 'left');
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (2, 2000, 200, '2015-01-01 00:00:00', 'right');
+```
+
+```sql
+-- DATASET 6
+-- Tests that preferred_foot is selected even if it is NULL for the top-ranked row (catches mutants with WHERE preferred_foot IS NOT NULL).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (1, 100, 'Youngest Null Foot', 1000, '2001-08-08 00:00:00');
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday) VALUES (2, 200, 'Older Known Foot', 2000, '1990-01-01 00:00:00');
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (1, 1000, 100, '2015-01-01 00:00:00', NULL);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, preferred_foot) VALUES (2, 2000, 200, '2015-01-01 00:00:00', 'right');
+```

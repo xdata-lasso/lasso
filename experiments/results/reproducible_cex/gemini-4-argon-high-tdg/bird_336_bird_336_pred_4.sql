@@ -1,0 +1,48 @@
+-- Schema DDL
+CREATE TABLE "atom" ("atom_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "element" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "bond" ("bond_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "bond_type" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "connected" ("atom_id" TEXT NOT NULL, "atom_id2" TEXT NOT NULL, "bond_id" TEXT DEFAULT NULL, PRIMARY KEY ("atom_id", "atom_id2"), FOREIGN KEY ("atom_id") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("atom_id2") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("bond_id") REFERENCES "bond" ("bond_id") ON DELETE CASCADE ON UPDATE CASCADE);
+
+CREATE TABLE "molecule" ("molecule_id" TEXT NOT NULL PRIMARY KEY, "label" TEXT DEFAULT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('M3', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M2', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', 'M2', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A6', 'M3', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A7', 'M3', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'M3', '#');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A4', 'A5', 'B3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A6', 'A7', 'B4');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT COUNT(DISTINCT T1.molecule_id) FROM molecule AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T2.bond_type = '#' AND T1.label = '-';
+
+/*
+Gold Result:
+(2,)
+*/
+
+-- Prediction Query
+SELECT COUNT(m.molecule_id) FROM molecule AS m INNER JOIN bond AS b ON m.molecule_id = b.molecule_id WHERE m.label = '-' AND b.bond_type = '#';
+
+/*
+Prediction Result:
+(3,)
+*/

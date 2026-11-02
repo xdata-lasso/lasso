@@ -1,0 +1,24 @@
+-- Schema DDL
+CREATE TABLE "Employee" ("employee_id" INTEGER, "department_id" INTEGER, "primary_flag" TEXT(255), PRIMARY KEY ("employee_id", "department_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "employee" ("employee_id", "department_id", "primary_flag") VALUES (1011, NULL, 'Y');
+INSERT INTO "employee" ("employee_id", "department_id", "primary_flag") VALUES (1011, NULL, 'Y');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT EMPLOYEE_ID, DEPARTMENT_ID FROM EMPLOYEE GROUP BY EMPLOYEE_ID HAVING COUNT(*) = 1 UNION SELECT EMPLOYEE_ID, DEPARTMENT_ID FROM EMPLOYEE WHERE PRIMARY_FLAG = 'Y';
+
+/*
+Gold Result:
+(1011, None)
+*/
+
+-- Prediction Query
+SELECT * FROM (SELECT DISTINCT CT.EMPLOYEE_ID, CASE WHEN CT.CT_DEPT = 1 THEN DEPARTMENT_ID WHEN CT.CT_DEPT > 1 AND PRIMARY_FLAG = 'Y' THEN DEPARTMENT_ID ELSE NULL END AS DEPARTMENT_ID FROM EMPLOYEE LEFT JOIN (SELECT EMPLOYEE_ID, COUNT(DEPARTMENT_ID) AS CT_DEPT FROM EMPLOYEE GROUP BY EMPLOYEE_ID) AS CT ON EMPLOYEE.EMPLOYEE_ID = CT.EMPLOYEE_ID) AS A WHERE NOT DEPARTMENT_ID IS NULL;
+
+/*
+Prediction Result:
+*/

@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE clause filtering (fastestLapTime IS NOT NULL vs IS NULL).
+-- 2. Missing DISTINCT (multiple results for the same race/year with non-null fastestLapTime should produce duplicate years).
+-- 3. JOIN condition (results.raceId = races.raceId vs wrong join keys like resultId = raceId or driverId = raceId).
+-- 4. Unmatched races (races without results should not appear, catching RIGHT/FULL OUTER JOIN).
+-- 5. Confusing fastestLapTime with other columns (time, fastestLap, fastestLapSpeed).
+INSERT INTO seasons (year, url) VALUES (2020, 'http://en.wikipedia.org/wiki/2020_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://en.wikipedia.org/wiki/2021_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://en.wikipedia.org/wiki/2022_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'albert_park', 'Albert Park Grand Prix Circuit', 'http://en.wikipedia.org/wiki/Melbourne_Grand_Prix_Circuit');
+
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mclaren', 'McLaren', 'http://en.wikipedia.org/wiki/McLaren');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://en.wikipedia.org/wiki/Lewis_Hamilton');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'alonso', 'Fernando', 'Alonso', 'http://en.wikipedia.org/wiki/Fernando_Alonso');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2020, 1, 1, 'Australian Grand Prix', '2020-03-15', 'http://en.wikipedia.org/wiki/2020_Australian_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (20, 2021, 1, 1, 'Bahrain Grand Prix', '2021-03-28', 'http://en.wikipedia.org/wiki/2021_Bahrain_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (30, 2022, 1, 1, 'Bahrain Grand Prix 2022', '2022-03-20', 'http://en.wikipedia.org/wiki/2022_Bahrain_Grand_Prix');
+
+-- Two results in 2020 with fastestLapTime NOT NULL (tests multiplicity / no DISTINCT, and column confusion where time/fastestLap/fastestLapSpeed are NULL)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, fastestLapTime, fastestLapSpeed, statusId) VALUES (100, 10, 1, 1, 1, '1', 1, 25.0, 58, NULL, NULL, '1:27.452', NULL, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, fastestLapTime, fastestLapSpeed, statusId) VALUES (101, 10, 2, 1, 2, '2', 2, 18.0, 58, '1:30:00.000', 45, '1:28.111', '210.5', 1);
+
+-- One result in 2021 with fastestLapTime IS NULL, but other lap/time fields NOT NULL (tests IS NOT NULL filter and column confusion)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, fastestLapTime, fastestLapSpeed, statusId) VALUES (10, 20, 1, 1, 1, '1', 1, 25.0, 56, '1:32:03.897', 50, NULL, '205.1', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Empty string '' vs NULL in fastestLapTime (SQLite treats '' as NOT NULL, mutations checking != '' or LENGTH > 0 will fail).
+-- 2. Multiple races in different years and same year.
+-- 3. Checking that lapTimes or qualifying tables are not mistakenly used instead of results.
+INSERT INTO seasons (year, url) VALUES (1950, 'http://en.wikipedia.org/wiki/1950_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (1951, 'http://en.wikipedia.org/wiki/1951_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (5, 'silverstone', 'Silverstone Circuit', 'http://en.wikipedia.org/wiki/Silverstone_Circuit');
+
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (5, 'alfa', 'Alfa Romeo', 'http://en.wikipedia.org/wiki/Alfa_Romeo_in_Formula_One');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (5, 'farina', 'Nino', 'Farina', 'http://en.wikipedia.org/wiki/Nino_Farina');
+
+INSERT INTO status (statusId, status) VALUES (5, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1950, 1, 5, 'British Grand Prix', '1950-05-13', 'http://en.wikipedia.org/wiki/1950_British_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 1951, 1, 5, 'Swiss Grand Prix', '1951-05-27', 'http://en.wikipedia.org/wiki/1951_Swiss_Grand_Prix');
+
+-- Race 1 (1950) has fastestLapTime as NULL, but has entries in lapTimes and qualifying
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (1, 1, 5, 5, 1, '1', 1, 9.0, 70, NULL, 5);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 5, 1, 1, '1:50.6', 110600);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 1, 5, 5, 1, 1, '1:50.8', '1:50.8', '1:50.8');
+
+-- Race 2 (1951) has fastestLapTime as '' (empty string, which is NOT NULL)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (2, 2, 5, 5, 1, '1', 1, 9.0, 42, '', 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. All rows filtered out (returns empty result set).
+-- 2. Kills mutants that omit the WHERE clause or invert the condition (WHERE fastestLapTime IS NULL).
+INSERT INTO seasons (year, url) VALUES (1999, 'http://en.wikipedia.org/wiki/1999_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (10, 'sepang', 'Sepang International Circuit', 'http://en.wikipedia.org/wiki/Sepang_International_Circuit');
+
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (10, 'ferrari', 'Ferrari', 'http://en.wikipedia.org/wiki/Scuderia_Ferrari');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'irvine', 'Eddie', 'Irvine', 'http://en.wikipedia.org/wiki/Eddie_Irvine');
+
+INSERT INTO status (statusId, status) VALUES (10, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (99, 1999, 1, 10, 'Malaysian Grand Prix', '1999-10-17', 'http://en.wikipedia.org/wiki/1999_Malaysian_Grand_Prix');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (99, 99, 10, 10, 1, '1', 1, 10.0, 56, NULL, 10);
+```

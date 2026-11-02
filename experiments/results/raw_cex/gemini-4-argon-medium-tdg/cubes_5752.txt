@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+-- Scenario: Most frequent gender (0) is NOT the maximum gender value (1).
+-- Reference Query returns 1 (due to ORDER BY gender DESC LIMIT 1 with unpartitioned COUNT(*) OVER ()).
+-- Mutants that properly group by gender and order by count DESC will return 0.
+-- Also tests INNER JOIN mutants against Fault_Log / Engineer_Visits by keeping child tables empty.
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Alice', 0, 'Senior');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (2, 'Bob', 0, 'Junior');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (3, 'Charlie', 1, 'Manager');
+```
+
+```sql
+-- DATASET 2
+-- Scenario: Most frequent gender (1) IS the maximum gender value (1), while minimum gender value (0) is least frequent.
+-- Reference Query returns 1.
+-- Mutants that order by gender ASC or count ASC will return 0.
+-- Includes foreign key references in Fault_Log and Engineer_Visits ONLY for gender 0 to kill mutants that mistakenly query those tables instead of Staff.
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'Maint', 'Acme Corp', '123 Way', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2023-01-01', '2024-01-01', 'Standard');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Server', 'Dell', 'R740', '2023-01-15', '2025-01-15', 'Rack 1');
+INSERT INTO "Maintenance_Engineers" ("engineer_id", "company_id", "first_name", "last_name", "other_details") VALUES (1, 1, 'Dan', 'Smith', 'Lead');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Alice', 0, 'Tech');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (2, 'Bob', 1, 'Admin');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (3, 'Charlie', 1, 'Support');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (1, 1, 1, '2023-05-01 10:00:00', 'Overheating', 'Urgent');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (2, 1, 1, '2023-05-02 10:00:00', 'Fan failure', 'Urgent');
+INSERT INTO "Engineer_Visits" ("engineer_visit_id", "contact_staff_id", "engineer_id", "fault_log_entry_id", "fault_status", "visit_start_datetime", "visit_end_datetime", "other_visit_details") VALUES (1, 1, 1, 1, 'Fixed', '2023-05-01 12:00:00', '2023-05-01 14:00:00', 'Replaced paste');
+```
+
+```sql
+-- DATASET 3
+-- Scenario: Three distinct gender values (0, 1, 2) with varying frequencies, plus NULL handling and non-matching column values.
+-- Gender 2 has count 1 (highest value, lowest count).
+-- Gender 1 has count 3 (middle value, highest count).
+-- Gender 0 has count 2 (lowest value, middle count).
+-- Reference Query returns 2.
+-- Mutants finding the mode (1), minimum (0), or failing on NULLs in gender will be caught.
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (10, 'Zack', 0, 'A');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (20, 'Yara', 0, 'B');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (30, 'Xena', 1, 'C');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (40, 'Will', 1, 'D');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (50, 'Vera', 1, 'E');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (60, 'Uri', 2, 'F');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (70, 'Tina', NULL, 'G');
+```
+
+```sql
+-- DATASET 4
+-- Scenario: Single row with negative/non-standard integer gender and inverse correlation between staff_id, staff_name, and gender.
+-- Tests boundary conditions (N=1) and column projection mistakes (e.g., selecting staff_id or n instead of gender).
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (99, '5', 42, '99');
+```
+
+```sql
+-- DATASET 5
+-- Scenario: Tie in gender counts (two of gender 10, two of gender 20), where staff_id and staff_name orderings oppose gender ordering.
+-- Kills mutants that order by staff_id DESC (which gives gender 10) or staff_name DESC (which gives gender 10) or omit LIMIT 1.
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Aaron', 20, 'Staff A');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (2, 'abigail', 20, 'Staff B');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (100, 'Zoe', 10, 'Staff C');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (101, 'Zach', 10, 'Staff D');
+```

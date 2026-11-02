@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Investors with 0 transactions (kills LEFT JOIN vs INNER JOIN on Investors).
+-- 2. Investors with Lots instead of Transactions (kills wrong table query like Lots vs Transactions).
+-- 3. Ordering by investor_id vs ordering by count (investor 10 has 3 transactions, investor 20 has 1 transaction).
+-- 4. Duplicate attribute values across transactions for the same investor (kills COUNT(DISTINCT ...)).
+-- 5. NULL values in non-key transaction columns (kills COUNT(col) vs COUNT(*)).
+-- 6. Subtype tables Sales/Purchases only having a subset of transactions (kills unnecessary joins to Sales/Purchases).
+
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (10, 'Active Investor A');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (20, 'Active Investor B');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (30, 'Inactive Investor with Lots');
+
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BUY', 'Purchase');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('SELL', 'Sale');
+
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (1, 30, 'Lot for inactive investor');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (2, 20, 'Lot 1 for investor 20');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (3, 20, 'Lot 2 for investor 20');
+
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (101, 'BUY', 10, '2023-01-01 10:00:00', 100.00, '10', 'First');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (102, 'BUY', 10, '2023-01-01 10:00:00', 100.00, '10', 'First');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (103, NULL, 10, NULL, NULL, NULL, NULL);
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (104, 'SELL', 20, '2023-02-01 12:00:00', 500.50, '50', 'Only sale');
+
+INSERT INTO "Sales" ("sales_transaction_id", "sales_details") VALUES (104, 'Sold shares');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (101, 'Bought shares');
+
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (104, 2);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (104, 3);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Transactions with NULL investor_id (kills COUNT(investor_id) vs COUNT(*), kills INNER JOIN Investors, tests NULLS FIRST vs NULLS LAST in ORDER BY).
+-- 2. Ties in transaction counts across different investors (tests primary sort on investor_id).
+
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (5, 'Investor Five');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (15, 'Investor Fifteen');
+
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('TR', 'Transfer');
+
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'TR', NULL, '2023-05-01 00:00:00', 250.00, '25', 'Unassigned 1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'TR', NULL, '2023-05-02 00:00:00', 300.00, '30', 'Unassigned 2');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (3, 'TR', 15, '2023-05-03 00:00:00', 100.00, '10', 'Inv 15 Tx 1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (4, 'TR', 15, '2023-05-04 00:00:00', 100.00, '10', 'Inv 15 Tx 2');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (5, 'TR', 5, '2023-05-05 00:00:00', 400.00, '40', 'Inv 5 Tx 1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (6, 'TR', 5, '2023-05-06 00:00:00', 400.00, '40', 'Inv 5 Tx 2');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Negative, zero, and positive investor_id values (tests numeric vs lexicographical/string sorting, and boundary conditions like > 0).
+-- 2. Single-transaction groups vs multi-transaction groups (kills HAVING COUNT(*) > 1 mutants).
+
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (-10, 'Negative ID Investor');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (0, 'Zero ID Investor');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (2, 'Two ID Investor');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (10, 'Ten ID Investor');
+
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (10, NULL, 10, '2023-01-01', 10.0, '1', 'A');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (20, NULL, 2, '2023-01-02', 20.0, '2', 'B');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (21, NULL, 2, '2023-01-03', 20.0, '2', 'C');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (30, NULL, 0, '2023-01-04', 0.0, '0', 'D');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (40, NULL, -10, '2023-01-05', -5.0, '5', 'E');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (41, NULL, -10, '2023-01-06', -5.0, '5', 'F');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (42, NULL, -10, '2023-01-07', -5.0, '5', 'G');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty Transactions table with populated Investors and Lots tables (tests empty result set handling and ensures query does not pull from Investors/Lots when Transactions is empty).
+
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Solo Investor');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (10, 1, 'Solo Lot');
+```

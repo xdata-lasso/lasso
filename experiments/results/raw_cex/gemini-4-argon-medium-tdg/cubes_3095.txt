@@ -1,0 +1,50 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Deduplication (GROUP BY / DISTINCT vs simple SELECT): '2021-01-10 00:00:00' appears twice.
+-- 2. Boundary condition (n >= 1 vs n > 1 vs n = 1): Includes a date with count 1 and a date with count 2.
+-- 3. Ordering (ORDER BY ASC vs DESC vs insertion order): Inserted out of chronological order.
+-- 4. Column confusion: date_of_publication differs from date_of_latest_revision.
+-- 5. Unnecessary JOINs: Catalog 3 has no child rows in Catalog_Structure, Catalog 1 has 2 child rows.
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (1, 'Winter Catalog', 'Pub A', '2020-01-01 00:00:00', '2023-05-01 00:00:00');
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (2, 'Spring Catalog', 'Pub B', '2022-01-01 00:00:00', '2021-01-10 00:00:00');
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (3, 'Summer Catalog', 'Pub A', '2019-06-15 00:00:00', '2021-01-10 00:00:00');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (10, 1, 'Level 1');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (20, 1, 'Level 2');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (100, 10, NULL, NULL, NULL, 'Item A', 'STK1', 10.0, 9.0, 8.0, '10L', '10cm', '10cm', '10cm');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL handling in GROUP BY and COUNT(*) vs COUNT(date_of_latest_revision).
+--    If a mutant uses COUNT(date_of_latest_revision), n becomes 0 for the NULL group and is filtered out by n >= 1.
+--    Reference query uses COUNT(*), so n = 1 for the NULL group, keeping the NULL row in the output.
+-- 2. Ordering of NULLs alongside valid dates.
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (1, 'Catalog Alpha', 'Publisher X', '2020-03-01 10:00:00', '2022-08-15 12:00:00');
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (2, 'Catalog Beta', 'Publisher Y', '2021-07-20 10:00:00', NULL);
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (3, 'Catalog Gamma', 'Publisher Z', '2018-11-11 10:00:00', '2019-02-28 08:30:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. High-multiplicity groups (n = 3) vs singletons (n = 1) vs pairs (n = 2) to catch mutants with arbitrary HAVING clauses (e.g., n >= 2, n <= 2, n = 1).
+-- 2. Exact timestamp sorting (same date, different times, and different dates).
+-- 3. Grouping by wrong column (e.g., grouping by catalog_publisher or date_of_publication instead of date_of_latest_revision).
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (10, 'Cat 1', 'SamePub', '2020-01-01 00:00:00', '2022-01-01 15:00:00');
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (20, 'Cat 2', 'SamePub', '2020-01-01 00:00:00', '2022-01-01 09:00:00');
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (30, 'Cat 3', 'DiffPub1', '2021-05-05 00:00:00', '2020-06-01 00:00:00');
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (40, 'Cat 4', 'DiffPub2', '2021-06-06 00:00:00', '2020-06-01 00:00:00');
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (50, 'Cat 5', 'DiffPub3', '2021-07-07 00:00:00', '2020-06-01 00:00:00');
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (60, 'Cat 6', 'DiffPub4', '2019-01-01 00:00:00', '2021-12-31 23:59:59');
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (70, 'Cat 7', 'DiffPub5', '2019-02-01 00:00:00', '2021-12-31 23:59:59');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty Catalogs table (whilst other unreferenced tables have data) to catch mutants that query wrong tables or use hardcoded fallbacks/aggregations without GROUP BY.
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (1, 'Color', 'String');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (2, 'Weight', 'Real');
+```

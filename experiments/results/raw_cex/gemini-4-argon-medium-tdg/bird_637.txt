@@ -1,0 +1,120 @@
+```sql
+-- DATASET 1
+-- Core positive case vs. wrong join path (joining users directly to posts.OwnerUserId or LastEditorUserId instead of via postHistory)
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Mark Meckes');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Alice');
+
+-- Post 101: Owned/Edited by Alice, but postHistory belongs to Mark Meckes (Should be returned)
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CommentCount, Tags) VALUES (101, 2, 2, 0, '<math><probability>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1001, 101, 1);
+
+-- Post 102: Owned and edited by Mark Meckes, but postHistory belongs to Alice (Should NOT be returned)
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CommentCount, Tags) VALUES (102, 1, 1, 0, '<wrong-join-path>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1002, 102, 2);
+
+-- Post 103: Owned by Mark Meckes, no postHistory at all (Tests missing postHistory join)
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CommentCount, Tags) VALUES (103, 1, 1, 0, '<no-history>');
+```
+
+```sql
+-- DATASET 2
+-- Boundary conditions on CommentCount (0 vs 1, -1, NULL) and DisplayName (exact match vs substring, case, NULL)
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Mark Meckes');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'mark meckes');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'Mark Meckes Jr.');
+INSERT INTO users (Id, DisplayName) VALUES (4, NULL);
+
+-- Valid match
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (101, 0, '<valid-zero>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1001, 101, 1);
+
+-- CommentCount boundary: 1
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (102, 1, '<count-one>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1002, 102, 1);
+
+-- CommentCount boundary: -1 (catches CommentCount <= 0 or < 1)
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (103, -1, '<count-negative>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1003, 103, 1);
+
+-- CommentCount boundary: NULL
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (104, NULL, '<count-null>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1004, 104, 1);
+
+-- DisplayName variations with CommentCount = 0
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (105, 0, '<wrong-case>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1005, 105, 2);
+
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (106, 0, '<prefix-match>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1006, 106, 3);
+
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (107, 0, '<null-name>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1007, 107, 4);
+```
+
+```sql
+-- DATASET 3
+-- Multiplicity / Duplicate rows (Catches SELECT DISTINCT T3.Tags vs SELECT T3.Tags)
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Mark Meckes');
+
+-- Post 101 has two postHistory entries by Mark Meckes -> Should output '<duplicate-tag>' twice
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (101, 0, '<duplicate-tag>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1001, 101, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1002, 101, 1);
+
+-- Post 102 also has the exact same Tags string -> Should output '<duplicate-tag>' a third time
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (102, 0, '<duplicate-tag>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1003, 102, 1);
+```
+
+```sql
+-- DATASET 4
+-- Outer Join vs Inner Join and NULL foreign keys / NULL target projection
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Mark Meckes');
+
+-- PostHistory with NULL PostId (Catches LEFT JOIN posts)
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1001, NULL, 1);
+
+-- PostHistory with NULL UserId linked to valid post with CommentCount = 0 (Catches RIGHT JOIN postHistory)
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (101, 0, '<null-user-history>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1002, 101, NULL);
+
+-- Valid match where T3.Tags is NULL (Catches erroneous WHERE T3.Tags IS NOT NULL)
+INSERT INTO posts (Id, CommentCount, Tags) VALUES (102, 0, NULL);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (1003, 102, 1);
+```
+
+```sql
+-- DATASET 5
+-- Misaligned ID trap (Catches wrong join conditions such as T1.Id = T2.Id, T3.Id = T2.Id, or T1.Id = T3.Id)
+INSERT INTO users (Id, DisplayName) VALUES (10, 'Mark Meckes');
+INSERT INTO users (Id, DisplayName) VALUES (20, 'Other User');
+
+-- Post 10 has Id matching Mark Meckes's User.Id, and PostHistory 10 has Id matching Mark Meckes's User.Id,
+-- but they are actually linked to User 20.
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (10, 20, 0, '<id-collision-trap>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (10, 10, 20);
+
+-- The actual valid chain uses completely distinct IDs (User 10, PostHistory 99, Post 55)
+INSERT INTO posts (Id, OwnerUserId, CommentCount, Tags) VALUES (55, 20, 0, '<correct-join-keys>');
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (99, 55, 10);
+```
+
+```sql
+-- DATASET 6
+-- Column confusion trap (Catches mutants checking PostHistory.UserDisplayName, Posts.OwnerDisplayName,
+-- Posts.AnswerCount = 0, Posts.FavoriteCount = 0, Posts.Score = 0, or selecting PostHistory.Text/Comment)
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Mark Meckes');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Someone Else');
+
+-- Row 1: True match, but AnswerCount, FavoriteCount, Score are non-zero, and display names in other tables differ
+INSERT INTO posts (Id, CommentCount, AnswerCount, FavoriteCount, Score, OwnerDisplayName, LastEditorDisplayName, Title, Body, Tags)
+VALUES (101, 0, 5, 3, 10, 'Someone Else', 'Someone Else', 'TitleText', 'BodyText', '<true-tags>');
+INSERT INTO postHistory (Id, PostId, UserId, UserDisplayName, Text, Comment)
+VALUES (1001, 101, 1, 'Someone Else', 'HistoryText', 'HistoryComment');
+
+-- Row 2: False match (User is 'Someone Else', CommentCount is 2), but other display names are 'Mark Meckes' and other counts are 0
+INSERT INTO posts (Id, CommentCount, AnswerCount, FavoriteCount, Score, OwnerDisplayName, LastEditorDisplayName, Title, Body, Tags)
+VALUES (102, 2, 0, 0, 0, 'Mark Meckes', 'Mark Meckes', 'FalseTitle', 'FalseBody', '<false-tags>');
+INSERT INTO postHistory (Id, PostId, UserId, UserDisplayName, Text, Comment)
+VALUES (1002, 102, 2, 'Mark Meckes', '<false-text>', '<false-comment>');
+```

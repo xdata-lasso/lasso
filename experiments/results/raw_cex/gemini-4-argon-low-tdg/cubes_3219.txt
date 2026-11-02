@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT on Residence (Boston has two occupations with count = 2: Doc and Eng).
+-- 2. ORDER BY Residence ASC vs insertion order vs DESC (inserting Boston first, then Austin).
+-- 3. GROUP BY both (Occupation, Residence) vs GROUP BY Residence only:
+--    - Chicago has 1 Doc and 1 Eng (Total for Chicago = 2, but each occupation = 1).
+--    - Austin has 2 Docs and 1 Eng (Total for Austin = 3, but Doc = 2).
+-- 4. Count boundary conditions: n = 1 (Denver), n = 2 (Boston, Austin), n = 3 (Miami).
+-- 5. Unnecessary INNER JOINs with other tables (player_coach is left empty, so INNER JOIN would return empty).
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (1, 'SpA', 'P1', 'M', 'Boston', 'Doc', 10, '1');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (2, 'SpB', 'P2', 'F', 'Boston', 'Doc', 20, '2');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (3, 'SpC', 'P3', 'M', 'Boston', 'Eng', 15, '1');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (4, 'SpD', 'P4', 'F', 'Boston', 'Eng', 25, '3');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (5, 'SpE', 'P5', 'M', 'Austin', 'Doc', 30, '2');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (6, 'SpF', 'P6', 'F', 'Austin', 'Doc', 40, '1');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (7, 'SpG', 'P7', 'M', 'Austin', 'Eng', 50, '4');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (8, 'SpH', 'P8', 'F', 'Chicago', 'Doc', 10, '2');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (9, 'SpI', 'P9', 'M', 'Chicago', 'Eng', 10, '3');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (10, 'SpJ', 'P10', 'F', 'Denver', 'Doc', 100, '1');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (11, 'SpK', 'P11', 'M', 'Miami', 'Doc', 5, '5');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (12, 'SpL', 'P12', 'F', 'Miami', 'Doc', 5, '5');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (13, 'SpM', 'P13', 'M', 'Miami', 'Doc', 5, '5');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. COUNT(*) vs COUNT(Occupation) / COUNT(Sponsor_name) / COUNT(Votes) when NULLs are present.
+-- 2. COUNT(*) vs COUNT(DISTINCT column) when values in other columns are identical.
+-- 3. GROUP BY handling of NULL in Occupation and NULL in Residence.
+-- 4. Mutants that accidentally join with player_coach without deduplicating (causing row multiplication).
+INSERT INTO club (Club_ID, Club_name, Region, Start_year) VALUES (1, 'C1', 'R1', 2000);
+INSERT INTO coach (Coach_ID, Club_ID, Coach_name, Gender, Rank) VALUES (1, 1, 'Coach1', 'M', 1);
+INSERT INTO coach (Coach_ID, Club_ID, Coach_name, Gender, Rank) VALUES (2, 1, 'Coach2', 'F', 2);
+
+-- Seattle: 2 players with NULL Occupation. Tests COUNT(*) vs COUNT(Occupation) and NULL grouping.
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (1, NULL, 'P1', 'M', 'Seattle', NULL, NULL, '1');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (2, NULL, 'P2', 'M', 'Seattle', NULL, NULL, '1');
+
+-- Portland: 1 player with 2 coaches. If a mutant joins player_coach, Portland count becomes 2 instead of 1.
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (3, 'SpA', 'P3', 'F', 'Portland', 'Lawyer', 10, '2');
+INSERT INTO player_coach (Player_ID, Coach_ID, Starting_year) VALUES (3, 1, 2020);
+INSERT INTO player_coach (Player_ID, Coach_ID, Starting_year) VALUES (3, 2, 2021);
+
+-- Dallas: 2 players with identical attributes (Sponsor, Gender, Votes, Rank) to kill COUNT(DISTINCT col) mutants.
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (4, 'SameSp', 'SameName', 'F', 'Dallas', 'Artist', 50, '1');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (5, 'SameSp', 'SameName', 'F', 'Dallas', 'Artist', 50, '1');
+INSERT INTO player_coach (Player_ID, Coach_ID, Starting_year) VALUES (4, 1, 2020);
+INSERT INTO player_coach (Player_ID, Coach_ID, Starting_year) VALUES (5, 1, 2020);
+
+-- NULL Residence with count = 2: Tests how NULL residence is handled and ordered.
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (6, 'SpB', 'P6', 'M', NULL, 'Chef', 12, '3');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (7, 'SpC', 'P7', 'F', NULL, 'Chef', 14, '4');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Case sensitivity and string comparison in GROUP BY and ORDER BY.
+-- 2. Swapped column bugs (selecting Occupation instead of Residence, or ordering by Occupation instead of Residence).
+-- 3. Having 0 matching rows for n = 2 in some groups while other groups match, ensuring strict equality (n = 2 vs n >= 2 or n <= 2).
+--    - 'Zeta' has Occupation 'Alpha' (count 2) -> orders last by Residence, first by Occupation.
+--    - 'Beta' has Occupation 'Omega' (count 2) -> orders first by Residence, last by Occupation.
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (1, 'S1', 'P1', 'M', 'Zeta', 'Alpha', 2, '2');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (2, 'S2', 'P2', 'F', 'Zeta', 'Alpha', 2, '2');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (3, 'S3', 'P3', 'M', 'Beta', 'Omega', 10, '1');
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (4, 'S4', 'P4', 'F', 'Beta', 'Omega', 20, '3');
+
+-- Confounder: Residence and Occupation swapped ('Alpha' residence with 'Zeta' occupation has count = 1).
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (5, 'S5', 'P5', 'M', 'Alpha', 'Zeta', 2, '2');
+
+-- Confounder: Votes = 2 or Rank = '2' (kills mutants filtering WHERE Votes = 2 or Rank = '2' instead of COUNT(*) = 2).
+INSERT INTO player (Player_ID, Sponsor_name, Player_name, Gender, Residence, Occupation, Votes, Rank) VALUES (6, 'S6', 'P6', 'F', 'Gamma', 'Delta', 2, '2');
+```

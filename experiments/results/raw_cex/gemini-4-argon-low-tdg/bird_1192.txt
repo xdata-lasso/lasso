@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Tests DISTINCT necessity: A single qualifying patient with multiple qualifying laboratory records in Oct 1991.
+-- Also includes a non-qualifying patient to ensure basic filtering works.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'M', '1950-05-10', '1991-10-01', '1991-10-01', '-', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'F', '1960-08-15', '1991-10-01', '1991-10-01', '+', 'RA');
+
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (1, '1991-10-05', 1.2);
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (1, '1991-10-20', 0.8);
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (2, '1991-10-10', 1.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary conditions for T-BIL (< 2.0 vs <= 2.0, > 2.0, and NULL) and Admission values ('-', '+', NULL).
+INSERT INTO Patient (ID, Admission) VALUES (10, '-');
+INSERT INTO Patient (ID, Admission) VALUES (11, '-');
+INSERT INTO Patient (ID, Admission) VALUES (12, '-');
+INSERT INTO Patient (ID, Admission) VALUES (13, '-');
+INSERT INTO Patient (ID, Admission) VALUES (14, '+');
+INSERT INTO Patient (ID, Admission) VALUES (15, NULL);
+
+-- Boundary: strictly less than 2.0 (Qualifies)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (10, '1991-10-15', 1.99);
+-- Boundary: exactly 2.0 (Should NOT qualify; kills <= 2.0 mutant)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (11, '1991-10-15', 2.0);
+-- Boundary: greater than 2.0 (Should NOT qualify)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (12, '1991-10-15', 2.5);
+-- Boundary: NULL T-BIL (Should NOT qualify)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (13, '1991-10-15', NULL);
+-- Admission '+' with valid lab (Should NOT qualify)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (14, '1991-10-15', 1.0);
+-- Admission NULL with valid lab (Should NOT qualify)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (15, '1991-10-15', 1.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests date extraction boundaries: Year 1991 vs other years, Month 10 vs other months, and Date column confusion.
+INSERT INTO Patient (ID, Birthday, Description, "First Date", Admission) VALUES (20, '1991-10-10', '1991-10-10', '1991-10-10', '-');
+INSERT INTO Patient (ID, Birthday, Description, "First Date", Admission) VALUES (21, '1970-01-01', '1990-01-01', '1990-01-01', '-');
+INSERT INTO Patient (ID, Birthday, Description, "First Date", Admission) VALUES (22, '1970-01-01', '1990-01-01', '1990-01-01', '-');
+INSERT INTO Patient (ID, Birthday, Description, "First Date", Admission) VALUES (23, '1970-01-01', '1990-01-01', '1990-01-01', '-');
+INSERT INTO Patient (ID, Birthday, Description, "First Date", Admission) VALUES (24, '1970-01-01', '1990-01-01', '1990-01-01', '-');
+
+-- Patient 20 has 1991-10 in Patient dates and Examination Date, but NOT in Laboratory.Date (Kills column confusion mutants)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (20, '1992-11-15', 1.0);
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (20, '1991-10-15', 'SLE');
+
+-- Patient 21: Right month (10), wrong year (1990) (Kills missing year filter mutant)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (21, '1990-10-15', 1.0);
+
+-- Patient 22: Right year (1991), wrong month (09 - boundary) (Kills missing month filter mutant)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (22, '1991-09-30', 1.0);
+
+-- Patient 23: Right year (1991), wrong month (11 - boundary)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (23, '1991-11-01', 1.0);
+
+-- Patient 24: Exact match at boundary of October 1991 (Qualifies)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (24, '1991-10-01', 0.5);
+```
+
+```sql
+-- DATASET 4
+-- Tests join semantics and tuple-level correlation:
+-- A patient who has one lab in 1991-10 with high T-BIL, and another lab in a different date with low T-BIL.
+-- Also includes a patient with no laboratory records (kills LEFT JOIN mutants if WHERE is pushed to ON).
+INSERT INTO Patient (ID, Admission) VALUES (30, '-');
+INSERT INTO Patient (ID, Admission) VALUES (31, '-');
+INSERT INTO Patient (ID, Admission) VALUES (32, '-');
+
+-- Patient 30: Split conditions across two different Lab rows (Should NOT qualify; kills mutants that evaluate conditions independently across subqueries)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (30, '1991-10-12', 3.5);
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (30, '1991-05-12', 1.2);
+-- Also split year and month across two rows for Patient 30
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (30, '1992-10-12', 1.2);
+
+-- Patient 31: No Laboratory rows at all, but has Examination row in 1991-10 (Should NOT qualify; kills table confusion / LEFT JOIN mutants)
+INSERT INTO Examination (ID, "Examination Date", "aCL IgG") VALUES (31, '1991-10-10', 1.5);
+
+-- Patient 32: Valid qualifying row along with non-qualifying rows (Qualifies)
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (32, '1991-10-31', 1.8);
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (32, '1991-10-15', 4.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion within Laboratory (e.g., T-CHO, ALB, TP, CRE instead of T-BIL) and zero/negative T-BIL values.
+INSERT INTO Patient (ID, Admission) VALUES (40, '-');
+INSERT INTO Patient (ID, Admission) VALUES (41, '-');
+
+-- Patient 40: T-BIL is >= 2.0 (fails), but other REAL/INTEGER columns (ALB, TP, CRE, UA, T-CHO) are < 2.0
+INSERT INTO Laboratory (ID, Date, "T-BIL", ALB, TP, CRE, UA, "T-CHO") VALUES (40, '1991-10-20', 2.5, 1.0, 1.0, 0.9, 1.5, 1);
+
+-- Patient 41: T-BIL is 0.0 (< 2.0, qualifies), while other columns are > 2.0
+INSERT INTO Laboratory (ID, Date, "T-BIL", ALB, TP, CRE, UA, "T-CHO") VALUES (41, '1991-10-20', 0.0, 4.5, 7.2, 3.1, 5.0, 180);
+```

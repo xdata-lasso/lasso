@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. LEFT JOIN vs INNER JOIN (Active customer with 0 orders, and active customer with only non-completed orders).
+-- 2. ON condition vs WHERE condition for o.order_status = 'COMPLETED'.
+-- 3. COUNT(o.order_id) vs COUNT(*) (NULL order_id should count as 0, not 1).
+-- 4. COALESCE(SUM(o.total_amount), 0.0) vs SUM(o.total_amount) (NULL sum becomes 0.0).
+-- 5. SUM(o.total_amount) vs SUM(DISTINCT o.total_amount) (Duplicate order amounts).
+-- 6. WHERE c.is_active = 1 filter (Inactive customer with completed orders excluded).
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (1, 'Alice', 'GOLD', 1);
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (2, 'Bob', 'SILVER', 1);
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (3, 'Charlie', 'BRONZE', 1);
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (4, 'Diana', 'GOLD', 0);
+
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (101, 1, '2023-01-10', 'COMPLETED', 'HIGH', 50.0);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (102, 1, '2023-01-11', 'COMPLETED', 'STANDARD', 50.0);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (103, 1, '2023-01-12', 'PENDING', 'LOW', 100.0);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (104, 2, '2023-01-15', 'CANCELLED', 'STANDARD', 75.0);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (105, 4, '2023-01-20', 'COMPLETED', 'HIGH', 200.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. GROUP BY c.customer_id, c.customer_name vs GROUP BY c.customer_name (Two active customers with identical names).
+-- 2. c.is_active = 1 vs c.is_active != 0 or c.is_active > 0 (Customer with is_active = 2 or -1).
+-- 3. Case sensitivity / exact match on 'COMPLETED' vs 'completed' or 'COMPLETE'.
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (1, 'John Smith', 'GOLD', 1);
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (2, 'John Smith', 'SILVER', 1);
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (3, 'Eve Adams', 'BRONZE', 2);
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (4, 'Frank Wright', 'GOLD', -1);
+
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (201, 1, '2023-02-01', 'COMPLETED', 'STANDARD', 120.5);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (202, 2, '2023-02-02', 'COMPLETED', 'STANDARD', 80.25);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (203, 2, '2023-02-03', 'completed', 'STANDARD', 40.0);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (204, 3, '2023-02-04', 'COMPLETED', 'HIGH', 300.0);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (205, 4, '2023-02-05', 'COMPLETED', 'LOW', 150.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. SUM vs AVG, MIN, MAX, COUNT mutations (Customer with 3 completed orders of distinct, non-uniform amounts including 0.0).
+-- 2. Join key mutations (e.g., o.order_id = c.customer_id or self-join errors).
+-- 3. COALESCE fallback value mutation (e.g., COALESCE(..., 1.0) vs 0.0) when comparing against a customer with an actual 0.0 completed order.
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (10, 'Grace', 'GOLD', 1);
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (20, 'Heidi', 'SILVER', 1);
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (30, 'Ivan', 'BRONZE', 1);
+
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (10, 10, '2023-03-01', 'COMPLETED', 'STANDARD', 10.0);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (20, 10, '2023-03-02', 'COMPLETED', 'STANDARD', 25.0);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (30, 10, '2023-03-03', 'COMPLETED', 'STANDARD', 55.0);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (40, 20, '2023-03-04', 'COMPLETED', 'LOW', 0.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Missing GROUP BY clause (If GROUP BY is omitted in SQLite, aggregates collapse multiple customers into a single row).
+-- 2. HAVING clause mutations (e.g., HAVING COUNT(o.order_id) > 0 or HAVING SUM(o.total_amount) > 0).
+-- 3. Negative or fractional total_amount handling (e.g., refunds/credits in orders).
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (1, 'Judy', 'GOLD', 1);
+INSERT INTO customers (customer_id, customer_name, tier, is_active) VALUES (2, 'Karl', 'SILVER', 1);
+
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (1, 1, '2023-04-01', 'COMPLETED', 'HIGH', 100.75);
+INSERT INTO orders (order_id, customer_id, order_date, order_status, order_priority, total_amount) VALUES (2, 1, '2023-04-02', 'COMPLETED', 'HIGH', -20.25);
+```

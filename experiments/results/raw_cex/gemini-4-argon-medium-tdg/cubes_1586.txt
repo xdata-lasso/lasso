@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests multiple shipping agents with 'USPS' name having different document counts, non-USPS agents, and agents with 0 documents.
+-- Refutes mutants that omit GROUP BY shipping_agent_code, omit WHERE shipping_agent_name = 'USPS', omit DISTINCT, or use LEFT JOIN returning 0/NULL.
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('DT1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('DS1', 'Status 1');
+
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'USPS', 'USPS Branch 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A2', 'USPS', 'USPS Branch 2');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A3', 'USPS', 'USPS Branch 3 Empty');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A4', 'FedEx', 'FedEx Express');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (1, 'A2', 'DS1', 'DT1', '2023-01-01 10:00:00', 'R1', 'D1');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (2, 'A1', 'DS1', 'DT1', '2023-01-02 10:00:00', 'R2', 'D2');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (3, 'A1', 'DS1', 'DT1', '2023-01-03 10:00:00', 'R3', 'D3');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (4, 'A1', 'DS1', 'DT1', '2023-01-04 10:00:00', 'R4', 'D4');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (5, 'A4', 'DS1', 'DT1', '2023-01-05 10:00:00', 'R5', 'D5');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (6, 'A4', 'DS1', 'DT1', '2023-01-06 10:00:00', 'R6', 'D6');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL values in non-key columns of Documents and Ref_Shipping_Agents, plus confusion between shipping_agent_code, shipping_agent_name, and shipping_agent_description.
+-- Refutes mutants that use COUNT(column) instead of COUNT(*), or filter on shipping_agent_code = 'USPS' or shipping_agent_description = 'USPS'.
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('US_CODE', 'USPS', NULL);
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('USPS', 'DHL', 'USPS');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (10, 'US_CODE', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (11, 'US_CODE', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (12, 'USPS', NULL, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests when multiple 'USPS' shipping agents have the exact same document count, and when a 'USPS' agent has 0 documents alone.
+-- Refutes mutants that omit DISTINCT or group by shipping_agent_name instead of shipping_agent_code (which would yield 4 instead of 2).
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('S1', 'USPS', 'Desc 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('S2', 'USPS', 'Desc 2');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (101, 'S1', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (102, 'S1', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (103, 'S2', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (104, 'S2', NULL, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set for 'USPS' (where 'USPS' exists in Ref_Shipping_Agents but has no documents, while other agents have documents, plus documents with NULL shipping_agent_code).
+-- Refutes mutants that return 0 via COUNT(document_id) with LEFT JOIN, or fail to join properly on shipping_agent_code.
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('U1', 'USPS', 'USPS Only');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('O1', 'Other', 'Other Agent');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (201, 'O1', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (202, NULL, NULL, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests ordering (ORDER BY count___ ASC vs DESC or insertion order) and child table joins (Documents_Mailed, Document_Drafts).
+-- Refutes mutants that sort descending, omit ORDER BY, or unnecessarily join child tables like Documents_Mailed / Document_Drafts without deduplication.
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, '123 Main St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (2, '456 Oak Ave');
+
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('Z_HIGH', 'USPS', 'High count inserted first');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A_LOW', 'USPS', 'Low count inserted second');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (301, 'Z_HIGH', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (302, 'Z_HIGH', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (303, 'Z_HIGH', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (304, 'A_LOW', NULL, NULL, NULL, NULL, NULL);
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (304, 1, '2023-01-01');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (304, 2, '2023-01-02');
+```

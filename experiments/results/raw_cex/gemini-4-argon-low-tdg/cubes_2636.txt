@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Bag semantics vs. Set semantics (Duplicate 'Carrier' values for unstocked devices: kills SELECT DISTINCT / EXCEPT).
+-- 2. Shared 'Carrier' across stocked and unstocked devices (kills SELECT Carrier FROM device EXCEPT SELECT Carrier FROM stock JOIN device).
+-- 3. Ordering direction and NULL handling (ASC vs DESC, NULLS FIRST).
+-- 4. Column confusion (Device text != Carrier text).
+-- 5. Anti-join vs Inner-join (some devices stocked, some not).
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (1, 'Pixel 8', 'Verizon', 'v1.0', 'Maps', 'Android');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (2, 'Galaxy S23', 'Verizon', 'v2.0', 'Mail', 'Android');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (3, 'iPhone 15', 'AT&T', 'v3.0', 'Music', 'iOS');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (4, 'iPhone 14', 'AT&T', 'v2.5', 'Music', 'iOS');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (5, 'Xperia 1', 'T-Mobile', 'v1.1', 'Camera', 'Android');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (6, 'Unlocked Phone', NULL, 'v1.0', 'Browser', 'Android');
+
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (10, 'Downtown Store', 'NY', '2020-01-01', 2020);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (20, 'Mall Kiosk', 'CA', '2021-06-15', 2021);
+
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (10, 3, 50);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (10, 5, 25);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (20, 5, 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Join key confusion (Shop_ID vs Device_ID in stock: e.g., LHS.device_id = RHS.shop_id).
+-- 2. Zero or negative quantity in stock (kills mutants that filter stock by Quantity > 0 instead of pure existence in stock table).
+-- 3. Uncorrelated NOT EXISTS (stock is non-empty, so uncorrelated NOT EXISTS returns empty set).
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (1, 'Moto G', 'Sprint', 'v1.0', 'Chat', 'Android');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (2, 'Nokia 3310', 'Mint', 'v0.9', 'Snake', 'Symbian');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (3, 'OnePlus 11', 'Visible', 'v4.0', 'Games', 'Android');
+
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (1, 'First Ave Shop', 'TX', '2019-03-10', 2019);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (100, 'Central Hub', 'WA', '2022-11-11', 2022);
+
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (1, 2, 0);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (100, 3, -5);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty 'stock' table boundary condition (all devices should be returned).
+-- 2. Kills INNER JOIN mutants and EXISTS (vs NOT EXISTS) mutants which would return 0 rows.
+-- 3. Non-trivial alphabetical ordering of Carrier (out-of-order insertion vs Device_ID order).
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (1, 'DevA', 'Vodafone', '1.0', 'App1', 'OS1');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (2, 'DevB', 'Bell', '1.0', 'App2', 'OS2');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (3, 'DevC', 'Orange', '1.0', 'App3', 'OS1');
+
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (1, 'Empty Shop', 'FL', '2023-01-01', 2023);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. NULL Device_ID in 'stock' table (Crucial for killing `WHERE Device_ID NOT IN (SELECT Device_ID FROM stock)` when stock contains a NULL Device_ID, as NOT IN evaluates to UNKNOWN/empty whereas NOT EXISTS still returns unmatched devices).
+-- 2. Multiple shops stocking the same device (kills LEFT JOIN without WHERE RHS.device_id IS NULL or improper grouping).
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (10, 'Surface Duo', 'US Cellular', 'v1', 'Office', 'Windows');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (20, 'BlackBerry Bold', 'Rogers', 'v2', 'BBM', 'BBOS');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (30, 'iPhone SE', 'Telus', 'v3', 'Safari', 'iOS');
+
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (1, 'Shop North', 'ON', '2018-05-05', 2018);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (2, 'Shop South', 'BC', '2019-07-07', 2019);
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (3, 'Shop East', 'QC', '2020-09-09', 2020);
+
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (1, 10, 5);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (2, 10, 15);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (3, NULL, 99);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. All devices are in stock (Query should return empty result set).
+-- 2. Kills mutants that omit the WHERE NOT EXISTS clause, use LEFT JOIN without filtering NULLs, or use inequality (<>, >, <) in the subquery correlation condition.
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (1, 'Phone 1', 'Cricket', 'v1', 'A', 'Android');
+INSERT INTO "device" ("Device_ID", "Device", "Carrier", "Package_Version", "Applications", "Software_Platform") VALUES (2, 'Phone 2', 'Boost', 'v2', 'B', 'iOS');
+
+INSERT INTO "shop" ("Shop_ID", "Shop_Name", "Location", "Open_Date", "Open_Year") VALUES (1, 'MegaStore', 'IL', '2015-01-01', 2015);
+
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (1, 1, 10);
+INSERT INTO "stock" ("Shop_ID", "Device_ID", "Quantity") VALUES (1, 2, 20);
+```

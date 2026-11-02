@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (cname = 'Contra Costa'), NULL sname exclusion, DESC ordering on NumTstTakr, and LIMIT 1.
+-- Also includes decoupled values in `schools` and `frpm` to kill mutants that join and select/filter from the wrong table, or order by enroll12/NumGE1500.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('1', 'Active', 'Wrong County', 'Dist1', 'Wrong School 1', '00', 'Type', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('2', 'Active', 'Contra Costa', 'Dist2', 'School From Schools Table 2', '00', 'Type', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('3', 'Active', 'Contra Costa', 'Dist3', 'School From Schools Table 3', '00', 'Type', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('4', 'Active', 'Alameda', 'Dist4', 'Wrong School 4', '00', 'Type', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name") VALUES ('1', 'Contra Costa', 'FRPM School 1');
+INSERT INTO frpm (CDSCode, "County Name", "School Name") VALUES ('2', 'Wrong County', 'FRPM School 2');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('1', 'S', NULL, 'Contra Costa', 'Contra Costa', 2000, 1500, 600, 600, 600, 1000);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('2', 'S', 'Target High School', 'Other Dist', 'Contra Costa', 400, 800, 400, 400, 400, 200);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('3', 'S', 'Runner Up High', 'Contra Costa', 'Contra Costa', 900, 500, 500, 500, 500, 450);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('4', 'S', 'Alameda High', 'Contra Costa', 'Alameda', 3000, 2500, 700, 700, 700, 2000);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on maximum NumTstTakr using satscores.cds ASC, and ensures rows without `frpm` entries are still included (kills INNER JOIN frpm mutants).
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('10', 'Active', 'Contra Costa', 'DistA', 'School 10', '00', 'Type', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('20', 'Active', 'Contra Costa', 'DistB', 'School 20', '00', 'Type', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('30', 'Active', 'Contra Costa', 'DistC', 'School 30', '00', 'Type', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name") VALUES ('20', 'Contra Costa', 'Tie School B');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('20', 'S', 'Tie School B', 'DistB', 'Contra Costa', 500, 1000, 500, 500, 500, 500);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('10', 'S', 'Tie School A', 'DistA', 'Contra Costa', 500, 1000, 500, 500, 500, 500);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('30', 'S', 'Lower School C', 'DistC', 'Contra Costa', 500, 999, 500, 500, 500, 500);
+```
+
+```sql
+-- DATASET 3
+-- Tests integer vs string sorting on NumTstTakr (e.g., 100 vs 90: numerically 100 > 90, lexicographically '90' > '100') and rtype variations (e.g., 'D' vs 'S' in case a mutant filters by rtype).
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('100', 'Active', 'Contra Costa', 'Dist1', 'School 100', '00', 'Type', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('200', 'Active', 'Contra Costa', 'Dist2', 'School 200', '00', 'Type', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('100', 'D', 'Numeric Max School', 'Dist1', 'Contra Costa', 150, 100, NULL, NULL, NULL, NULL);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('200', 'S', 'String Max School', 'Dist2', 'Contra Costa', 150, 90, 500, 500, 500, 50);
+```
+
+```sql
+-- DATASET 4
+-- Tests edge case where multiple valid schools share the exact same sname, and a higher NumTstTakr row has cname NULL or case/substring variations ('Contra Costa County').
+-- Kills mutants using COUNT/GROUP BY, LIKE '%Contra Costa%', or OR instead of AND in the WHERE clause.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('01', 'Active', 'Contra Costa', 'Dist1', 'S1', '00', 'Type', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('02', 'Active', 'Contra Costa', 'Dist2', 'S2', '00', 'Type', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('03', 'Active', 'Contra Costa', 'Dist3', 'S3', '00', 'Type', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('04', 'Active', 'Contra Costa', 'Dist4', 'S4', '00', 'Type', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('01', 'S', 'Wildcat High', 'Dist1', 'Contra Costa County', 1000, 3000, 500, 500, 500, 500);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('02', 'S', 'Exact Match High', 'Dist2', 'Contra Costa', 1000, 500, 500, 500, 500, 500);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('03', 'S', 'Duplicate Name High', 'Dist3', 'Contra Costa', 1000, 400, 500, 500, 500, 500);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('04', 'S', 'Duplicate Name High', 'Dist4', 'Contra Costa', 1000, 400, 500, 500, 500, 500);
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary condition where NumTstTakr is 0, and another row in 'Contra Costa' has sname as NULL.
+-- Kills mutants that filter out NumTstTakr = 0 (e.g., NumTstTakr > 0) or fail to check sname IS NOT NULL when the only other row has 0 test takers.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('A1', 'Active', 'Contra Costa', 'Dist1', 'School A1', '00', 'Type', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('A2', 'Active', 'Contra Costa', 'Dist2', 'School A2', '00', 'Type', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('A1', 'S', NULL, 'Dist1', 'Contra Costa', 500, 200, 500, 500, 500, 100);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('A2', 'S', 'Zero Takers High', 'Dist2', 'Contra Costa', 50, 0, 0, 0, 0, 0);
+```

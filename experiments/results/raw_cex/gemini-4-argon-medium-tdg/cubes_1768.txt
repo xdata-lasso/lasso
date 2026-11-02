@@ -1,0 +1,100 @@
+```sql
+-- DATASET 1
+-- Comprehensive test covering:
+-- 1. Customer with NO cards at all (Kills INNER JOIN / WHERE card_type_code != 'Credit' mutants)
+-- 2. Customer with ONLY 'Debit' card (Kills EXISTS / = 'Credit' mutants)
+-- 3. Customer with ONLY 'Credit' card (Should be excluded)
+-- 4. Customer with BOTH 'Credit' and 'Debit' cards (Kills WHERE card_type_code != 'Credit' / EXCEPT without filtering mutants)
+-- 5. Customer with MULTIPLE 'Debit' cards (Kills LEFT JOIN without DISTINCT mutants)
+-- 6. Card with NULL customer_id and 'Credit' type (Kills NOT IN (SELECT customer_id ...) mutants due to three-valued logic with NULLs)
+-- 7. Out-of-order insertion and duplicate first names (Tests ORDER BY customer_id and SELECT DISTINCT customer_first_name mutants)
+
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (50, 'Alice', 'Smith');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (10, 'Bob', 'Jones');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (40, 'Charlie', 'Brown');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (20, 'David', 'Wilson');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (30, 'Alice', 'Taylor');
+
+-- Customer 10: Only Debit card
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (101, 10, 'Debit');
+
+-- Customer 20: Only Credit card
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (102, 20, 'Credit');
+
+-- Customer 30: Both Credit and Debit cards
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (103, 30, 'Debit');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (104, 30, 'Credit');
+
+-- Customer 40: Multiple non-Credit cards
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (105, 40, 'Debit');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (106, 40, 'Prepaid');
+
+-- Customer 50: No cards in Customers_Cards
+
+-- Unassigned Credit card (customer_id is NULL)
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (107, NULL, 'Credit');
+```
+
+```sql
+-- DATASET 2
+-- Tests string matching sensitivity, NULLs in card_type_code, NULLs in customer_first_name, and join key mismatches (card_id vs customer_id).
+
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Eve', 'Adams');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (2, 'Frank', 'Baker');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (3, NULL, 'Clark');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (4, 'Grace', 'Davis');
+
+-- Customer 1 has a card with NULL card_type_code (Should NOT be treated as 'Credit')
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (10, 1, NULL);
+
+-- Customer 2 has a card with lowercase 'credit' (Tests case-sensitivity vs LIKE/ILIKE)
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (20, 2, 'credit');
+
+-- Customer 3 has a card where card_id = 4 and type = 'Credit' (Tests wrong join condition: LHS.customer_id = RHS.card_id)
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (4, 3, 'Credit');
+
+-- Customer 4 has no cards, but card_id 4 above exists with 'Credit'
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary conditions where ALL customers have 'Credit' cards (Result should be empty)
+-- Also includes Accounts and Financial_Transactions to kill mutants that mistakenly join or filter on other tables in the schema.
+
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Henry', 'Ford');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (2, 'Ivy', 'Green');
+
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (1, 1, 'Credit');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (2, 2, 'Credit');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (3, 2, 'Credit');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (100, 1, 'Savings');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type") VALUES (100, 1, 1000, 'Credit');
+```
+
+```sql
+-- DATASET 4
+-- Tests correlation omission in NOT EXISTS (e.g., WHERE NOT EXISTS (SELECT 1 FROM Customers_Cards WHERE card_type_code = 'Credit') without LHS.customer_id = RHS.customer_id).
+-- In this dataset, NO 'Credit' cards exist anywhere in the table.
+
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (10, 'Jack', 'Hill');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (5, 'Kelly', 'King');
+
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (1, 10, 'Debit');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (2, 5, 'Gift');
+
+-- Customer 5 has an Account, Customer 10 does not (Kills mutants joining Accounts instead of Customers_Cards)
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (1, 5, 'Credit');
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL customer_id in Customers table (SQLite allows NULL in INTEGER PRIMARY KEY unless STRICT or NOT NULL is specified, or if column type is INT/TEXT, though in SQLite INTEGER PRIMARY KEY is an alias for ROWID and auto-fills if NULL is inserted. We test negative and zero IDs for ordering and boundary checks).
+
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (0, 'Zero', 'User');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (-10, 'Negative', 'User');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (10, 'Positive', 'User');
+
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (1, 0, 'Credit Card');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (2, -10, 'Debit');
+```

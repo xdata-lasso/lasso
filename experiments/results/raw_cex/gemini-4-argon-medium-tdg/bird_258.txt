@@ -1,0 +1,96 @@
+```sql
+-- DATASET 1
+-- Tests DISTINCT behavior, WHERE clause filtering ('sn' vs others, case sensitivity, NULL), 
+-- and ensures joining via 'connected' is required rather than joining atom and bond directly via molecule_id.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'sn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm2', 'SN');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a5', 'm2', NULL);
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm1', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b4', 'm2', '#');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a3', 'b2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a3', 'b3');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a4', 'a5', 'b4');
+```
+
+```sql
+-- DATASET 2
+-- Tests asymmetric join condition (T1.atom_id = T2.atom_id vs T1.atom_id = T2.atom_id2).
+-- Here, the 'sn' atom is only present in T2.atom_id2, not T2.atom_id.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'sn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', 'c');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '-');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a1', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a3', 'b2');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN behavior (unconnected 'sn' atoms, connected rows with NULL bond_id, 
+-- unconnected bonds) and tests NULL values in molecule_id and bond_type.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'sn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'sn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', NULL, 'sn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', NULL, 'c');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '~');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', NULL, '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm1', NULL);
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a4', NULL);
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a3', 'a4', 'b2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a4', 'b3');
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple distinct bond_types for 'sn' atoms to catch mutants using LIMIT 1, MIN, MAX, or COUNT,
+-- and tests cross-molecule connections to refute mutants adding T1.molecule_id = T3.molecule_id.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'sn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm2', 'sn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', 'n');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm1', '#');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a3', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a3', 'b3');
+```
+
+```sql
+-- DATASET 5
+-- Tests substring/wildcard matching mutants (e.g., element LIKE '%sn%') and ensures empty result handling when no 'sn' exists.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'asn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'snb');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', 's');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '=');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a3', 'b2');
+```

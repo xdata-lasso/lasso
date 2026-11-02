@@ -1,0 +1,60 @@
+```sql
+-- DATASET 1
+-- Tests standard functionality, DISTINCT elimination of duplicate window function results,
+-- incorrect aggregate functions (MAX, AVG, SUM, COUNT), and wrong column references (winner_rank, loser_rank_points, loser_seed, rankings.ranking).
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (1, 'Roger', 'Federer', 'R', '1981-08-08', 'SUI');
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (2, 'Rafael', 'Nadal', 'L', '1986-06-03', 'ESP');
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (3, 'Novak', 'Djokovic', 'R', '1987-05-22', 'SRB');
+
+INSERT INTO rankings (player_id, ranking_date, ranking, ranking_points, tours) VALUES (1, '2020-01-01', 1, 10000, 15);
+INSERT INTO rankings (player_id, ranking_date, ranking, ranking_points, tours) VALUES (2, '2020-01-01', 2, 9000, 14);
+
+INSERT INTO matches (winner_id, loser_id, loser_rank, loser_rank_points, loser_seed, winner_rank, winner_rank_points, winner_seed, match_num, year, surface, round) VALUES (1, 2, 15, 2000, 4, 2, 8000, 1, 101, 2020, 'Hard', 'F');
+INSERT INTO matches (winner_id, loser_id, loser_rank, loser_rank_points, loser_seed, winner_rank, winner_rank_points, winner_seed, match_num, year, surface, round) VALUES (2, 3, 5, 4500, 2, 1, 9000, 1, 102, 2020, 'Clay', 'SF');
+INSERT INTO matches (winner_id, loser_id, loser_rank, loser_rank_points, loser_seed, winner_rank, winner_rank_points, winner_seed, match_num, year, surface, round) VALUES (3, 1, 25, 1200, 8, 3, 7000, 3, 103, 2021, 'Grass', 'QF');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty 'matches' table behavior:
+-- Ensures that SELECT MIN(...) OVER () returns 0 rows, whereas a simple aggregate SELECT MIN(...) without GROUP BY returns 1 row (NULL).
+-- Also populates 'rankings' to catch mutants querying the wrong table.
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (1, 'Andy', 'Murray', 'R', '1987-05-15', 'GBR');
+INSERT INTO rankings (player_id, ranking_date, ranking, ranking_points, tours) VALUES (1, '2020-01-01', 10, 3000, 12);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in window aggregate and foreign keys:
+-- Contains a row with NULL loser_rank, and the row with the minimum loser_rank has NULL winner_id/loser_id
+-- (catching mutants that perform an INNER JOIN with players).
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (1, 'Pete', 'Sampras', 'R', '1971-08-12', 'USA');
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (2, 'Andre', 'Agassi', 'R', '1970-04-29', 'USA');
+
+INSERT INTO matches (winner_id, loser_id, loser_rank, winner_rank, match_num, year) VALUES (1, 2, NULL, 1, 1, 1995);
+INSERT INTO matches (winner_id, loser_id, loser_rank, winner_rank, match_num, year) VALUES (1, 2, 12, 1, 2, 1995);
+INSERT INTO matches (winner_id, loser_id, loser_rank, winner_rank, match_num, year) VALUES (NULL, NULL, 3, 2, 3, 1995);
+```
+
+```sql
+-- DATASET 4
+-- Tests the scenario where all rows in 'matches' have a NULL loser_rank:
+-- Should return a single row containing NULL. Catches mutants adding 'WHERE loser_rank IS NOT NULL'.
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (1, 'Stan', 'Wawrinka', 'R', '1985-03-28', 'SUI');
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (2, 'Dominic', 'Thiem', 'R', '1993-09-03', 'AUT');
+
+INSERT INTO matches (winner_id, loser_id, loser_rank, winner_rank, match_num, year) VALUES (1, 2, NULL, 4, 10, 2019);
+INSERT INTO matches (winner_id, loser_id, loser_rank, winner_rank, match_num, year) VALUES (2, 1, NULL, 5, 11, 2019);
+```
+
+```sql
+-- DATASET 5
+-- Tests string vs integer casting/sorting issues (e.g., 9 vs 100, where '100' < '9' lexicographically)
+-- and duplicate minimum values (testing MIN(DISTINCT loser_rank) vs COUNT/SUM).
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (1, 'Daniil', 'Medvedev', 'R', '1996-02-11', 'RUS');
+INSERT INTO players (player_id, first_name, last_name, hand, birth_date, country_code) VALUES (2, 'Alexander', 'Zverev', 'R', '1997-04-20', 'GER');
+
+INSERT INTO matches (winner_id, loser_id, loser_rank, winner_rank, match_num, year) VALUES (1, 2, 100, 1, 1, 2022);
+INSERT INTO matches (winner_id, loser_id, loser_rank, winner_rank, match_num, year) VALUES (2, 1, 9, 2, 2, 2022);
+INSERT INTO matches (winner_id, loser_id, loser_rank, winner_rank, match_num, year) VALUES (1, 2, 9, 3, 3, 2022);
+```

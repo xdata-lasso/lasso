@@ -1,0 +1,110 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (DESC vs ASC), LIMIT 1 vs no limit, and sorting by registration_date vs student_id or student_details.
+-- Also tests queries that mistakenly use Student_Course_Attendance or Candidates instead of Student_Course_Registrations.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (1, 'Alice', 'A', 'Smith', '111-1111', 'alice@example.com', 'alice', 'pass1');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (2, 'Bob', 'B', 'Jones', '222-2222', 'bob@example.com', 'bob', 'pass2');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (3, 'Charlie', 'C', 'Brown', '333-3333', 'charlie@example.com', 'charlie', 'pass3');
+
+INSERT INTO Students (student_id, student_details) VALUES (1, 'Details_Z_Student1');
+INSERT INTO Students (student_id, student_details) VALUES (2, 'Details_M_Student2');
+INSERT INTO Students (student_id, student_details) VALUES (3, 'Details_A_Student3');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('101', 'Math', 'Basic Math', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('102', 'Science', 'Basic Science', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('103', 'History', 'World History', 'None');
+
+-- Student 2 has the latest registration_date (2023-05-15), while Student 1 has the earliest, and Student 3 is in the middle.
+-- Note: Student 3 has the highest student_id (3) and alphabetically first details ('Details_A_Student3').
+-- Student 1 has the lowest student_id (1) and alphabetically last details ('Details_Z_Student1').
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (1, 103, '2021-01-10 10:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (2, 102, '2023-05-15 14:30:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (3, 101, '2022-08-20 09:15:00');
+
+-- Add attendance records with different date ordering to catch mutants using date_of_attendance instead of registration_date
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (1, 103, '2024-01-01 10:00:00');
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (2, 102, '2023-06-01 10:00:00');
+
+-- Add candidate records to catch mutants joining with Candidates/Candidate_Assessments
+INSERT INTO Candidates (candidate_id, candidate_details) VALUES (1, 'Cand_Details_1');
+INSERT INTO Candidate_Assessments (candidate_id, qualification, assessment_date, asessment_outcome_code) VALUES (1, 'QualA', '2025-01-01 00:00:00', 'PASS');
+```
+
+```sql
+-- DATASET 2
+-- Tests join condition (LHS.student_id = RHS.student_id vs LHS.student_id = RHS.course_id) and INNER JOIN vs LEFT JOIN.
+-- Also tests behavior when a student has no course registrations.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (10, 'David', 'D', 'White', '444-4444', 'david@example.com', 'david', 'pass4');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (20, 'Eve', 'E', 'Black', '555-5555', 'eve@example.com', 'eve', 'pass5');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (30, 'Frank', 'F', 'Green', '666-6666', 'frank@example.com', 'frank', 'pass6');
+
+INSERT INTO Students (student_id, student_details) VALUES (10, 'Student_Ten_Unregistered');
+INSERT INTO Students (student_id, student_details) VALUES (20, 'Student_Twenty_OldReg');
+INSERT INTO Students (student_id, student_details) VALUES (30, 'Student_Thirty_LatestReg');
+
+-- Course IDs overlap with Student IDs to catch mutants joining on student_id = course_id
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('10', 'Course Ten', 'Desc 10', 'Other 10');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('20', 'Course Twenty', 'Desc 20', 'Other 20');
+
+-- Student 20 registers for Course 10, Student 30 registers for Course 20 (latest). Student 10 is unregistered.
+-- If a mutant joins Students.student_id = Student_Course_Registrations.course_id, latest registration (course 20) would map to Student 20 instead of Student 30.
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (20, 10, '2020-03-01 08:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (30, 20, '2023-11-11 11:11:11');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in registration_date and chronological vs lexicographical date sorting / timestamps on the same day.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (101, 'Grace', 'G', 'Hall', '777-7777', 'grace@example.com', 'grace', 'pass7');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (102, 'Hank', 'H', 'King', '888-8888', 'hank@example.com', 'hank', 'pass8');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (103, 'Ivy', 'I', 'Lee', '999-9999', 'ivy@example.com', 'ivy', 'pass9');
+
+INSERT INTO Students (student_id, student_details) VALUES (101, 'Grace_NullDate');
+INSERT INTO Students (student_id, student_details) VALUES (102, 'Hank_Morning');
+INSERT INTO Students (student_id, student_details) VALUES (103, 'Ivy_Evening');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('501', 'Art', 'Painting', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('502', 'Music', 'Piano', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('503', 'Drama', 'Acting', 'None');
+
+-- In SQLite, NULL is considered smaller than any non-NULL value, so ORDER BY registration_date DESC puts non-NULLs first.
+-- Hank and Ivy registered on the same date, differing only by time.
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (101, 501, NULL);
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (102, 502, '2023-07-04 08:30:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (103, 503, '2023-07-04 19:45:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when Students exist and Courses exist, but Student_Course_Registrations is empty.
+-- Catches mutants that use LEFT JOIN from Students to Student_Course_Registrations or query Students directly without joining.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (1, 'Jack', 'J', 'Moore', '000-0001', 'jack@example.com', 'jack', 'pass10');
+
+INSERT INTO Students (student_id, student_details) VALUES (1, 'Only_Student_No_Registrations');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('999', 'Philosophy', 'Ethics', 'None');
+```
+
+```sql
+-- DATASET 5
+-- Tests tie-breaking / duplicate student_details when two students share the same student_details vs distinct details,
+-- and tests people who have addresses (People_Addresses) with date_from / date_to to kill mutants using People_Addresses dates.
+INSERT INTO Addresses (address_id, line_1, line_2, city, zip_postcode, state_province_county, country) VALUES (1, '123 Main St', '', 'Metropolis', '10001', 'NY', 'USA');
+INSERT INTO Addresses (address_id, line_1, line_2, city, zip_postcode, state_province_county, country) VALUES (2, '456 Oak Ave', '', 'Gotham', '20002', 'NJ', 'USA');
+
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (5, 'Karen', 'K', 'Page', '123-4567', 'karen@example.com', 'karen', 'pass11');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (6, 'Matt', 'M', 'Murdock', '765-4321', 'matt@example.com', 'matt', 'pass12');
+
+INSERT INTO People_Addresses (person_address_id, address_id, person_id, date_from, date_to) VALUES (1, 1, 5, '2025-01-01 00:00:00', '2026-01-01 00:00:00');
+INSERT INTO People_Addresses (person_address_id, address_id, person_id, date_from, date_to) VALUES (2, 2, 6, '2019-01-01 00:00:00', '2020-01-01 00:00:00');
+
+INSERT INTO Students (student_id, student_details) VALUES (5, 'Karen_Details');
+INSERT INTO Students (student_id, student_details) VALUES (6, 'Matt_Details');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('301', 'Law 101', 'Intro to Law', 'Details_A');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('302', 'Law 102', 'Advanced Law', 'Details_B');
+
+-- Student 6 has the latest course registration, but Student 5 has the latest address date_from/date_to.
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (5, 301, '2022-02-02 12:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (6, 302, '2024-04-04 12:00:00');
+```

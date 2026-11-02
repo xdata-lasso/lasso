@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by product_price ASC vs DESC, and anti-correlated product_id to catch sorting by product_id instead of product_price.
+-- Also includes no child table records (Product_Suppliers, Order_Items) for the cheapest product to catch unnecessary INNER JOINs.
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (1, 'Supplier A', '123-456');
+INSERT INTO "Customers" ("customer_id", "payment_method_code", "customer_code", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (1, 'CARD', 'C01', 'John Doe', '123 Elm St', '555-0100', 'john@example.com');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (1, 1, 'PAID', '2023-01-01 10:00:00');
+
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'EXPENSIVE', 'Product Z', 500.00);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'MIDDLE', 'Product A', 50.00);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, 'CHEAPEST', 'Product M', 9.99);
+
+INSERT INTO "Product_Suppliers" ("product_id", "supplier_id", "date_supplied_from", "date_supplied_to", "total_amount_purchased", "total_value_purchased") VALUES (1, 1, '2022-01-01', '2023-01-01', '100', 50000.00);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id") VALUES (1, 1, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on the minimum product_price using product_id ASC, and distinguishes LIMIT 1 from WHERE product_price = (SELECT MIN(product_price)...).
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (10, 'TIE_HIGH_ID', 'Alpha', 15.00);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (5, 'TIE_LOW_ID', 'Zeta', 15.00);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'EXPENSIVE', 'Beta', 100.00);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in product_price (in SQLite, NULLs sort first in ASC order by default unless NULLS LAST is specified on product_price).
+-- The reference query only specifies NULLS LAST on product_id, so NULL product_price comes first.
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'NON_NULL_MIN', 'Cheap Item', 1.00);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'NULL_PRICE_1', 'Freebie High ID', NULL);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, 'EXPENSIVE', 'Luxury Item', 999.99);
+```
+
+```sql
+-- DATASET 4
+-- Tests tie-breaking among multiple NULL product_prices, as well as negative and zero prices.
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (20, 'NULL_HIGH_ID', 'Unknown Price B', NULL);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (10, 'NULL_LOW_ID', 'Unknown Price A', NULL);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (5, 'NEGATIVE', 'Rebate Item', -10.00);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'ZERO', 'Free Item', 0.00);
+```
+
+```sql
+-- DATASET 5
+-- Tests numeric vs lexicographical (string) sorting on product_price (e.g., 9.5 vs 10.0 vs 100.0) and floating-point precision differences.
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'LEX_FIRST', 'Ten Dollars', 10.0000);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'NUM_FIRST', 'Nine Fifty', 9.5000);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, 'SLIGHT_HIGHER', 'Nine Fifty Plus', 9.5001);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (4, 'HUNDRED', 'One Hundred', 100.0000);
+```
+
+```sql
+-- DATASET 6
+-- Tests single-row boundary condition and NULL product_type_code handling.
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (42, NULL, 'Sole Product', 25.50);
+```
+
+```sql
+-- DATASET 7
+-- Tests negative and zero prices without NULLs to catch queries filtering out <= 0 prices or using ABS(product_price).
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'POS_SMALL', 'Positive Small', 0.01);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'ZERO_PRICE', 'Zero Price', 0.00);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, 'NEG_PRICE', 'Negative Price', -5.00);
+```

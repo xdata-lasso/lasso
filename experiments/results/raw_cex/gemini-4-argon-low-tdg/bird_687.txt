@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Tests SUM(T1.Score) vs T1.Score (or AVG/MAX) and T1.Score vs T2.Score.
+-- Post 1 has Score 3, 3 comments -> SUM(T1.Score) = 9, COUNT = 3.
+-- Post 2 has Score 8, 1 comment -> SUM(T1.Score) = 8, COUNT = 1.
+-- Gold query picks Post 1 (outputs 3). Mutants using T1.Score DESC or SUM(T2.Score) DESC will pick Post 2 (outputs 1).
+INSERT INTO posts (Id, Score) VALUES (1, 3);
+INSERT INTO posts (Id, Score) VALUES (2, 8);
+INSERT INTO comments (Id, PostId, Score) VALUES (10, 1, 1);
+INSERT INTO comments (Id, PostId, Score) VALUES (11, 1, 1);
+INSERT INTO comments (Id, PostId, Score) VALUES (12, 1, 1);
+INSERT INTO comments (Id, PostId, Score) VALUES (20, 2, 100);
+```
+
+```sql
+-- DATASET 2
+-- Tests the secondary ORDER BY: COUNT(T2.Id) ASC (default) NULLS LAST.
+-- Post 1: Score 4, 3 comments -> SUM(T1.Score) = 12, COUNT = 3.
+-- Post 2: Score 6, 2 comments -> SUM(T1.Score) = 12, COUNT = 2.
+-- Both tie on SUM(T1.Score) = 12. Secondary sort COUNT(T2.Id) ASC picks Post 2 (outputs 2).
+-- Mutants with COUNT(T2.Id) DESC or missing secondary sort will fail.
+INSERT INTO posts (Id, Score) VALUES (1, 4);
+INSERT INTO posts (Id, Score) VALUES (2, 6);
+INSERT INTO comments (Id, PostId, Score) VALUES (10, 1, 5);
+INSERT INTO comments (Id, PostId, Score) VALUES (11, 1, 5);
+INSERT INTO comments (Id, PostId, Score) VALUES (12, 1, 5);
+INSERT INTO comments (Id, PostId, Score) VALUES (20, 2, 5);
+INSERT INTO comments (Id, PostId, Score) VALUES (21, 2, 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULLS LAST vs default NULLS FIRST in SQLite for SUM(T1.Score) DESC.
+-- Also tests INNER JOIN vs LEFT JOIN (Post 3 has no comments).
+-- Post 1: Score NULL, 2 comments -> SUM(T1.Score) = NULL, COUNT = 2.
+-- Post 2: Score -5, 1 comment -> SUM(T1.Score) = -5, COUNT = 1.
+-- Post 3: Score 100, 0 comments -> Excluded by INNER JOIN.
+-- With NULLS LAST, -5 comes before NULL in DESC order, so Post 2 is picked (outputs 1).
+-- Without NULLS LAST, in SQLite DESC puts NULLs first, picking Post 1 (outputs 2).
+-- With LEFT JOIN, Post 3 would be picked (outputs 0 or 1).
+INSERT INTO posts (Id, Score) VALUES (1, NULL);
+INSERT INTO posts (Id, Score) VALUES (2, -5);
+INSERT INTO posts (Id, Score) VALUES (3, 100);
+INSERT INTO comments (Id, PostId, Score) VALUES (10, 1, 10);
+INSERT INTO comments (Id, PostId, Score) VALUES (11, 1, 10);
+INSERT INTO comments (Id, PostId, Score) VALUES (20, 2, 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests negative scores where multiplying via join (SUM(T1.Score)) makes the sum MORE negative.
+-- Post 1: Score -2, 3 comments -> SUM(T1.Score) = -6, COUNT = 3.
+-- Post 2: Score -4, 1 comment -> SUM(T1.Score) = -4, COUNT = 1.
+-- Gold query picks Post 2 (SUM = -4 > -6, outputs 1).
+-- A mutant ordering by T1.Score DESC (or MAX/MIN/AVG(T1.Score) DESC) picks Post 1 (-2 > -4, outputs 3).
+INSERT INTO posts (Id, Score) VALUES (1, -2);
+INSERT INTO posts (Id, Score) VALUES (2, -4);
+INSERT INTO comments (Id, PostId, Score) VALUES (10, 1, 1);
+INSERT INTO comments (Id, PostId, Score) VALUES (11, 1, 1);
+INSERT INTO comments (Id, PostId, Score) VALUES (12, 1, 1);
+INSERT INTO comments (Id, PostId, Score) VALUES (20, 2, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests GROUP BY T1.Id vs GROUP BY T1.Score (or missing GROUP BY), and join condition T1.Id = T2.PostId vs T1.Id = T2.Id.
+-- Post 1 and Post 2 both have Score = 5.
+-- Post 1 has 2 comments (SUM = 10, COUNT = 2).
+-- Post 2 has 2 comments (SUM = 10, COUNT = 2).
+-- Post 3 has Score = 15, 1 comment (SUM = 15, COUNT = 1).
+-- Gold query picks Post 3 (SUM = 15, outputs 1).
+-- If grouped by T1.Score, Score 5 group has 4 comments (SUM = 20, outputs 4).
+-- Also comments have Id 1, 2, 3 matching Post Ids to catch T1.Id = T2.Id join mutants.
+INSERT INTO posts (Id, Score) VALUES (1, 5);
+INSERT INTO posts (Id, Score) VALUES (2, 5);
+INSERT INTO posts (Id, Score) VALUES (3, 15);
+INSERT INTO comments (Id, PostId, Score) VALUES (1, 1, 1);
+INSERT INTO comments (Id, PostId, Score) VALUES (2, 1, 1);
+INSERT INTO comments (Id, PostId, Score) VALUES (3, 2, 1);
+INSERT INTO comments (Id, PostId, Score) VALUES (4, 2, 1);
+INSERT INTO comments (Id, PostId, Score) VALUES (5, 3, 1);
+```
+
+```sql
+-- DATASET 6
+-- Tests tie-breaker when SUM(T1.Score) is NULL for multiple groups, and unattached comments (PostId IS NULL).
+-- Post 1: Score NULL, 3 comments -> SUM = NULL, COUNT = 3.
+-- Post 2: Score NULL, 1 comment -> SUM = NULL, COUNT = 1.
+-- Both tie on SUM(T1.Score) = NULL. Secondary sort COUNT(T2.Id) ASC picks Post 2 (outputs 1).
+INSERT INTO posts (Id, Score) VALUES (1, NULL);
+INSERT INTO posts (Id, Score) VALUES (2, NULL);
+INSERT INTO comments (Id, PostId, Score) VALUES (10, 1, 5);
+INSERT INTO comments (Id, PostId, Score) VALUES (11, 1, 5);
+INSERT INTO comments (Id, PostId, Score) VALUES (12, 1, 5);
+INSERT INTO comments (Id, PostId, Score) VALUES (20, 2, 5);
+INSERT INTO comments (Id, PostId, Score) VALUES (30, NULL, 100);
+```

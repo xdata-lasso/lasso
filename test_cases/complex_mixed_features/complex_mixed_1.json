@@ -1,0 +1,22 @@
+{
+    "id": "complex_mixed_1",
+    "schema": "CREATE TABLE Regions (region_id INTEGER PRIMARY KEY, region_name TEXT);\nCREATE TABLE Countries (country_id INTEGER PRIMARY KEY, country_name TEXT, region_id INTEGER, FOREIGN KEY (region_id) REFERENCES Regions(region_id));\nCREATE TABLE Locations (location_id INTEGER PRIMARY KEY, city TEXT, state TEXT, country_id INTEGER, FOREIGN KEY (country_id) REFERENCES Countries(country_id));\nCREATE TABLE Warehouses (warehouse_id INTEGER PRIMARY KEY, location_id INTEGER, warehouse_name TEXT, FOREIGN KEY (location_id) REFERENCES Locations(location_id));\nCREATE TABLE Products (product_id INTEGER PRIMARY KEY, product_name TEXT, category TEXT, standard_cost DECIMAL, list_price DECIMAL);\nCREATE TABLE Inventories (product_id INTEGER, warehouse_id INTEGER, quantity INTEGER, PRIMARY KEY(product_id, warehouse_id), FOREIGN KEY (warehouse_id) REFERENCES Warehouses(warehouse_id), FOREIGN KEY (product_id) REFERENCES Products(product_id));\nCREATE TABLE Customers (customer_id INTEGER PRIMARY KEY, name TEXT, location_id INTEGER, credit_limit DECIMAL, FOREIGN KEY (location_id) REFERENCES Locations(location_id));\nCREATE TABLE Orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER, order_date DATE, status TEXT, FOREIGN KEY (customer_id) REFERENCES Customers(customer_id));\nCREATE TABLE OrderItems (order_id INTEGER, item_id INTEGER, product_id INTEGER, quantity INTEGER, unit_price DECIMAL, PRIMARY KEY(order_id, item_id), FOREIGN KEY (order_id) REFERENCES Orders(order_id), FOREIGN KEY (product_id) REFERENCES Products(product_id));\n    ",
+    "correct_query": "SELECT r.region_name, SUM(oi.quantity * oi.unit_price) AS total_sales FROM Regions r JOIN Countries c ON r.region_id = c.region_id JOIN Locations l ON c.country_id = l.country_id JOIN Customers cu ON l.location_id = cu.location_id JOIN Orders o ON cu.customer_id = o.customer_id JOIN OrderItems oi ON o.order_id = oi.order_id JOIN Products p ON oi.product_id = p.product_id WHERE cu.credit_limit > 1000 AND p.category = 'Electronics' GROUP BY r.region_name HAVING total_sales > 50000 ORDER BY total_sales DESC LIMIT 3;",
+    "expected_semantic_errors_to_be_caught": [
+        {
+            "id": "mixed_1_m1",
+            "description": "Misses Products table and category filter entirely, relies on wrong aggregation.",
+            "query": "SELECT r.region_name, SUM(oi.quantity * oi.unit_price) AS total_sales FROM Regions r JOIN Countries c ON r.region_id = c.region_id JOIN Locations l ON c.country_id = l.country_id JOIN Customers cu ON l.location_id = cu.location_id JOIN Orders o ON cu.customer_id = o.customer_id JOIN OrderItems oi ON o.order_id = oi.order_id WHERE cu.credit_limit > 1000 GROUP BY r.region_name HAVING total_sales > 50000 ORDER BY total_sales DESC LIMIT 3;"
+        },
+        {
+            "id": "mixed_1_m2",
+            "description": "Incorrect join condition on Countries and Locations",
+            "query": "SELECT r.region_name, SUM(oi.quantity * oi.unit_price) AS total_sales FROM Regions r JOIN Countries c ON r.region_id = c.region_id JOIN Locations l ON c.region_id = l.country_id JOIN Customers cu ON l.location_id = cu.location_id JOIN Orders o ON cu.customer_id = o.customer_id JOIN OrderItems oi ON o.order_id = oi.order_id JOIN Products p ON oi.product_id = p.product_id WHERE cu.credit_limit > 1000 AND p.category = 'Electronics' GROUP BY r.region_name HAVING total_sales > 50000 ORDER BY total_sales DESC LIMIT 3;"
+        },
+        {
+            "id": "mixed_1_m3",
+            "description": "Mismatch in aggregate and window functions logic (used ROW_NUMBER instead of LIMIT with ORDER BY properly)",
+            "query": "SELECT region_name, total_sales FROM (SELECT r.region_name, SUM(oi.quantity * oi.unit_price) AS total_sales, ROW_NUMBER() OVER(PARTITION BY r.region_name ORDER BY SUM(oi.quantity * oi.unit_price) DESC) as rn FROM Regions r JOIN Countries c ON r.region_id = c.region_id JOIN Locations l ON c.country_id = l.country_id JOIN Customers cu ON l.location_id = cu.location_id JOIN Orders o ON cu.customer_id = o.customer_id JOIN OrderItems oi ON o.order_id = oi.order_id JOIN Products p ON oi.product_id = p.product_id WHERE cu.credit_limit > 1000 AND p.category = 'Electronics' GROUP BY r.region_name HAVING total_sales > 50000) WHERE rn <= 3;"
+        }
+    ]
+}

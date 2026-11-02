@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests basic composite GROUP BY (Document_Type_Code, Other_Details), duplicate projection elimination (DISTINCT vs ALL), and secondary sorting on count___.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('TYPE_A', 'Type A', 'Description A');
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('TYPE_B', 'Type B', 'Description B');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Project Alpha');
+
+-- TYPE_A with Detail_1 (count = 2)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 1, 'TYPE_A', '2023-01-01', 'Doc 1', 'Desc 1', 'Detail_1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 1, 'TYPE_A', '2023-01-02', 'Doc 2', 'Desc 2', 'Detail_1');
+
+-- TYPE_A with Detail_2 (count = 2 -> tests if outer SELECT DISTINCT erroneously collapses identical (Document_Type_Code, count___) pairs)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 1, 'TYPE_A', '2023-01-03', 'Doc 3', 'Desc 3', 'Detail_2');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 1, 'TYPE_A', '2023-01-04', 'Doc 4', 'Desc 4', 'Detail_2');
+
+-- TYPE_A with Detail_3 (count = 1 -> inserted after count=2 to test secondary ORDER BY count___ ASC vs DESC)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 1, 'TYPE_A', '2023-01-05', 'Doc 5', 'Desc 5', 'Detail_3');
+
+-- TYPE_B with Detail_1 (count = 3 -> tests grouping by Document_Type_Code when Other_Details is shared across types)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (6, 1, 'TYPE_B', '2023-01-06', 'Doc 6', 'Desc 6', 'Detail_1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (7, 1, 'TYPE_B', '2023-01-07', 'Doc 7', 'Desc 7', 'Detail_1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (8, 1, 'TYPE_B', '2023-01-08', 'Doc 8', 'Desc 8', 'Detail_1');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY columns, COUNT(*) vs COUNT(column), and unreferenced parent rows (INNER JOIN vs FROM Documents).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DOC_1', 'Document One', 'First Type');
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DOC_UNUSED', 'Unused Type', 'Should not appear in query');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (10, 'Project Ten');
+
+-- Group: (DOC_1, NULL) -> count = 2. Catches COUNT(Other_Details) which would return 0 instead of 2.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (101, 10, 'DOC_1', '2023-02-01', 'D1', 'Desc', NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (102, NULL, 'DOC_1', NULL, NULL, NULL, NULL);
+
+-- Group: (NULL, 'Valid_Detail') -> count = 1. Catches INNER JOIN with Ref_Document_Types or COUNT(Document_Type_Code) or WHERE Document_Type_Code IS NOT NULL.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (103, 10, NULL, '2023-02-03', 'D3', 'Desc', 'Valid_Detail');
+
+-- Group: (NULL, NULL) -> count = 3. Tests grouping when both grouping keys are NULL.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (104, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (105, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (106, NULL, NULL, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests extraneous joins with child tables (Statements, Documents_with_Expenses, Accounts) and column substitution errors (Document_Name/Document_Description vs Other_Details).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('INV', 'Invoice', 'Invoice Doc');
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('RPT', 'Report', 'Report Doc');
+
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('B1', 'Budget 1');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (100, 'Project X');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (200, 'Project Y');
+
+-- INV documents: same Document_Name and Document_Description, but distinct Other_Details.
+-- Also linked to Statements and Accounts (1-to-many) to catch mutants that join child tables and inflate COUNT(*).
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 100, 'INV', '2023-05-01', 'SameName', 'SameDesc', 'UniqueDetail_A');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 200, 'INV', '2023-05-01', 'SameName', 'SameDesc', 'UniqueDetail_B');
+
+-- RPT documents: distinct Document_Name, Document_Description, Project_ID, Document_Date, but same Other_Details.
+-- Only one of them is in Documents_with_Expenses (catches erroneous INNER JOIN to Documents_with_Expenses).
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 100, 'RPT', '2023-06-01', 'Name_A', 'Desc_A', 'SharedDetail');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 200, 'RPT', '2023-06-02', 'Name_B', 'Desc_B', 'SharedDetail');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 100, 'RPT', '2023-06-03', 'Name_C', 'Desc_C', 'SharedDetail');
+
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (1, 'Stmt for Doc 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (10, 1, 'Acc 1 for Stmt 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (11, 1, 'Acc 2 for Stmt 1');
+
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (3, 'B1', 'Expense for Doc 3');
+```
+
+```sql
+-- DATASET 4
+-- Tests primary and secondary ORDER BY sorting nuances (reverse insertion order, multi-value counts per type, HAVING > 1 mutations).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('Z_TYPE', 'Zeta', 'Last alphabetically');
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('M_TYPE', 'Mu', 'Middle alphabetically');
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('A_TYPE', 'Alpha', 'First alphabetically');
+
+-- Insert in reverse alphabetical order of Document_Type_Code and descending count order to catch missing or inverted ORDER BY clauses.
+-- Z_TYPE: one group of 2
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, NULL, 'Z_TYPE', '2023-01-01', 'D', 'D', 'Det_Z1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, NULL, 'Z_TYPE', '2023-01-01', 'D', 'D', 'Det_Z1');
+
+-- M_TYPE: groups of size 4, 1, and 2 (tests numeric sorting of count___ within the same Document_Type_Code)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, NULL, 'M_TYPE', '2023-01-01', 'D', 'D', 'Det_M_Four');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (4, NULL, 'M_TYPE', '2023-01-01', 'D', 'D', 'Det_M_Four');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (5, NULL, 'M_TYPE', '2023-01-01', 'D', 'D', 'Det_M_Four');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (6, NULL, 'M_TYPE', '2023-01-01', 'D', 'D', 'Det_M_Four');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (7, NULL, 'M_TYPE', '2023-01-01', 'D', 'D', 'Det_M_Two');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (8, NULL, 'M_TYPE', '2023-01-01', 'D', 'D', 'Det_M_Two');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (9, NULL, 'M_TYPE', '2023-01-01', 'D', 'D', 'Det_M_One');
+
+-- A_TYPE: group of size 1
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (10, NULL, 'A_TYPE', '2023-01-01', 'D', 'D', 'Det_A_One');
+```

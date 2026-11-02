@@ -1,0 +1,99 @@
+```sql
+-- DATASET 1
+-- Comprehensive dataset testing boundary conditions on AVG(c_acctbal), LIKE '10%' vs '11%', NOT EXISTS(orders), and GROUP BY / ORDER BY with duplicates and ties.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'USA', 1, 'Nation 1');
+
+-- Subquery customers (c_phone LIKE '11%'):
+-- Cust 1 & 2 have c_acctbal > 0.00 -> AVG is (100.00 + 200.00) / 2 = 150.00
+-- Cust 3 has c_acctbal = 0.00 (boundary test for > 0.00 vs >= 0.00)
+-- Cust 4 has c_acctbal = -50.00 (test for negative balance exclusion)
+-- Cust 5 has c_phone = '211-000' (test for '11%' vs '%11%')
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Sub1', 'Addr1', 1, '11-111-1111', 100.00, 'AUTO', 'Valid sub 1');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (2, 'Sub2', 'Addr2', 1, '11-222-2222', 200.00, 'AUTO', 'Valid sub 2');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (3, 'SubZero', 'Addr3', 1, '11-333-3333', 0.00, 'AUTO', 'Zero balance');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (4, 'SubNeg', 'Addr4', 1, '11-444-4444', -50.00, 'AUTO', 'Negative balance');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (5, 'SubWrongPhone', 'Addr5', 1, '211-555-5555', 500.00, 'AUTO', 'Not starting with 11');
+
+-- Outer query customers (c_phone LIKE '10%'):
+-- Cust 10: c_acctbal = 150.00 (boundary test for > AVG vs >= AVG, should be excluded)
+-- Cust 11: c_acctbal = 150.01 (just above AVG, no orders -> INCLUDED)
+-- Cust 12: c_acctbal = 200.00 (above AVG, shares phone '10-111-1111' with Cust 11 to test GROUP BY, COUNT, SUM -> INCLUDED)
+-- Cust 13: c_acctbal = 300.00 (above AVG, different phone '10-222-2222', no orders -> INCLUDED)
+-- Cust 14: c_acctbal = 400.00 (above AVG, has an order -> EXCLUDED by NOT EXISTS)
+-- Cust 15: c_acctbal = 500.00 (phone '210-111-1111' -> EXCLUDED by LIKE '10%')
+-- Cust 16: c_acctbal = 200.00 (phone '10-050-0000' -> INCLUDED, tests ORDER BY cntrycode)
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (10, 'OuterEqAvg', 'Addr10', 1, '10-000-0000', 150.00, 'AUTO', 'Equal to AVG');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (11, 'OuterValid1', 'Addr11', 1, '10-111-1111', 150.01, 'AUTO', 'Group 1A');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (12, 'OuterValid2', 'Addr12', 1, '10-111-1111', 200.00, 'AUTO', 'Group 1B');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (13, 'OuterValid3', 'Addr13', 1, '10-222-2222', 300.00, 'AUTO', 'Group 2');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (14, 'OuterWithOrder', 'Addr14', 1, '10-111-1111', 400.00, 'AUTO', 'Has order');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (15, 'OuterWrongPhone', 'Addr15', 1, '210-111-1111', 500.00, 'AUTO', 'Wrong phone prefix');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (16, 'OuterValid4', 'Addr16', 1, '10-050-0000', 200.00, 'AUTO', 'Group 0');
+
+-- Orders to test NOT EXISTS (and ensure subquery customers with orders are still included in AVG):
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (100, 14, 'O', 1000.00, '2023-01-01', '1-URGENT', 'Clerk1', 0, 'Excludes cust 14');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (101, 1, 'O', 500.00, '2023-01-02', '1-URGENT', 'Clerk1', 0, 'Subquery cust 1 has order, still in AVG');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty subquery result (AVG is NULL) and ensures outer query returns empty set even when negative or positive balances exist for '10%'.
+-- Also kills mutants that use COALESCE(AVG(...), 0) or omit the subquery filter.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'EUROPE', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'FRANCE', 1, 'Nation 1');
+
+-- '11%' customer has only non-positive balance, so subquery WHERE c_acctbal > 0.00 AND c_phone LIKE '11%' matches 0 rows -> AVG is NULL.
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'SubNonPos', 'Addr1', 1, '11-111-1111', 0.00, 'BUILD', 'Zero bal');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (2, 'SubNeg', 'Addr2', 1, '11-222-2222', -10.00, 'BUILD', 'Neg bal');
+
+-- '10%' customers with positive and negative balances and no orders.
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (3, 'OuterPos', 'Addr3', 1, '10-111-1111', 500.00, 'BUILD', 'Pos bal');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (4, 'OuterNeg', 'Addr4', 1, '10-222-2222', -5.00, 'BUILD', 'Neg bal');
+```
+
+```sql
+-- DATASET 3
+-- Tests AVG vs SUM / MIN / MAX / COUNT in subquery, and tests identical c_acctbal values in the same group (SUM(c_acctbal) vs SUM(DISTINCT c_acctbal)).
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'ASIA', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'JAPAN', 1, 'Nation 1');
+
+-- Subquery '11%' customers: balances 10.00, 20.00, 30.00.
+-- COUNT = 3, MIN = 10, AVG = 20, MAX = 30, SUM = 60.
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Sub1', 'Addr1', 1, '11-001', 10.00, 'MACHINERY', 'Sub 1');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (2, 'Sub2', 'Addr2', 1, '11-002', 20.00, 'MACHINERY', 'Sub 2');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (3, 'Sub3', 'Addr3', 1, '11-003', 30.00, 'MACHINERY', 'Sub 3');
+
+-- Outer '10%' customers:
+-- Cust 4: bal = 15.00 (> MIN and COUNT, but < AVG) -> Excluded
+-- Cust 5: bal = 25.00 (> AVG, but < MAX and SUM) -> Included
+-- Cust 6 & 7: both share phone '10-999' and identical bal = 40.00 (> MAX, < SUM) -> Included, tests SUM vs SUM(DISTINCT)
+-- Cust 8: bal = 70.00 (> SUM) -> Included
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (4, 'Outer15', 'Addr4', 1, '10-001', 15.00, 'MACHINERY', 'Between MIN and AVG');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (5, 'Outer25', 'Addr5', 1, '10-002', 25.00, 'MACHINERY', 'Between AVG and MAX');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (6, 'Outer40A', 'Addr6', 1, '10-999', 40.00, 'MACHINERY', 'Dup bal A');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (7, 'Outer40B', 'Addr7', 1, '10-999', 40.00, 'MACHINERY', 'Dup bal B');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (8, 'Outer70', 'Addr8', 1, '10-003', 70.00, 'MACHINERY', 'Above SUM');
+```
+
+```sql
+-- DATASET 4
+-- Tests floating-point division in AVG (kills integer division mutants) and tests uncorrelated vs correlated NOT EXISTS (when orders table has rows for other customers).
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AFRICA', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'EGYPT', 1, 'Nation 1');
+
+-- Subquery '11%' customers: balances 1.00 and 2.00 -> AVG = 1.50 (Integer division would yield 1).
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Sub1', 'Addr1', 1, '11-100', 1.00, 'FURNITURE', 'Sub 1');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (2, 'Sub2', 'Addr2', 1, '11-200', 2.00, 'FURNITURE', 'Sub 2');
+
+-- Outer '10%' customers:
+-- Cust 3: bal = 1.25 (> 1, but < 1.50 -> Excluded in float AVG, Included in int AVG)
+-- Cust 4: bal = 1.75 (> 1.50 -> Included)
+-- Cust 5: bal = 5.00, has multiple orders -> Excluded
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (3, 'Outer125', 'Addr3', 1, '10-100', 1.25, 'FURNITURE', 'Tests float AVG');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (4, 'Outer175', 'Addr4', 1, '10-200', 1.75, 'FURNITURE', 'Valid outer');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (5, 'OuterMultiOrd', 'Addr5', 1, '10-200', 5.00, 'FURNITURE', 'Has 2 orders');
+
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1, 5, 'F', 10.00, '2023-05-01', '2-HIGH', 'Clerk2', 0, 'Order 1 for cust 5');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (2, 5, 'O', 20.00, '2023-05-02', '2-HIGH', 'Clerk2', 0, 'Order 2 for cust 5');
+```

@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests basic INNER JOIN, GROUP BY (card_type_code, transaction_comment), projection omission of transaction_comment, and two-level ORDER BY (card_type_code ASC, count___ ASC).
+INSERT INTO Customers (customer_id, customer_first_name) VALUES (1, 'Alice');
+INSERT INTO Accounts (account_id, customer_id) VALUES (10, 1);
+
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code) VALUES (101, 1, 'VISA');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code) VALUES (102, 1, 'VISA');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code) VALUES (103, 1, 'AMEX');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code) VALUES (104, 1, 'MASTERCARD');
+
+-- VISA with 'Refund' (count = 1), inserted before 'Purchase' (count = 3) to test secondary sort on count___
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 102, 1001, 'Refund');
+
+-- VISA with 'Purchase' across two different cards of the same card_type_code (count = 3)
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 101, 1002, 'Purchase');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 101, 1003, 'Purchase');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 102, 1004, 'Purchase');
+
+-- AMEX with 'Purchase' (count = 2), inserted after VISA to test primary sort on card_type_code
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 103, 1005, 'Purchase');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 103, 1006, 'Purchase');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY columns (card_type_code, transaction_comment), COUNT(*) vs COUNT(column), and NULL ordering in ORDER BY.
+INSERT INTO Customers (customer_id, customer_first_name) VALUES (1, 'Bob');
+INSERT INTO Accounts (account_id, customer_id) VALUES (10, 1);
+
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code) VALUES (201, 1, 'VISA');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code) VALUES (202, 1, NULL);
+
+-- VISA with NULL transaction_comment (2 rows). Tests if COUNT(*) is mutated to COUNT(transaction_comment)
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 201, 2001, NULL);
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 201, 2002, NULL);
+
+-- VISA with non-NULL transaction_comment (1 row)
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 201, 2003, 'Fee');
+
+-- NULL card_type_code with non-NULL transaction_comment (3 rows)
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 202, 2004, 'Fee');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 202, 2005, 'Fee');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, 202, 2006, 'Fee');
+
+-- Unmatched transaction with NULL card_id (tests INNER JOIN vs RIGHT/FULL JOIN)
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (10, NULL, 2007, 'Cash');
+```
+
+```sql
+-- DATASET 3
+-- Tests join predicate mutations (e.g., joining on customer_id = account_id, card_id = transaction_id, or card_id = account_id) and duplicate output rows when distinct comments yield identical counts for the same card_type_code.
+INSERT INTO Customers (customer_id, customer_first_name) VALUES (1, 'Charlie');
+INSERT INTO Customers (customer_id, customer_first_name) VALUES (2, 'Dana');
+
+INSERT INTO Accounts (account_id, customer_id) VALUES (1, 2);
+INSERT INTO Accounts (account_id, customer_id) VALUES (2, 1);
+
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code) VALUES (1, 1, 'DEBIT');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code) VALUES (2, 2, 'CREDIT');
+
+-- Two different comments for 'DEBIT' each having count = 1.
+-- The outer SELECT drops transaction_comment, so this must produce two identical output rows: ('DEBIT', 1), ('DEBIT', 1).
+-- Kills mutants that add DISTINCT to the outer SELECT or fail to group by transaction_comment.
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (2, 1, 2, 'Comment_A');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (2, 1, 3, 'Comment_B');
+
+-- Transaction for card 2 where account_id = 1 and transaction_id = 1 (confounds wrong join conditions on IDs)
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_comment) VALUES (1, 2, 1, 'Comment_A');
+```

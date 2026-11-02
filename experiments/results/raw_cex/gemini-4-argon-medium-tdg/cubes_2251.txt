@@ -1,0 +1,68 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT vs non-DISTINCT (duplicate 'Billing' and 'Residential' codes)
+-- 2. ORDER BY ASC vs DESC vs insertion order (unsorted insertion: 'Work', 'Billing', 'Shipping', 'Residential')
+-- 3. INNER JOIN traps (Customer_Addresses rows with NULL customer_id or NULL premise_id)
+-- 4. RIGHT/FULL JOIN traps (Customers and Premises rows not referenced in Customer_Addresses)
+-- 5. Wrong column/table selection (Premises.premises_type and Customers.customer_address have distinct values from address_type_code)
+-- 6. Temporal filtering traps (date_address_to in the past, future, or NULL)
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, customer_phone, customer_email, customer_address, customer_login, customer_password) VALUES (1, 'Credit Card', 'Alice Smith', '555-0101', 'alice@example.com', '100 Main St', 'alice', 'pass1');
+INSERT INTO Customers (customer_id, payment_method, customer_name, customer_phone, customer_email, customer_address, customer_login, customer_password) VALUES (2, 'PayPal', 'Bob Jones', '555-0102', 'bob@example.com', '200 Oak Ave', 'bob', 'pass2');
+INSERT INTO Customers (customer_id, payment_method, customer_name, customer_phone, customer_email, customer_address, customer_login, customer_password) VALUES (3, 'Debit Card', 'Charlie Brown', '555-0103', 'charlie@example.com', '300 Pine Rd', 'charlie', 'pass3');
+
+INSERT INTO Premises (premise_id, premises_type, premise_details) VALUES (10, 'Commercial', 'Suite 500');
+INSERT INTO Premises (premise_id, premises_type, premise_details) VALUES (20, 'House', 'Front Door');
+INSERT INTO Premises (premise_id, premises_type, premise_details) VALUES (30, 'Warehouse', 'Loading Dock B');
+
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (1, 10, '2020-01-01 08:00:00', 'Work', '2021-01-01 08:00:00');
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (1, 20, '2021-01-02 09:00:00', 'Billing', NULL);
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (2, 10, '2019-05-15 10:00:00', 'Billing', '2025-12-31 23:59:59');
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (NULL, 20, '2022-03-10 12:00:00', 'Shipping', NULL);
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (2, NULL, '2022-07-20 14:00:00', 'Residential', '2023-01-01 00:00:00');
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (NULL, NULL, '2023-01-01 00:00:00', 'Residential', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Handling of NULL values in address_type_code (tests unwanted WHERE address_type_code IS NOT NULL filters, and NULL sorting behavior)
+-- 2. Handling of multiple NULLs with DISTINCT (should collapse into a single NULL row)
+-- 3. Lexicographical sorting vs numerical/length sorting ('10', '2', 'A', 'B')
+-- 4. GROUP BY customer_id or premise_id instead of address_type_code
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, customer_phone, customer_email, customer_address, customer_login, customer_password) VALUES (1, 'Cash', 'David Green', '555-0201', 'david@example.com', '400 Elm St', 'david', 'pass4');
+
+INSERT INTO Premises (premise_id, premises_type, premise_details) VALUES (100, 'Apartment', 'Apt 4B');
+
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (1, 100, '2021-06-01 00:00:00', 'B', NULL);
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (1, 100, '2021-07-01 00:00:00', NULL, NULL);
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (1, 100, '2021-08-01 00:00:00', '10', NULL);
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (1, 100, '2021-09-01 00:00:00', '2', NULL);
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (1, 100, '2021-10-01 00:00:00', NULL, '2022-01-01 00:00:00');
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (1, 100, '2021-11-01 00:00:00', 'A', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Unnecessary joins to downstream/sibling tables (Customer_Orders, Mailshot_Customers) where valid Customer_Addresses rows belong to customers without orders or mailshots
+-- 2. Wrong ordering column (e.g., ORDER BY date_address_from or customer_id instead of address_type_code)
+-- 3. Case sensitivity and close string variations ('HOME', 'Home', 'Office')
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, customer_phone, customer_email, customer_address, customer_login, customer_password) VALUES (10, 'Card', 'Eve White', '555-0301', 'eve@example.com', '500 Maple Ave', 'eve', 'pass5');
+INSERT INTO Customers (customer_id, payment_method, customer_name, customer_phone, customer_email, customer_address, customer_login, customer_password) VALUES (20, 'Card', 'Frank Black', '555-0302', 'frank@example.com', '600 Cedar Blvd', 'frank', 'pass6');
+
+INSERT INTO Premises (premise_id, premises_type, premise_details) VALUES (1, 'Office', 'Floor 2');
+INSERT INTO Premises (premise_id, premises_type, premise_details) VALUES (2, 'Residence', 'Bungalow');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status_code, shipping_method_code, order_placed_datetime, order_delivered_datetime, order_shipping_charges) VALUES (500, 10, 'Delivered', 'Express', '2022-01-10 10:00:00', '2022-01-12 15:00:00', '15.00');
+
+INSERT INTO Mailshot_Campaigns (mailshot_id, product_category, mailshot_name, mailshot_start_date, mailshot_end_date) VALUES (900, 'Electronics', 'Winter Sale', '2022-01-01 00:00:00', '2022-01-31 23:59:59');
+INSERT INTO Mailshot_Customers (mailshot_id, customer_id, outcome_code, mailshot_customer_date) VALUES (900, 10, 'Responded', '2022-01-05 12:00:00');
+
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (10, 1, '2020-01-01 00:00:00', 'Office', NULL);
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (20, 2, '2018-01-01 00:00:00', 'Home', NULL);
+INSERT INTO Customer_Addresses (customer_id, premise_id, date_address_from, address_type_code, date_address_to) VALUES (20, 1, '2019-01-01 00:00:00', 'HOME', NULL);
+```

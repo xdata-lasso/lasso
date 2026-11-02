@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Comprehensive dataset testing:
+-- 1. COUNT(*) vs COUNT(state) via NULL states in 'Prague'
+-- 2. ORDER BY ASC vs DESC via distinct count sizes (3, 1, 2)
+-- 3. Duplicate counts in output (SELECT vs SELECT DISTINCT) via two states having count 2
+-- 4. WHERE city = 'Prague' vs other cities, NULL city, and case sensitivity ('prague')
+-- 5. Unjoined tables (customers with 0 vs multiple invoices, employees with 0 customers)
+INSERT INTO "employees" ("id", "last_name", "first_name", "city", "state") VALUES (1, 'Adams', 'Andrew', 'Prague', 'S1');
+INSERT INTO "employees" ("id", "last_name", "first_name", "city", "state") VALUES (2, 'Edwards', 'Nancy', 'Calgary', 'AB');
+
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (1, 1, 'Jan', 'Novak', 'Prague', NULL);
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (2, 1, 'Petr', 'Svoboda', 'Prague', NULL);
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (3, NULL, 'Eva', 'Dvorakova', 'Prague', NULL);
+
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (4, 1, 'Tomas', 'Cerny', 'Prague', 'S1');
+
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (5, 1, 'Lucie', 'Prochazkova', 'Prague', 'S2');
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (6, NULL, 'Karel', 'Kucera', 'Prague', 'S2');
+
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (7, 1, 'Marie', 'Vesela', 'Prague', 'S3');
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (8, 1, 'Jiri', 'Horak', 'Prague', 'S3');
+
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (9, 1, 'Hans', 'Muller', 'Berlin', 'S1');
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (10, 1, 'Anna', 'Schmidt', 'Berlin', 'S1');
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (11, 1, 'Paul', 'Weber', 'Berlin', 'S4');
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (12, 1, 'John', 'Doe', NULL, 'S1');
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (13, 1, 'Jane', 'Doe', 'prague', 'S1');
+
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (1, 4, 'Prague', 'S1', 10.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (2, 4, 'Prague', 'S1', 20.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (3, 9, 'Prague', 'S1', 15.00);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set for 'Prague' when other cities exist:
+-- Catches global COUNT(*) without GROUP BY (which returns 0 instead of empty set),
+-- and catches missing WHERE clause or wrong column filter (e.g. billing_city or state = 'Prague').
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state", "country") VALUES (1, 'F1', 'L1', 'Paris', 'Prague', 'Prague');
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state", "country") VALUES (2, 'F2', 'L2', 'London', 'S2', 'UK');
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (1, 1, 'Prague', 'S1', 9.99);
+```
+
+```sql
+-- DATASET 3
+-- Tests ordering where state alphabetical order ('A', 'B', 'C') is strictly inverse to count order (3, 2, 1):
+-- Catches mutants that ORDER BY state instead of ORDER BY count___, or omit GROUP BY state.
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state") VALUES (1, 'F1', 'L1', 'Prague', 'A');
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state") VALUES (2, 'F2', 'L2', 'Prague', 'A');
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state") VALUES (3, 'F3', 'L3', 'Prague', 'A');
+
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state") VALUES (4, 'F4', 'L4', 'Prague', 'B');
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state") VALUES (5, 'F5', 'L5', 'Prague', 'B');
+
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state") VALUES (6, 'F6', 'L6', 'Prague', 'C');
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY state vs GROUP BY other customer columns (e.g. country, first_name, company)
+-- and COUNT(*) vs COUNT(company) / COUNT(postal_code) when all Prague customers have NULL state.
+INSERT INTO "customers" ("id", "first_name", "last_name", "company", "city", "state", "country", "postal_code") VALUES (1, 'A', 'B', 'Comp1', 'Prague', NULL, 'Czech Republic', '11000');
+INSERT INTO "customers" ("id", "first_name", "last_name", "company", "city", "state", "country", "postal_code") VALUES (2, 'C', 'D', NULL, 'Prague', NULL, 'Czechia', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests substring / LIKE predicates (e.g. city LIKE '%Prague%') vs exact equality (city = 'Prague').
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state") VALUES (1, 'A', 'B', 'Prague', 'S1');
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state") VALUES (2, 'C', 'D', 'Prague ', 'S1');
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state") VALUES (3, 'E', 'F', 'New Prague', 'S2');
+```

@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Tests cardinality boundaries (0, 1, 2, 3 rows in Transcript_Contents) to catch mutants changing >= 2 to > 2, = 2, >= 1, etc.
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '123 Main St');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'CS');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BSc CS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall 2023');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (1, 1, 1, 'Alice', 'Smith');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'DB'), (2, 'OS'), (3, 'AI');
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (101, 1, 1), (102, 1, 2), (103, 1, 3);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES
+(1, '2023-01-04 10:00:00', 'Count 0'),
+(2, '2023-01-03 10:00:00', 'Count 1'),
+(3, '2023-01-02 10:00:00', 'Count 2'),
+(4, '2023-01-01 10:00:00', 'Count 3');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES
+(2, 101),
+(3, 101), (3, 102),
+(4, 101), (4, 102), (4, 103);
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(*) vs COUNT(student_course_id) vs COUNT(DISTINCT student_course_id).
+-- Transcript 1 has duplicate student_course_id (tests DISTINCT).
+-- Transcript 2 has NULL student_course_id (tests COUNT(*) vs COUNT(col)).
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '123 Main St');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'CS');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BSc CS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall 2023');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (1, 1, 1, 'Bob', 'Jones');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'DB');
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (101, 1, 1);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES
+(1, '2023-05-01 00:00:00', 'Duplicate course'),
+(2, '2023-05-02 00:00:00', 'NULL course');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES
+(1, 101), (1, 101),
+(2, 101), (2, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests ORDER BY transcript_date, transcript_id NULLS LAST and duplicate transcript_dates.
+-- Catches mutants that omit secondary sort, reverse sort order (DESC), or group by transcript_date instead of transcript_id.
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '123 Main St');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'CS');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BSc CS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall 2023');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (1, 1, 1, 'Charlie', 'Brown');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'DB'), (2, 'OS');
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (101, 1, 1), (102, 1, 2);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES
+(10, '2023-06-15 12:00:00', 'Same date, higher ID, count 2'),
+(5, '2023-06-15 12:00:00', 'Same date, lower ID, count 2'),
+(20, NULL, 'Null date, count 2'),
+(30, '2023-06-15 12:00:00', 'Same date, count 1 (should be excluded unless grouped by date)');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES
+(10, 101), (10, 102),
+(5, 101), (5, 102),
+(20, 101), (20, 102),
+(30, 101);
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong join conditions (e.g. joining Transcripts.transcript_id with Transcript_Contents.student_course_id).
+-- Also tests orphan NULL transcript_id rows in Transcript_Contents.
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '123 Main St');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'CS');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BSc CS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall 2023');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (1, 1, 1, 'Dana', 'White');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'DB'), (2, 'OS');
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, 1, 1), (2, 1, 2);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES
+(1, '2023-08-01 00:00:00', 'Has 0 contents, but student_course_id=1 appears twice in contents for transcript 2'),
+(2, '2023-08-02 00:00:00', 'Has 2 contents');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES
+(2, 1), (2, 1),
+(NULL, 1), (NULL, 2);
+```

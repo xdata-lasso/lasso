@@ -1,0 +1,48 @@
+```sql
+-- DATASET 1
+-- Basic test: Distinct positive chargeable_amount values, where the minimum chargeable_amount is not the first inserted row and does not have the smallest part_id.
+-- Catches mutants that omit ORDER BY, sort DESC, sort by part_id, or omit LIMIT 1.
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Gear', 1, 50, 'Standard gear');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Bolt', 0, 100, 'Heavy bolt');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (3, 'Washer', 0, 10, 'Small washer');
+```
+
+```sql
+-- DATASET 2
+-- Tie-breaker test: Multiple rows share the minimum chargeable_amount.
+-- Catches mutants that use WHERE chargeable_amount = (SELECT MIN(chargeable_amount) FROM Parts) without LIMIT 1, or GROUP BY chargeable_amount.
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (10, 'Filter A', 1, 20, 'Type A');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (20, 'Filter B', 1, 20, 'Type B');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (30, 'Pump', 1, 80, 'Main pump');
+```
+
+```sql
+-- DATASET 3
+-- Join vs Single-Table test: The part with the minimum chargeable_amount is NOT referenced in Asset_Parts or Part_Faults.
+-- Catches mutants that inner join Parts with Asset_Parts or Part_Faults.
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'SUP', 'Acme Corp', '123 Ind Way', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2023-01-01 00:00:00', '2024-01-01 00:00:00', 'Annual');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Generator', 'GenCo', 'X1', '2022-05-01 00:00:00', '2025-05-01 00:00:00', 'Good');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Expensive Linked Part', 1, 200, 'Linked');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Cheap Unlinked Part', 1, 5, 'Unlinked');
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (1, 1);
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (1, 1, 'WEAR', 'Worn out', 'Replace');
+```
+
+```sql
+-- DATASET 4
+-- String vs Integer sorting and Zero/Negative boundary test:
+-- Values 2, 10, 100 test lexicographical ('10' < '2') vs numerical (2 < 10) sorting if a mutant casts to TEXT.
+-- Also tests chargeable_yn = 0 having the minimum amount (catches mutants filtering WHERE chargeable_yn = 1).
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Sensor', 1, 10, 'Optical');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Cable', 1, 100, 'Power');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (3, 'Fuse', 0, 2, 'Mini');
+```
+
+```sql
+-- DATASET 5
+-- NULL handling test: In SQLite, NULLs are considered smaller than any non-NULL value in ASC order.
+-- Catches mutants that use MIN(chargeable_amount) (which ignores NULLs) vs ORDER BY chargeable_amount LIMIT 1 (which picks NULL first).
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Valve', 1, 15, 'Standard');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Gasket', 0, NULL, 'Free');
+```

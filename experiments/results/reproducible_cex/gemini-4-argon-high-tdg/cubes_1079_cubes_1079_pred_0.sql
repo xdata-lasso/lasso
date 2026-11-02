@@ -1,0 +1,60 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "customer_first_name" TEXT(50), "customer_middle_initial" TEXT(1), "customer_last_name" TEXT(50), "gender" TEXT(1), "email_address" TEXT(255), "login_name" TEXT(80), "login_password" TEXT(20), "phone_number" TEXT(255), "town_city" TEXT(50), "state_county_province" TEXT(50), "country" TEXT(50));
+
+CREATE TABLE "Orders" ("order_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "date_order_placed" DATETIME, "order_details" TEXT(255), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+CREATE TABLE "Invoices" ("invoice_number" INTEGER PRIMARY KEY, "order_id" INTEGER, "invoice_date" DATETIME, FOREIGN KEY ("order_id") REFERENCES "Orders" ("order_id"));
+
+CREATE TABLE "Accounts" ("account_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "date_account_opened" DATETIME, "account_name" TEXT(50), "other_account_details" TEXT(255), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+CREATE TABLE "Product_Categories" ("production_type_code" TEXT(15) PRIMARY KEY, "product_type_description" TEXT(80), "vat_rating" REAL(19, 4));
+
+CREATE TABLE "Products" ("product_id" INTEGER PRIMARY KEY, "production_type_code" TEXT(15), "parent_product_id" INTEGER, "unit_price" REAL(19, 4), "product_name" TEXT(80), "product_color" TEXT(20), "product_size" TEXT(20), FOREIGN KEY ("production_type_code") REFERENCES "Product_Categories" ("production_type_code"));
+
+CREATE TABLE "Financial_Transactions" ("account_id" INTEGER, "invoice_number" INTEGER, "transaction_id" INTEGER, "transaction_type" TEXT(15), "transaction_date" DATETIME, "transaction_amount" REAL(19, 4), "transaction_comment" TEXT(255), "other_transaction_details" TEXT(255), FOREIGN KEY ("account_id") REFERENCES "Accounts" ("account_id"), FOREIGN KEY ("invoice_number") REFERENCES "Invoices" ("invoice_number"));
+
+CREATE TABLE "Order_Items" ("order_item_id" INTEGER PRIMARY KEY, "order_id" INTEGER, "product_id" INTEGER, "product_quantity" TEXT(50), "other_order_item_details" TEXT(255), FOREIGN KEY ("order_id") REFERENCES "Orders" ("order_id"), FOREIGN KEY ("product_id") REFERENCES "Products" ("product_id"));
+
+CREATE TABLE "Invoice_Line_Items" ("product_id" INTEGER, "invoice_number" INTEGER, "order_item_id" INTEGER, "product_title" TEXT(80), "product_quantity" TEXT(50), "product_price" REAL(19, 4), "derived_product_cost" REAL(19, 4), "derived_vat_payable" REAL(19, 4), "derived_total_cost" REAL(19, 4), FOREIGN KEY ("product_id") REFERENCES "Products" ("product_id"), FOREIGN KEY ("invoice_number") REFERENCES "Invoices" ("invoice_number"), FOREIGN KEY ("order_item_id") REFERENCES "Order_Items" ("order_item_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO Customers (customer_id, customer_first_name, customer_middle_initial, customer_last_name, gender, email_address, login_name, login_password, phone_number, town_city, state_county_province, country) VALUES (101, 'Alice', 'M', 'Smith', 'F', 'alice@example.com', 'alices', 'pass1', '555-0101', 'Boston', 'MA', 'USA');
+INSERT INTO Customers (customer_id, customer_first_name, customer_middle_initial, customer_last_name, gender, email_address, login_name, login_password, phone_number, town_city, state_county_province, country) VALUES (102, 'Bob', 'J', 'Jones', 'M', 'bob@example.com', 'bobj', 'pass2', '555-0102', 'Seattle', 'WA', 'USA');
+INSERT INTO Orders (order_id, customer_id, date_order_placed, order_details) VALUES (201, 101, '2023-01-10 10:00:00', 'First order');
+INSERT INTO Orders (order_id, customer_id, date_order_placed, order_details) VALUES (202, 102, '2023-01-11 11:00:00', 'Second order');
+INSERT INTO Invoices (invoice_number, order_id, invoice_date) VALUES (301, 201, '2023-01-12 12:00:00');
+INSERT INTO Invoices (invoice_number, order_id, invoice_date) VALUES (302, 202, '2023-01-13 13:00:00');
+INSERT INTO Accounts (account_id, customer_id, date_account_opened, account_name, other_account_details) VALUES (10, 101, '2022-05-01 09:00:00', 'Savings', 'Primary savings');
+INSERT INTO Accounts (account_id, customer_id, date_account_opened, account_name, other_account_details) VALUES (20, 101, '2022-06-01 09:00:00', 'Checking', 'Daily checking');
+INSERT INTO Accounts (account_id, customer_id, date_account_opened, account_name, other_account_details) VALUES (5, 102, '2022-07-01 09:00:00', 'Checking', 'Business checking');
+INSERT INTO Accounts (account_id, customer_id, date_account_opened, account_name, other_account_details) VALUES (30, 102, '2022-08-01 09:00:00', 'Alpha', 'Unused account');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (10, 301, 1001, 'Payment', '2023-01-15 10:00:00', 50.0000, 'Part 1', 'OK');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (10, 301, 1002, 'Payment', '2023-01-16 10:00:00', 75.0000, 'Part 2', 'OK');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (10, 301, 1003, 'Adjustment', '2023-01-17 10:00:00', 0.0000, 'Zero adj', 'OK');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (20, 301, 1004, 'Payment', '2023-01-18 10:00:00', 120.0000, 'Single tx', 'OK');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (5, 302, 1005, 'Payment', '2023-01-19 10:00:00', 10.0000, 'First', 'OK');
+INSERT INTO Financial_Transactions (account_id, invoice_number, transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (5, 302, 1006, 'Refund', '2023-01-20 10:00:00', 20.0000, 'Second', 'OK');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT account_name, account_id, n AS count___ FROM (SELECT LHS.account_id AS account_id, LHS.n AS n, RHS.customer_id AS customer_id, RHS.date_account_opened AS date_account_opened, RHS.account_name AS account_name, RHS.other_account_details AS other_account_details FROM (SELECT account_id, COUNT(*) AS n FROM financial_transactions GROUP BY account_id) AS LHS INNER JOIN accounts AS RHS ON (LHS.account_id = RHS.account_id)) ORDER BY account_name, account_id NULLS LAST, count___ NULLS LAST;
+
+/*
+Gold Result:
+('Checking', 5, 2)
+('Checking', 20, 1)
+('Savings', 10, 3)
+*/
+
+-- Prediction Query
+SELECT T2.account_name, T1.account_id, COUNT(*) FROM Financial_transactions AS T1 JOIN Accounts AS T2 ON T1.account_id = T2.account_id GROUP BY T1.account_id;
+
+/*
+Prediction Result:
+('Checking', 5, 2)
+('Savings', 10, 3)
+('Checking', 20, 1)
+*/

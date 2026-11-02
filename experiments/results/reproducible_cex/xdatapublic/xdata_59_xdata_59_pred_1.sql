@@ -1,0 +1,58 @@
+-- Schema DDL
+CREATE TABLE classroom (building TEXT(15), room_number TEXT(7), capacity REAL(4, 0), PRIMARY KEY (building, room_number));
+
+CREATE TABLE department (dept_name TEXT(20) PRIMARY KEY, building TEXT(15), budget REAL(12, 2) CHECK (budget > 0));
+
+CREATE TABLE course (course_id TEXT(8) PRIMARY KEY, title TEXT(50), dept_name TEXT(20), credits REAL(2, 0) CHECK (credits > 0), FOREIGN KEY (dept_name) REFERENCES department (dept_name) ON delete SET NULL);
+
+CREATE TABLE instructor (ID TEXT(5) PRIMARY KEY, name TEXT(20) NOT NULL, dept_name TEXT(20), salary REAL(8, 2) CHECK (salary > 29000), FOREIGN KEY (dept_name) REFERENCES department (dept_name) ON delete SET NULL);
+
+CREATE TABLE section (course_id TEXT(8), sec_id TEXT(8), semester TEXT(6) CHECK (semester IN ('Fall', 'Winter', 'Spring', 'Summer')), year REAL(4, 0) CHECK (year > 1701 AND year < 2100), building TEXT(15), room_number TEXT(7), time_slot_id TEXT(4), PRIMARY KEY (course_id, sec_id, semester, year), FOREIGN KEY (course_id) REFERENCES course (course_id) ON delete CASCADE, FOREIGN KEY (building, room_number) REFERENCES classroom (building, room_number) ON delete SET NULL);
+
+CREATE TABLE teaches (ID TEXT(5), course_id TEXT(8), sec_id TEXT(8), semester TEXT(6), year REAL(4, 0), PRIMARY KEY (ID, course_id, sec_id, semester, year), FOREIGN KEY (course_id, sec_id, semester, year) REFERENCES section (course_id, sec_id, semester, year) ON delete CASCADE, FOREIGN KEY (ID) REFERENCES instructor (ID) ON delete CASCADE);
+
+CREATE TABLE student (ID TEXT(5) PRIMARY KEY, name TEXT(20) NOT NULL, dept_name TEXT(20), tot_cred REAL(3, 0) CHECK (tot_cred >= 0), FOREIGN KEY (dept_name) REFERENCES department (dept_name) ON delete SET NULL);
+
+CREATE TABLE takes (ID TEXT(5), course_id TEXT(8), sec_id TEXT(8), semester TEXT(6), year REAL(4, 0), grade TEXT(2), PRIMARY KEY (ID, course_id, sec_id, semester, year), FOREIGN KEY (course_id, sec_id, semester, year) REFERENCES section (course_id, sec_id, semester, year) ON delete CASCADE, FOREIGN KEY (ID) REFERENCES student (ID) ON delete CASCADE);
+
+CREATE TABLE advisor (s_ID TEXT(5) PRIMARY KEY, i_ID TEXT(5), FOREIGN KEY (i_ID) REFERENCES instructor (ID) ON delete SET NULL, FOREIGN KEY (s_ID) REFERENCES student (ID) ON delete CASCADE);
+
+CREATE TABLE time_slot (time_slot_id TEXT(4), day TEXT(1), start_hr REAL(2) CHECK (start_hr >= 0 AND start_hr < 24), start_min REAL(2) CHECK (start_min >= 0 AND start_min < 60), end_hr REAL(2) CHECK (end_hr >= 0 AND end_hr < 24), end_min REAL(2) CHECK (end_min >= 0 AND end_min < 60), PRIMARY KEY (time_slot_id, day, start_hr, start_min));
+
+CREATE TABLE prereq (course_id TEXT(8), prereq_id TEXT(8), PRIMARY KEY (course_id, prereq_id), FOREIGN KEY (course_id) REFERENCES course (course_id) ON delete CASCADE, FOREIGN KEY (prereq_id) REFERENCES course (course_id));
+
+CREATE TABLE grade_value (grade TEXT(2) PRIMARY KEY, value REAL(4, 2));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+insert into classroom values ('Taylor','3128','-1');
+insert into department values ('Physics','Taylor','2');
+insert into department values ('Finance','Taylor','1');
+insert into department values ('Biology','Taylor',null);
+insert into department values ('Music','Taylor','1');
+insert into department values ('Comp. Sci.','Taylor','1');
+insert into student values ('1','Einstein','Finance','0');
+insert into instructor values ('10101','Einstein','Music','29001');
+insert into instructor values ('1','Einstein','Comp. Sci.',null);
+insert into course values ('BIO-301','Robotics',null,'4');
+insert into course values ('CS-101','Robotics','Finance','3');
+insert into course values ('BIO-101','Music Video Production','Physics','2');
+insert into section values ('BIO-101','2','Summer','2010','Taylor','3128','B');
+insert into teaches values ('1','BIO-101','2','Summer','2010');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM course CROSS JOIN instructor WHERE EXISTS(SELECT * FROM teaches AS t1 INNER JOIN student ON (t1.ID = student.ID) WHERE t1.ID = instructor.ID AND t1.course_id = course.course_id AND t1.year = 2010 AND EXISTS(SELECT * FROM student AS t2 WHERE course.dept_name > t2.dept_name)) AND instructor.ID = '1';
+
+/*
+Gold Result:
+('Einstein',)
+*/
+
+-- Prediction Query
+SELECT name FROM instructor CROSS JOIN course WHERE EXISTS(SELECT * FROM teaches AS t1 NATURAL JOIN student WHERE t1.ID = instructor.ID AND t1.course_id = course.course_id AND t1.year = 2010 AND NOT EXISTS(SELECT * FROM student AS t2 WHERE course.dept_name > t2.dept_name)) AND instructor.ID = '1';
+
+/*
+Prediction Result:
+*/

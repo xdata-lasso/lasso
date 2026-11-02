@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, non-matching Name, non-matching Year, and boundary dates around 2011.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'Alice');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 200, 'Bob');
+
+-- Target match (start of 2011)
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 1, 'Supporter', '2011-01-01 00:00:00');
+-- Target match (end of 2011)
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (2, 2, 'Supporter', '2011-12-31 23:59:59');
+-- Boundary miss (end of 2010)
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (3, 1, 'Supporter', '2010-12-31 23:59:59');
+-- Boundary miss (start of 2012)
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (4, 2, 'Supporter', '2012-01-01 00:00:00');
+-- Wrong Name, right Year
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (5, 1, 'Teacher', '2011-06-15 12:00:00');
+-- Wrong Name, wrong Year
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (6, 2, 'Student', '2010-05-05 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(Id) vs COUNT(DISTINCT UserId), COUNT(UserId), and INNER JOIN vs No-Join (when UserId is NULL).
+-- Also tests SUM(Id) vs COUNT(Id) by using non-1 Id values.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (10, 500, 'Charlie');
+
+-- Same user getting the badge multiple times in 2011
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (100, 10, 'Supporter', '2011-03-10 08:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (200, 10, 'Supporter', '2011-07-20 09:30:00');
+-- Valid badge with NULL UserId (kills mutants that INNER JOIN users or do COUNT(UserId))
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (300, NULL, 'Supporter', '2011-11-11 11:11:11');
+```
+
+```sql
+-- DATASET 3
+-- Tests string matching nuances (case sensitivity, substrings/LIKE) and NULL handling.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'Dave');
+
+-- Valid match
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (10, 1, 'Supporter', '2011-05-15 14:20:00');
+-- Case sensitivity check (SQLite '=' is case-sensitive, LIKE is case-insensitive for ASCII)
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (11, 1, 'supporter', '2011-05-15 14:20:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (12, 1, 'SUPPORTER', '2011-05-15 14:20:00');
+-- Substring / wildcard check (kills mutants using LIKE '%Supporter%')
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (13, 1, 'Supporters', '2011-05-15 14:20:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (14, 1, 'Great Supporter', '2011-05-15 14:20:00');
+-- NULL values in filtered columns
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (15, 1, NULL, '2011-05-15 14:20:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (16, 1, 'Supporter', NULL);
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (17, 1, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests date extraction nuances: ensures '2011' is matched only on the Year (%Y), not elsewhere in the string (kills Date LIKE '%2011%').
+-- Also tests 0-row output (when no valid rows match, COUNT should return 0, whereas omitting COUNT or using GROUP BY returns empty set).
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 50, 'Eve');
+
+-- Time contains 20:11, Year is 2010 (kills Date LIKE '%2011%' or similar faulty regex/substring checks)
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 1, 'Supporter', '2010-08-15 20:11:00');
+-- Different year
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (2, 1, 'Supporter', '2013-01-01 00:00:00');
+-- Different badge in 2011
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (3, 1, 'Editor', '2011-04-04 04:04:04');
+```
+
+```sql
+-- DATASET 5
+-- Tests joining traps: User created in 2011 vs Badge in 2012, or User having multiple posts/comments/votes (kills mutants with unnecessary joins that multiply rows).
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 1000, '2011-02-02 10:00:00', 'Frank');
+
+-- User 1 has a Supporter badge in 2011
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (50, 1, 'Supporter', '2011-08-08 12:00:00');
+-- User 1 also has a Supporter badge in 2012 (if mutant checks users.CreationDate = 2011 instead of badges.Date, this will falsely match)
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (51, 1, 'Supporter', '2012-08-08 12:00:00');
+
+-- Multiple related records in other tables for User 1 (if mutant joins posts or votes without DISTINCT, count will inflate)
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId, Title) VALUES (101, 1, '2011-05-01 00:00:00', 1, 'Post 1');
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId, Title) VALUES (102, 1, '2011-05-02 00:00:00', 1, 'Post 2');
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (201, 101, 2, '2011-05-03', 1);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (202, 102, 2, '2011-05-04', 1);
+```

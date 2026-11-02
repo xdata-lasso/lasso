@@ -1,0 +1,50 @@
+-- Schema DDL
+CREATE TABLE "ALLERGY_TYPE" (
+    "ALLERGY" TEXT,
+    "ALLERGYTYPE" TEXT,
+    PRIMARY KEY ("ALLERGY")
+);
+CREATE TABLE "HAS_ALLERGY" (
+    "ALLERGY" TEXT,
+    "STUID" INT,
+    FOREIGN KEY ("ALLERGY") REFERENCES "ALLERGY_TYPE"("ALLERGY"),
+    FOREIGN KEY ("STUID") REFERENCES "STUDENT"("STUID")
+);
+CREATE TABLE "STUDENT" (
+    "STUID" INT,
+    "LNAME" TEXT,
+    "FNAME" TEXT,
+    "AGE" INT,
+    "SEX" TEXT,
+    "MAJOR" INT,
+    "ADVISOR" INT,
+    "CITY_CODE" TEXT,
+    PRIMARY KEY ("STUID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ALLERGY_TYPE VALUES (2, 0);
+INSERT INTO ALLERGY_TYPE VALUES (3, 0);
+INSERT INTO HAS_ALLERGY VALUES (2, 0);
+INSERT INTO HAS_ALLERGY VALUES (2, -1);
+INSERT INTO STUDENT VALUES (-1, 13, 17, 0, 18, 0, 0, 19);
+INSERT INTO STUDENT VALUES (0, 7, 8, 0, 9, -1, 0, 10);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT major FROM (SELECT * FROM (SELECT * FROM (SELECT lname, major, MAX(n) AS n FROM (SELECT lname, major, COUNT(*) AS n FROM student GROUP BY lname, major) GROUP BY lname, major) ORDER BY lname) LIMIT 1);
+
+/*
+Gold Result:
+(0,)
+*/
+
+-- Prediction Query
+SELECT major FROM Student GROUP BY major ORDER BY COUNT(*) DESC, major NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+(-1,)
+*/

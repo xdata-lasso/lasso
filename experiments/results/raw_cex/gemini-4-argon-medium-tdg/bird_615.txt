@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Lower boundary of Age (13 vs 12)
+-- 2. Multiplicity: A single user having multiple 'Organizer' badges (catches COUNT(DISTINCT T2.Id) or filtering users via IN/EXISTS)
+-- 3. Floating point division vs Integer division (2 / 3 = 66.666... vs 66 or 0)
+-- 4. Filtering on badge Name ('Organizer' vs 'Teacher')
+-- 5. Unmatched users (catches RIGHT JOIN / FULL JOIN on users)
+INSERT INTO users (Id, Age) VALUES (1, 13);
+INSERT INTO users (Id, Age) VALUES (2, 12);
+INSERT INTO users (Id, Age) VALUES (3, 15);
+INSERT INTO users (Id, Age) VALUES (4, 16);
+
+INSERT INTO badges (Id, UserId, Name) VALUES (101, 1, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (102, 1, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (103, 2, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (104, 3, 'Teacher');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Upper boundary of Age (18 vs 19)
+-- 2. NULL Age handling (catches COUNT(T2.Age) instead of COUNT(T1.Id), or improper NULL handling in CASE/IIF)
+-- 3. NULL UserId in badges (catches LEFT JOIN from badges to users)
+-- 4. Fractional percentage where numerator * 100 is not divisible by denominator (1 * 100 / 3 = 33.333... vs 33)
+INSERT INTO users (Id, Age) VALUES (1, 18);
+INSERT INTO users (Id, Age) VALUES (2, 19);
+INSERT INTO users (Id, Age) VALUES (3, NULL);
+
+INSERT INTO badges (Id, UserId, Name) VALUES (201, 1, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (202, 2, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (203, 3, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (204, NULL, 'Organizer');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Zero matches in the 13-18 age range among 'Organizer' badge holders (Result should be 0.0, not NULL)
+-- 2. Catches mutants that put `T2.Age BETWEEN 13 AND 18` in the WHERE clause (which would cause division by 0 / NULL result here)
+-- 3. Case sensitivity / exact string match on 'Organizer' ('organizer', 'Organizer ')
+-- 4. Join key confusion (catches T1.Id = T2.Id instead of T1.UserId = T2.Id)
+INSERT INTO users (Id, Age) VALUES (1, 25);
+INSERT INTO users (Id, Age) VALUES (2, 10);
+INSERT INTO users (Id, Age) VALUES (3, 15);
+INSERT INTO users (Id, Age) VALUES (10, 16);
+
+INSERT INTO badges (Id, UserId, Name) VALUES (10, 1, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (20, 2, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (30, 3, 'organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (40, 3, 'Student');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty join result for 'Organizer' (COUNT(T1.Id) = 0, so division by 0 yields NULL in SQLite)
+-- 2. Ensures mutants without WHERE T1.Name = 'Organizer' fail (since other badges exist with ages 13-18)
+INSERT INTO users (Id, Age) VALUES (1, 14);
+INSERT INTO users (Id, Age) VALUES (2, 20);
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 1, 'Editor');
+INSERT INTO badges (Id, UserId, Name) VALUES (2, 2, 'Supporter');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. 100% match rate (all 'Organizer' badges belong to users aged 13-18)
+-- 2. Distinct ages inside the range (13, 15, 18) vs outside range with different badge names
+-- 3. Catches mutants using `< 18` or `> 13` strictly
+INSERT INTO users (Id, Age) VALUES (10, 13);
+INSERT INTO users (Id, Age) VALUES (20, 18);
+INSERT INTO users (Id, Age) VALUES (30, 15);
+INSERT INTO users (Id, Age) VALUES (40, 30);
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 10, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (2, 20, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (3, 30, 'Organizer');
+INSERT INTO badges (Id, UserId, Name) VALUES (4, 40, 'Critic');
+```

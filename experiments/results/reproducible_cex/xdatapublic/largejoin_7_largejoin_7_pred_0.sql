@@ -1,0 +1,49 @@
+-- Schema DDL
+CREATE TABLE RA (A1 TEXT(5) PRIMARY KEY, B TEXT(5));
+
+CREATE TABLE RB (A2 TEXT(5) PRIMARY KEY, B TEXT(5), FOREIGN KEY (B) REFERENCES RA (A1));
+
+CREATE TABLE RC (A3 TEXT(5) PRIMARY KEY, B TEXT(5), FOREIGN KEY (B) REFERENCES RB (A2));
+
+CREATE TABLE RD (A4 TEXT(5) PRIMARY KEY, B TEXT(5), FOREIGN KEY (B) REFERENCES RC (A3));
+
+CREATE TABLE RE (A5 TEXT(5) PRIMARY KEY, B TEXT(5), FOREIGN KEY (B) REFERENCES RD (A4));
+
+CREATE TABLE RF (A6 TEXT(5) PRIMARY KEY, B TEXT(5), FOREIGN KEY (B) REFERENCES RE (A5));
+
+CREATE TABLE RG (A7 TEXT(5) PRIMARY KEY, B TEXT(5), FOREIGN KEY (B) REFERENCES RF (A6));
+
+CREATE TABLE RH (A8 TEXT(5) PRIMARY KEY, B TEXT(5), FOREIGN KEY (B) REFERENCES RG (A7));
+
+CREATE TABLE RI (A9 TEXT(5) PRIMARY KEY, B TEXT(5), FOREIGN KEY (B) REFERENCES RH (A8));
+
+CREATE TABLE RJ (A10 TEXT(5) PRIMARY KEY, B TEXT(5), FOREIGN KEY (B) REFERENCES RI (A9));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+insert into ra values ('a1','V13');
+insert into ra values ('b4','V19');
+insert into rb values ('V7',null);
+insert into rb values ('1','a1');
+insert into rb values ('V12','b4');
+insert into rc values ('a1','1');
+insert into rc values ('V8',null);
+insert into rd values ('1','a1');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT RA.B FROM RA CROSS JOIN RB CROSS JOIN RC CROSS JOIN RD GROUP BY RA.B HAVING COUNT(RA.B) > 3;
+
+/*
+Gold Result:
+('V13',)
+('V19',)
+*/
+
+-- Prediction Query
+SELECT RA.B FROM RA WHERE 1 = 2;
+
+/*
+Prediction Result:
+*/

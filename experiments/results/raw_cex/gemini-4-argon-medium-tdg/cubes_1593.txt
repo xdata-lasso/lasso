@@ -1,0 +1,100 @@
+```sql
+-- DATASET 1
+-- Target: Boundary conditions for document_id = 3 (testing <, >, <=, >=, !=), non-null foreign keys, and single-row relations in child tables (Drafts, Copies, Mailed).
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('TYPE1', 'Invoice'), ('TYPE3', 'Contract');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('STAT1', 'Active'), ('STAT3', 'Pending');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('AG1', 'FedEx', 'Express'), ('AG3', 'UPS', 'Ground');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, '123 Main St'), (3, '789 Oak St');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('R3', 'Manager');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (3, 'R3', 'Alice', 'None');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES 
+(1, 'AG3', 'STAT3', 'TYPE3', '2021-01-01 08:00:00', '3', '3'),
+(2, 'AG1', 'STAT1', 'TYPE1', '2022-02-02 09:00:00', '102', 'Detail 2'),
+(3, 'AG1', 'STAT1', 'TYPE1', '2023-03-03 10:00:00', '103', 'Detail 3'),
+(4, 'AG1', 'STAT1', 'TYPE1', '2024-04-04 11:00:00', '104', 'Detail 4');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (3, 1, 'First draft');
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (3, 1, 1);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (3, 1, 1, 3);
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (3, 1, '2023-03-10 12:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Target: Unnecessary INNER JOINs with parent or child tables (document_id = 3 has NULL foreign keys and no child rows), plus multi-row fan-out in Documents_Mailed for other documents.
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (10, 'Addr A'), (20, 'Addr B');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES 
+(2, NULL, NULL, NULL, '2020-05-05 00:00:00', '3', 'Has mailings'),
+(3, NULL, NULL, NULL, '2023-12-25 15:30:00', '999', 'Orphan document');
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES 
+(2, 10, '2020-05-06 00:00:00'),
+(2, 20, '2020-05-07 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Target: Fan-out multiplication if query erroneously joins Documents_Mailed or Circulation_History for document_id = 3, and testing column confusion (mailing_date vs receipt_date).
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, 'Addr 1'), (2, 'Addr 2');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('R1', 'Role 1');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (10, 'R1', 'Emp 1', 'D1'), (20, 'R1', 'Emp 2', 'D2');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES 
+(3, 'A1', 'S1', 'T1', '2021-06-15', 'RN3', 'OD3');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (3, 3, 'Draft 3');
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (3, 3, 3);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES 
+(3, 3, 3, 10),
+(3, 3, 3, 20);
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES 
+(3, 1, '2021-07-01'),
+(3, 2, '2021-07-02');
+```
+
+```sql
+-- DATASET 4
+-- Target: NULL receipt_date for document_id = 3 (kills mutants adding WHERE receipt_date IS NOT NULL, or COALESCE/COUNT bugs), while other documents have valid dates.
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES 
+(1, NULL, NULL, NULL, '2023-01-01', 'R1', 'D1'),
+(3, NULL, NULL, NULL, NULL, 'R3', 'D3'),
+(5, NULL, NULL, NULL, '2023-05-05', 'R5', 'D5');
+```
+
+```sql
+-- DATASET 5
+-- Target: Empty result set when document_id = 3 is missing, even when "3" appears in every other possible column/table (draft_number, copy_number, employee_id, address_id, receipt_number, etc.).
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (3, '3');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('3', '3');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (3, '3', '3', '3');
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('3', '3');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('3', '3');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('3', '3', '3');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES 
+(1, '3', '3', '3', '2023-03-03', '3', '3'),
+(2, '3', '3', '3', '2020-01-01', '3', '3'),
+(4, '3', '3', '3', NULL, '3', '3');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (1, 3, '3');
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (1, 3, 3);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (1, 3, 3, 3);
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (1, 3, '2023-03-03');
+```
+
+```sql
+-- DATASET 6
+-- Target: Duplicate receipt_date across multiple documents, and out-of-order dates relative to document_id (tests missing WHERE clause, DISTINCT, and ORDER BY mutations).
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES 
+(1, NULL, NULL, NULL, '2025-12-31', '100', 'Latest date, lowest ID'),
+(2, NULL, NULL, NULL, '2022-08-08', '200', 'Same date as doc 3'),
+(3, NULL, NULL, NULL, '2022-08-08', '300', 'Target doc 3'),
+(4, NULL, NULL, NULL, '2019-01-01', '400', 'Earliest date, higher ID'),
+(5, NULL, NULL, NULL, NULL, '500', 'Null date');
+```

@@ -1,0 +1,122 @@
+```sql
+-- DATASET 1
+-- Tests core LEFT JOIN, COUNT(o_orderkey) vs COUNT(*), ON vs WHERE filtering, and primary/secondary ORDER BY directions.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AMERICA', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'USA', 1, 'Nation 1');
+
+-- Customer 1: No orders at all (c_count = 0)
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Cust 1', 'Addr 1', 1, '111-1111', 100.00, 'AUTO', 'No orders');
+
+-- Customer 2: Only excluded orders matching '%pending%accounts%' (c_count = 0)
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (2, 'Cust 2', 'Addr 2', 1, '222-2222', 200.00, 'AUTO', 'Only excluded orders');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (101, 2, 'O', 50.00, '2023-01-01', '1-URGENT', 'Clerk#1', 0, 'the pending accounts are delayed');
+
+-- Customer 3: 1 valid order, 1 excluded order (c_count = 1)
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (3, 'Cust 3', 'Addr 3', 1, '333-3333', 300.00, 'AUTO', 'Mixed orders');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (102, 3, 'O', 150.00, '2023-01-02', '1-URGENT', 'Clerk#1', 0, 'normal order comment');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (103, 3, 'O', 250.00, '2023-01-03', '1-URGENT', 'Clerk#1', 0, 'pendingaccounts');
+
+-- Customer 4: 1 valid order (c_count = 1)
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (4, 'Cust 4', 'Addr 4', 1, '444-4444', 400.00, 'AUTO', 'One valid order');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (104, 4, 'F', 350.00, '2023-01-04', '2-HIGH', 'Clerk#2', 0, 'accounts that are pending now');
+
+-- Customer 5: 1 valid order (c_count = 1) -> Makes custdist = 3 for c_count = 1
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (5, 'Cust 5', 'Addr 5', 1, '555-5555', 500.00, 'AUTO', 'One valid order');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (105, 5, 'F', 450.00, '2023-01-05', '2-HIGH', 'Clerk#2', 0, 'just pending');
+
+-- Customer 6: 2 valid orders (c_count = 2) -> custdist = 1
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (6, 'Cust 6', 'Addr 6', 1, '666-6666', 600.00, 'AUTO', 'Two valid orders');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (106, 6, 'O', 550.00, '2023-01-06', '3-MEDIUM', 'Clerk#3', 0, 'just accounts');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (107, 6, 'O', 650.00, '2023-01-07', '3-MEDIUM', 'Clerk#3', 0, 'clean comment');
+
+-- Customer 7: 3 valid orders (c_count = 3) -> custdist = 1 (Ties with c_count = 2 on custdist, tests secondary sort c_count DESC)
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (7, 'Cust 7', 'Addr 7', 1, '777-7777', 700.00, 'AUTO', 'Three valid orders');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (108, 7, 'O', 750.00, '2023-01-08', '3-MEDIUM', 'Clerk#3', 0, 'valid 1');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (109, 7, 'O', 850.00, '2023-01-09', '3-MEDIUM', 'Clerk#3', 0, 'valid 2');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (110, 7, 'O', 950.00, '2023-01-10', '3-MEDIUM', 'Clerk#3', 0, 'valid 3');
+```
+
+```sql
+-- DATASET 2
+-- Tests string pattern boundary conditions in LIKE '%pending%accounts%' (reversed order, missing wildcards, partial matches) and multiple excluded orders per customer (kills COUNT(*) vs COUNT(o_orderkey) when >1 excluded rows exist).
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'EUROPE', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'FRANCE', 1, 'Nation 1');
+
+-- Customer 10: Has 2 excluded orders with exact prefix/suffix boundaries -> c_count should be 0 (if COUNT(*) is used, c_count becomes 2!)
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (10, 'Cust 10', 'Addr 10', 1, '101-1010', 100.00, 'BUILDING', 'Comment');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (201, 10, 'O', 10.00, '2023-02-01', '1-URGENT', 'Clerk#1', 0, 'pending accounts');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (202, 10, 'O', 20.00, '2023-02-02', '1-URGENT', 'Clerk#1', 0, 'prefix pending middle accounts suffix');
+
+-- Customer 20: Has 4 orders testing near-miss patterns (all 4 should be counted -> c_count = 4)
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (20, 'Cust 20', 'Addr 20', 1, '202-2020', 200.00, 'BUILDING', 'Comment');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (203, 20, 'O', 30.00, '2023-02-03', '1-URGENT', 'Clerk#1', 0, 'accounts pending');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (204, 20, 'O', 40.00, '2023-02-04', '1-URGENT', 'Clerk#1', 0, 'pending account');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (205, 20, 'O', 50.00, '2023-02-05', '1-URGENT', 'Clerk#1', 0, 'pendings accounts');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (206, 20, 'O', 60.00, '2023-02-06', '1-URGENT', 'Clerk#1', 0, 'pending');
+```
+
+```sql
+-- DATASET 3
+-- Tests grouping keys and aggregate functions:
+-- 1. Customers with identical c_name, c_address, etc. (kills GROUP BY c_name instead of c_custkey).
+-- 2. Outer COUNT(DISTINCT c_count) vs COUNT(c_custkey) and SUM(c_count) vs COUNT(c_custkey).
+-- 3. Order where custdist ASC vs DESC and c_count ASC vs DESC produce completely different permutations.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'ASIA', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'JAPAN', 1, 'Nation 1');
+
+-- Cust 1 & Cust 2 share the exact same c_name and attributes, each has 2 valid orders.
+-- By c_custkey: two customers with c_count = 2 (custdist = 2, c_count = 2).
+-- If grouped by c_name: one group with c_count = 4 (custdist = 1, c_count = 4).
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Duplicate Name', 'Same Addr', 1, '999-9999', 100.00, 'MACHINERY', 'Same comment');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (2, 'Duplicate Name', 'Same Addr', 1, '999-9999', 100.00, 'MACHINERY', 'Same comment');
+
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (301, 1, 'O', 100.00, '2023-03-01', '1-URGENT', 'Clerk#1', 0, 'ok');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (302, 1, 'O', 100.00, '2023-03-01', '1-URGENT', 'Clerk#1', 0, 'ok');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (303, 2, 'O', 100.00, '2023-03-01', '1-URGENT', 'Clerk#1', 0, 'ok');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (304, 2, 'O', 100.00, '2023-03-01', '1-URGENT', 'Clerk#1', 0, 'ok');
+
+-- Cust 3, 4, 5 each have 0 orders -> c_count = 0, custdist = 3.
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (3, 'Cust 3', 'Addr 3', 1, '333-3333', 100.00, 'MACHINERY', 'Comment 3');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (4, 'Cust 4', 'Addr 4', 1, '444-4444', 100.00, 'MACHINERY', 'Comment 4');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (5, 'Cust 5', 'Addr 5', 1, '555-5555', 100.00, 'MACHINERY', 'Comment 5');
+
+-- Cust 6 has 5 valid orders -> c_count = 5, custdist = 1.
+-- Notice inverse relationship between c_count and custdist across groups:
+-- (c_count=0, custdist=3), (c_count=2, custdist=2), (c_count=5, custdist=1).
+-- Sorting by custdist DESC gives c_count: 0, 2, 5. Sorting by c_count DESC first would give: 5, 2, 0.
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (6, 'Cust 6', 'Addr 6', 1, '666-6666', 100.00, 'MACHINERY', 'Comment 6');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (305, 6, 'O', 10.00, '2023-03-02', '1-URGENT', 'Clerk#1', 0, 'ok 1');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (306, 6, 'O', 10.00, '2023-03-02', '1-URGENT', 'Clerk#1', 0, 'ok 2');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (307, 6, 'O', 10.00, '2023-03-02', '1-URGENT', 'Clerk#1', 0, 'ok 3');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (308, 6, 'O', 10.00, '2023-03-02', '1-URGENT', 'Clerk#1', 0, 'ok 4');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (309, 6, 'O', 10.00, '2023-03-02', '1-URGENT', 'Clerk#1', 0, 'ok 5');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty orders table / all orders excluded scenario, and customer comment containing '%pending%accounts%' (kills mutants filtering c_comment instead of o_comment).
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'AFRICA', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'EGYPT', 1, 'Nation 1');
+
+-- Customer 1 has '%pending%accounts%' in c_comment, and 1 valid order with normal o_comment.
+-- If mutant checks c_comment NOT LIKE '%pending%accounts%', Customer 1 or its order gets filtered out!
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Cust 1', 'Addr 1', 1, '111-1111', 100.00, 'HOUSEHOLD', 'customer has pending accounts here');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (401, 1, 'O', 100.00, '2023-04-01', '1-URGENT', 'Clerk#1', 0, 'completely normal order');
+
+-- Customer 2 also has '%pending%accounts%' in c_comment, and 0 orders.
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (2, 'Cust 2', 'Addr 2', 1, '222-2222', 200.00, 'HOUSEHOLD', 'pending special accounts');
+```
+
+```sql
+-- DATASET 5
+-- Tests inner COUNT(DISTINCT column) mutants: Customer with multiple orders sharing identical o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment.
+-- Only o_orderkey differs. Kills mutants that do COUNT(DISTINCT o_custkey), COUNT(DISTINCT o_orderstatus), COUNT(DISTINCT o_comment), etc.
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'MIDDLE EAST', 'Region 1');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'JORDAN', 1, 'Nation 1');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'Cust 1', 'Addr 1', 1, '111-1111', 100.00, 'FURNITURE', 'Comment 1');
+
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (501, 1, 'O', 99.99, '2023-05-01', '1-URGENT', 'Clerk#1', 0, 'identical comment');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (502, 1, 'O', 99.99, '2023-05-01', '1-URGENT', 'Clerk#1', 0, 'identical comment');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (503, 1, 'O', 99.99, '2023-05-01', '1-URGENT', 'Clerk#1', 0, 'identical comment');
+```

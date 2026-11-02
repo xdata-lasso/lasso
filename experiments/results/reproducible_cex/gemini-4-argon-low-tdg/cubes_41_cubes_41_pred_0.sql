@@ -1,0 +1,39 @@
+-- Schema DDL
+CREATE TABLE "i038" ("id" INTEGER, "name" TEXT, "city" TEXT);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO i038 (id, name, city) VALUES (3, 'Alice', 'NY');
+INSERT INTO i038 (id, name, city) VALUES (1, 'Alice', 'NY');
+INSERT INTO i038 (id, name, city) VALUES (2, 'Alice', 'LA');
+INSERT INTO i038 (id, name, city) VALUES (4, 'Bob', 'NY');
+INSERT INTO i038 (id, name, city) VALUES (5, 'Charlie', 'LA');
+INSERT INTO i038 (id, name, city) VALUES (6, 'Charlie', 'LA');
+INSERT INTO i038 (id, name, city) VALUES (7, 'Charlie', 'LA');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT id, name, city FROM (SELECT LHS.id AS id, LHS.name AS name, LHS.city AS city, RHS.n AS n FROM i038 AS LHS LEFT JOIN (SELECT city, name, COUNT(*) AS n FROM i038 GROUP BY city, name) AS RHS ON (LHS.name = RHS.name AND LHS.city = RHS.city)) WHERE (n > 1) ORDER BY id, name NULLS LAST, city NULLS LAST;
+
+/*
+Gold Result:
+(1, 'Alice', 'NY')
+(3, 'Alice', 'NY')
+(5, 'Charlie', 'LA')
+(6, 'Charlie', 'LA')
+(7, 'Charlie', 'LA')
+*/
+
+-- Prediction Query
+SELECT s.id, t.name, t.city FROM i038 AS s JOIN (SELECT name, city, COUNT(*) AS qty FROM i038 GROUP BY name, city HAVING COUNT(*) > 1) AS t ON s.name = t.name AND s.city = t.city;
+
+/*
+Prediction Result:
+(3, 'Alice', 'NY')
+(1, 'Alice', 'NY')
+(5, 'Charlie', 'LA')
+(6, 'Charlie', 'LA')
+(7, 'Charlie', 'LA')
+*/

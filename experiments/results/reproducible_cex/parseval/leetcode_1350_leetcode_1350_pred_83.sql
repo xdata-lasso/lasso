@@ -1,0 +1,74 @@
+-- Schema DDL
+CREATE TABLE "Departments" ("id" INTEGER PRIMARY KEY, "name" TEXT(255));
+
+CREATE TABLE "Students" ("id" INTEGER PRIMARY KEY, "name" TEXT(255), "department_id" INTEGER, FOREIGN KEY ("department_id") REFERENCES "Departments" ("id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: departments --
+INSERT INTO "departments" ("id", "name") VALUES (1, NULL);
+
+INSERT INTO "departments" ("id", "name") VALUES (2, NULL);
+
+INSERT INTO "departments" ("id", "name") VALUES (4, 'dep_4ca018');
+
+INSERT INTO "departments" ("id", "name") VALUES (3, 'dep_4ca018');
+
+-- Inserting into table: students --
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483648, 'stu_ea84a3', 1);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (1, 's_s_d1aa68', 1);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483646, 'stu_ea84a3', 4);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483645, 'stu_ea84a3', 4);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483644, 'stu_ea84a3', 4);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483643, 'stu_ea84a3', 1);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483642, 'stu_ea84a3', 4);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483641, 'stu_ea84a3', 4);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483640, 'stu_ea84a3', 1);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483639, 'stu_ea84a3', 4);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (2, 'stu_ea84a3', 1);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (3, 'stu_ea84a3', 1);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483636, 'stu_ea84a3', 1);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483635, 'stu_ea84a3', 1);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483634, NULL, 1);
+
+INSERT INTO "students" ("id", "name", "department_id") VALUES (-2147483633, 'stu_ea84a3', 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT id, name FROM Students WHERE NOT department_id IN (SELECT id FROM departments);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH CTE AS (SELECT S.DEPARTMENT_ID FROM STUDENTS AS S LEFT JOIN DEPARTMENTS AS D ON S.DEPARTMENT_ID = D.ID WHERE D.NAME IS NULL) SELECT DISTINCT S.ID, S.NAME FROM STUDENTS AS S JOIN CTE ON S.DEPARTMENT_ID = CTE.DEPARTMENT_ID;
+
+/*
+Prediction Result:
+(-2147483648, 'stu_ea84a3')
+(-2147483643, 'stu_ea84a3')
+(-2147483640, 'stu_ea84a3')
+(-2147483636, 'stu_ea84a3')
+(-2147483635, 'stu_ea84a3')
+(-2147483634, None)
+(-2147483633, 'stu_ea84a3')
+(1, 's_s_d1aa68')
+(2, 'stu_ea84a3')
+(3, 'stu_ea84a3')
+*/

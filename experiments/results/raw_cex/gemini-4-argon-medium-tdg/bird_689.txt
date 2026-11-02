@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests basic join, WHERE T2.Id = 183, LIMIT 1 with multiple posts for user 183, and ignores other users/posts.
+INSERT INTO users (Id, DisplayName, Location) VALUES (182, 'User182', 'Loc182');
+INSERT INTO users (Id, DisplayName, Location) VALUES (183, 'TargetUser', 'TargetLoc');
+INSERT INTO users (Id, DisplayName, Location) VALUES (184, 'User184', 'Loc184');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, LastEditDate, CreaionDate, LasActivityDate) VALUES (1, 182, 183, '2023-05-01 10:00:00', '2023-01-01 00:00:00', '2023-01-01 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, LastEditDate, CreaionDate, LasActivityDate) VALUES (2, 183, 182, '2023-03-01 10:00:00', '2023-02-01 00:00:00', '2023-02-01 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, LastEditDate, CreaionDate, LasActivityDate) VALUES (3, 183, 182, '2023-04-01 10:00:00', '2023-01-15 00:00:00', '2023-01-15 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, LastEditDate, CreaionDate, LasActivityDate) VALUES (4, 184, 183, '2023-06-01 10:00:00', '2023-03-01 00:00:00', '2023-03-01 00:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN when user 183 exists in users table but has NO owned posts (only edited posts or posts by other users exist).
+-- Reference query returns 0 rows. A query missing the join or joining on LastEditorUserId or using RIGHT JOIN from users will fail.
+INSERT INTO users (Id, DisplayName, Location) VALUES (183, 'LonelyUser183', 'NoPostsLand');
+INSERT INTO users (Id, DisplayName, Location) VALUES (200, 'OtherUser', 'OtherLand');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, LastEditDate) VALUES (10, 200, 183, '2023-01-01 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, LastEditDate) VALUES (183, 200, 200, '2023-02-01 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary conditions (Id = 182, 184) when User 183 does NOT exist at all, and Post Id 183 exists.
+-- Catches mutants filtering on T1.Id = 183 or using <= / >= / <> instead of =.
+INSERT INTO users (Id, DisplayName, Location) VALUES (182, 'BoundaryLow', 'LocLow');
+INSERT INTO users (Id, DisplayName, Location) VALUES (184, 'BoundaryHigh', 'LocHigh');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (183, 182, '2023-05-05 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (184, 184, '2023-05-06 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL values in DisplayName and Location for User 183, and NULL LastEditDate in posts.
+-- Catches mutants that add IS NOT NULL filters or coalesce values, or fail when LastEditDate is NULL.
+INSERT INTO users (Id, DisplayName, Location, OwnerDisplayName) VALUES (183, NULL, NULL, NULL);
+```
+```sql
+-- DATASET 4
+-- Tests NULL values in DisplayName and Location for User 183, and NULL LastEditDate in posts.
+INSERT INTO users (Id, DisplayName, Location, WebsiteUrl, AboutMe) VALUES (183, NULL, NULL, 'http://example.com', 'AboutMeText');
+INSERT INTO users (Id, DisplayName, Location) VALUES (100, 'NonNullUser', 'NonNullLoc');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditDate, OwnerDisplayName) VALUES (1, 183, NULL, 'FallbackDisplayName');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate, OwnerDisplayName) VALUES (2, 100, '2023-01-01 00:00:00', 'NonNullUser');
+```
+
+```sql
+-- DATASET 5
+-- Tests single post for User 183 vs multiple posts for other users (testing COUNT/GROUP BY/HAVING mutants or DISTINCT vs LIMIT 1).
+-- Also populates distraction columns in users (WebsiteUrl, AboutMe, ProfileImageUrl) and posts (OwnerDisplayName, Title, Body) to catch column-swap mutants.
+INSERT INTO users (Id, Reputation, DisplayName, Location, WebsiteUrl, AboutMe, ProfileImageUrl) VALUES (183, 500, 'ExactDisplayName183', 'ExactLocation183', 'http://183.com', 'Bio183', 'img183.png');
+
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, LastEditorUserId, LastEditDate, OwnerDisplayName, LastEditorDisplayName, Title, Body) VALUES (50, 1, 183, 183, '2022-12-31 23:59:59', 'WrongOwnerDisplay', 'WrongEditorDisplay', 'PostTitle', 'PostBody');
+```
+
+```sql
+-- DATASET 6
+-- Tests tie-breaking on LastEditDate and NULLS LAST / ASC vs DESC ordering when user 183 has multiple posts, plus comments/votes/badges presence to catch unnecessary INNER JOINs to other tables.
+INSERT INTO users (Id, DisplayName, Location) VALUES (183, 'ActivePoster', 'ActiveCity');
+INSERT INTO users (Id, DisplayName, Location) VALUES (999, 'Commenter', 'CommentCity');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (10, 183, NULL);
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (20, 183, '2021-01-01 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (30, 183, '2021-01-01 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, LastEditDate) VALUES (40, 999, '2025-01-01 00:00:00');
+
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (1, 40, 183, 5, 'Comment by 183 on post 40');
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 999, 'GoldBadge');
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (1, 40, 183, 2);
+```

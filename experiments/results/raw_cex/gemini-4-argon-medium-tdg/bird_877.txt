@@ -1,0 +1,105 @@
+```sql
+-- DATASET 1
+-- Tests core filtering (raceId = 872, time IS NOT NULL), ordering (dob DESC), and LIMIT 1.
+-- Kills mutants omitting raceId filter, omitting time IS NOT NULL filter, reversing dob sort order, or omitting LIMIT 1.
+INSERT INTO seasons (year, url) VALUES (2012, 'http://en.wikipedia.org/wiki/2012_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'albert_park', 'Albert Park Grand Prix Circuit', 'http://en.wikipedia.org/wiki/Melbourne_Grand_Prix_Circuit');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mclaren', 'McLaren', 'http://en.wikipedia.org/wiki/McLaren');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (871, 2012, 1, 1, 'Australian Grand Prix', '2012-03-18', 'http://en.wikipedia.org/wiki/2012_Australian_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (872, 2012, 2, 1, 'Malaysian Grand Prix', '2012-03-25', 'http://en.wikipedia.org/wiki/2012_Malaysian_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (873, 2012, 3, 1, 'Chinese Grand Prix', '2012-04-15', 'http://en.wikipedia.org/wiki/2012_Chinese_Grand_Prix');
+
+-- Driver 1: Youngest overall, in race 872, but time IS NULL (should be excluded)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (1, 'd1', 'Max', 'NullTime', '1999-01-01', 'http://url1');
+-- Driver 2: Second youngest overall, time NOT NULL, but in race 871 (should be excluded)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (2, 'd2', 'Leo', 'WrongRace871', '1998-01-01', 'http://url2');
+-- Driver 3: Third youngest overall, time NOT NULL, but in race 873 (should be excluded)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (3, 'd3', 'Sam', 'WrongRace873', '1997-01-01', 'http://url3');
+-- Driver 4: Youngest valid driver in race 872 with non-null time (EXPECTED WINNER)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (4, 'd4', 'Carlos', 'TargetWinner', '1995-05-05', 'http://url4');
+-- Driver 5: Older valid driver in race 872 with non-null time (kills ASC vs DESC mutants and missing LIMIT mutants)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (5, 'd5', 'Mark', 'OlderValid', '1980-05-05', 'http://url5');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (101, 872, 1, 1, 1, 'R', 1, 0, 10, NULL, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (102, 871, 2, 1, 1, '1', 1, 25, 50, '1:30:00.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (103, 873, 3, 1, 1, '1', 1, 25, 50, '1:31:00.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (104, 872, 4, 1, 2, '1', 1, 25, 56, '1:40:00.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (105, 872, 5, 1, 1, '2', 2, 18, 56, '1:40:10.000', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T1.dob DESC using secondary sort T1.driverId ASC, and tests joins vs cross-products or wrong join keys (e.g. driverId = resultId or driverId = constructorId).
+INSERT INTO seasons (year, url) VALUES (2012, 'http://en.wikipedia.org/wiki/2012_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'sepang', 'Sepang International Circuit', 'http://en.wikipedia.org/wiki/Sepang_International_Circuit');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (10, 'ferrari', 'Ferrari', 'http://en.wikipedia.org/wiki/Scuderia_Ferrari');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (872, 2012, 2, 1, 'Malaysian Grand Prix', '2012-03-25', 'http://en.wikipedia.org/wiki/2012_Malaysian_Grand_Prix');
+
+-- Driver 5: Youngest dob, but NOT in results table at all (kills LEFT JOIN or Cartesian product mutants)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (5, 'd5', 'Ghost', 'NoResults', '2000-01-01', 'http://url5');
+-- Driver 10: Matches constructorId 10 and resultId 10, older dob (kills wrong join condition mutants like T1.driverId = T2.constructorId or T1.driverId = T2.resultId)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (10, 'd10', 'Wrong', 'JoinKey', '1999-01-01', 'http://url10');
+-- Driver 20: Tied for youngest valid dob, lower driverId (EXPECTED WINNER due to T1.driverId ASC tie-breaker)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (20, 'd20', 'TwinA', 'LowerId', '1990-06-15', 'http://url20');
+-- Driver 30: Tied for youngest valid dob, higher driverId (loses tie-breaker on T1.driverId)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (30, 'd30', 'TwinB', 'HigherId', '1990-06-15', 'http://url30');
+
+-- Note: resultId 10 has faster time/better position for Driver 30 than resultId 20 has for Driver 20, killing mutants that order by position, points, or resultId before driverId.
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (10, 872, 30, 10, 1, 1, '1', 1, 25, 56, '1:30:00.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (20, 872, 20, 10, 2, 2, '2', 2, 18, 56, '+5.000', 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in T1.dob, empty string vs NULL in T2.time, and boundary conditions.
+-- In SQLite, NULLs are considered smaller than any non-NULL value, so ORDER BY T1.dob DESC places non-NULL dates BEFORE NULLs.
+-- Kills mutants that use NULLS FIRST on dob DESC, or treat empty string '' in T2.time as NULL, or check T2.milliseconds IS NOT NULL instead of T2.time IS NOT NULL.
+INSERT INTO seasons (year, url) VALUES (2012, 'http://en.wikipedia.org/wiki/2012_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'sepang', 'Sepang International Circuit', 'http://en.wikipedia.org/wiki/Sepang_International_Circuit');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'red_bull', 'Red Bull', 'http://en.wikipedia.org/wiki/Red_Bull_Racing');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (872, 2012, 2, 1, 'Malaysian Grand Prix', '2012-03-25', 'http://en.wikipedia.org/wiki/2012_Malaysian_Grand_Prix');
+
+-- Driver 1: dob IS NULL (in SQLite DESC order, NULL comes last; kills mutants with dob DESC NULLS FIRST)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (1, 'd1', 'Null', 'DobDriver', NULL, 'http://url1');
+-- Driver 2: Youngest dob, has milliseconds, but time IS NULL (kills mutants checking milliseconds IS NOT NULL instead of time IS NOT NULL)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (2, 'd2', 'Milli', 'OnlyDriver', '1995-01-01', 'http://url2');
+-- Driver 3: Valid dob, time is non-null, milliseconds IS NULL (EXPECTED WINNER; kills mutants requiring milliseconds IS NOT NULL or statusId = 1)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (3, 'd3', 'Valid', 'Winner', '1992-08-20', 'http://url3');
+-- Driver 4: Same date of birth year/month, earlier day (1992-08-19 vs 1992-08-20; tests exact date comparison vs year/month extraction)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (4, 'd4', 'OneDay', 'Older', '1992-08-19', 'http://url4');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (1, 872, 1, 1, 1, '1', 1, 25, 56, '1:30:00.000', 5400000, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (2, 872, 2, 1, 2, '2', 2, 18, 56, NULL, 5405000, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (3, 872, 3, 1, 3, '3', 3, 15, 56, '+10.000', NULL, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (4, 872, 4, 1, 4, '4', 4, 12, 56, '+12.000', 5412000, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests negation logic in WHERE (raceId = 872 AND NOT time IS NULL).
+-- Specifically targets mutants that change AND to OR, drop NOT (i.e. time IS NULL), or filter on position/fastestLapTime instead of time.
+INSERT INTO seasons (year, url) VALUES (2012, 'http://en.wikipedia.org/wiki/2012_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'sepang', 'Sepang International Circuit', 'http://en.wikipedia.org/wiki/Sepang_International_Circuit');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'lotus', 'Lotus F1', 'http://en.wikipedia.org/wiki/Lotus_F1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (800, 2012, 1, 1, 'Other Grand Prix', '2012-03-18', 'http://en.wikipedia.org/wiki/Other_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (872, 2012, 2, 1, 'Malaysian Grand Prix', '2012-03-25', 'http://en.wikipedia.org/wiki/2012_Malaysian_Grand_Prix');
+
+-- Driver 1: In race 872, time IS NULL, but fastestLapTime IS NOT NULL and position IS NOT NULL (kills mutants checking fastestLapTime/position instead of time, or using time IS NULL)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (1, 'd1', 'FastLap', 'NoFinishTime', '1998-12-31', 'http://url1');
+-- Driver 2: In race 800, time IS NOT NULL, younger than Driver 3 (kills mutants using raceId = 872 OR NOT time IS NULL)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (2, 'd2', 'OrMutant', 'Killer', '1997-06-01', 'http://url2');
+-- Driver 3: In race 872, time IS NOT NULL, position IS NULL, fastestLapTime IS NULL (EXPECTED WINNER)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (3, 'd3', 'True', 'Survivor', '1985-03-10', 'http://url3');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, fastestLapTime, statusId) VALUES (1, 872, 1, 1, 1, 15, '15', 15, 0, 50, NULL, '1:35.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, fastestLapTime, statusId) VALUES (2, 800, 2, 1, 1, 1, '1', 1, 25, 56, '1:30:00.000', '1:34.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, fastestLapTime, statusId) VALUES (3, 872, 3, 1, 2, NULL, '1', 1, 25, 56, '1:32:00.000', NULL, 1);
+```

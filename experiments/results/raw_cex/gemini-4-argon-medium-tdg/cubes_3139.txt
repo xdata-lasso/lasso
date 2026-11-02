@@ -1,0 +1,54 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, sorting by payment_method_code (ASC), tie-breaking by party_id, and duplicate projection handling (DISTINCT vs ALL).
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (10, 'VISA', '555-0102', 'enrico09@example.com');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (2, 'VISA', '555-0101', 'enrico09@example.com');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (5, 'AMEX', '555-0103', 'enrico09@example.com');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (6, 'AMEX', '555-0103', 'enrico09@example.com');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (1, 'CASH', '555-0199', 'other@example.com');
+```
+
+```sql
+-- DATASET 2
+-- Tests exact string matching on party_email (case sensitivity, substring/LIKE mutations, trailing spaces, NULLs) and confusion with Individuals.individual_email.
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (1, 'CREDIT', '111-2222', 'enrico09@example.com');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (2, 'DEBIT', '222-3333', 'ENRICO09@EXAMPLE.COM');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (3, 'CASH', '333-4444', 'enrico09@example.com ');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (4, 'CHECK', '444-5555', 'prefix_enrico09@example.com');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (5, 'WIRE', '555-6666', NULL);
+INSERT INTO "Individuals" ("individual_id", "individual_first_name", "individual_middle_name", "inidividual_phone", "individual_email", "individual_address", "individual_last_name") VALUES (1, 'Enrico', 'A', '999-8888', 'enrico09@example.com', '123 Main St', 'Fermi');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in payment_method_code, party_phone, and party_id (specifically testing NULLS FIRST vs NULLS LAST in ORDER BY).
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (1, NULL, '555-1000', 'enrico09@example.com');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (2, 'ZELLE', NULL, 'enrico09@example.com');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (3, 'ACH', '555-2000', 'enrico09@example.com');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (NULL, 'ACH', '555-0000', 'enrico09@example.com');
+```
+
+```sql
+-- DATASET 4
+-- Tests mutations that introduce unnecessary INNER JOINs to child tables (Party_Addresses, Party_Forms, Party_Services) where matching parties have no child records or have multiple child records.
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "town_city", "zip_postcode", "state_province_county", "country") VALUES (100, '10 Downing', 'London', 'SW1A 2AA', 'London', 'UK');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (200, 'CONSULT', 'Consulting', 'Basic consulting');
+INSERT INTO "Forms" ("form_id", "service_id", "form_type_code", "form_number", "form_name", "form_description") VALUES (300, 200, 'TAX', 'F-1040', 'Tax Form', 'Annual tax');
+
+-- Party 1 matches email, but has NO child records in any related table (kills INNER JOIN mutants).
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (1, 'PAYPAL', '777-1111', 'enrico09@example.com');
+
+-- Party 2 matches email, and has MULTIPLE child records (kills un-deduplicated JOIN mutants).
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (2, 'STRIPE', '777-2222', 'enrico09@example.com');
+INSERT INTO "Party_Addresses" ("party_id", "address_id", "date_address_from", "address_type_code", "date_address_to") VALUES (2, 100, '2020-01-01', 'HOME', '2021-01-01');
+INSERT INTO "Party_Forms" ("party_id", "form_id", "date_completion_started", "form_status_code", "date_fully_completed") VALUES (2, 300, '2020-02-01', 'DONE', '2020-02-02');
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (2, 200, 1, '2020-03-01', '2020-02-15');
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (2, 200, 2, '2020-04-01', '2020-03-15');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set behavior when the table is populated but no rows match the WHERE clause (kills mutants with OR conditions or missing WHERE clause).
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (1, 'VISA', '555-9991', 'alice@example.com');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (2, 'MASTERCARD', '555-9992', 'bob@example.com');
+```

@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests standard duplicate elimination acrossOwner, differences between channel and program tables, and channels not present in broadcast.
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'ChA', 'Owner1', 15.5, 5.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'ChA', 'Owner1', 20.0, 6.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (3, 'ChB', 'Owner2', 10.0, 4.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (4, 'ChC', 'Owner2', 12.0, 4.5);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (5, 'ChD', 'Owner3', 8.0, 3.0);
+
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (1, 'Prog1', 'US', 2000.0, 'ProgOwner1');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (2, 'Prog2', 'UK', 2005.0, 'ProgOwner2');
+
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 1, 'Morning');
+INSERT INTO "broadcast_share" ("Channel_ID", "Program_ID", "Date", "Share_in_percent") VALUES (1, 1, '2023-01-01', 15.5);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY vs COUNT(DISTINCT Owner) vs COUNT(*).
+-- In SQLite, GROUP BY treats NULLs as a single group (counted by outer COUNT(*)), whereas COUNT(DISTINCT Owner) ignores NULLs.
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'Channel_1', 'OwnerA', 10.0, 2.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'Channel_2', 'OwnerA', 12.0, 3.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (3, 'Channel_3', NULL, 8.0, 1.5);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (4, 'Channel_4', NULL, 5.0, 1.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty 'channel' table while 'program' table is populated.
+-- Ensures query returns 0 rather than empty set (which happens if outer aggregation is omitted) or program count.
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (1, 'SoloProg1', 'CA', 2010.0, 'OwnerX');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (2, 'SoloProg2', 'CA', 2012.0, 'OwnerY');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (3, 'SoloProg3', 'US', 2015.0, 'OwnerX');
+```
+
+```sql
+-- DATASET 4
+-- Tests edge case where multiple channels have the exact same Owner, Name, Share, and Rating, versus distinct values.
+-- Also tests case sensitivity in Owner names ('owner_a' vs 'Owner_A').
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (10, 'SameName', 'Owner_A', 50.0, 50.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (20, 'SameName', 'Owner_A', 50.0, 50.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (30, 'SameName', 'owner_a', 50.0, 50.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (40, 'DiffName', 'Owner_A', 50.0, 50.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests 1-to-many join fan-out traps if a mutant needlessly joins 'channel' with 'broadcast' or 'broadcast_share' without DISTINCT.
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'NewsCh', 'MediaCorp', 30.0, 10.0);
+
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (101, 'MorningNews', 'US', 1999.0, 'MediaCorp');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (102, 'EveningNews', 'US', 2001.0, 'MediaCorp');
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (103, 'NightNews', 'US', 2005.0, 'OtherCorp');
+
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 101, 'Morning');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 102, 'Evening');
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (1, 103, 'Night');
+
+INSERT INTO "broadcast_share" ("Channel_ID", "Program_ID", "Date", "Share_in_percent") VALUES (1, 101, '2022-05-01', 12.0);
+INSERT INTO "broadcast_share" ("Channel_ID", "Program_ID", "Date", "Share_in_percent") VALUES (1, 102, '2022-05-01', 15.0);
+```

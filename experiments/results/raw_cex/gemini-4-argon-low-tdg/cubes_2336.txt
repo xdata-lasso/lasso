@@ -1,0 +1,52 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (policy_id DESC) and tie-breaking (claim_id ASC), plus ensuring Settlements table is not mistakenly queried.
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Cust 1');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (10, 1, 'Auto', '2020-01-01', '2021-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (20, 1, 'Home', '2020-01-01', '2021-01-01');
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (1, 10, '2020-05-01', '2020-06-01', 9000, 8000);
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (2, 20, '2020-03-01', '2020-04-01', 1000, 500);
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (3, 20, '2020-02-01', '2020-03-01', 3000, 2500);
+INSERT INTO Settlements (Settlement_ID, Claim_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled, Customer_Policy_ID) VALUES (1, 2, '2020-03-01', '2020-04-01', 99999, 88888, 20);
+```
+
+```sql
+-- DATASET 2
+-- Tests anti-correlation where the highest Policy_ID has higher Claim_IDs than lower Policy_IDs (catches swapped ORDER BY columns or directions).
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Cust 1');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (100, 1, 'Life', '2020-01-01', '2021-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (200, 1, 'Health', '2020-01-01', '2021-01-01');
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (5, 100, '2020-01-10', '2020-01-20', 400, 300);
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (6, 100, '2020-01-15', '2020-01-25', 600, 550);
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (50, 200, '2020-02-10', '2020-02-20', 1200, 1100);
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (60, 200, '2020-02-15', '2020-02-25', 2200, 2100);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Policy_ID (in SQLite, DESC places NULLs last) and orphan/unreferenced rows (catches unnecessary INNER JOINs to Customer_Policies or Settlements).
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Cust 1');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (50, 1, 'Auto', '2020-01-01', '2021-01-01');
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (1, NULL, '2020-01-01', '2020-01-02', 7777, 6666);
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (10, 50, '2020-01-01', '2020-01-02', 500, 250);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULLs in Claim_ID and Policy_ID when all Policy_IDs are NULL, checking tie-breaking with NULLS LAST and NULL amounts.
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Cust 1');
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (NULL, NULL, '2020-01-01', '2020-01-02', 999, 888);
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (10, NULL, '2020-01-03', '2020-01-04', NULL, 0);
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (20, NULL, '2020-01-05', '2020-01-06', 100, 100);
+```
+
+```sql
+-- DATASET 5
+-- Tests negative Policy_IDs and negative Claim_IDs, ensuring proper numeric sorting and catching mutants that filter > 0 or use ABS().
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Cust 1');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (-10, 1, 'Auto', '2020-01-01', '2021-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (-5, 1, 'Home', '2020-01-01', '2021-01-01');
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (-20, -5, '2020-01-01', '2020-01-02', 150, 75);
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (-10, -5, '2020-01-01', '2020-01-02', 350, 175);
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (-30, -10, '2020-01-01', '2020-01-02', 950, 875);
+```

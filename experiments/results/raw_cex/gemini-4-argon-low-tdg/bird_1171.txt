@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, COUNT vs COUNT(DISTINCT), and JOIN multiplicity.
+-- Patient 1 has two examinations in 1990 at age 10. Gold returns 2, COUNT(DISTINCT) returns 1.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'M', '1980-05-15', '1990-01-01', '1990-01-01', '+', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1990-06-01', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '1991-06-01', 'SLE');
+```
+
+```sql
+-- DATASET 2
+-- Tests lower and upper boundaries of BETWEEN '1990' AND '1993' (inclusive vs exclusive).
+-- P1: 1989 (out), P2: 1990 (in), P3: 1993 (in), P4: 1994 (out). All ages are 10 (< 18).
+INSERT INTO Patient (ID, Birthday) VALUES (1, '1979-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (2, '1980-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (3, '1983-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (4, '1984-01-01');
+INSERT INTO Examination (ID, "Examination Date") VALUES (1, '1989-12-31');
+INSERT INTO Examination (ID, "Examination Date") VALUES (2, '1990-01-01');
+INSERT INTO Examination (ID, "Examination Date") VALUES (3, '1993-12-31');
+INSERT INTO Examination (ID, "Examination Date") VALUES (4, '1994-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests age boundary (< 18 vs <= 18) and exact date diff vs year diff.
+-- P1: Exam 1992-03-01, Birthday 1974-11-01. Year diff is 1992 - 1974 = 18 (excluded by < 18, included by <= 18 or exact age 17.33).
+-- P2: Exam 1992-11-01, Birthday 1975-03-01. Year diff is 1992 - 1975 = 17 (included by < 18, exact age 17.67).
+INSERT INTO Patient (ID, Birthday) VALUES (1, '1974-11-01');
+INSERT INTO Patient (ID, Birthday) VALUES (2, '1975-03-01');
+INSERT INTO Examination (ID, "Examination Date") VALUES (1, '1992-03-01');
+INSERT INTO Examination (ID, "Examination Date") VALUES (2, '1992-11-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests SQLite type affinity and string vs numeric comparison:
+-- In SQLite, STRFTIME() - STRFTIME() produces an INTEGER, while '18' is TEXT.
+-- In SQLite, any INTEGER < TEXT is ALWAYS TRUE!Wait: '18' has no affinity in expression `expr < '18'`, so '18' stays TEXT, or does `expr` have numeric type?
+-- Actually, STRFTIME() - STRFTIME() has numeric result (INTEGER/REAL). A numeric value is ALWAYS less than a TEXT value ('18') in SQLite unless affinity is applied!
+-- Wait: In SQLite, `'18'` is a string literal with NO affinity. An expression `A - B` has numeric type (no affinity, just storage class INTEGER/REAL).
+-- In SQLite comparison, INTEGER < TEXT is ALWAYS TRUE (100 < '18' is TRUE!).
+-- Let's include a patient with age 25 (e.g. 1992 - 1967 = 25) and age 9 (1992 - 1983 = 9) and age 17 (1992 - 1975 = 17).
+-- This catches mutants that change `'18'` to `18` or `CAST(... AS TEXT)`!
+INSERT INTO Patient (ID, Birthday) VALUES (1, '1967-05-05');
+INSERT INTO Patient (ID, Birthday) VALUES (2, '1983-05-05');
+INSERT INTO Patient (ID, Birthday) VALUES (3, '1975-05-05');
+INSERT INTO Examination (ID, "Examination Date") VALUES (1, '1992-05-05');
+INSERT INTO Examination (ID, "Examination Date") VALUES (2, '1992-05-05');
+INSERT INTO Examination (ID, "Examination Date") VALUES (3, '1992-05-05');
+```
+
+```sql
+-- DATASET 5
+-- Tests confusion between date columns in Patient (Birthday vs Description vs "First Date") and Examination vs Laboratory.
+-- P1: Birthday gives age 15 (<18), Description/First Date would give age >= 18 or out of range if swapped with Exam Date.
+-- P2: Birthday gives age 20 (>=18), Description gives age 10 (<18).
+-- P3: Has valid Laboratory date in 1991, but Examination date is in 1998.
+INSERT INTO Patient (ID, Birthday, Description, "First Date") VALUES (1, '1976-06-01', '1950-01-01', '1985-01-01');
+INSERT INTO Patient (ID, Birthday, Description, "First Date") VALUES (2, '1971-06-01', '1981-06-01', '1991-06-01');
+INSERT INTO Patient (ID, Birthday, Description, "First Date") VALUES (3, '1980-06-01', '1991-06-01', '1991-06-01');
+INSERT INTO Examination (ID, "Examination Date") VALUES (1, '1991-06-01');
+INSERT INTO Examination (ID, "Examination Date") VALUES (2, '1991-06-01');
+INSERT INTO Examination (ID, "Examination Date") VALUES (3, '1998-06-01');
+INSERT INTO Laboratory (ID, Date) VALUES (3, '1991-06-01');
+```
+
+```sql
+-- DATASET 6
+-- Tests INNER JOIN vs LEFT JOIN, NULL handling, and AND vs OR in WHERE clause.
+-- P1: No Examination row (tests LEFT JOIN).
+-- P2: Examination with NULL ID or NULL Examination Date.
+-- P3: Exam Date in 1991 (matches 1st cond), Birthday NULL (fails 2nd cond).
+-- P4: Exam Date in 1995 (fails 1st cond), Birthday 1985 (age 10, matches 2nd cond).
+INSERT INTO Patient (ID, Birthday) VALUES (1, '1980-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (2, '1980-01-01');
+INSERT INTO Patient (ID, Birthday) VALUES (3, NULL);
+INSERT INTO Patient (ID, Birthday) VALUES (4, '1985-01-01');
+INSERT INTO Examination (ID, "Examination Date") VALUES (NULL, '1991-05-05');
+INSERT INTO Examination (ID, "Examination Date") VALUES (2, NULL);
+INSERT INTO Examination (ID, "Examination Date") VALUES (3, '1991-05-05');
+INSERT INTO Examination (ID, "Examination Date") VALUES (4, '1995-05-05');
+```

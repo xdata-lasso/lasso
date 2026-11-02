@@ -1,0 +1,51 @@
+-- Schema DDL
+CREATE TABLE "COLLEGE" (
+    "COLLEGE_ID" INT,
+    "NAME" TEXT,
+    "LEADER_NAME" TEXT,
+    "COLLEGE_LOCATION" TEXT,
+    PRIMARY KEY ("COLLEGE_ID")
+);
+CREATE TABLE "MEMBER" (
+    "MEMBER_ID" INT,
+    "COLLEGE_ID" INT,
+    "NAME" TEXT,
+    "COUNTRY" TEXT,
+    PRIMARY KEY ("MEMBER_ID"),
+    FOREIGN KEY ("COLLEGE_ID") REFERENCES "COLLEGE"("COLLEGE_ID")
+);
+CREATE TABLE "ROUND" (
+    "ROUND_ID" INT,
+    "MEMBER_ID" INT,
+    "DECORATION_THEME" TEXT,
+    "RANK_IN_ROUND" INT,
+    PRIMARY KEY ("ROUND_ID", "MEMBER_ID"),
+    FOREIGN KEY ("MEMBER_ID") REFERENCES "MEMBER"("MEMBER_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO COLLEGE VALUES (-1, 0, 0, 0);
+INSERT INTO COLLEGE VALUES (0, 0, 0, 0);
+INSERT INTO MEMBER VALUES (-1, 0, 0, 10);
+INSERT INTO MEMBER VALUES (0, -1, NULL, 11);
+INSERT INTO ROUND VALUES (1, -1, 0, 0);
+INSERT INTO ROUND VALUES (0, -1, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT NAME FROM MEMBER WHERE (COUNTRY <> 'United States' OR COUNTRY <> 'Canada') ORDER BY name, member.member_id NULLS LAST;
+
+/*
+Gold Result:
+(None,)
+('0',)
+*/
+
+-- Prediction Query
+SELECT Name FROM member WHERE Country = 'United States' OR Country = 'Canada';
+
+/*
+Prediction Result:
+*/

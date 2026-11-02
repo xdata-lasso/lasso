@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Boundary condition: Total rows in Products = 1 (n < 2).
+-- Tests mutants that ignore the n >= 2 condition, use n >= 1, or lack filtering altogether.
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'TypeA', 'Product 1', 10.00);
+```
+
+```sql
+-- DATASET 2
+-- Boundary condition: Total rows in Products = 2 (n = 2), with two distinct Product_Type_Codes (1 row each).
+-- Kills mutants using n > 2, and kills common semantic confusion mutants that do GROUP BY Product_Type_Code HAVING COUNT(*) >= 2 (or PARTITION BY Product_Type_Code) instead of counting total table rows via COUNT(*) OVER ().
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'TypeB', 'Product 1', 10.00);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (2, 'TypeA', 'Product 2', 20.00);
+```
+
+```sql
+-- DATASET 3
+-- Duplicate elimination and ordering: Total rows = 4, with duplicate Product_Type_Codes inserted out of alphabetical order.
+-- Kills mutants missing DISTINCT, missing ORDER BY, or using ORDER BY DESC.
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'Zeta', 'Prod Z1', 15.00);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (2, 'Alpha', 'Prod A1', 25.00);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (3, 'Zeta', 'Prod Z2', 35.00);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (4, 'Beta', 'Prod B1', 5.00);
+```
+
+```sql
+-- DATASET 4
+-- NULL handling in COUNT: Total rows = 2, where one row has NULLs in non-PK columns including Product_Type_Code.
+-- Kills mutants that replace COUNT(*) OVER () with COUNT(Product_Type_Code) OVER () or COUNT(Product_Name) OVER () (which would evaluate n = 1 and return empty set instead of 2 rows: NULL and 'ValidType').
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'ValidType', 'Prod 1', 10.00);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (2, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Foreign key / Join trap: Products has 2 rows, neither is referenced in Products_in_Events.
+-- Kills mutants that unnecessarily INNER JOIN Products with Products_in_Events.
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'Hardware', 'Hammer', 12.50);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (2, 'Software', 'OS', 199.99);
+INSERT INTO "Addresses" ("Address_ID", "address_details") VALUES (1, '123 Main St');
+INSERT INTO "Locations" ("Location_ID", "Other_Details") VALUES (1, 'Loc 1');
+INSERT INTO "Finances" ("Finance_ID", "Other_Details") VALUES (1, 'Fin 1');
+INSERT INTO "Events" ("Event_ID", "Finance_ID", "Address_ID", "Location_ID", "Channel_ID", "Event_Type_Code") VALUES (1, 1, 1, 1, 1, 'Sale');
+```
+
+```sql
+-- DATASET 6
+-- Join multiplication trap: Only 1 Product exists in Products, but it is linked to 2 Events in Products_in_Events.
+-- Reference query returns empty set (since Products has 1 row, n = 1).
+-- Kills mutants that join Products with Products_in_Events before counting (which would falsely inflate n to 2).
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'SingleType', 'Only Product', 50.00);
+INSERT INTO "Addresses" ("Address_ID", "address_details") VALUES (1, '123 Main St');
+INSERT INTO "Locations" ("Location_ID", "Other_Details") VALUES (1, 'Loc 1');
+INSERT INTO "Finances" ("Finance_ID", "Other_Details") VALUES (1, 'Fin 1');
+INSERT INTO "Events" ("Event_ID", "Finance_ID", "Address_ID", "Location_ID", "Channel_ID", "Event_Type_Code") VALUES (1, 1, 1, 1, 1, 'Evt1');
+INSERT INTO "Events" ("Event_ID", "Finance_ID", "Address_ID", "Location_ID", "Channel_ID", "Event_Type_Code") VALUES (2, 1, 1, 1, 1, 'Evt2');
+INSERT INTO "Products_in_Events" ("Product_in_Event_ID", "Product_ID", "Event_ID") VALUES (1, 1, 1);
+INSERT INTO "Products_in_Events" ("Product_in_Event_ID", "Product_ID", "Event_ID") VALUES (2, 1, 2);
+```
+
+```sql
+-- DATASET 7
+-- Mixed group cardinalities: Total rows = 3 (one group of 2, one group of 1) and varied prices/names.
+-- Kills mutants that partition by Product_Type_Code (which would only return 'CommonType' and drop 'RareType'), or order by Product_ID / Product_Price / Product_Name instead of Product_Type_Code, or select Product_Name instead of Product_Type_Code.
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'RareType', 'Z_Name', 999.00);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (2, 'CommonType', 'A_Name', 10.00);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (3, 'CommonType', 'M_Name', 50.00);
+```
+
+```sql
+-- DATASET 8
+-- COUNT(DISTINCT Product_Type_Code) trap: 2 rows in Products, both having the exact same Product_Type_Code.
+-- Reference query has n = 2 and returns 'SameType'.
+-- Kills mutants that confuse total row count with distinct type count (e.g., COUNT(DISTINCT product_type_code) >= 2).
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (1, 'SameType', 'Prod 1', 10.00);
+INSERT INTO "Products" ("Product_ID", "Product_Type_Code", "Product_Name", "Product_Price") VALUES (2, 'SameType', 'Prod 2', 20.00);
+```

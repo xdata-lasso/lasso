@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Empty Assessment_Notes table, populated parent tables.
+-- Tests behavior when the target table is empty (Reference Query returns 0 rows vs regular aggregate COUNT(*) which returns 1 row with 0).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "country") VALUES (1, '100 Main St', 'Boston', 'USA');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Alice', 'Smith');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'John', 'Doe');
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows with NULLs, duplicate values across columns, and unmatched parent rows.
+-- Tests:
+-- 1. Missing DISTINCT (window function without DISTINCT returns 4 rows of 4 instead of 1 row of 4).
+-- 2. COUNT(col) vs COUNT(*) (NULLs in teacher_id, student_id, notes_id, text_of_notes).
+-- 3. COUNT(DISTINCT col) vs COUNT(*).
+-- 4. Unnecessary INNER JOINs to Teachers or Students (which would filter out rows with NULL foreign keys).
+-- 5. Querying wrong tables (e.g., Students or Teachers which have 3 rows instead of 4).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "country") VALUES (1, '100 Main St', 'Boston', 'USA');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Alice', 'Smith');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (2, 1, 'Bob', 'Jones');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (3, 1, 'Charlie', 'Brown');
+
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'John', 'Doe');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (2, 1, 'Jane', 'Roe');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (3, 1, 'Jim', 'Beam');
+
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id", "date_of_notes", "text_of_notes", "other_details") VALUES (1, 1, 10, '2023-01-01 10:00:00', 'Good progress', 'None');
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id", "date_of_notes", "text_of_notes", "other_details") VALUES (1, 1, 10, '2023-01-01 10:00:00', 'Good progress', 'None');
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id", "date_of_notes", "text_of_notes", "other_details") VALUES (2, NULL, 20, '2023-01-02 10:00:00', NULL, NULL);
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id", "date_of_notes", "text_of_notes", "other_details") VALUES (NULL, 2, NULL, NULL, 'Needs improvement', 'Urgent');
+```
+
+```sql
+-- DATASET 3
+-- Single row in Assessment_Notes, with all columns populated, plus extra rows in other tables.
+-- Tests boundary condition of size 1, and differentiates Assessment_Notes from other tables (Behavior_Incident, Detention, etc.).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "country") VALUES (1, '200 Oak Ave', 'Chicago', 'USA');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('NOISE', 'Excessive Noise');
+INSERT INTO "Ref_Detention_Type" ("detention_type_code", "detention_type_description") VALUES ('AFTER', 'After School');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'David', 'Miller');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (2, 1, 'Eva', 'Green');
+
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Sarah', 'Connor');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (2, 1, 'Kyle', 'Reese');
+
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id", "date_of_notes", "text_of_notes", "other_details") VALUES (1, 1, 100, '2023-05-10 09:30:00', 'Excellent', 'Star student');
+
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "incident_summary") VALUES (1, 1, 'NOISE', 'Talking in class');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "incident_summary") VALUES (2, 2, 'NOISE', 'Shouting');
+
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code", "detention_summary") VALUES (1, 1, 'AFTER', '1 hour detention');
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code", "detention_summary") VALUES (2, 2, 'AFTER', '2 hour detention');
+```
+
+```sql
+-- DATASET 4
+-- Multiple rows with valid non-NULL foreign keys, where multiple notes belong to the same student and teacher, and some students/teachers have different numbers of notes.
+-- Tests GROUP BY mutations (e.g., GROUP BY teacher_id or student_id, or PARTITION BY in the window function) which would produce multiple different counts (e.g., 1 and 2) instead of the total count (3).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "country") VALUES (1, '300 Pine Rd', 'Seattle', 'USA');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Frank', 'Wright');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (2, 1, 'Grace', 'Hopper');
+
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Alan', 'Turing');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (2, 1, 'Ada', 'Lovelace');
+
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id", "date_of_notes", "text_of_notes", "other_details") VALUES (1, 1, 1, '2023-09-01 08:00:00', 'Note A', 'Detail A');
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id", "date_of_notes", "text_of_notes", "other_details") VALUES (1, 1, 2, '2023-09-02 08:00:00', 'Note B', 'Detail B');
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id", "date_of_notes", "text_of_notes", "other_details") VALUES (2, 2, 3, '2023-09-03 08:00:00', 'Note C', 'Detail C');
+```

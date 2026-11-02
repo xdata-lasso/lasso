@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Tests standard non-null MGR matching, non-matching MGRs, and NULL MGRs matching each other via the ELSE -1 branch.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'ALICE', 'MANAGER', NULL, '2020-01-01', 5000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 20, 'BOB', 'DIRECTOR', NULL, '2020-01-02', 6000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 10, 'CHARLIE', 'CLERK', 1, '2020-01-03', 1500, 0, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 20, 'DAVID', 'ANALYST', 1, '2020-01-04', 3000, 500, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 20, 'EVE', 'CLERK', 2, '2020-01-05', 1200, 0, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests the boundary condition where MGR is explicitly -1 vs NULL (since COALESCE(MGR, -1) is used in the query).
+-- A mutant using `EMP.MGR IS NOT DISTINCT FROM EMP0.MGR` or `EMP.MGR = EMP0.MGR OR (EMP.MGR IS NULL AND EMP0.MGR IS NULL)` will fail to match EMPNO 1 with EMPNO 2.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'SALES');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'KING', 'PRESIDENT', NULL, '2019-05-01', 9000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 10, 'GHOST_MGR_EMP', 'SPECIAL', -1, '2019-05-02', 4000, 100, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 10, 'NORMAL_EMP', 'SALESMAN', 1, '2019-05-03', 2000, 300, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests other boundary values for MGR such as 0 and -2, to catch mutants that alter the ELSE literal (e.g., ELSE 0 or ELSE -2) or use different fallback logic.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'OPERATIONS');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 30, 'EMP_NULL', 'ADMIN', NULL, '2021-01-01', 3000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (11, 30, 'EMP_ZERO', 'CLERK', 0, '2021-01-02', 1000, 0, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (12, 30, 'EMP_NEG_TWO', 'CLERK', -2, '2021-01-03', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (13, 30, 'EMP_NEG_ONE', 'CLERK', -1, '2021-01-04', 1000, 0, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests SQLite dynamic typing and the explicit CAST(EMP.MGR AS INTEGER) by storing non-canonical integer representations (floats, strings with leading/trailing characters) in the MGR column.
+-- Also populates sibling tables (EMPNULLABLES, EMP_B, etc.) with different data to kill mutants that query the wrong table.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'IT');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'INT_MGR', 'DEV', 100, '2022-03-01', 4000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 10, 'STR_MGR', 'DEV', '100abc', '2022-03-02', 4100, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 10, 'FLT_MGR', 'DEV', 100.9, '2022-03-03', 4200, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 10, 'ZERO_STR_MGR', 'QA', 'abc', '2022-03-04', 3500, 0, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 10, 'ZERO_INT_MGR', 'QA', 0, '2022-03-05', 3600, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (6, 10, 'NEG1_STR_MGR', 'QA', '-1.99', '2022-03-06', 3700, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (7, 10, 'NULL_MGR', 'LEAD', NULL, '2022-03-07', 5000, 0, 0);
+
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (99, 10, 'WRONG_TABLE', 'NONE', 999, '2022-01-01', 0, 0, 0);
+INSERT INTO "EMPNULLABLES_20" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (99, 10, 'WRONG_TABLE_20', 'NONE', 999, '2022-01-01', 0, 0, 0);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (99, 10, 'WRONG_TABLE_B', 'NONE', 999, '2022-01-01', 0, 0, 0, '1990-01-01');
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('WRONG_BONUS', 'NONE', 0, 0);
+```
+
+```sql
+-- DATASET 5
+-- Tests a dataset where MGR equals EMPNO, DEPTNO, SAL, etc. in some rows and differs in others, to catch mutants that join on the wrong columns (e.g., EMP.EMPNO = EMP0.MGR or EMP.DEPTNO = EMP0.DEPTNO).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'HR');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'FINANCE');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 10, 'E1', 'J1', 20, '2020-06-01', 10, 20, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (20, 10, 'E2', 'J1', 10, '2020-06-01', 20, 10, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (30, 20, 'E3', 'J2', 20, '2020-06-02', 30, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (40, 20, 'E4', 'J2', NULL, '2020-06-02', -1, -1, 1);
+```

@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests: Unique maximum reputation, multiple tied users at non-maximum, and divergence between Id, Reputation, Views, UpVotes, DownVotes, AccountId, and Age.
+-- Refutes: ORDER BY ... LIMIT 1 mutants when combined with Dataset 2, MIN vs MAX, wrong column selection/comparison, and missing WHERE clause.
+INSERT INTO users (Id, Reputation, DisplayName, Views, UpVotes, DownVotes, AccountId, Age) VALUES (1, 100, 'Alice', 5000, 1000, 500, 900, 45);
+INSERT INTO users (Id, Reputation, DisplayName, Views, UpVotes, DownVotes, AccountId, Age) VALUES (2, 500, 'Bob', 50, 10, 5, 100, 20);
+INSERT INTO users (Id, Reputation, DisplayName, Views, UpVotes, DownVotes, AccountId, Age) VALUES (3, 100, 'Charlie', 500, 100, 50, 500, 30);
+```
+
+```sql
+-- DATASET 2
+-- Tests: Multiple users tied for the maximum reputation, presence of NULL reputation, and lack of activity in child tables for maximum reputation users.
+-- Refutes: Mutants using ORDER BY Reputation DESC LIMIT 1 (would only return 1 row instead of 2), NULL handling mistakes, and unnecessary INNER JOINs with badges/posts/comments/votes.
+INSERT INTO users (Id, Reputation, DisplayName, Views, UpVotes, DownVotes, AccountId, Age) VALUES (10, 1000, 'MaxUser1', 10, 5, 1, 10, 25);
+INSERT INTO users (Id, Reputation, DisplayName, Views, UpVotes, DownVotes, AccountId, Age) VALUES (20, 1000, 'MaxUser2', 20, 15, 2, 20, 35);
+INSERT INTO users (Id, Reputation, DisplayName, Views, UpVotes, DownVotes, AccountId, Age) VALUES (30, 200, 'ActiveLowRepUser', 999, 999, 99, 30, 40);
+INSERT INTO users (Id, Reputation, DisplayName, Views, UpVotes, DownVotes, AccountId, Age) VALUES (40, NULL, 'NullRepUser', 888, 888, 88, 40, 50);
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 30, 'Popular', '2023-01-01 10:00:00');
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, Score, ViewCount, Title) VALUES (1, 1, 30, 50, 100, 'Sample Post');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (1, 1, 30, 10, 'Sample Comment');
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (1, 1, 2, 30, 50);
+```
+
+```sql
+-- DATASET 3
+-- Tests: Negative and zero reputation values, where 0 is the maximum reputation.
+-- Refutes: Hardcoded positive thresholds (e.g., Reputation > 0), COALESCE(Reputation, 100) bugs, and signed integer comparison errors.
+INSERT INTO users (Id, Reputation, DisplayName, Views, UpVotes, DownVotes) VALUES (1, -50, 'NegUser1', 100, 0, 50);
+INSERT INTO users (Id, Reputation, DisplayName, Views, UpVotes, DownVotes) VALUES (2, -10, 'NegUser2', 200, 5, 15);
+INSERT INTO users (Id, Reputation, DisplayName, Views, UpVotes, DownVotes) VALUES (3, 0, 'ZeroMaxUser', 0, 0, 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests: All users have negative reputation values, with the maximum being -5.
+-- Refutes: Mutants that default NULL or empty aggregations to 0 (e.g., COALESCE(MAX(Reputation), 0)), or filter out negative values.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (5, -100, 'DeepNeg');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (6, -5, 'MaxNeg');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (7, NULL, 'NullUser');
+```
+
+```sql
+-- DATASET 5
+-- Tests: All users have NULL reputation.
+-- Refutes: Mutants using IS NOT DISTINCT FROM, COALESCE, or returning all rows when MAX(Reputation) evaluates to NULL (Gold query returns empty set).
+INSERT INTO users (Id, Reputation, DisplayName, Views) VALUES (1, NULL, 'NullUser1', 10);
+INSERT INTO users (Id, Reputation, DisplayName, Views) VALUES (2, NULL, 'NullUser2', 20);
+```
+
+```sql
+-- DATASET 6
+-- Tests: String vs Integer comparison Pitfalls (e.g., '90' > '100' lexicographically, but 100 > 90 numerically) and AVG/SUM vs MAX.
+-- Refutes: Mutants casting Reputation to TEXT before MAX(), or using SUM(Reputation) / AVG(Reputation) instead of MAX(Reputation).
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 90, 'LexMax');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 100, 'NumMax');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (3, 190, 'SumMatch');
+```

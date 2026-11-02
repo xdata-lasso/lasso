@@ -1,0 +1,62 @@
+-- Schema DDL
+CREATE TABLE "EMPLOYEE" (
+    "EMPLOYEE_ID" INT,
+    "NAME" TEXT,
+    "AGE" INT,
+    "CITY" TEXT,
+    PRIMARY KEY ("EMPLOYEE_ID")
+);
+CREATE TABLE "SHOP" (
+    "SHOP_ID" INT,
+    "NAME" TEXT,
+    "LOCATION" TEXT,
+    "DISTRICT" TEXT,
+    "NUMBER_PRODUCTS" INT,
+    "MANAGER_NAME" TEXT,
+    PRIMARY KEY ("SHOP_ID")
+);
+CREATE TABLE "HIRING" (
+    "EMPLOYEE_ID" INT,
+    "SHOP_ID" INT,
+    "START_FROM" TEXT,
+    "IS_FULL_TIME" INT,
+    PRIMARY KEY ("EMPLOYEE_ID"),
+    FOREIGN KEY ("EMPLOYEE_ID") REFERENCES "EMPLOYEE"("EMPLOYEE_ID"),
+    FOREIGN KEY ("SHOP_ID") REFERENCES "SHOP"("SHOP_ID")
+);
+CREATE TABLE "EVALUATION" (
+    "EMPLOYEE_ID" TEXT,
+    "YEAR_AWARDED" TEXT,
+    "BONUS" FLOAT,
+    PRIMARY KEY ("EMPLOYEE_ID", "YEAR_AWARDED"),
+    FOREIGN KEY ("EMPLOYEE_ID") REFERENCES "EMPLOYEE"("EMPLOYEE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO EMPLOYEE VALUES (0, 29, 0, 30);
+INSERT INTO EMPLOYEE VALUES (1, 31, 0, 32);
+INSERT INTO SHOP VALUES (-1, 0, 0, 0, 0, 0);
+INSERT INTO SHOP VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO HIRING VALUES (1, -1, 0, 0);
+INSERT INTO HIRING VALUES (0, 0, 0, 0);
+INSERT INTO EVALUATION VALUES (0, -2, -1);
+INSERT INTO EVALUATION VALUES (1, -3, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT * FROM (SELECT * FROM (SELECT LHS.employee_id AS employee_id, LHS.name AS name, LHS.age AS age, LHS.city AS city, RHS.year_awarded AS year_awarded, RHS.bonus AS bonus FROM employee AS LHS INNER JOIN evaluation AS RHS ON (LHS.employee_id = RHS.employee_id)) ORDER BY age DESC) LIMIT 1);
+
+/*
+Gold Result:
+('29',)
+*/
+
+-- Prediction Query
+SELECT t1.name FROM employee AS t1 JOIN evaluation AS t2 ON t1.Employee_ID = t2.Employee_ID ORDER BY t2.bonus DESC, t1.employee_id NULLS LAST, t2.employee_id NULLS LAST, t2.year_awarded NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('31',)
+*/

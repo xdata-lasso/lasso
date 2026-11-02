@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, equality vs inequality, LIKE wildcards, case sensitivity, and NULL handling on transaction_type_code.
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'John Doe');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PUR', 'Purchase');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('SAL', 'Sale');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('pur', 'Purchase Lowercase');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PURCHASE', 'Purchase Full');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PUR ', 'Purchase Trailing Space');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (10, 'PUR', 1, '2023-05-01 10:00:00', 500.00, '50', 'Valid Purchase');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (20, 'SAL', 1, '2023-05-02 10:00:00', 300.00, '30', 'Valid Sale');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (30, 'pur', 1, '2023-05-03 10:00:00', 100.00, '10', 'Lowercase Code');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (40, 'PURCHASE', 1, '2023-05-04 10:00:00', 200.00, '20', 'Prefix Match');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (50, 'PUR ', 1, '2023-05-05 10:00:00', 400.00, '40', 'Whitespace Match');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (60, NULL, 1, '2023-05-06 10:00:00', 600.00, '60', 'Null Code');
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY transaction_id (ASC vs DESC, insertion order vs ID order, and sorting by other columns like date or amount).
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Alice');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (2, 'Bob');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PUR', 'Purchase');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (500, 'PUR', 1, '2023-01-01 08:00:00', 10.00, '100', 'Inserted 1st, Highest ID, Earliest Date, Lowest Amount');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (100, 'PUR', 2, '2023-12-31 18:00:00', 9000.00, '5', 'Inserted 2nd, Middle ID, Latest Date, Highest Amount');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (-50, 'PUR', 1, '2023-06-15 12:00:00', 500.00, '50', 'Inserted 3rd, Lowest (Negative) ID, Middle Date');
+```
+
+```sql
+-- DATASET 3
+-- Tests table/join mutations: catches mutants that query the "Purchases" table instead of "Transactions", or perform INNER JOINs with Purchases, Investors, Lots, or Transactions_Lots, or lack DISTINCT when joining 1-to-many tables.
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor One');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (10, 1, 'Lot A');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (20, 1, 'Lot B');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PUR', 'Purchase');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('SAL', 'Sale');
+-- Transaction 1: 'PUR', but has NULL investor_id and NO entry in "Purchases" or "Transactions_Lots" (kills INNER JOINs)
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'PUR', NULL, NULL, NULL, NULL, NULL);
+-- Transaction 2: 'PUR', has multiple entries in "Purchases" and "Transactions_Lots" (kills mutants that join without DISTINCT or select from Purchases)
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'PUR', 1, '2023-02-01 00:00:00', 250.00, '25', 'Detailed Purchase');
+-- Transaction 3: 'SAL', but erroneously linked in "Purchases" table (kills mutants querying Purchases table instead of filtering by 'PUR')
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (3, 'SAL', 1, '2023-03-01 00:00:00', 350.00, '35', 'Sale in Purchases');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (2, 'Purchase Part 1');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (2, 'Purchase Part 2');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (3, 'Misclassified Sale');
+INSERT INTO "Sales" ("sales_transaction_id", "sales_details") VALUES (3, 'Valid Sale');
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (2, 10);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (2, 20);
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong column selection/filtering: catches mutants that project investor_id/share_count/amount instead of transaction_id, or filter 'PUR' on other text columns.
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (999, 'PUR');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PUR', 'SAL');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('SAL', 'PUR');
+-- Matches 'PUR' in transaction_type_code; all other columns have distinct values from transaction_id (42)
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (42, 'PUR', 999, '2023-07-07 07:07:07', 888.00, '777', 'SAL');
+-- Does NOT match 'PUR' in transaction_type_code, but has 'PUR' in share_count, other_details, Investor_details, and transaction_type_description
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (84, 'SAL', 999, '2023-08-08 08:08:08', 42.00, 'PUR', 'PUR');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set behavior (kills mutants using COUNT, SUM, MAX, MIN or wrong WHERE conditions when no 'PUR' rows exist).
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PUR', 'Purchase');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('SAL', 'Sale');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'SAL', 1, '2023-01-01 00:00:00', 100.00, '10', 'Only Sale');
+```

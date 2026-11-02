@@ -1,0 +1,63 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (out-of-order insertion, inverse alphabetical details vs ID ordering),
+-- and ensures queries don't erroneously select from Documents directly (extra non-statement document).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Report', 'Standard Report');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Project Alpha');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (10, 1, 'DT1', '2023-01-01', 'Doc 10', 'Desc 10', 'Other 10');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 1, 'DT1', '2023-01-02', 'Doc 2', 'Desc 2', 'Other 2');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 1, 'DT1', '2023-01-03', 'Doc 5', 'Desc 5', 'Other 5');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (10, 'Alpha Details');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (2, 'Zebra Details');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Statement_Details (kills WHERE Statement_Details IS NOT NULL),
+-- duplicate values in Statement_Details (kills GROUP BY Statement_Details),
+-- and missing child rows in Accounts / Documents_with_Expenses (kills erroneous INNER JOINs to child/sibling tables).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT2', 'Invoice', 'Billing Invoice');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('BC1', 'Operations');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (100, 'Project Beta');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 100, 'DT2', '2023-02-01', 'Doc 1', 'Desc 1', 'Other 1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 100, 'DT2', '2023-02-02', 'Doc 2', 'Desc 2', 'Other 2');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 100, 'DT2', '2023-02-03', 'Doc 3', 'Desc 3', 'Other 3');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (3, 'Duplicate Detail');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (1, NULL);
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (2, 'Duplicate Detail');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (1, 'BC1', 'Expense 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (50, 1, 'Account for Statement 1');
+```
+
+```sql
+-- DATASET 3
+-- Tests 1-to-N relationship with Accounts (kills un-grouped JOINs with Accounts that cause row multiplication),
+-- and NULL foreign keys in parent Documents table (kills INNER JOINs from Documents to Projects or Ref_Document_Types).
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (100, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (100, 'Statement with multiple accounts and NULL parent FKs');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (1, 100, 'Acc 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (2, 100, 'Acc 2');
+```
+
+```sql
+-- DATASET 4
+-- Tests negative, zero, and positive IDs, as well as string vs integer sorting (e.g., 2 vs 10) and LIMIT mutants (4 rows).
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (-5, NULL, NULL, '2020-01-01', 'Neg Doc', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (0, NULL, NULL, '2020-01-02', 'Zero Doc', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, NULL, NULL, '2020-01-03', 'Two Doc', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (10, NULL, NULL, '2020-01-04', 'Ten Doc', 'Desc', 'Other');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (10, 'Ten');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (-5, 'Minus Five');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (2, 'Two');
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (0, '');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty Statements table while other tables are populated (kills mutants querying wrong tables or using RIGHT/FULL OUTER JOINs).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT9', 'Misc', 'Miscellaneous');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('BC9', 'Misc Budget');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (9, 'Empty Statement Project');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (99, 9, 'DT9', '2023-09-09', 'Doc 99', 'Desc 99', 'Other 99');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (99, 'BC9', 'Expense 99');
+```

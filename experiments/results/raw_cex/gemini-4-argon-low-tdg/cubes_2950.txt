@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests INNER JOIN vs LEFT/RIGHT/FULL OUTER JOIN, and ensures all numeric columns (cmi_cross_ref_id, master_customer_id, council_tax_id) have disjoint values to catch column-swap and wrong-join-key mutants.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (10, 'Customer A');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (20, 'Customer B');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (100, 10, 'SYS_1');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (200, 20, 'SYS_2');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (300, NULL, 'SYS_UNMATCHED');
+
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (1000, 100);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (2000, 200);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (3000, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests table-name confusion mutants (e.g., querying Council_Tax, Benefits_Overpayments, or Rent_Arrears instead of Parking_Fines, since all share the exact same column names).
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (1, 'Cust 1');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (2, 'Cust 2');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (11, 1, 'PF_SYS');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (22, 2, 'OTHER_SYS');
+
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (501, 11);
+INSERT INTO "Council_Tax" ("council_tax_id", "cmi_cross_ref_id") VALUES (601, 22);
+INSERT INTO "Benefits_Overpayments" ("council_tax_id", "cmi_cross_ref_id") VALUES (701, 22);
+INSERT INTO "Rent_Arrears" ("council_tax_id", "cmi_cross_ref_id") VALUES (801, 22);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (901, 22);
+INSERT INTO "Electoral_Register" ("electoral_register_id", "cmi_cross_ref_id") VALUES (991, 22);
+```
+
+```sql
+-- DATASET 3
+-- Tests SELECT DISTINCT vs SELECT ALL (duplicate output rows when multiple parking fines exist for the same cross-ref or identical cross-ref attributes), and tests multi-level ORDER BY tie-breaking.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (5, 'Cust 5');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (6, 'Cust 6');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (50, 6, 'ALPHA');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (51, 5, 'ALPHA');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (52, 5, 'BETA');
+
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (9002, 50);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (9001, 50);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (8000, 51);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (7000, 52);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in ORDER BY (specifically source_system_code NULLS FIRST vs master_customer_id NULLS LAST) and ensures mutants adding INNER JOIN to Customer_Master_Index fail when master_customer_id is NULL.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (101, 'Cust 101');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (102, 'Cust 102');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (1, NULL, 'SYS_A');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (2, 102, 'SYS_A');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (3, 101, 'SYS_A');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (4, 101, NULL);
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (5, NULL, NULL);
+
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (40, 1);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (50, 1);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (20, 2);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (30, 3);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (10, 4);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (5, 5);
+```
+
+```sql
+-- DATASET 5
+-- Tests accidental cross-column join predicates (e.g., joining LHS.master_customer_id = RHS.cmi_cross_ref_id or LHS.cmi_cross_ref_id = RHS.council_tax_id) by creating decoy matches on wrong columns.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (50, 'Decoy Customer');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (60, 'True Customer');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (10, 50, 'WRONG_JOIN');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (20, 60, 'RIGHT_JOIN');
+
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (10, 999);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (888, 50);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (777, 20);
+```
+
+```sql
+-- DATASET 6
+-- Tests duplicate elimination (DISTINCT) by having two distinct cmi_cross_ref_id rows with identical (source_system_code, master_customer_id) if council_tax_id were omitted or grouped.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (99, 'Shared Customer');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (1, 99, 'DUP_SYS');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (2, 99, 'DUP_SYS');
+
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (105, 1);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (104, 2);
+```

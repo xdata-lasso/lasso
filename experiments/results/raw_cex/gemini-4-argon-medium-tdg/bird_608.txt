@@ -1,0 +1,60 @@
+```sql
+-- DATASET 1
+-- Tests exact timestamp matching, boundary timestamps, fractional seconds (.0 vs omitted), NULL CreationDate, and queries that falsely require INNER JOINs to posts or users (by setting PostId and UserId to NULL on the target row).
+INSERT INTO users (Id, DisplayName, CreationDate) VALUES (1, 'UserOne', '2010-07-19 19:16:14.0');
+INSERT INTO posts (Id, CreaionDate, Body, Title, OwnerUserId) VALUES (1, '2010-07-19 19:16:14.0', 'PostBodyAtTargetDate', 'PostTitle', 1);
+
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (1, NULL, 0, 'TargetCommentNoFK', '2010-07-19 19:16:14.0', NULL, 'AnonUser');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (2, 1, 5, 'CommentWithoutMillis', '2010-07-19 19:16:14', 1, 'UserOne');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (3, 1, 2, 'CommentBefore', '2010-07-19 19:16:13.0', 1, 'UserOne');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (4, 1, 3, 'CommentAfter', '2010-07-19 19:16:15.0', 1, 'UserOne');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (5, 1, 1, 'CommentDateOnly', '2010-07-19', 1, 'UserOne');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (6, 1, 0, 'CommentNullDate', NULL, 1, 'UserOne');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate Text values (refutes SELECT DISTINCT), multiple matching rows (refutes LIMIT 1), NULL Text values, and decoy rows in postHistory (which also has Text and CreationDate columns).
+INSERT INTO users (Id, DisplayName) VALUES (10, 'TestUser');
+INSERT INTO posts (Id, OwnerUserId, Body) VALUES (10, 10, 'TestPostBody');
+
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (1, 10, 1, 'DuplicateText', '2010-07-19 19:16:14.0', 10, 'DispA');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (2, 10, 2, 'DuplicateText', '2010-07-19 19:16:14.0', 10, 'DispB');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (3, 10, 3, 'UniqueText', '2010-07-19 19:16:14.0', 10, 'DispC');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (4, 10, 0, NULL, '2010-07-19 19:16:14.0', 10, 'DispD');
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, CreationDate, UserId, Text, Comment) VALUES (1, 1, 10, '2010-07-19 19:16:14.0', 10, 'WrongTablePostHistoryText', 'WrongTableComment');
+```
+
+```sql
+-- DATASET 3
+-- Tests empty result set when no comments match the exact timestamp, while decoy timestamps exist in comments and exact timestamp matches exist in other tables.
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (1, '2010-07-19 19:16:14.0', 'TargetDateUser');
+INSERT INTO posts (Id, CreaionDate, LasActivityDate, LastEditDate, Body, OwnerUserId) VALUES (1, '2010-07-19 19:16:14.0', '2010-07-19 19:16:14.0', '2010-07-19 19:16:14.0', 'PostWithTargetDates', 1);
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 1, 'BadgeAtTargetDate', '2010-07-19 19:16:14.0');
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (1, 1, 2, '2010-07-19 19:16:14.0', 1);
+
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (1, 1, 10, '2010-07-19 19:16:14.0', '2010-07-19 00:00:00.0', 1, '2010-07-19 19:16:14.0');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (2, 1, 5, 'PrefixSuffixTest', '2010-07-19 19:16:14.00', 1, 'TargetDateUser');
+```
+
+```sql
+-- DATASET 4
+-- Tests 1-to-N join multiplication traps (where a comment's PostId or UserId links to multiple rows in votes, badges, postHistory, or postLinks) and extra WHERE predicates on Score.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'ActiveUser');
+INSERT INTO posts (Id, PostTypeId, Score, Body, OwnerUserId) VALUES (1, 1, 10, 'PopularPost', 1);
+INSERT INTO posts (Id, PostTypeId, Score, Body, OwnerUserId, ParentId) VALUES (2, 2, 5, 'AnswerOne', 1, 1);
+INSERT INTO posts (Id, PostTypeId, Score, Body, OwnerUserId, ParentId) VALUES (3, 2, 8, 'AnswerTwo', 1, 1);
+
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 1, 'Badge1', '2010-01-01 00:00:00.0');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (2, 1, 'Badge2', '2010-01-02 00:00:00.0');
+
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId) VALUES (1, 1, 2, 1);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId) VALUES (2, 1, 3, 1);
+
+INSERT INTO postLinks (Id, CreationDate, PostId, RelatedPostId, LinkTypeId) VALUES (1, '2010-07-19 19:16:14.0', 1, 2, 1);
+INSERT INTO postLinks (Id, CreationDate, PostId, RelatedPostId, LinkTypeId) VALUES (2, '2010-07-19 19:16:14.0', 1, 3, 1);
+
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (1, 1, -5, 'NegativeScoreComment', '2010-07-19 19:16:14.0', 1, 'ActiveUser');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (2, 1, NULL, 'NullScoreComment', '2010-07-19 19:16:14.0', 1, 'ActiveUser');
+```

@@ -1,0 +1,58 @@
+-- Schema DDL
+CREATE TABLE "EMP" ("EMPNO" INTEGER NOT NULL PRIMARY KEY, "DEPTNO" INTEGER NOT NULL, "ENAME" TEXT(255) NOT NULL, "JOB" TEXT(255) NOT NULL, "MGR" INTEGER, "HIREDATE" DATE NOT NULL, "SAL" INTEGER NOT NULL, "COMM" INTEGER NOT NULL, "SLACKER" INTEGER NOT NULL, FOREIGN KEY ("DEPTNO") REFERENCES "DEPT" ("DEPTNO"));
+
+CREATE TABLE "DEPT" ("DEPTNO" INTEGER NOT NULL PRIMARY KEY, "NAME" TEXT(255) NOT NULL);
+
+CREATE TABLE "BONUS" ("ENAME" TEXT(255) NOT NULL, "JOB" TEXT(255) NOT NULL, "SAL" INTEGER NOT NULL, "COMM" INTEGER NOT NULL);
+
+CREATE TABLE "EMPNULLABLES" ("EMPNO" INTEGER PRIMARY KEY, "DEPTNO" INTEGER, "ENAME" TEXT(255), "JOB" TEXT(255), "MGR" INTEGER, "HIREDATE" DATE, "SAL" INTEGER, "COMM" INTEGER, "SLACKER" INTEGER, FOREIGN KEY ("DEPTNO") REFERENCES "DEPT" ("DEPTNO"));
+
+CREATE TABLE "EMPNULLABLES_20" ("EMPNO" INTEGER PRIMARY KEY, "DEPTNO" INTEGER, "ENAME" TEXT(255), "JOB" TEXT(255), "MGR" INTEGER, "HIREDATE" DATE, "SAL" INTEGER, "COMM" INTEGER, "SLACKER" INTEGER, FOREIGN KEY ("DEPTNO") REFERENCES "DEPT" ("DEPTNO"));
+
+CREATE TABLE "EMP_B" ("EMPNO" INTEGER NOT NULL PRIMARY KEY, "DEPTNO" INTEGER NOT NULL, "ENAME" TEXT(255) NOT NULL, "JOB" TEXT(255) NOT NULL, "MGR" INTEGER, "HIREDATE" DATE NOT NULL, "SAL" INTEGER NOT NULL, "COMM" INTEGER NOT NULL, "SLACKER" INTEGER NOT NULL, "BIRTHDATE" DATE NOT NULL, FOREIGN KEY ("DEPTNO") REFERENCES "DEPT" ("DEPTNO"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: dept --
+INSERT INTO "dept" ("deptno", "name") VALUES (1, 'dep_4518c1');
+
+INSERT INTO "dept" ("deptno", "name") VALUES (2, 'dep_4518c1');
+
+INSERT INTO "dept" ("deptno", "name") VALUES (3, 'dep_1dfceb');
+
+INSERT INTO "dept" ("deptno", "name") VALUES (4, 'dep_1dfceb');
+
+-- Inserting into table: emp --
+INSERT INTO "emp" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker") VALUES (1, 1, 'emp_ff9f57', 'emp_bbd68c', 1, '2024-06-15', 101, 1, 1);
+
+INSERT INTO "emp" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker") VALUES (-2147483647, 1, 'emp_925427', 'emp_a53529', 1, '2024-06-15', 101, 1, 1);
+
+INSERT INTO "emp" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker") VALUES (-2147483646, 1, 'emp_925427', 'emp_a53529', 1, '2024-06-15', 101, 1, 1);
+
+INSERT INTO "emp" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker") VALUES (-2147483645, 1, 'emp_925427', 'emp_a53529', 1, '2024-06-15', 101, 1, 1);
+
+INSERT INTO "emp" ("empno", "deptno", "ename", "job", "mgr", "hiredate", "sal", "comm", "slacker") VALUES (2, 4, 'emp_244aa2', 'emp_3ec8a4', -55602865, '2025-06-13', 100, -921145356, 1258409369);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT * FROM DEPT LEFT JOIN EMP ON DEPT.DEPTNO = EMP.DEPTNO WHERE NOT EMP.DEPTNO IS NULL AND EMP.SAL > 100;
+
+/*
+Gold Result:
+(1, 'dep_4518c1', -2147483647, 1, 'emp_925427', 'emp_a53529', 1, '2024-06-15', 101, 1, 1)
+(1, 'dep_4518c1', -2147483646, 1, 'emp_925427', 'emp_a53529', 1, '2024-06-15', 101, 1, 1)
+(1, 'dep_4518c1', -2147483645, 1, 'emp_925427', 'emp_a53529', 1, '2024-06-15', 101, 1, 1)
+(1, 'dep_4518c1', 1, 1, 'emp_ff9f57', 'emp_bbd68c', 1, '2024-06-15', 101, 1, 1)
+*/
+
+-- Prediction Query
+SELECT DEPT0.DEPTNO, DEPT0.NAME, CAST(t1.EMPNO AS INTEGER) AS EMPNO, CAST(t1.ENAME AS TEXT(20)) AS ENAME, CAST(t1.JOB AS TEXT(10)) AS JOB, t1.MGR, CAST(t1.HIREDATE AS TIMESTAMPTZ(0)) AS HIREDATE, CAST(t1.SAL AS INTEGER) AS SAL, CAST(t1.COMM AS INTEGER) AS COMM, CAST(t1.DEPTNO AS INTEGER) AS DEPTNO0, CAST(t1.SLACKER AS INTEGER) AS SLACKER FROM DEPT AS DEPT0 INNER JOIN (SELECT * FROM EMP WHERE SAL > 100) AS t1 ON DEPT0.DEPTNO = t1.DEPTNO;
+
+/*
+Prediction Result:
+(1, 'dep_4518c1', -2147483647, 'emp_925427', 'emp_a53529', 1, 2024, 101, 1, 1, 1)
+(1, 'dep_4518c1', -2147483646, 'emp_925427', 'emp_a53529', 1, 2024, 101, 1, 1, 1)
+(1, 'dep_4518c1', -2147483645, 'emp_925427', 'emp_a53529', 1, 2024, 101, 1, 1, 1)
+(1, 'dep_4518c1', 1, 'emp_ff9f57', 'emp_bbd68c', 1, 2024, 101, 1, 1, 1)
+*/

@@ -1,0 +1,13 @@
+{
+  "id": "range_join_subquery_missing_filter_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE \"Campaigns\" (\"campaign_id\" INTEGER UNIQUE, \"valid_from\" DATE, \"valid_until\" DATE, \"rate\" INTEGER, PRIMARY KEY (\"campaign_id\", \"valid_from\", \"valid_until\"), CHECK (\"rate\" > 0));\nCREATE TABLE \"Conversions\" (\"campaign_id\" INTEGER, \"event_date\" DATE, \"quantity\" INTEGER, FOREIGN KEY (\"campaign_id\") REFERENCES \"Campaigns\" (\"campaign_id\"), CHECK (\"quantity\" > 0));",
+  "correct_query": "SELECT c.campaign_id, ROUND(CAST(SUM(v.quantity * c.rate) AS REAL) / SUM(v.quantity), 2) AS weighted_rate FROM Campaigns AS c JOIN Conversions AS v ON c.campaign_id = v.campaign_id AND v.event_date BETWEEN c.valid_from AND c.valid_until GROUP BY c.campaign_id",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "mutant_unfiltered_denominator_subquery",
+      "description": "Mutant computes the denominator sum in a separate subquery over Conversions without filtering by the date range predicate",
+      "query": "SELECT T2.campaign_id, ROUND(CAST(T1.total_weighted AS REAL) / T2.total_qty, 2) AS weighted_rate FROM (SELECT c.campaign_id, SUM(c.rate * v.quantity) AS total_weighted FROM Campaigns AS c LEFT JOIN Conversions AS v ON c.campaign_id = v.campaign_id WHERE c.valid_from <= v.event_date AND c.valid_until >= v.event_date GROUP BY c.campaign_id) AS T1 LEFT JOIN (SELECT campaign_id, SUM(quantity) AS total_qty FROM Conversions GROUP BY campaign_id) AS T2 ON T1.campaign_id = T2.campaign_id"
+    }
+  ]
+}

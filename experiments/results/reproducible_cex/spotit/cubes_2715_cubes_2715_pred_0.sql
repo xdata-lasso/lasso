@@ -1,0 +1,53 @@
+-- Schema DDL
+CREATE TABLE "DRIVER" (
+    "DRIVER_ID" INT,
+    "NAME" TEXT,
+    "PARTY" TEXT,
+    "HOME_CITY" TEXT,
+    "AGE" INT,
+    PRIMARY KEY ("DRIVER_ID")
+);
+CREATE TABLE "SCHOOL" (
+    "SCHOOL_ID" INT,
+    "GRADE" TEXT,
+    "SCHOOL" TEXT,
+    "LOCATION" TEXT,
+    "TYPE" TEXT,
+    PRIMARY KEY ("SCHOOL_ID")
+);
+CREATE TABLE "SCHOOL_BUS" (
+    "SCHOOL_ID" INT,
+    "DRIVER_ID" INT,
+    "YEARS_WORKING" INT,
+    "IF_FULL_TIME" INT,
+    PRIMARY KEY ("SCHOOL_ID", "DRIVER_ID"),
+    FOREIGN KEY ("DRIVER_ID") REFERENCES "DRIVER"("DRIVER_ID"),
+    FOREIGN KEY ("SCHOOL_ID") REFERENCES "SCHOOL"("SCHOOL_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO DRIVER VALUES (0, 0, 0, 0, 0);
+INSERT INTO DRIVER VALUES (1, 0, 0, 0, 0);
+INSERT INTO SCHOOL VALUES (0, 0, 0, 0, 0);
+INSERT INTO SCHOOL VALUES (1, 0, 0, 0, 0);
+INSERT INTO SCHOOL_BUS VALUES (0, 1, 0, 0);
+INSERT INTO SCHOOL_BUS VALUES (0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT school, TYPE FROM (SELECT * FROM school AS LHS WHERE NOT EXISTS(SELECT 1 FROM school_bus AS RHS WHERE (LHS.school_id = RHS.school_id))) ORDER BY school, TYPE NULLS LAST;
+
+/*
+Gold Result:
+('0', '0')
+*/
+
+-- Prediction Query
+SELECT school, TYPE FROM school WHERE NOT school_id IN (SELECT school_id FROM school_bus);
+
+/*
+Prediction Result:
+('0', '0')
+*/

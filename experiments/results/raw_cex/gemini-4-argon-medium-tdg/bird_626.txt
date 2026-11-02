@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN/No Join (votes with NULL PostId or NULL UserId).
+-- 2. COUNT(Id) vs COUNT(PostId), COUNT(UserId), COUNT(VoteTypeId), COUNT(BountyAmount).
+-- 3. COUNT(Id) vs COUNT(DISTINCT ...), SUM(Id), MAX(Id), MIN(Id).
+-- 4. Date boundaries (2009-12-31, 2010-01-01, 2010-12-31 with time, 2011-01-01, NULL).
+INSERT INTO users (Id, DisplayName, CreationDate) VALUES (1, 'User1', '2009-01-01 00:00:00');
+INSERT INTO posts (Id, Title, CreaionDate, OwnerUserId) VALUES (1, 'Post1', '2009-01-01 00:00:00', 1);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (10, 1, 2, '2010-01-01 00:00:00', 1, 50);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (20, 1, 2, '2010-06-15', NULL, 50);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (30, NULL, NULL, '2010-12-31 23:59:59', NULL, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (40, 1, 1, '2009-12-31 23:59:59', 1, 100);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (50, 1, 3, '2011-01-01 00:00:00', 1, 200);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (60, 1, 2, NULL, 1, 50);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Wrong table queried (comments, postHistory, postLinks, posts, users, badges all have 2010 dates, but votes has 0 in 2010).
+-- 2. Join condition filtering by post/user CreationDate instead of vote CreationDate.
+-- 3. Zero-count return (COUNT returns 0 vs SUM/MAX returning NULL vs missing WHERE clause).
+INSERT INTO users (Id, DisplayName, CreationDate) VALUES (1, 'User2010', '2010-05-05 12:00:00');
+INSERT INTO posts (Id, Title, CreaionDate, LasActivityDate, LastEditDate, OwnerUserId) VALUES (1, 'Post2010', '2010-05-05 12:00:00', '2010-05-05 12:00:00', '2010-05-05 12:00:00', 1);
+INSERT INTO comments (Id, PostId, CreationDate, UserId) VALUES (1, 1, '2010-05-05 12:00:00', 1);
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 1, 'Badge2010', '2010-05-05 12:00:00');
+INSERT INTO postHistory (Id, PostId, CreationDate, UserId) VALUES (1, 1, '2010-05-05 12:00:00', 1);
+INSERT INTO postLinks (Id, CreationDate, PostId, RelatedPostId) VALUES (1, '2010-05-05 12:00:00', 1, 1);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (1, 1, 2, '2012-05-05 12:00:00', 1, 0);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2, 1, 3, '2008-05-05 12:00:00', 1, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Single matching row with Id != 1 (kills SELECT Id FROM votes..., SUM(Id), AVG(Id)).
+-- 2. Kills LIKE '%2010%' if someone has '2010' in non-year part or other columns (though Date is standard, we also test Id=2010 and BountyAmount=2010 in a non-2010 year).
+-- 3. Kills mutants filtering on Posts.CreaionDate = '2010' when vote is in 2010 but post was created in 2009.
+INSERT INTO users (Id, DisplayName, CreationDate) VALUES (1, 'UserA', '2008-01-01 00:00:00');
+INSERT INTO posts (Id, Title, CreaionDate, OwnerUserId) VALUES (1, 'PostA', '2009-03-15 00:00:00', 1);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (99, 1, 5, '2010-07-20', 1, 50);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2010, 1, 2010, '2015-01-01', 1, 2010);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Unintended GROUP BY (e.g., GROUP BY VoteTypeId, PostId, UserId, or CreationDate) which would return multiple rows instead of 1 scalar row.
+-- 2. Duplicate values across all columns except Primary Key Id (kills COUNT(DISTINCT PostId/VoteTypeId/CreationDate/UserId/BountyAmount)).
+INSERT INTO users (Id, DisplayName, CreationDate) VALUES (1, 'User1', '2010-01-01');
+INSERT INTO users (Id, DisplayName, CreationDate) VALUES (2, 'User2', '2010-01-01');
+INSERT INTO posts (Id, Title, CreaionDate, OwnerUserId) VALUES (1, 'Post1', '2010-01-01', 1);
+INSERT INTO posts (Id, Title, CreaionDate, OwnerUserId) VALUES (2, 'Post2', '2010-01-01', 2);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (1, 1, 2, '2010-03-01', 1, 10);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (2, 1, 2, '2010-03-01', 1, 10);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId, BountyAmount) VALUES (3, 2, 3, '2010-08-01', 2, 20);
+```

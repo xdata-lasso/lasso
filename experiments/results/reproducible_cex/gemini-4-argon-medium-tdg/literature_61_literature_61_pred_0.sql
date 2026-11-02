@@ -1,0 +1,45 @@
+-- Schema DDL
+CREATE TABLE "course" ("course_id" INTEGER, "title" INTEGER, "dept_name" INTEGER, "credits" INTEGER);
+
+CREATE TABLE "department" ("dept_name" INTEGER, "building" INTEGER, "budget" INTEGER);
+
+CREATE TABLE "instructor" ("ID" INTEGER, "name" INTEGER, "salary" INTEGER, "dept_name" INTEGER);
+
+CREATE TABLE "teaches" ("ID" INTEGER, "course_id" INTEGER, "sec_id" INTEGER, "year" INTEGER, "semester" INTEGER, "instructor" INTEGER);
+
+CREATE TABLE "section" ("course_id" INTEGER, "sec_id" INTEGER, "year" INTEGER, "building" INTEGER, "room_number" INTEGER, "time_slot_id" INTEGER);
+
+CREATE TABLE "takes" ("ID" INTEGER, "course_id" INTEGER, "sec_id" INTEGER, "year" INTEGER, "grade" INTEGER);
+
+CREATE TABLE "student" ("ID" INTEGER, "name" INTEGER, "dept_name" INTEGER, "tot_cred" INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+-- Tests standard equality (=) vs strict greater than (>), >=, <, <=, and != in the ON condition, as well as LEFT OUTER JOIN vs INNER JOIN.
+INSERT INTO instructor (ID, name, salary, dept_name) VALUES (10, 100, 50000, 1);
+INSERT INTO instructor (ID, name, salary, dept_name) VALUES (20, 200, 60000, 1);
+INSERT INTO instructor (ID, name, salary, dept_name) VALUES (30, 300, 70000, 2);
+INSERT INTO teaches (ID, course_id, sec_id, year, semester, instructor) VALUES (20, 501, 1, 2023, 1, 20);
+INSERT INTO teaches (ID, course_id, sec_id, year, semester, instructor) VALUES (25, 502, 1, 2023, 1, 25);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT INSTRUCTOR.ID, INSTRUCTOR.NAME, TEACHES.COURSE_ID FROM INSTRUCTOR LEFT OUTER JOIN TEACHES ON INSTRUCTOR.ID > TEACHES.ID;
+
+/*
+Gold Result:
+(10, 100, None)
+(20, 200, None)
+(30, 300, 501)
+(30, 300, 502)
+*/
+
+-- Prediction Query
+SELECT DISTINCT INSTRUCTOR.ID, INSTRUCTOR.NAME, TEACHES.COURSE_ID FROM INSTRUCTOR CROSS JOIN TEACHES WHERE INSTRUCTOR.ID = TEACHES.ID;
+
+/*
+Prediction Result:
+(20, 200, 501)
+*/

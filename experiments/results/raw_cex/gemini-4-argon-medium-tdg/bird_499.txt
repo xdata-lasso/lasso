@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT on T2.translation vs COUNT(*) or COUNT(T2.translation) (duplicate translations for the same set)
+-- 2. NULL handling in T2.translation (ensuring NULLs are not counted by COUNT(*) or IS NULL mutants)
+-- 3. Filtering on T1.name = 'Salvat 2011' (other sets, substrings like 'Salvat 2011 Extra', case sensitivity, NULL name)
+-- 4. JOIN condition T2.setCode = T1.code vs cross join or wrong join columns (e.g., T1.id = T2.id)
+INSERT INTO sets (id, code, name) VALUES (1, 'S11', 'Salvat 2011');
+INSERT INTO sets (id, code, name) VALUES (2, 'S05', 'Salvat 2005');
+INSERT INTO sets (id, code, name) VALUES (3, 'S11X', 'Salvat 2011 Extra');
+INSERT INTO sets (id, code, name) VALUES (4, 'S11L', 'salvat 2011');
+INSERT INTO sets (id, code, name) VALUES (5, 'NUL', NULL);
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (10, 'French', 'S11', 'Salvat 2011 FR');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (11, 'Canadian French', 'S11', 'Salvat 2011 FR');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (12, 'Spanish', 'S11', 'Salvat 2011 ES');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (13, 'German', 'S11', NULL);
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Italian', 'S05', 'Salvat 2005 IT');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Spanish', 'S05', 'Salvat 2005 ES');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'French', 'S11X', 'Salvat 2011 Extra FR');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, 'French', 'S11L', 'salvat 2011 fr');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (5, 'French', 'NUL', 'Null Set FR');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN (when 'Salvat 2011' exists in sets, but has no matching rows in set_translations)
+-- 2. Unlinked/Orphaned translations (NULL setCode)
+-- 3. Counting wrong column (e.g., COUNT(DISTINCT T1.code) or COUNT(DISTINCT T1.name) which would return 1 instead of 0 under LEFT JOIN)
+INSERT INTO sets (id, code, name) VALUES (1, 'S11', 'Salvat 2011');
+INSERT INTO sets (id, code, name) VALUES (2, 'M11', 'Magic 2011');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'French', 'M11', 'Magic 2011 FR');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Spanish', NULL, 'Orphan Translation');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple sets with the exact name 'Salvat 2011' (since name is not UNIQUE) sharing translations and having distinct translations
+-- 2. Distinguishes COUNT(DISTINCT T2.translation) from COUNT(DISTINCT T1.code), COUNT(DISTINCT T2.language), and COUNT(DISTINCT T2.id)
+-- 3. Tests join column confusion (e.g., T1.parentCode = T2.setCode or T1.mtgoCode = T2.setCode)
+INSERT INTO sets (id, code, name, mtgoCode, parentCode) VALUES (1, 'S11_A', 'Salvat 2011', 'W_MTGO', 'W_PAR');
+INSERT INTO sets (id, code, name, mtgoCode, parentCode) VALUES (2, 'S11_B', 'Salvat 2011', 'W_MTGO', 'W_PAR');
+INSERT INTO sets (id, code, name, mtgoCode, parentCode) VALUES (3, 'W_MTGO', 'Wrong MTGO Set', 'S11_A', 'S11_B');
+INSERT INTO sets (id, code, name, mtgoCode, parentCode) VALUES (4, 'W_PAR', 'Wrong Parent Set', 'S11_A', 'S11_B');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'French', 'S11_A', 'Shared Trans');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'French', 'S11_B', 'Shared Trans');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'French', 'S11_A', 'Unique Trans 1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, 'French', 'S11_B', 'Unique Trans 2');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (5, 'Spanish', 'W_MTGO', 'Wrong MTGO Trans');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (6, 'German', 'W_PAR', 'Wrong Parent Trans');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty result / 0 count when 'Salvat 2011' only has NULL translations
+-- 2. Confusing T1.name with T1.mcmName, T1.code, or T2.translation (where 'Salvat 2011' appears in those other columns)
+-- 3. Empty string '' vs NULL in translation
+INSERT INTO sets (id, code, name, mcmName) VALUES (1, 'S11', 'Salvat 2011', 'Other MCM Name');
+INSERT INTO sets (id, code, name, mcmName) VALUES (2, 'Salvat 2011', 'Wrong Set By Code', 'Salvat 2011');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'French', 'S11', NULL);
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Spanish', 'S11', NULL);
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'German', 'Salvat 2011', 'Salvat 2011');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Empty string '' as a valid non-NULL translation (kills mutants that check T2.translation != '' or LENGTH(T2.translation) > 0)
+-- 2. Confusing T2.translation with T2.language (where T2.language is NULL or has different distinctness)
+-- 3. Unnecessary joins to other tables (cards, foreign_data, legalities, rulings) that would filter out the set if joined
+INSERT INTO sets (id, code, name) VALUES (1, 'S11', 'Salvat 2011');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, NULL, 'S11', '');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, NULL, 'S11', 'Valid Translation');
+```

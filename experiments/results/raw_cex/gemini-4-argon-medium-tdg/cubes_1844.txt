@@ -1,0 +1,95 @@
+```sql
+-- DATASET 1
+-- Tests: SELECT vs SELECT DISTINCT (duplicate elimination), ORDER BY ASC vs DESC, and multiple institutions named 'Google'.
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (1, 'Google', 'USA');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (2, 'Google', 'UK');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (3, 'Microsoft', 'USA');
+
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (10, 'Smith', 'Alice');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (20, 'Jones', 'Bob');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (30, 'Lee', 'Charlie');
+
+INSERT INTO "Papers" ("paperID", "title") VALUES (100, 'Zeta Paper');
+INSERT INTO "Papers" ("paperID", "title") VALUES (200, 'Alpha Paper');
+INSERT INTO "Papers" ("paperID", "title") VALUES (300, 'Beta Paper');
+
+-- Paper 100 has two authors from Google (instID 1), producing duplicate 'Zeta Paper' rows in non-DISTINCT queries.
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (10, 1, 100, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (20, 1, 100, 2);
+
+-- Paper 200 has one author from Google UK (instID 2) and one from Microsoft (instID 3).
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (20, 2, 200, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (30, 3, 200, 2);
+
+-- Paper 300 has only a Microsoft author.
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (30, 3, 300, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests: NULL handling in "title" (NULLS LAST vs NULLS FIRST, and filters that accidentally drop NULL titles), and INNER JOIN vs LEFT/OUTER JOIN on Authorship.
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (1, 'Google', 'USA');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (2, 'Yahoo', 'USA');
+
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (1, 'Doe', 'John');
+
+INSERT INTO "Papers" ("paperID", "title") VALUES (1, NULL);
+INSERT INTO "Papers" ("paperID", "title") VALUES (2, 'A Valid Title');
+INSERT INTO "Papers" ("paperID", "title") VALUES (3, 'Unauthored Paper');
+
+-- Paper 1 (NULL title) and Paper 2 are authored by Google. Paper 3 has no Authorship rows.
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 1, 1, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 1, 2, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests: String predicate mutations (case sensitivity 'google', substring/LIKE 'Google Research', 'Google ', NULL name) and missing join conditions (e.g., omitting LHS.paperid = RHS.paperid or LHS.instid = RHS.instid).
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (1, 'Google', 'USA');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (2, 'google', 'USA');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (3, 'Google Research', 'USA');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (4, NULL, 'USA');
+
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (1, ' Turing', 'Alan');
+
+INSERT INTO "Papers" ("paperID", "title") VALUES (10, 'Exact Match Paper');
+INSERT INTO "Papers" ("paperID", "title") VALUES (20, 'Lowercase Inst Paper');
+INSERT INTO "Papers" ("paperID", "title") VALUES (30, 'Prefix Inst Paper');
+INSERT INTO "Papers" ("paperID", "title") VALUES (40, 'Null Inst Paper');
+
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 1, 10, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 2, 20, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 3, 30, 1);
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 4, 40, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests: Empty result set behavior when 'Google' exists in Inst and Papers exist, but 'Google' has no rows in Authorship (kills CROSS JOIN without Authorship filter or OR condition in JOIN).
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (1, 'Google', 'USA');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (2, 'MIT', 'USA');
+
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (1, 'Knuth', 'Donald');
+
+INSERT INTO "Papers" ("paperID", "title") VALUES (1, 'The Art of Computer Programming');
+
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 2, 1, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests: Coincidental ID equality (instID = paperID = authID) vs distinct IDs to catch wrong column join mutations (e.g., LHS.instid = RHS.paperid or LHS.paperid = RHS.authid).
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (1, 'Google', 'USA');
+INSERT INTO "Inst" ("instID", "name", "country") VALUES (2, 'Stanford', 'USA');
+
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (1, 'Page', 'Larry');
+INSERT INTO "Authors" ("authID", "lname", "fname") VALUES (2, 'Brin', 'Sergey');
+
+INSERT INTO "Papers" ("paperID", "title") VALUES (1, 'Decoy Paper');
+INSERT INTO "Papers" ("paperID", "title") VALUES (2, 'PageRank');
+
+-- Google (instID 1) authored PageRank (paperID 2) with Author 2.
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (2, 1, 2, 1);
+-- Stanford (instID 2) authored Decoy Paper (paperID 1) with Author 1.
+INSERT INTO "Authorship" ("authID", "instID", "paperID", "authOrder") VALUES (1, 2, 1, 1);
+```

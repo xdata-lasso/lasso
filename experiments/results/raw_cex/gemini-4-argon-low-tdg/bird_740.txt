@@ -1,0 +1,153 @@
+```sql
+-- DATASET 1
+-- Core boundary and predicate mutations:
+-- Hero 1: Exact match (Female, Strength, 100)
+-- Hero 2: Wrong gender (Male, Strength, 100) -> kills missing gender filter or OR instead of AND
+-- Hero 3: Wrong attribute (Female, Speed, 100) -> kills missing attribute_name filter
+-- Hero 4: Boundary value (Female, Strength, 99) -> kills >= 99, < 100, != 100
+-- Hero 5: Boundary value (Female, Strength, 101) -> kills >= 100, > 100
+-- Hero 6: Split condition across two attributes (Female, Strength=50, Speed=100) -> kills uncorrelated subquery mutants
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'Male');
+
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Speed');
+
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (1, 'Hero_Match', 1);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (2, 'Hero_WrongGender', 2);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (3, 'Hero_WrongAttr', 1);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (4, 'Hero_Val99', 1);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (5, 'Hero_Val101', 1);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (6, 'Hero_SplitMatch', 1);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (3, 2, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (4, 1, 99);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (5, 1, 101);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (6, 1, 50);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (6, 2, 100);
+```
+
+```sql
+-- DATASET 2
+-- Cardinality, Duplicates, and Distinctness:
+-- Hero 1 has two 'Strength' attributes with value 100 (via two 'Strength' rows in attribute table, or duplicate hero_attribute entries).
+-- Tests COUNT(T1.id) vs COUNT(DISTINCT T1.id) vs COUNT(DISTINCT T3.id) vs COUNT(DISTINCT T4.id).
+-- Also tests if mutant omits joining superhero or hero_attribute.
+INSERT INTO gender (id, gender) VALUES (10, 'Female');
+
+INSERT INTO attribute (id, attribute_name) VALUES (10, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (20, 'Strength');
+
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (100, 'Hero_DupAttr', 10);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (200, 'Hero_NoAttr', 10);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (100, 10, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (100, 10, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (100, 20, 100);
+```
+
+```sql
+-- DATASET 3
+-- Join Condition Confusion (Accidental ID collisions):
+-- Designed so that T1.id, T1.gender_id, T2.hero_id, T2.attribute_id, T3.id, T4.id have overlapping numeric values,
+-- catching mutants that join on wrong columns (e.g., T1.id = T2.attribute_id, T1.gender_id = T3.id, T1.id = T4.id).
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO gender (id, gender) VALUES (2, 'Female');
+
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Intelligence');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Strength');
+
+-- Hero 1 is Male (gender_id=1), has Intelligence (attr_id=1) = 100.
+-- If a mutant joins T1.id = T4.id, Hero 2 (Male) joins with Gender 2 (Female).
+-- If a mutant joins T2.hero_id = T3.id, Hero 2's row joins with Attribute 2 (Strength).
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (1, 'Hero_One', 2);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (2, 'Hero_Two', 1);
+
+-- Hero 1 (Female) has Attribute 1 (Intelligence) = 100. (Gold query count = 0)
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+-- Hero 2 (Male) has Attribute 1 (Intelligence) = 100.
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 100);
+```
+
+```sql
+-- DATASET 4
+-- NULL handling, Outer Joins, and Missing Foreign Keys:
+-- Tests INNER JOIN vs LEFT JOIN, and COUNT(T1.id) vs COUNT(T1.superhero_name) / COUNT(T1.full_name) when nullable columns are NULL.
+-- Also includes dangling NULL FKs in hero_attribute and superhero.
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, NULL);
+
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (2, NULL);
+
+-- Matching hero, but all non-essential columns (superhero_name, full_name, etc.) are NULL.
+-- Kills mutants doing COUNT(T1.superhero_name) or COUNT(T1.full_name) or INNER JOIN on other FK tables (publisher, race, alignment, colour).
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (1, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+
+-- Hero with NULL gender_id, but has Strength = 100
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (2, 'NoGenderHero', NULL);
+
+-- Hero with NULL-named gender
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (3, 'NullNameGenderHero', 2);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (3, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 2, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, NULL, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (NULL, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Case sensitivity, substring/LIKE mutations, and extra tables (hero_power / superpower confusion):
+-- Tests 'Strength' vs 'strength' / 'Strengths', 'Female' vs 'female' / 'Females'.
+-- Tests if mutant mistakenly queries superpower ('Strength') instead of attribute ('Strength').
+-- Gold query result should be 0 here, while relaxed/confused mutants will return > 0.
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'female');
+INSERT INTO gender (id, gender) VALUES (3, 'Female_Extra');
+
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'strength');
+INSERT INTO attribute (id, attribute_name) VALUES (3, 'Super Strength');
+
+INSERT INTO superpower (id, power_name) VALUES (1, 'Strength');
+
+-- Hero 1: 'female' (lowercase) + 'Strength' = 100
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (1, 'H1', 2);
+-- Hero 2: 'Female' + 'strength' (lowercase) = 100
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (2, 'H2', 1);
+-- Hero 3: 'Female' + 'Super Strength' = 100 (kills LIKE '%Strength%')
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (3, 'H3', 1);
+-- Hero 4: 'Female' + Superpower 'Strength', height=100, weight=100, but no attribute 'Strength'=100
+INSERT INTO superhero (id, superhero_name, gender_id, height_cm, weight_kg) VALUES (4, 'H4', 1, 100, 100);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 2, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (3, 3, 100);
+
+INSERT INTO hero_power (hero_id, power_id) VALUES (4, 1);
+```
+
+```sql
+-- DATASET 6
+-- Aggregation / Group By / Having / SUM / AVG / MAX / MIN mutations:
+-- Multiple matching heroes (3 heroes) to distinguish COUNT from MAX/MIN/AVG or HAVING clauses,
+-- and to ensure SUM(T1.id) != COUNT(T1.id) and SUM(T2.attribute_value) != COUNT(T1.id).
+INSERT INTO gender (id, gender) VALUES (5, 'Female');
+
+INSERT INTO attribute (id, attribute_name) VALUES (7, 'Strength');
+
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (10, 'F1', 5);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (20, 'F2', 5);
+INSERT INTO superhero (id, superhero_name, gender_id) VALUES (30, 'F3', 5);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (10, 7, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (20, 7, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (30, 7, 100);
+```

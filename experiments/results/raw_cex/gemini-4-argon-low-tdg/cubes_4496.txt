@@ -1,0 +1,52 @@
+```sql
+-- DATASET 1
+-- Tests global MAX(product_price) vs partitioned MAX(product_price) by product_type_code.
+-- A 'Software' product has a strictly higher price (500.0) than any 'Hardware' product (300.0).
+-- The Reference Query should return an empty result set. Mutants filtering by 'Hardware' BEFORE computing the max price will falsely return 'Monitor'.
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (1, 'Software', 'OS Pro', 500.0000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (2, 'Hardware', 'Monitor', 300.0000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (3, 'Hardware', 'Keyboard', 100.0000);
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple 'Hardware' products tied for the global maximum price, tie-breaking with non-Hardware at the same max price,
+-- duplicate product names (testing SELECT vs SELECT DISTINCT), NULL product_name (testing NULLS LAST), and ordering (ASC vs DESC, by name vs by id).
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (1, 'Hardware', 'Zebra Printer', 1000.0000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (2, 'Hardware', 'Alpha Server', 1000.0000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (3, 'Hardware', 'Alpha Server', 1000.0000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (4, 'Hardware', NULL, 1000.0000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (5, 'Software', 'Enterprise DB', 1000.0000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (6, 'Hardware', 'Cheap Mouse', 25.5000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (7, 'Hardware', 'Broken Item', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary values, negative prices, case sensitivity of 'Hardware', and NULL handling when all valid prices are negative.
+-- The global max price is -10.5, shared by a 'Hardware' item and a 'hardware' (lowercase) item.
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (1, 'Hardware', 'Rebate Cable', -10.5000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (2, 'hardware', 'Lowercase Case', -10.5000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (3, 'Hardware', 'Heavy Discount', -50.0000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (4, NULL, 'Null Type Item', -10.5000);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (5, 'Hardware', 'Null Price Item', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests the scenario where all product_price values are NULL.
+-- MAX(product_price) OVER () evaluates to NULL, and NULL = NULL in the WHERE clause must evaluate to UNKNOWN/FALSE (returning 0 rows),
+-- catching mutants that use IS NOT DISTINCT FROM or COALESCE.
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (1, 'Hardware', 'Mystery Box 1', NULL);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (2, 'Hardware', 'Mystery Box 2', NULL);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (3, 'Software', 'Freeware', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests single-row/minimal match where 'Hardware' is the unique global maximum, alongside an item with price 0.0 and close floating point values.
+-- Ensures mutants using MIN instead of MAX, or < instead of =, or integer casting of REAL prices are caught.
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (1, 'Hardware', 'Precision Tool', 99.9999);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (2, 'Hardware', 'Standard Tool', 99.9900);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (3, 'Hardware', 'Free Screw', 0.0000);
+```

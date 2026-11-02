@@ -1,0 +1,127 @@
+```sql
+-- DATASET 1
+-- Core scenario: Multiple students in detention, some with duplicate entries, plus students and incidents NOT in detention.
+-- Tests:
+-- 1. COUNT(DISTINCT student_id) vs COUNT(student_id) or COUNT(*)
+-- 2. SELECT DISTINCT ... OVER () vs non-distinct window function (which would return 1 row per table row)
+-- 3. Querying Students_in_Detention vs Students or Behavior_Incident or Assessment_Notes
+-- 4. Counting student_id vs detention_id or incident_id
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "country") VALUES (1, '123 Main St', 'Springfield', 'USA');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Edna', 'Krabappel');
+INSERT INTO "Ref_Detention_Type" ("detention_type_code", "detention_type_description") VALUES ('AFT', 'After School');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('NOISE', 'Disruptive Noise');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Bart', 'Simpson');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (2, 1, 'Nelson', 'Muntz');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (3, 1, 'Lisa', 'Simpson');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (4, 1, 'Milhouse', 'Van Houten');
+
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code") VALUES (10, 1, 'AFT');
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code") VALUES (20, 1, 'AFT');
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code") VALUES (30, 1, 'AFT');
+
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code") VALUES (100, 1, 'NOISE');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code") VALUES (200, 1, 'NOISE');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code") VALUES (300, 2, 'NOISE');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code") VALUES (400, 3, 'NOISE');
+
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id") VALUES (1, 1, 1);
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id") VALUES (1, 3, 2);
+INSERT INTO "Assessment_Notes" ("teacher_id", "student_id", "notes_id") VALUES (1, 4, 3);
+
+-- 3 rows in Students_in_Detention:
+-- Distinct student_id = 2 (1, 2)
+-- Distinct detention_id = 3 (10, 20, 30)
+-- Distinct incident_id = 1 (100)
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (1, 10, 100);
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (1, 20, 100);
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (2, 30, 100);
+```
+
+```sql
+-- DATASET 2
+-- Empty Students_in_Detention table while parent tables are populated.
+-- Tests:
+-- 1. Window function OVER () on empty table (returns 0 rows) vs standard aggregate COUNT(DISTINCT student_id) without OVER () (returns 1 row with value 0).
+-- 2. Confusing LEFT JOIN from Students/Detention/Behavior_Incident with direct query on Students_in_Detention.
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "country") VALUES (1, '456 Oak Ave', 'Shelbyville', 'USA');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Seymour', 'Skinner');
+INSERT INTO "Ref_Detention_Type" ("detention_type_code", "detention_type_description") VALUES ('SAT', 'Saturday');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('LATE', 'Tardiness');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Martin', 'Prince');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (2, 1, 'Ralph', 'Wiggum');
+
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code") VALUES (10, 1, 'SAT');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code") VALUES (100, 1, 'LATE');
+```
+
+```sql
+-- DATASET 3
+-- NULL handling in Students_in_Detention.
+-- Tests:
+-- 1. NULL student_id (should be ignored by COUNT(DISTINCT student_id) resulting in 0 or 1, whereas COUNT(*) counts the row).
+-- 2. NULL detention_id and NULL incident_id with valid student_id (tests INNER JOIN mutants that unnecessarily join Students_in_Detention with Detention or Behavior_Incident).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "country") VALUES (1, '789 Pine Rd', 'Capital City', 'USA');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Elizabeth', 'Hoover');
+INSERT INTO "Ref_Detention_Type" ("detention_type_code", "detention_type_description") VALUES ('LCH', 'Lunch Detention');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('FIGHT', 'Fighting');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (10, 1, 'Jimbo', 'Jones');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (20, 1, 'Kearney', 'Zzyzwicz');
+
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code") VALUES (5, 1, 'LCH');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code") VALUES (50, 10, 'FIGHT');
+
+-- Row 1: Valid student_id (10), NULL detention_id, valid incident_id (50)
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (10, NULL, 50);
+-- Row 2: Valid student_id (20), valid detention_id (5), NULL incident_id
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (20, 5, NULL);
+-- Row 3: NULL student_id, valid detention_id (5), valid incident_id (50)
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (NULL, 5, 50);
+```
+
+```sql
+-- DATASET 4
+-- All NULL student_id in non-empty Students_in_Detention.
+-- Tests:
+-- 1. Returns a single row with value 0 (since table is non-empty, OVER () produces rows, and COUNT(DISTINCT student_id) is 0).
+-- 2. Kills mutants using WHERE student_id IS NOT NULL (which would filter out all rows and return an empty result set instead of 0).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "country") VALUES (1, '101 Maple Dr', 'Springfield', 'USA');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Dewey', 'Largo');
+INSERT INTO "Ref_Detention_Type" ("detention_type_code", "detention_type_description") VALUES ('MORN', 'Morning');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('SKIP', 'Skipping Class');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Otto', 'Mann');
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code") VALUES (1, 1, 'MORN');
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code") VALUES (1, 1, 'SKIP');
+
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (NULL, 1, 1);
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (NULL, 1, 1);
+```
+
+```sql
+-- DATASET 5
+-- Discrepancy between Behavior_Incident.student_id and Students_in_Detention.student_id.
+-- Tests:
+-- 1. Mutants that join Students_in_Detention with Behavior_Incident on incident_id and count Behavior_Incident.student_id instead of Students_in_Detention.student_id.
+-- 2. Mutants that join on BOTH incident_id AND student_id.
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "country") VALUES (1, '202 Birch Ln', 'Springfield', 'USA');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Gary', 'Chalmers');
+INSERT INTO "Ref_Detention_Type" ("detention_type_code", "detention_type_description") VALUES ('AFT', 'After School');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('PRANK', 'Prank');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Bart', 'Simpson');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (2, 1, 'Milhouse', 'Van Houten');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (3, 1, 'Nelson', 'Muntz');
+
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code") VALUES (1, 1, 'AFT');
+
+-- Incident 10 is recorded under Student 1
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code") VALUES (10, 1, 'PRANK');
+
+-- However, Students 1, 2, and 3 all got detention for Incident 10
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (1, 1, 10);
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (2, 1, 10);
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (3, 1, 10);
+```

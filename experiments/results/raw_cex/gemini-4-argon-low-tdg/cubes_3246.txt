@@ -1,0 +1,108 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Duplicate student_id in Student_Course_Attendance (kills DISTINCT mutants, GROUP BY student_id mutants).
+-- 2. Students registered in courses without attendance (kills mutants querying Student_Course_Registrations or Students instead of Student_Course_Attendance).
+-- 3. Insertion order of student_id is non-monotonic (kills missing ORDER BY or ORDER BY DESC mutants).
+-- 4. People who are not students (kills mutants querying People).
+INSERT INTO People (person_id, first_name, last_name) VALUES (10, 'Alice', 'Smith');
+INSERT INTO People (person_id, first_name, last_name) VALUES (20, 'Bob', 'Jones');
+INSERT INTO People (person_id, first_name, last_name) VALUES (30, 'Charlie', 'Brown');
+INSERT INTO People (person_id, first_name, last_name) VALUES (40, 'Diana', 'Prince');
+
+INSERT INTO Students (student_id, student_details) VALUES (10, 'Active Student');
+INSERT INTO Students (student_id, student_details) VALUES (20, 'Active Student');
+INSERT INTO Students (student_id, student_details) VALUES (30, 'Registered Only Student');
+
+INSERT INTO Courses (course_id, course_name) VALUES ('101', 'Database Systems');
+INSERT INTO Courses (course_id, course_name) VALUES ('102', 'Algorithms');
+INSERT INTO Courses (course_id, course_name) VALUES ('103', 'Operating Systems');
+
+-- Note: Student_Course_Registrations has UNIQUE on student_id and UNIQUE on course_id
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (20, 101, '2023-01-10');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (10, 102, '2023-01-11');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (30, 103, '2023-01-12');
+
+-- Student 20 attends two courses (101 and 102), Student 10 attends one course (101).
+-- Both student_ids (10, 20) and course_ids (101, 102) exist in Student_Course_Registrations, satisfying individual column FKs.
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (20, 102, '2023-02-01');
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (10, 101, '2023-02-02');
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (20, 101, '2023-02-03');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Inverse relationship between student_id, course_id, and date_of_attendance (kills mutants sorting by course_id first or sorting by date_of_attendance).
+-- 2. Non-overlapping combinations of (student_id, course_id) between Registrations and Attendance (kills mutants that INNER JOIN Student_Course_Registrations on both student_id AND course_id).
+INSERT INTO People (person_id, first_name, last_name) VALUES (1, 'Evan', 'Wright');
+INSERT INTO People (person_id, first_name, last_name) VALUES (2, 'Fiona', 'Gallagher');
+INSERT INTO People (person_id, first_name, last_name) VALUES (3, 'George', 'Costanza');
+
+INSERT INTO Students (student_id, student_details) VALUES (1, 'S1');
+INSERT INTO Students (student_id, student_details) VALUES (2, 'S2');
+INSERT INTO Students (student_id, student_details) VALUES (3, 'S3');
+
+INSERT INTO Courses (course_id, course_name) VALUES ('100', 'Math');
+INSERT INTO Courses (course_id, course_name) VALUES ('200', 'Physics');
+INSERT INTO Courses (course_id, course_name) VALUES ('300', 'Chemistry');
+
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (1, 100, '2023-01-01');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (2, 200, '2023-01-02');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (3, 300, '2023-01-03');
+
+-- Attendance pairs: (3, 100), (2, 200), (1, 300).
+-- Only (2, 200) matches the exact pair in Registrations, while (3, 100) and (1, 300) cross-reference valid parent keys.
+-- Furthermore:
+-- Order by student_id ASC gives: 1, 2, 3
+-- Order by course_id ASC gives: 3, 2, 1
+-- Order by date_of_attendance ASC gives: 2, 3, 1
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (3, 100, '2023-03-02');
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (1, 300, '2023-03-03');
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (2, 200, '2023-03-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty Student_Course_Attendance table while other tables are populated (kills mutants that use LEFT JOIN from Students or Registrations, or query wrong tables).
+-- 2. Candidates and Candidate_Assessments populated (kills mutants querying candidate tables).
+INSERT INTO People (person_id, first_name, last_name) VALUES (100, 'Hannah', 'Abbott');
+INSERT INTO People (person_id, first_name, last_name) VALUES (200, 'Ian', 'Malcolm');
+
+INSERT INTO Students (student_id, student_details) VALUES (100, 'No Attendance');
+
+INSERT INTO Candidates (candidate_id, candidate_details) VALUES (200, 'Candidate Only');
+INSERT INTO Candidate_Assessments (candidate_id, qualification, assessment_date, asessment_outcome_code) VALUES (200, 'BSc', '2023-05-01', 'PASS');
+
+INSERT INTO Courses (course_id, course_name) VALUES ('500', 'Biology');
+
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (100, 500, '2023-01-15');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Boundary values (0, negative integers, large integers) and NULLs in non-key attributes (date_of_attendance) to kill mutants with arbitrary WHERE filters (e.g., WHERE date_of_attendance IS NOT NULL or WHERE student_id > 0).
+-- 2. Multiple attendance records per student with mixed insertion order.
+INSERT INTO People (person_id, first_name, last_name) VALUES (-5, 'Negative', 'ID');
+INSERT INTO People (person_id, first_name, last_name) VALUES (0, 'Zero', 'ID');
+INSERT INTO People (person_id, first_name, last_name) VALUES (999, 'Large', 'ID');
+
+INSERT INTO Students (student_id, student_details) VALUES (-5, NULL);
+INSERT INTO Students (student_id, student_details) VALUES (0, '');
+INSERT INTO Students (student_id, student_details) VALUES (999, 'Senior');
+
+INSERT INTO Courses (course_id, course_name) VALUES ('0', 'Zero Course');
+INSERT INTO Courses (course_id, course_name) VALUES ('-10', 'Negative Course');
+INSERT INTO Courses (course_id, course_name) VALUES ('50', 'Normal Course');
+
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (-5, -10, NULL);
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (0, 0, '2020-01-01');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (999, 50, '2020-01-02');
+
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (999, 50, NULL);
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (0, -10, '2020-02-01');
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (-5, 0, NULL);
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (0, 50, NULL);
+```

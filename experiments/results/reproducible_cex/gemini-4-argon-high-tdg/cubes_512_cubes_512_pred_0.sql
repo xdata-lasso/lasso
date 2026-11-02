@@ -1,0 +1,64 @@
+-- Schema DDL
+CREATE TABLE "Highschooler" ("ID" INTEGER PRIMARY KEY, "name" TEXT, "grade" INTEGER);
+
+CREATE TABLE "Friend" ("student_id" INTEGER, "friend_id" INTEGER, PRIMARY KEY ("student_id", "friend_id"), FOREIGN KEY ("friend_id") REFERENCES "Highschooler" ("ID"), FOREIGN KEY ("student_id") REFERENCES "Highschooler" ("ID"));
+
+CREATE TABLE "Likes" ("student_id" INTEGER, "liked_id" INTEGER, PRIMARY KEY ("student_id", "liked_id"), FOREIGN KEY ("student_id") REFERENCES "Highschooler" ("ID"), FOREIGN KEY ("liked_id") REFERENCES "Highschooler" ("ID"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (1, 'TargetA', 9);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (2, 'TargetB', 10);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (3, 'TargetC', 11);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (10, 'Alice', 9);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (11, 'Alice', 10);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (12, 'Alice', 11);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (20, 'Bob', 9);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (21, 'Bob', 10);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (30, 'Charlie', 12);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (40, 'Kyle', 9);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (41, 'Kyle', 10);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (42, 'Kyle', 11);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (43, 'Kyle', 12);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (50, 'Dave', 9);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (51, 'Dave', 10);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (52, 'Dave', 11);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (53, 'Dave', 12);
+INSERT INTO "Highschooler" ("ID", "name", "grade") VALUES (54, 'Dave', 9);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (10, 1);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (11, 1);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (12, 1);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (20, 2);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (21, 2);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (30, 3);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (40, 1);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (41, 1);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (42, 1);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (43, 1);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (50, 40);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (51, 40);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (52, 40);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (53, 40);
+INSERT INTO "Likes" ("student_id", "liked_id") VALUES (54, 40);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT "n" AS "count___" FROM (SELECT "liked_id", "name", COUNT(*) AS "n" FROM (SELECT "id", "name", "grade", "liked_id", "id" AS "student_id" FROM (SELECT "LHS"."id" AS "id", "LHS"."name" AS "name", "LHS"."grade" AS "grade", "RHS"."liked_id" AS "liked_id" FROM "highschooler" AS "LHS" INNER JOIN "likes" AS "RHS" ON ("LHS"."id" = "RHS"."student_id"))) GROUP BY "liked_id", "name") WHERE ("name" <> 'Kyle') ORDER BY count___;
+
+/*
+Gold Result:
+(1,)
+(2,)
+(3,)
+(5,)
+*/
+
+-- Prediction Query
+SELECT COUNT(*) FROM Likes AS T1 JOIN Highschooler AS T2 ON T1.student_id = T2.id WHERE T2.name = 'Kyle';
+
+/*
+Prediction Result:
+(4,)
+*/

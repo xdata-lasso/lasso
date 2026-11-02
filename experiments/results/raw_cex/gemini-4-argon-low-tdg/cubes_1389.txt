@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests basic GROUP BY, COUNT(*), ORDER BY (inserted out of order), duplicate output counts (SELECT vs SELECT DISTINCT), and filtering out other companies/NULLs.
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('CM1', 2020.0, 1024.0, 2048.0, '1', 'Yes', 'Yes');
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('CM2', 2021.0, 2048.0, 4096.0, '2', 'Yes', 'Yes');
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('CM3', 2022.0, 4096.0, 8192.0, '1', 'No', 'Yes');
+
+INSERT INTO "screen_mode" ("Graphics_mode", "Char_cells", "Pixels", "Hardware_colours", "used_kb", "map", "Type") VALUES (1.0, '80x25', '640x480', 16.0, 32.0, 'MapA', 'Text');
+
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P1', 'CM1', '1.0', 'Nokia Corporation', 'TypeA', 'Level1', '2020-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P2', 'CM1', '1.0', 'Nokia Corporation', 'TypeA', 'Level1', '2020-01-02');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P3', 'CM1', '1.0', 'Nokia Corporation', 'TypeA', 'Level1', '2020-01-03');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P4', 'CM2', '1.0', 'Nokia Corporation', 'TypeB', 'Level2', '2021-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P5', 'CM3', '1.0', 'Nokia Corporation', 'TypeC', 'Level3', '2022-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P6', 'CM1', '1.0', 'Samsung', 'TypeA', 'Level1', '2020-02-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P7', 'CM2', '1.0', NULL, 'TypeA', 'Level1', '2020-03-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL chip_model handling (COUNT(*) vs COUNT(chip_model) and INNER JOIN vs standalone table scan) and unreferenced parent rows (LEFT JOIN from chip_model).
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('CM_USED', 2020.0, 512.0, 1024.0, '1', 'Yes', 'No');
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('CM_UNUSED', 2021.0, 1024.0, 2048.0, '2', 'Yes', 'Yes');
+
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P1', NULL, NULL, 'Nokia Corporation', NULL, NULL, NULL);
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P2', NULL, NULL, 'Nokia Corporation', NULL, NULL, NULL);
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P3', 'CM_USED', NULL, 'Nokia Corporation', NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests exact string matching on Company_name (case sensitivity, substring/LIKE mutants, leading/trailing spaces) and empty result sets when target company has 0 rows (catches missing GROUP BY when COUNT(*) returns 0).
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('CM1', 2019.0, 512.0, 512.0, '1', 'No', 'No');
+
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P1', 'CM1', NULL, 'nokia corporation', 'T1', 'L1', '2019-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P2', 'CM1', NULL, 'Nokia', 'T1', 'L1', '2019-01-02');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P3', 'CM1', NULL, 'Nokia Corporation ', 'T1', 'L1', '2019-01-03');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P4', 'CM1', NULL, 'NOKIA CORPORATION', 'T1', 'L1', '2019-01-04');
+```
+
+```sql
+-- DATASET 4
+-- Tests numeric vs lexicographical sorting in ORDER BY (e.g. 2 vs 10) and grouping granularity (wrong grouping columns like screen_mode or Accreditation_type).
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('CM_TEN', 2020.0, 1024.0, 2048.0, '1', 'Yes', 'Yes');
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('CM_TWO', 2021.0, 2048.0, 4096.0, '2', 'Yes', 'Yes');
+
+INSERT INTO "screen_mode" ("Graphics_mode", "Char_cells", "Pixels", "Hardware_colours", "used_kb", "map", "Type") VALUES (1.0, '80x25', '640x480', 16.0, 32.0, 'M1', 'T1');
+INSERT INTO "screen_mode" ("Graphics_mode", "Char_cells", "Pixels", "Hardware_colours", "used_kb", "map", "Type") VALUES (2.0, '100x30', '800x600', 256.0, 64.0, 'M2', 'T2');
+
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P01', 'CM_TEN', '1.0', 'Nokia Corporation', 'A', 'L1', '2020-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P02', 'CM_TEN', '1.0', 'Nokia Corporation', 'A', 'L1', '2020-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P03', 'CM_TEN', '1.0', 'Nokia Corporation', 'B', 'L2', '2020-01-02');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P04', 'CM_TEN', '2.0', 'Nokia Corporation', 'B', 'L2', '2020-01-02');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P05', 'CM_TEN', '2.0', 'Nokia Corporation', 'C', 'L3', '2020-01-03');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P06', 'CM_TEN', '2.0', 'Nokia Corporation', 'C', 'L3', '2020-01-03');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P07', 'CM_TEN', NULL, 'Nokia Corporation', 'D', 'L1', '2020-01-04');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P08', 'CM_TEN', NULL, 'Nokia Corporation', 'D', 'L1', '2020-01-04');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P09', 'CM_TEN', NULL, 'Nokia Corporation', NULL, NULL, NULL);
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P10', 'CM_TEN', NULL, 'Nokia Corporation', NULL, NULL, NULL);
+
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P11', 'CM_TWO', '1.0', 'Nokia Corporation', 'A', 'L1', '2020-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P12', 'CM_TWO', '2.0', 'Nokia Corporation', 'A', 'L1', '2020-01-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests ordering by count___ vs ordering by chip_model (ensures inverse correlation between chip_model alphabetical order and count).
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('Alpha_Chip', 2020.0, 1024.0, 2048.0, '1', 'Yes', 'Yes');
+INSERT INTO "chip_model" ("Model_name", "Launch_year", "RAM_MiB", "ROM_MiB", "Slots", "WiFi", "Bluetooth") VALUES ('Zeta_Chip', 2020.0, 1024.0, 2048.0, '1', 'Yes', 'Yes');
+
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P1', 'Alpha_Chip', NULL, 'Nokia Corporation', 'T1', 'L1', '2020-01-01');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P2', 'Alpha_Chip', NULL, 'Nokia Corporation', 'T1', 'L1', '2020-01-02');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P3', 'Alpha_Chip', NULL, 'Nokia Corporation', 'T1', 'L1', '2020-01-03');
+INSERT INTO "phone" ("Hardware_Model_name", "chip_model", "screen_mode", "Company_name", "Accreditation_type", "Accreditation_level", "Date") VALUES ('P4', 'Zeta_Chip', NULL, 'Nokia Corporation', 'T1', 'L1', '2020-01-04');
+```

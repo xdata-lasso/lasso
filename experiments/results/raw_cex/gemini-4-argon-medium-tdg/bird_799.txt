@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Comprehensive dataset: tests multiple heroes for publisher 1, boundary publisher IDs (0, 2), NULL foreign keys, NULL attributes, and wrong join conditions (e.g., T1.id = T2.id).
+INSERT INTO publisher (id, publisher_name) VALUES (0, 'Zero Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'ABC Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Dark Horse Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (3, 'DC Comics');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO gender (id, gender) VALUES (2, 'Female');
+
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO colour (id, colour) VALUES (2, 'Black');
+
+INSERT INTO race (id, race) VALUES (1, 'Human');
+INSERT INTO race (id, race) VALUES (2, 'Mutant');
+
+INSERT INTO alignment (id, alignment) VALUES (1, 'Good');
+INSERT INTO alignment (id, alignment) VALUES (2, 'Bad');
+
+-- Hero 1 has id=1, but belongs to publisher 2 (kills mutants filtering on T1.id = 1 or joining T1.id = T2.id)
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (1, 'Hero One', 'One Smith', 1, 1, 1, 1, 1, 2, 1, 180, 80);
+
+-- Hero 2 and 3 belong to publisher 1 (kills COUNT(DISTINCT T1.publisher_id) or COUNT(DISTINCT T2.id))
+-- Hero 2 has NULL superhero_name and full_name (kills COUNT(T1.superhero_name))
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (2, NULL, NULL, 2, 2, 2, 2, 2, 1, 2, 170, 65);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (3, 'Hero Three', 'Three Jones', 2, 2, 2, 2, 2, 1, 2, 190, 90);
+
+-- Hero 4 has publisher_id = 0 (kills T2.id <= 1 or T2.id < 1)
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (4, 'Hero Four', 'Four Brown', 1, 1, 1, 1, 1, 0, 1, 175, 75);
+
+-- Hero 5 has publisher_id = NULL (kills LEFT JOIN mutants without proper WHERE filtering)
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (5, 'Hero Five', 'Five Davis', 1, 1, 1, 1, 1, NULL, 1, 185, 85);
+```
+
+```sql
+-- DATASET 2
+-- Boundary dataset: Publisher 1 exists, but has NO superheroes (Gold Query returns 0).
+-- Kills RIGHT JOIN / LEFT JOIN FROM publisher where COUNT(*) or COUNT(T2.id) is used instead of COUNT(T1.id), and kills mutants that omit the WHERE clause.
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Lonely Publisher');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Active Publisher');
+
+INSERT INTO superhero (id, superhero_name, full_name, publisher_id) VALUES (1, 'Active Hero 1', 'Full Name 1', 2);
+INSERT INTO superhero (id, superhero_name, full_name, publisher_id) VALUES (2, 'Active Hero 2', 'Full Name 2', 2);
+```
+
+```sql
+-- DATASET 3
+-- Cross-column confusion dataset: All foreign keys EXCEPT publisher_id are set to 1 for some heroes, while publisher_id = 1 has other foreign keys set to 2.
+-- Kills mutants that join or filter on gender_id = 1, race_id = 1, alignment_id = 1, eye_colour_id = 1, hair_colour_id = 1, skin_colour_id = 1, height_cm = 1, or weight_kg = 1.
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Target Publisher');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Other Publisher');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Gender 1');
+INSERT INTO gender (id, gender) VALUES (2, 'Gender 2');
+
+INSERT INTO colour (id, colour) VALUES (1, 'Colour 1');
+INSERT INTO colour (id, colour) VALUES (2, 'Colour 2');
+
+INSERT INTO race (id, race) VALUES (1, 'Race 1');
+INSERT INTO race (id, race) VALUES (2, 'Race 2');
+
+INSERT INTO alignment (id, alignment) VALUES (1, 'Alignment 1');
+INSERT INTO alignment (id, alignment) VALUES (2, 'Alignment 2');
+
+-- Decoy heroes: every possible attribute/FK is 1, except publisher_id (which is 2) and id.
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (10, '1', '1', 1, 1, 1, 1, 1, 2, 1, 1, 1);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (20, '1', '1', 1, 1, 1, 1, 1, 2, 1, 1, 1);
+
+-- Target hero: publisher_id is 1, every other attribute/FK is 2 (and publisher_name is NULL to kill COUNT(T2.publisher_name)).
+UPDATE publisher SET publisher_name = NULL WHERE id = 1;
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (30, '2', '2', 2, 2, 2, 2, 2, 1, 2, 2, 2);
+```
+
+```sql
+-- DATASET 4
+-- Auxiliary tables and SUM vs COUNT dataset:
+-- Tests if mutant mistakenly joins hero_power or hero_attribute (causing row multiplication), or uses SUM(T1.id) / AVG(T1.id) / MAX(T1.id) / MIN(T1.id) instead of COUNT(T1.id).
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+
+INSERT INTO superpower (id, power_name) VALUES (1, 'Flight');
+INSERT INTO superpower (id, power_name) VALUES (2, 'Strength');
+
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Intelligence');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Speed');
+
+-- Single hero with ID=100 for publisher 1.
+-- Gold COUNT(T1.id) = 1. SUM(T1.id) = 100, MAX(T1.id) = 100, MIN(T1.id) = 100.
+INSERT INTO superhero (id, superhero_name, full_name, publisher_id, height_cm, weight_kg) VALUES (100, 'Centurion', 'Maximus', 1, 200, 100);
+
+-- Multiple powers and attributes for hero 100 (kills mutants that unnecessarily join hero_power or hero_attribute).
+INSERT INTO hero_power (hero_id, power_id) VALUES (100, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (100, 2);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (100, 1, 50);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (100, 2, 80);
+```

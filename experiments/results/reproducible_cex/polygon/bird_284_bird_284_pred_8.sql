@@ -1,0 +1,34 @@
+-- Schema DDL
+CREATE TABLE "atom" ("atom_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "element" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "bond" ("bond_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "bond_type" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "connected" ("atom_id" TEXT NOT NULL, "atom_id2" TEXT NOT NULL, "bond_id" TEXT DEFAULT NULL, PRIMARY KEY ("atom_id", "atom_id2"), FOREIGN KEY ("atom_id") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("atom_id2") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("bond_id") REFERENCES "bond" ("bond_id") ON DELETE CASCADE ON UPDATE CASCADE);
+
+CREATE TABLE "molecule" ("molecule_id" TEXT NOT NULL PRIMARY KEY, "label" TEXT DEFAULT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('te16', 'te18', 'te');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('c15', 'te18', 'te26');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('te20', 'te18', 'c25');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('c19', 'c17', 'te18');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('te18', 'te18');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('c17', 'te18');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT T2.bond_type FROM atom AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.element = 'te';
+
+/*
+Gold Result:
+('c25',)
+*/
+
+-- Prediction Query
+SELECT T1.bond_type FROM bond AS T1 INNER JOIN atom AS T2 ON T1.molecule_id = T2.molecule_id WHERE T2.element = 'c';
+
+/*
+Prediction Result:
+*/

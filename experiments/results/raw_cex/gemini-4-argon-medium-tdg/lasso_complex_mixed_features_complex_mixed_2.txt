@@ -1,0 +1,182 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN on Prescriptions: Treatment with 1 prescription vs multiple prescriptions vs 0 prescriptions.
+-- 2. SUM(t.cost + m.base_price) vs SUM(t.cost) + SUM(m.base_price) when a treatment has multiple prescriptions (t.cost is added per prescription row).
+-- 3. COUNT(DISTINCT a.patient_id) vs COUNT(a.patient_id) vs COUNT(DISTINCT a.admit_id) (same patient admitted twice, and multiple prescriptions per admission).
+-- 4. WHERE conditions: discharge_date IS NOT NULL vs IS NULL; admit_date in '2023' vs '2022'/'2024'; admit_date vs discharge_date vs treatment_date year checks.
+
+INSERT INTO Departments (dept_id, name, building) VALUES (1, 'Cardiology', 'Building A');
+INSERT INTO Departments (dept_id, name, building) VALUES (2, 'Neurology', 'Building B');
+
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (101, 'Dr. Smith', 1, 'Heart');
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (102, 'Dr. Adams', 2, 'Brain');
+
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1001, 'Alice', 'F', '1980-05-10');
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1002, 'Bob', 'M', '1975-08-20');
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1003, 'Charlie', 'M', '1990-01-15');
+
+-- Valid 2023 admission 1 for Alice
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2001, 1001, '2023-01-10', '2023-01-15', 'Arrhythmia');
+-- Valid 2023 admission 2 for Alice (same patient, different admission, discharge in 2024 to test year check on admit_date vs discharge_date)
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2002, 1001, '2023-12-28', '2024-01-05', 'Follow-up');
+-- Invalid admission: discharge_date IS NULL
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2003, 1002, '2023-06-01', NULL, 'Ongoing');
+-- Invalid admission: admit_date in 2022, even though discharge_date is in 2023
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2004, 1003, '2022-12-30', '2023-01-04', 'Stroke');
+
+INSERT INTO Medications (med_id, name, base_price) VALUES (301, 'Aspirin', 10.5);
+INSERT INTO Medications (med_id, name, base_price) VALUES (302, 'BetaBlocker', 25.0);
+INSERT INTO Medications (med_id, name, base_price) VALUES (303, 'NeuroMed', 50.0);
+
+-- Treatment for valid admission 2001, with TWO prescriptions (tests t.cost multiplication in join)
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4001, 2001, 101, '2023-01-12', 100.0);
+-- Treatment for valid admission 2002, with ONE prescription (treatment_date in 2024 to distinguish from admit_date year)
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4002, 2002, 101, '2024-01-02', 200.0);
+-- Treatment for valid admission 2001, with ZERO prescriptions (should be excluded by INNER JOIN Prescriptions)
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4003, 2001, 101, '2023-01-13', 500.0);
+-- Treatment for invalid admission 2003 (NULL discharge_date)
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4004, 2003, 102, '2023-06-02', 300.0);
+-- Treatment for invalid admission 2004 (2022 admit_date, 2023 treatment_date)
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4005, 2004, 102, '2023-01-02', 400.0);
+
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5001, 4001, 301, '100mg');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5002, 4001, 302, '50mg');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5003, 4002, 301, '100mg');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5004, 4004, 303, '10mg');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5005, 4005, 303, '20mg');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. GROUP BY d.name, doc.name vs GROUP BY d.dept_id, doc.doc_id:
+--    - Two different departments with the SAME d.name ('General') and two different doctors with the SAME doc.name ('Dr. Taylor').
+--    - Two doctors with the same name in different departments.
+--    - Two departments with the same name but different dept_ids.
+
+INSERT INTO Departments (dept_id, name, building) VALUES (1, 'General', 'North Wing');
+INSERT INTO Departments (dept_id, name, building) VALUES (2, 'General', 'South Wing');
+INSERT INTO Departments (dept_id, name, building) VALUES (3, 'Surgery', 'East Wing');
+
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (101, 'Dr. Taylor', 1, 'GP');
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (102, 'Dr. Taylor', 2, 'Internal');
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (103, 'Dr. Taylor', 3, 'Trauma');
+
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1001, 'Pat One', 'F', '1985-03-12');
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1002, 'Pat Two', 'M', '1992-07-23');
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1003, 'Pat Three', 'F', '1978-11-30');
+
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2001, 1001, '2023-03-01', '2023-03-05', 'Flu');
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2002, 1002, '2023-04-01', '2023-04-05', 'Cold');
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2003, 1003, '2023-05-01', '2023-05-05', 'Fracture');
+
+INSERT INTO Medications (med_id, name, base_price) VALUES (301, 'MedA', 15.0);
+INSERT INTO Medications (med_id, name, base_price) VALUES (302, 'MedB', 30.0);
+
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4001, 2001, 101, '2023-03-02', 50.0);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4002, 2002, 102, '2023-04-02', 70.0);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4003, 2003, 103, '2023-05-02', 90.0);
+
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5001, 4001, 301, '1x');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5002, 4002, 302, '2x');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5003, 4003, 301, '3x');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. ORDER BY tie-breakers and NULLS LAST behavior:
+--    - Tied total_revenue, broken by dept_name ASC NULLS LAST.
+--    - Tied total_revenue and dept_name, broken by doctor_name ASC NULLS LAST.
+--    - NULL values in d.name and doc.name (testing NULLS LAST vs default SQLite NULLS FIRST).
+-- 2. Arithmetic with NULLs:
+--    - t.cost + m.base_price when one of them is NULL (in SQL, X + NULL = NULL, which differs from SUM(t.cost) + SUM(m.base_price)).
+
+INSERT INTO Departments (dept_id, name, building) VALUES (1, 'Alpha', 'B1');
+INSERT INTO Departments (dept_id, name, building) VALUES (2, 'Beta', 'B2');
+INSERT INTO Departments (dept_id, name, building) VALUES (3, NULL, 'B3');
+
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (101, 'Dr. A', 1, 'Spec1');
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (102, 'Dr. B', 1, 'Spec2');
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (103, NULL, 1, 'Spec3');
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (104, 'Dr. A', 2, 'Spec4');
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (105, 'Dr. A', 3, 'Spec5');
+
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1001, 'P1', 'M', '2000-01-01');
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1002, 'P2', 'F', '2000-01-02');
+
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2001, 1001, '2023-07-10', '2023-07-12', 'D1');
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2002, 1002, '2023-08-10', '2023-08-12', 'D2');
+
+INSERT INTO Medications (med_id, name, base_price) VALUES (301, 'M1', 20.0);
+INSERT INTO Medications (med_id, name, base_price) VALUES (302, 'M_NullPrice', NULL);
+
+-- All 5 doctors below get exact same total_revenue = 100.0 (80 + 20) to force ORDER BY tie-breakers (dept_name, doctor_name, NULLS LAST)
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4001, 2001, 101, '2023-07-11', 80.0);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4002, 2001, 102, '2023-07-11', 80.0);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4003, 2001, 103, '2023-07-11', 80.0);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4004, 2001, 104, '2023-07-11', 80.0);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4005, 2001, 105, '2023-07-11', 80.0);
+
+-- Extra treatment for doc 101 with NULL medication base_price (80.0 + NULL = NULL, so total_revenue for doc 101 stays 100.0, whereas SUM(cost)+SUM(base_price) would be 180.0)
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4006, 2002, 101, '2023-08-11', 80.0);
+
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5001, 4001, 301, '10mg');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5002, 4002, 301, '10mg');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5003, 4003, 301, '10mg');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5004, 4004, 301, '10mg');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5005, 4005, 301, '10mg');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5006, 4006, 302, '10mg');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Unmatched rows across all tables (Departments without Doctors, Doctors without Dept, Doctors without Treatments, Admissions without Treatments, Medications without Prescriptions, Prescriptions with NULL med_id/treat_id, Treatments with NULL doc_id/admit_id).
+-- 2. Boundary dates for 2023 ('2023-01-01' and '2023-12-31') vs '2022-12-31' and '2024-01-01'.
+-- 3. Different revenues to strictly test ORDER BY total_revenue DESC vs ASC.
+
+INSERT INTO Departments (dept_id, name, building) VALUES (1, 'Oncology', 'West');
+INSERT INTO Departments (dept_id, name, building) VALUES (2, 'Pediatrics', 'East');
+INSERT INTO Departments (dept_id, name, building) VALUES (3, 'EmptyDept', 'North');
+
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (101, 'Dr. HighRev', 1, 'Chemo');
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (102, 'Dr. LowRev', 2, 'Care');
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (103, 'Dr. NoDept', NULL, 'Freelance');
+INSERT INTO Doctors (doc_id, name, dept_id, specialty) VALUES (104, 'Dr. NoTreat', 1, 'Research');
+
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1001, 'PatA', 'F', '1960-01-01');
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1002, 'PatB', 'M', '2015-06-01');
+INSERT INTO Patients (patient_id, name, gender, dob) VALUES (1003, 'PatC', 'F', '1999-09-09');
+
+-- Exact boundary dates of 2023
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2001, 1001, '2023-01-01', '2023-01-02', 'Diag1');
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2002, 1002, '2023-12-31', '2023-12-31', 'Diag2');
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2003, 1003, '2023-05-15', '2023-05-20', 'Diag3');
+-- Boundary dates outside 2023
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2004, 1001, '2022-12-31', '2023-01-01', 'Diag4');
+INSERT INTO Admissions (admit_id, patient_id, admit_date, discharge_date, diagnosis) VALUES (2005, 1002, '2024-01-01', '2024-01-02', 'Diag5');
+
+INSERT INTO Medications (med_id, name, base_price) VALUES (301, 'ExpensiveMed', 250.75);
+INSERT INTO Medications (med_id, name, base_price) VALUES (302, 'CheapMed', 5.25);
+INSERT INTO Medications (med_id, name, base_price) VALUES (303, 'UnusedMed', 999.0);
+
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4001, 2001, 101, '2023-01-01', 1000.50);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4002, 2003, 101, '2023-05-16', 500.00);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4003, 2002, 102, '2023-12-31', 40.00);
+-- Orphaned/unmatched treatments
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4004, 2001, 103, '2023-01-01', 300.00);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4005, NULL, 101, '2023-01-01', 300.00);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4006, 2004, 102, '2022-12-31', 300.00);
+INSERT INTO Treatments (treat_id, admit_id, doc_id, treatment_date, cost) VALUES (4007, 2005, 102, '2024-01-01', 300.00);
+
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5001, 4001, 301, 'Dose1');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5002, 4002, 301, 'Dose2');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5003, 4003, 302, 'Dose3');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5004, 4004, 301, 'Dose4');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5005, 4005, 301, 'Dose5');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5006, 4001, NULL, 'DoseNullMed');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5007, 4006, 302, 'Dose2022');
+INSERT INTO Prescriptions (presc_id, treat_id, med_id, dosage) VALUES (5008, 4007, 302, 'Dose2024');
+```

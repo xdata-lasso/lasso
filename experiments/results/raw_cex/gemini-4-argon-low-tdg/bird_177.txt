@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Core match vs. boundary conditions on client_id (3, 4, 5) and trans_id (850, 851, 852).
+-- Crucially, Client 4 is linked via `disp` to Account 20, while the district-matched Account is 10.
+-- This kills mutants that join `client -> disp -> account` instead of `client.district_id = account.district_id`.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '200', '2', '2', '2', 2, 2, 2.0, 2, 2.0, 2.0, 2, 2, 2);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'M', '1979-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'F', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (5, 'M', '1981-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (6, 'M', '1982-01-01', 2);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 2, 'POPLATEK TYDNE', '1995-01-02');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (100, 4, 20, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (101, 6, 10, 'OWNER');
+
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (850, 10, '1996-01-01', 'PRIJEM', 'VKLAD', 111, 1000, 'S1', 'B1', 20);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (851, 10, '1996-01-02', 'PRIJEM', 'VKLAD', 222, 5000, 'S2', 'B2', 20);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (852, 10, '1996-01-03', 'PRIJEM', 'VKLAD', 333, 9000, 'S3', 'B3', 20);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set when client_id = 4 and trans_id = 851 both exist, 
+-- AND Client 4 is the OWNER of the account with trans 851 via `disp`, 
+-- BUT they are in different districts (so T1.district_id = T2.district_id is FALSE).
+-- Kills OR mutants (client_id=4 OR trans_id=851), LEFT JOIN mutants, and disp-based join mutants.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '200', '2', '2', '2', 2, 2, 2.0, 2, 2.0, 2.0, 2, 2, 2);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'M', '1980-05-05', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'F', '1985-05-05', 2);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (100, 1, 'POPLATEK MESICNE', '1993-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (200, 2, 'POPLATEK MESICNE', '1993-01-01');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 4, 200, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 10, 100, 'OWNER');
+
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (851, 200, '1998-01-01', 'VYDAJ', 'VYBER', 500, 12345, 'S1', 'B1', 100);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (999, 100, '1998-01-01', 'VYDAJ', 'VYBER', 600, 67890, 'S1', 'B1', 200);
+```
+
+```sql
+-- DATASET 3
+-- Tests accidental column mix-ups in joins (e.g., T1.client_id = T2.account_id, T1.client_id = T2.district_id,
+-- or T2.account_id = T3.account [partner account] instead of T3.account_id).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (4, 'D4', 'R4', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (50, 'D50', 'R50', '200', '2', '2', '2', 2, 2, 2.0, 2, 2.0, 2.0, 2, 2, 2);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'F', '1970-01-01', 50);
+
+-- Account 4 has account_id = 4 (matches client_id = 4) and district_id = 4 (matches client_id = 4), but is NOT in Client 4's district (50).
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (4, 4, 'POPLATEK MESICNE', '1993-01-01');
+-- Account 500 is in Client 4's district (50).
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (500, 50, 'POPLATEK MESICNE', '1993-01-01');
+
+-- Trans 851 belongs to Account 4, but has partner `account` = 500 and `amount` = 500.
+-- Gold Query must return empty because Trans 851's account_id (4) is in district 4, not 50.
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (851, 4, '1998-01-01', 'PRIJEM', 'PREVOD Z UCTU', 500, 7777, 'S1', 'AB', 500);
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple accounts in the same district, where one account has trans 851 and another has other transactions.
+-- Also tests negative balance, zero amount, and ensures `balance` is projected rather than `amount` or `account_id`,
+-- and `gender` is projected rather than `type` or `frequency`.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (7, 'D7', 'R7', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'M', '1990-12-31', 7);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (71, 7, 'POPLATEK PO OBRATU', '1994-05-05');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (72, 7, 'POPLATEK MESICNE', '1994-06-06');
+
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 4, 71, 'DISPONENT');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 4, 72, 'OWNER');
+
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (851, 71, '1997-07-07', 'VYDAJ', NULL, 0, -450, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (852, 72, '1997-07-08', 'PRIJEM', 'VKLAD', 1000, 25000, 'UROK', NULL, NULL);
+```

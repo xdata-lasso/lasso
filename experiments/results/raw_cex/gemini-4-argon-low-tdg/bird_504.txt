@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Comprehensive dataset testing boundary conditions, multiple matching sets, NULLs, and joins on wrong columns (e.g., id vs code, faceConvertedManaCost vs convertedManaCost).
+INSERT INTO "sets" (id, code, name, mcmName, parentCode, keyruneCode) VALUES (1, 'WC04', 'World Championship Decks 2004', 'World Championship Decks 2004', 'WC04', 'WC04');
+INSERT INTO "sets" (id, code, name, mcmName, parentCode, keyruneCode) VALUES (2, 'WC04_B', 'World Championship Decks 2004', 'Other Name', 'OTHER', 'OTHER');
+INSERT INTO "sets" (id, code, name, mcmName, parentCode, keyruneCode) VALUES (3, 'WC03', 'World Championship Decks 2003', 'World Championship Decks 2004', 'WC04', 'WC04');
+INSERT INTO "sets" (id, code, name, mcmName, parentCode, keyruneCode) VALUES (4, 'WC05', NULL, 'World Championship Decks 2004', NULL, NULL);
+
+-- Valid matches (Expected count = 3)
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (10, 'uuid-1', 'Card A', 'WC04', 3.0, 2.0, 1);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (11, 'uuid-2', 'Card A', 'WC04', 3.0, 3.0, 2);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (12, 'uuid-3', 'Card B', 'WC04_B', 3.0, 4.0, 3);
+
+-- Wrong convertedManaCost (Boundary values & NULL)
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (13, 'uuid-4', 'Card C', 'WC04', 2.0, 3.0, 3);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (14, 'uuid-5', 'Card D', 'WC04', 4.0, 3.0, 3);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (15, 'uuid-6', 'Card E', 'WC04', 3.5, 3.0, 3);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (16, 'uuid-7', 'Card F', 'WC04', NULL, 3.0, 3);
+
+-- Wrong setCode (Other sets, NULL setCode, or matching set.name instead of set.code)
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (17, 'uuid-8', 'Card G', 'WC03', 3.0, 3.0, 3);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (18, 'uuid-9', 'Card H', NULL, 3.0, 3.0, 3);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (19, 'uuid-10', 'Card I', 'World Championship Decks 2004', 3.0, 3.0, 3);
+
+-- Trap for joining cards.id = sets.id
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost, edhrecRank) VALUES (1, 'uuid-11', 'Card J', 'WC03', 3.0, 3.0, 3);
+```
+
+```sql
+-- DATASET 2
+-- Dataset where the target set exists, and cards with CMC=3 exist, but their intersection is empty (Expected count = 0).
+-- Kills mutants using OR instead of AND, LEFT JOINs counting rows instead of matching cards, or missing WHERE clauses.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'WC04', 'World Championship Decks 2004');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'OTHER', 'Other Set');
+
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost) VALUES (1, 'uuid-201', 'WC04', 2.0);
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost) VALUES (2, 'uuid-202', 'WC04', 4.0);
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost) VALUES (3, 'uuid-203', 'OTHER', 3.0);
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost) VALUES (4, 'uuid-204', 'OTHER', 3.0);
+```
+
+```sql
+-- DATASET 3
+-- Dataset testing COUNT(column) vs COUNT(DISTINCT column) when nullable attributes on matching cards are NULL or duplicated.
+-- Also tests substring/LIKE mutations on set name (e.g., LIKE '%World Championship Decks 2004%').
+INSERT INTO "sets" (id, code, name) VALUES (1, 'WC04', 'World Championship Decks 2004');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'WC04_EXT', 'World Championship Decks 2004 Extra');
+INSERT INTO "sets" (id, code, name) VALUES (3, 'WC04_PRE', 'Pre World Championship Decks 2004');
+
+-- All matching cards have NULL in other columns (artist, name, etc.) and identical setCode/convertedManaCost.
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost, name, artist, manaCost) VALUES (100, 'uuid-301', 'WC04', 3.0, NULL, NULL, NULL);
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost, name, artist, manaCost) VALUES (101, 'uuid-302', 'WC04', 3.0, NULL, NULL, NULL);
+
+-- Cards belonging to sets with superstring names
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost, name, artist, manaCost) VALUES (102, 'uuid-303', 'WC04_EXT', 3.0, 'Card X', 'Artist X', '{3}');
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost, name, artist, manaCost) VALUES (103, 'uuid-304', 'WC04_PRE', 3.0, 'Card Y', 'Artist Y', '{3}');
+```
+
+```sql
+-- DATASET 4
+-- Dataset testing 1-to-N relationships with child tables (rulings, foreign_data, legalities, set_translations).
+-- Kills mutants that unnecessarily join child tables without DISTINCT, or join the wrong tables.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'WC04', 'World Championship Decks 2004');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'de', 'WC04', 'Translation 1');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'fr', 'WC04', 'Translation 2');
+
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost, name) VALUES (1, 'uuid-401', 'WC04', 3.0, 'World Championship Decks 2004');
+
+INSERT INTO "rulings" (id, date, text, uuid) VALUES (1, '2004-01-01', 'Ruling 1', 'uuid-401');
+INSERT INTO "rulings" (id, date, text, uuid) VALUES (2, '2004-01-02', 'Ruling 2', 'uuid-401');
+
+INSERT INTO "foreign_data" (id, language, name, uuid) VALUES (1, 'German', 'Card DE', 'uuid-401');
+INSERT INTO "foreign_data" (id, language, name, uuid) VALUES (2, 'French', 'Card FR', 'uuid-401');
+
+INSERT INTO "legalities" (id, format, status, uuid) VALUES (1, 'Vintage', 'Legal', 'uuid-401');
+INSERT INTO "legalities" (id, format, status, uuid) VALUES (2, 'Legacy', 'Legal', 'uuid-401');
+```
+
+```sql
+-- DATASET 5
+-- Dataset testing string vs numeric comparison traps on manaCost vs convertedManaCost, and case sensitivity on set name and setCode.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'WC04', 'World Championship Decks 2004');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'wc04_lower', 'world championship decks 2004');
+
+-- Valid card
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost, manaCost, power, toughness, loyalty, life, hand) VALUES (1, 'uuid-501', 'WC04', 3.0, '{2}{G}', '2', '2', '4', '4', '4');
+
+-- Traps: other columns equal to '3' or 3, or case mismatch on set name / setCode
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost, manaCost, power, toughness, loyalty, life, hand) VALUES (2, 'uuid-502', 'WC04', 5.0, '3', '3', '3', '3', '3', '3');
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost, manaCost, power, toughness, loyalty, life, hand) VALUES (3, 'uuid-503', 'wc04', 3.0, '{3}', '3', '3', '3', '3', '3');
+INSERT INTO "cards" (id, uuid, setCode, convertedManaCost, manaCost, power, toughness, loyalty, life, hand) VALUES (4, 'uuid-504', 'wc04_lower', 3.0, '{3}', '3', '3', '3', '3', '3');
+```

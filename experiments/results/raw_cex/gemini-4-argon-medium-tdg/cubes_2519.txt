@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests boundary values for product_price (exact 100.0, just below, just above, NULL), ORDER BY direction, and duplicate elimination (DISTINCT vs ALL).
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "City_Town") VALUES ('1', '100 Main St', 'London');
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Store_Name") VALUES (1, 1, 'Alpha Workshop');
+
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('ST1', NULL, 'Zebra Service');
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('ST2', 'ST1', 'Alpha Service');
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('ST3', NULL, 'Beta Service');
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('ST4', NULL, 'Unmatched Service');
+
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (1, 'ST1', 1, 'Desc Z1', 'Prod Z1', 100.0, 'Boundary exact');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (2, 'ST1', 1, 'Desc Z2', 'Prod Z2', 150.0, 'Duplicate service type above threshold');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (3, 'ST2', 1, 'Desc A1', 'Prod A1', 250.5, 'Above threshold');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (4, 'ST3', 1, 'Desc B1', 'Prod B1', 99.9999, 'Just below threshold');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (5, 'ST3', 1, 'Desc B2', 'Prod B2', NULL, 'NULL price');
+```
+
+```sql
+-- DATASET 2
+-- Tests JOIN conditions (Parent_Service_Type_Code vs Service_Type_Code), NULL Service_Type_Code in Services, and decoy Products table.
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "City_Town") VALUES ('10', '200 Broadway', 'New York');
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Store_Name") VALUES (10, 10, 'Broadway Group');
+
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('PARENT_1', 'ROOT', 'Parent Description');
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('CHILD_1', 'PARENT_1', 'Child Description');
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('ORPHAN', 'CHILD_1', 'Orphan Description');
+
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (101, 'CHILD_1', 10, 'Wrong Desc 1', 'Wrong Name 1', 120.0, 'Matches CHILD_1, which is also Parent of ORPHAN');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (102, NULL, 10, 'Null Type Desc', 'Null Type Name', 200.0, 'NULL FK should not join');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (103, 'PARENT_1', NULL, 'Null Workshop Desc', 'Null Workshop Name', 100.0, 'Valid Service Type, NULL Workshop');
+
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('CHILD_1', 'Decoy Product', 500.0, 'Decoy Product Description', 'Decoy Details');
+```
+
+```sql
+-- DATASET 3
+-- Tests aggregate confusion (SUM/MAX/AVG(product_price) >= 100 vs row-level product_price >= 100) and column projection confusion.
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('S_LOW', NULL, 'Low Cost Service');
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('S_MIX', NULL, 'Mixed Cost Service');
+
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (201, 'S_LOW', NULL, 'Prod_Desc_A', 'Prod_Name_A', 60.0, 'Details_A');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (202, 'S_LOW', NULL, 'Prod_Desc_B', 'Prod_Name_B', 60.0, 'Details_B');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (203, 'S_MIX', NULL, 'Prod_Desc_C', 'Prod_Name_C', 20.0, 'Details_C');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (204, 'S_MIX', NULL, 'Prod_Desc_D', 'Prod_Name_D', 110.0, 'Details_D');
+```
+
+```sql
+-- DATASET 4
+-- Tests sorting edge cases, NULL service_type_description, and negative/zero prices.
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('T_NULL', NULL, NULL);
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('T_B', NULL, 'B_Type');
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('T_A', NULL, 'A_Type');
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('T_NEG', NULL, 'Negative_Type');
+
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (301, 'T_NULL', NULL, 'Desc 1', 'Name 1', 100.0, 'Detail 1');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (302, 'T_B', NULL, 'A_Prod_Desc', 'Z_Prod_Name', 100.01, 'Detail 2');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (303, 'T_A', NULL, 'Z_Prod_Desc', 'A_Prod_Name', 9999.99, 'Detail 3');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (304, 'T_NEG', NULL, 'Neg Desc', 'Neg Name', -150.0, 'Negative price whose ABS is >= 100');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (305, 'T_NEG', NULL, 'Zero Desc', 'Zero Name', 0.0, 'Zero price');
+```

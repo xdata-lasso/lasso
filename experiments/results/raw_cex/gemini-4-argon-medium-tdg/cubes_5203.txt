@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests standard grouping, duplicate count preservation (no DISTINCT), ordering, and NULL foreign keys (filtered out by EXISTS)
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Alice', 'Regular');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Bob', 'VIP');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (10, 'Laptop', 'Electronics');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (20, 'Mouse', 'Accessories');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (100, 1, 'Shipped', '2023-01-01 10:00:00', 'First Order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (200, 2, 'Pending', '2023-01-02 11:00:00', 'Second Order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (300, 1, 'Cancelled', '2023-01-03 12:00:00', 'Unreferenced Order');
+
+-- Group 'Detail_A': 3 valid items across different orders and products, plus 1 item with NULL order_id (should be excluded by EXISTS)
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 10, 100, 'Delivered', 'Detail_A');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 20, 100, 'Delivered', 'Detail_A');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (3, 10, 200, 'Pending', 'Detail_A');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (4, 10, NULL, 'Cancelled', 'Detail_A');
+
+-- Group 'Detail_B': 1 valid item
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (5, 20, 200, 'Shipped', 'Detail_B');
+
+-- Group 'Detail_C': 1 valid item (creates duplicate count of 1 with Detail_B to catch SELECT DISTINCT mutants)
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (6, 10, 100, 'Shipped', 'Detail_C');
+
+-- Group 'Detail_D': 2 valid items
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (7, 10, 100, 'Pending', 'Detail_D');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (8, 20, 200, 'Pending', 'Detail_D');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL values in the grouping column (order_item_details) and COUNT(*) vs COUNT(order_item_details) or COUNT(product_id)
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Charlie', 'Standard');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (10, 'Keyboard', 'Peripherals');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (50, 1, 'New', '2023-05-01 09:00:00', 'Order 50');
+
+-- Group NULL: 2 valid items with NULL order_item_details and NULL product_id
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (10, NULL, 50, 'New', NULL);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (11, 10, 50, NULL, NULL);
+
+-- Group 'NonNull_Detail': 3 valid items
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (12, 10, 50, 'New', 'NonNull_Detail');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (13, NULL, 50, 'New', 'NonNull_Detail');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (14, 10, 50, 'New', 'NonNull_Detail');
+
+-- Group 'OnlyNullOrder': Only has NULL order_id, so this entire group should vanish
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (15, 10, NULL, 'New', 'OnlyNullOrder');
+```
+
+```sql
+-- DATASET 3
+-- Tests edge case where Orders exist, Order_Items exist, but no Order_Items link to a valid Order (all order_id are NULL)
+-- Also includes data in Shipment/Invoice tables to catch mutants that mistakenly join other tables
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Dave', 'Test');
+
+INSERT INTO "Invoices" ("invoice_number", "invoice_date", "invoice_details") VALUES (500, '2023-06-01 00:00:00', 'Inv 500');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (99, 1, 'Closed', '2023-06-01 00:00:00', 'Empty Order');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (5, 'Monitor', 'Display');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (100, 5, NULL, 'Orphaned', 'Orphan_Detail_1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (101, 5, NULL, 'Orphaned', 'Orphan_Detail_2');
+
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (1000, 500, 99, 'TRK123', '2023-06-02 00:00:00', 'Shipped empty');
+
+INSERT INTO "Shipment_Items" ("shipment_id", "order_item_id") VALUES (1000, 100);
+```
+
+```sql
+-- DATASET 4
+-- Tests distinguishing grouping by order_item_details vs grouping by order_id, product_id, or order_item_status
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (10, 'Eve', 'VIP');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'Prod1', 'P1');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (2, 'Prod2', 'P2');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, 10, 'Active', '2023-07-01 00:00:00', 'O1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, 10, 'Active', '2023-07-02 00:00:00', 'O2');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (3, 10, 'Active', '2023-07-03 00:00:00', 'O3');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (4, 10, 'Active', '2023-07-04 00:00:00', 'O4');
+
+-- All 4 items have the SAME order_item_details ('SameDetail'), so count is 4.
+-- However, they have different order_ids (1, 2, 3, 4), different product_ids (1, 2), and different statuses ('S1', 'S2', 'S3').
+-- Any mutant grouping by order_id, product_id, or order_item_status instead of order_item_details will produce different counts.
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 1, 1, 'S1', 'SameDetail');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 1, 2, 'S1', 'SameDetail');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (3, 2, 3, 'S2', 'SameDetail');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (4, 2, 4, 'S3', 'SameDetail');
+
+-- Furthermore, only order_item_id=1 is in Shipment_Items; mutants joining Shipment_Items will fail.
+INSERT INTO "Invoices" ("invoice_number", "invoice_date", "invoice_details") VALUES (1, '2023-07-05 00:00:00', 'Inv1');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (1, 1, 1, 'TRK1', '2023-07-05 00:00:00', 'SD1');
+INSERT INTO "Shipment_Items" ("shipment_id", "order_item_id") VALUES (1, 1);
+```

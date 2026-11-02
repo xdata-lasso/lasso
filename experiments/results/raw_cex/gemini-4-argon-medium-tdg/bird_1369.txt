@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests standard ordering vs mutants ordering by spent, remaining, or ASC instead of DESC, or missing LIMIT 1.
+-- Also tests mutants that add arbitrary WHERE clauses (e.g., status = 'Closed') or select wrong columns (type, notes, location).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Winner Event', '2023-01-01', 'Social', 'Note 1', 'Room A', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'High Spent Event', '2023-02-01', 'Meeting', 'Note 2', 'Room B', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'High Remaining Event', '2023-03-01', 'Fundraiser', 'Note 3', 'Room C', 'Planned');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 100.0, 50.0, 5000, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Advertisement', 9000.0, 100.0, 3000, 'Closed', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Parking', 50.0, 8000.0, 1000, 'Planned', 'E3');
+```
+
+```sql
+-- DATASET 2
+-- Tests SUM(amount) GROUP BY event vs single highest budget.amount.
+-- Event E2 has a higher total sum of budget amounts (600 + 600 = 1200), while E1 has the single highest budget amount (1000).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Single Max Event', '2023-05-01', 'Workshop', 'N1', 'Hall 1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Sum Max Event', '2023-05-02', 'Seminar', 'N2', 'Hall 2', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Supplies', 10.0, 990.0, 1000, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 10.0, 590.0, 600, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Drinks', 10.0, 590.0, 600, 'Open', 'E2');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN and NULL handling.
+-- Includes a budget with NULL link_to_event (highest amount) and an unlinked event.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Orphan Event', '2023-06-01', 'Party', 'No budget', 'Lawn', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Valid Joined Event', '2023-06-02', 'Conference', 'Has budget', 'Auditorium', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Misc', 0.0, 9999.0, 9999, 'Open', NULL);
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Catering', 200.0, 300.0, 500, 'Open', 'E2');
+```
+
+```sql
+-- DATASET 4
+-- Tests tie-breaking on T1.budget_id (ASC) when T1.amount is tied.
+-- Also tests if a mutant erroneously tie-breaks on T2.event_id or T2.event_name first.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_Z', 'Zebra Event (Should Win)', '2023-07-01', 'TypeA', 'N1', 'Loc1', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_A', 'Alpha Event (Should Lose)', '2023-07-02', 'TypeB', 'N2', 'Loc2', 'Closed');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_1', 'Cat1', 50.0, 50.0, 1000, 'Closed', 'E_Z');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_2', 'Cat2', 50.0, 50.0, 1000, 'Closed', 'E_A');
+```
+
+```sql
+-- DATASET 5
+-- Tests negative budget amounts vs NULL budget amounts.
+-- In SQLite, DESC places INTEGERs before NULLs. Also tests ordering among negative numbers (-10 > -500).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Null Amount Event', '2023-08-01', 'T1', 'N1', 'L1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Small Negative Event', '2023-08-02', 'T2', 'N2', 'L2', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'Large Negative Event', '2023-08-03', 'T3', 'N3', 'L3', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'C1', 0.0, 0.0, NULL, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'C2', 0.0, 0.0, -10, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'C3', 0.0, 0.0, -500, 'Open', 'E3');
+```
+
+```sql
+-- DATASET 6
+-- Tests confusion between budget.amount and income.amount or expense.cost, and tests unnecessary joins with attendance/expense.
+-- E1 has the highest budget.amount but no attendance or expenses. E2 has attendance, expenses, and high member income.
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'NY', 'New York', 'NY');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'CS', 'Eng', 'Engineering');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'John', 'Doe', 'j@d.com', 'Member', 'L', '123', 10001, 'M1');
+
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'No Expense Or Attendance Event', '2023-09-01', 'T1', 'N1', 'L1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Active Event With Expenses', '2023-09-02', 'T2', 'N2', 'L2', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Equipment', 0.0, 2000.0, 2000, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Party', 500.0, 500.0, 1000, 'Open', 'E2');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E2', 'MEM1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Pizza', '2023-09-02', 9999.0, 'true', 'MEM1', 'B2');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2023-09-01', 50000, 'Dues', 'None', 'MEM1');
+```
+
+```sql
+-- DATASET 7
+-- Tests incorrect join condition mutants (e.g., joining on T1.event_status = T2.status or T1.budget_id = T2.event_id).
+-- T1.event_status intentionally differs from T2.status on the winning linked pair.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'True Linked Event', '2023-10-01', 'Meeting', 'N1', 'L1', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('B1', 'Fake ID Match Event', '2023-10-02', 'Social', 'N2', 'L2', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 100.0, 900.0, 1000, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Drinks', 50.0, 50.0, 100, 'Open', 'B1');
+```

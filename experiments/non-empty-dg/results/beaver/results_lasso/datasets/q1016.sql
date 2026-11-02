@@ -1,0 +1,2 @@
+INSERT INTO "space_detail" ("building_key", "floor_key", "space_unit_key", "space_usage_key", "building_room", "building_room_name", "room_number", "room_square_footage", "room_counter", "building_component", "warehouse_load_date") VALUES ('brother', 'ago', 'site', 1001.5, 'face', 'Charles Garcia', 'sit', 1002.5, 1003.5, 'wait', '1970-01-01');
+INSERT INTO "space_unit" ("fclt_organization_key", "space_unit_key", "space_unit_code", "space_unit", "dlc_key", "warehouse_load_date") VALUES ('Miller, Henderson and Johnson', 'site', 'discover', 'A', 'early', '1971-02-02');

@@ -1,0 +1,46 @@
+```sql
+-- DATASET 1
+-- Tests boundary values around 50 (49, 50, 51, -50, 0, NULL), multiple matching rows (count = 2 so COUNT != 1 and COUNT != SUM), duplicate values in other columns (to kill COUNT(DISTINCT source/link_to_member/amount)), NULLs in other columns (to kill COUNT(notes/source/link_to_member)), and an unreferenced member (to kill unnecessary INNER/RIGHT JOINs with member).
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Computer Science', 'CS', 'Engineering');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'Standard', 'New York', 'New York', 'New York', 'NY');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Alice', 'Smith', 'alice@example.com', 'Member', 'M', '111-222-3333', 10001, 'MAJ1');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M2', 'Bob', 'Jones', 'bob@example.com', 'Treasurer', 'L', '444-555-6666', 10001, 'MAJ1');
+
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2023-01-01', 50, 'Dues', NULL, 'M1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC2', '2023-01-01', 50, 'Dues', 'Paid in cash', NULL);
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC3', '2023-01-02', 49, 'Dues', 'Underpaid', 'M1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC4', '2023-01-03', 51, 'Fundraising', 'Overpaid', 'M1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC5', '2023-01-04', 0, 'Donation', 'Zero amount', 'M1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC6', '2023-01-05', -50, 'Refund', 'Negative fifty', 'M1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC7', '2023-01-06', NULL, 'Unknown', 'Null amount', 'M1');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set (0 rows matching amount = 50) while table is non-empty, and includes budget with amount = 50 (to kill queries querying the wrong table 'budget' instead of 'income'). Also tests HAVING/GROUP BY mutations where an empty group returns no rows instead of 0.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Annual Gala', '2023-05-01', 'Social', 'Notes', 'Hall A', 'Planned');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 20.0, 30.0, 50, 'Planned', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Decor', 10.0, 40.0, 50, 'Planned', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Music', 0.0, 50.0, 50, 'Planned', 'E1');
+
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2023-02-01', 25, 'Dues', 'Half dues', NULL);
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC2', '2023-02-02', 25, 'Dues', 'Second half', NULL);
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC3', '2023-02-03', 100, 'Sponsor', 'Double fifty', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests SQLite NULL primary key quirk: in SQLite, a TEXT PRIMARY KEY without NOT NULL allows NULL.
+-- By inserting a row with income_id = NULL and amount = 50, COUNT(income_id) evaluates to 1, whereas COUNT(*) or COUNT(amount) evaluates to 2.
+-- Also includes expense with cost = 50 to kill wrong table/column references.
+INSERT INTO major (major_id, major_name, department, college) VALUES ('MAJ1', 'Math', 'Mathematics', 'Science');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (20001, 'Standard', 'Washington', 'DC', 'DC', 'DC');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('M1', 'Charlie', 'Brown', 'charlie@example.com', 'President', 'S', '777-888-9999', 20001, 'MAJ1');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Workshop', '2023-06-01', 'Academic', 'None', 'Room 101', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Supplies', 50.0, 50.0, 100, 'Closed', 'E1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Markers', '2023-06-01', 50.0, 'true', 'M1', 'B1');
+
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES (NULL, '2023-03-01', 50, 'Anonymous', 'Null PK row', 'M1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('50', '2023-03-02', 50, 'Dues', 'Valid PK row', 'M1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC_OTHER', '2023-03-03', 500, 'Grant', 'Contains 50 in amount string', 'M1');
+```

@@ -1,0 +1,30 @@
+-- Schema DDL
+CREATE TABLE Examination (ID INTEGER NULL, "Examination Date" DATE NULL, "aCL IgG" REAL NULL, "aCL IgM" REAL NULL, ANA INTEGER NULL, "ANA Pattern" TEXT NULL, "aCL IgA" INTEGER NULL, Diagnosis TEXT NULL, KCT TEXT NULL, RVVT TEXT NULL, LAC TEXT NULL, Symptoms TEXT NULL, Thrombosis INTEGER NULL, FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE Patient (ID INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, SEX TEXT NULL, Birthday DATE NULL, Description DATE NULL, "First Date" DATE NULL, Admission TEXT NULL, Diagnosis TEXT NULL);
+
+CREATE TABLE Laboratory (ID INTEGER DEFAULT 0 NOT NULL, Date DATE DEFAULT '0000-00-00' NOT NULL, GOT INTEGER NULL, GPT INTEGER NULL, LDH INTEGER NULL, ALP INTEGER NULL, TP REAL NULL, ALB REAL NULL, UA REAL NULL, UN INTEGER NULL, CRE REAL NULL, "T-BIL" REAL NULL, "T-CHO" INTEGER NULL, TG INTEGER NULL, CPK INTEGER NULL, GLU INTEGER NULL, WBC REAL NULL, RBC REAL NULL, HGB REAL NULL, HCT REAL NULL, PLT INTEGER NULL, PT REAL NULL, APTT INTEGER NULL, FG REAL NULL, PIC INTEGER NULL, TAT INTEGER NULL, TAT2 INTEGER NULL, "U-PRO" TEXT NULL, IGG INTEGER NULL, IGA INTEGER NULL, IGM INTEGER NULL, CRP TEXT NULL, RA TEXT NULL, RF TEXT NULL, C3 INTEGER NULL, C4 INTEGER NULL, RNP TEXT NULL, SM TEXT NULL, SC170 TEXT NULL, SSA TEXT NULL, SSB TEXT NULL, CENTROMEA TEXT NULL, DNA TEXT NULL, "DNA-II" INTEGER NULL, PRIMARY KEY (ID, Date), FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO patient (id, sex, birthday, description, "first date", admission, diagnosis) VALUES (1, 'default1', '2023-01-01', '2023-01-02', '2023-01-01', 'APS', 'APS'), (2, 'default1', NULL, '2023-01-01', NULL, 'APS', 'default1'), (0, 'default2', NULL, '2023-01-01', '2023-01-01', 'default1', 'default2'), (9, 'default2', '2023-01-01', NULL, '2023-01-01', NULL, 'APS'), (10, 'default2', '2023-01-02', '2023-01-01', '2023-01-01', 'default2', NULL), (11, 'default1', NULL, '2023-01-01', '2023-01-01', NULL, 'default1'), (3, 'APS', '2023-01-02', '2023-01-02', NULL, 'default2', NULL), (4, 'default1', '2023-01-02', '2023-01-01', '2023-01-01', 'default1', 'default2'), (5, 'default1', '2023-01-01', NULL, '2023-01-01', 'APS', 'default1');
+INSERT INTO laboratory (id, date, got, gpt, ldh, alp, tp, alb, ua, un, cre, "t-bil", "t-cho", tg, cpk, glu, wbc, rbc, hgb, hct, plt, pt, aptt, fg, pic, tat, tat2, "u-pro", igg, iga, igm, crp, ra, rf, c3, c4, rnp, sm, sc170, ssa, ssb, centromea, dna, "dna-ii") VALUES (2, '2023-01-02', 2, NULL, 2, 9, 2.0, 11.0, 11.0, 10, 2.0, 11.0, NULL, NULL, 0, 0, 11.0, 1.0, 9.0, 2.0, NULL, 2.0, 10, 2.0, 2, 10, 1, 'APS', NULL, 11, 10, 'default1', 'APS', 'default1', 9, 9, 'APS', 'default2', 'default1', 'default2', 'default1', 'default2', 'default1', 9), (11, '2023-01-01', 10, 2, 9, 1, 10.0, 10.0, NULL, 9, 11.0, 2.0, 11, 1, NULL, 1, 0.0, 11.0, 0.0, 2.0, 9, 11.0, 11, 10.0, 0, 2, NULL, 'default1', 9, NULL, 9, 'APS', 'default2', 'default2', 2, 1, 'APS', 'APS', 'APS', 'default2', NULL, 'default2', 'default1', 11), (1, '2023-01-01', 0, 1, 2, 10, 11.0, 11.0, 9.0, 9, 10.0, 9.0, 11, 9, 9, 9, 1.0, 1.0, 9.0, 2.0, 9, 2.0, 1, NULL, 1, 1, 0, 'default2', 0, 11, 10, NULL, 'default2', 'APS', 2, 0, 'APS', NULL, 'APS', NULL, 'APS', NULL, 'default1', NULL), (1, '2023-01-02', 1, 11, 11, 10, 1.0, 10.0, 11.0, 9, 1.0, 2.0, 0, NULL, 1, NULL, 10.0, 2.0, 1.0, 2.0, 2, 11.0, 1, 10.0, 9, NULL, 10, NULL, 11, 1, 9, 'default1', 'default2', 'default1', 2, 11, NULL, NULL, 'default2', NULL, 'default2', 'default1', 'APS', 2), (9, '2023-01-01', 11, 10, NULL, 2, NULL, NULL, 1.0, NULL, 1.0, 9.0, 10, 1, NULL, 1, 0.0, 0.0, 0.0, 9.0, 9, 2.0, 1, 0.0, 2, 9, 9, 'APS', 10, 11, NULL, NULL, NULL, NULL, 11, 10, 'default1', 'default1', NULL, 'APS', 'default2', 'default1', 'APS', 0), (4, '2023-01-01', 11, 2, 0, 9, 11.0, 11.0, 0.0, 0, 10.0, 9.0, 1, NULL, 9, 11, 9.0, 9.0, 2.0, 2.0, 1, 9.0, 1, 9.0, 2, 1, 10, 'default2', 2, 1, 10, NULL, 'APS', 'default2', 10, 11, 'default1', 'default1', 'APS', 'default2', 'APS', 'default1', 'default1', 10), (0, '2023-01-01', 1, 11, 2, 2, 11.0, 2.0, 10.0, 10, 0.0, 0.0, 9, 11, 0, 10, 2.0, 0.0, NULL, 2.0, 0, 0.0, NULL, 11.0, 2, 0, 10, 'default1', 2, 2, 2, 'APS', NULL, 'default1', 9, 0, 'default1', 'default2', 'APS', 'default1', 'default1', 'default2', 'default2', 10), (11, '2023-01-02', 0, 9, 0, NULL, 11.0, 9.0, 2.0, 10, 11.0, 2.0, 0, 9, 0, 9, 1.0, 11.0, 0.0, 0.0, 2, 2.0, 0, 1.0, 2, 9, NULL, 'APS', 2, 10, 2, 'default2', 'APS', 'default1', 0, NULL, NULL, 'APS', 'default2', NULL, NULL, NULL, NULL, 9), (2, '2023-01-01', 1, 11, 9, 11, 1.0, 11.0, NULL, 9, 10.0, 0.0, 10, 11, 9, 2, 1.0, 11.0, 2.0, 1.0, NULL, 2.0, 1, 0.0, 9, 10, 1, 'default2', 0, NULL, 2, 'APS', 'APS', 'APS', NULL, 0, 'default2', 'default1', NULL, NULL, NULL, 'default2', 'APS', NULL);
+INSERT INTO examination (id, "examination date", "acl igg", "acl igm", ana, "ana pattern", "acl iga", diagnosis, kct, rvvt, lac, symptoms, thrombosis) VALUES (1, '2023-01-01', 10.0, NULL, 0, 'default2', 1, 'default1', 'APS', NULL, 'APS', NULL, 9), (5, NULL, 1.0, 2.0, 0, 'default2', 9, NULL, 'default2', NULL, NULL, 'default1', 10), (1, '2023-01-01', 0.0, NULL, 0, 'APS', 9, NULL, 'APS', 'default2', 'default1', NULL, 2), (9, '2023-01-01', 11.0, 9.0, 10, 'default2', 11, 'default2', 'default2', NULL, 'default2', 'default1', 2), (11, '2023-01-01', NULL, 0.0, NULL, 'default1', 11, NULL, 'default2', NULL, 'APS', 'default1', 10), (5, '2023-01-02', 10.0, 10.0, 9, 'APS', NULL, 'default2', 'APS', 'default2', 'APS', 'APS', 1), (5, '2023-01-02', 9.0, 0.0, NULL, 'APS', 11, 'APS', 'default1', 'default1', NULL, 'default1', 10), (10, NULL, 9.0, NULL, 0, NULL, 11, 'default2', 'default2', 'default1', 'default1', NULL, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.C4 > 10 AND T1.Diagnosis = 'APS';
+
+/*
+Gold Result:
+(1,)
+*/
+
+-- Prediction Query
+SELECT COUNT(DISTINCT T2.ID) FROM Examination AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.Thrombosis = 1 AND T2.C4 > 10;
+
+/*
+Prediction Result:
+(0,)
+*/

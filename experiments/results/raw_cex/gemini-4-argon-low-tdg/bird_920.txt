@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Target: Missing DISTINCT, wrong column filtered (e.g., races.name vs circuits.name, circuitRef vs name), and join condition errors.
+INSERT INTO seasons (year, url) VALUES (2020, 'http://en.wikipedia.org/wiki/2020_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://en.wikipedia.org/wiki/2021_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://en.wikipedia.org/wiki/2022_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'silverstone', 'Silverstone Circuit', 'Silverstone', 'UK', 'http://en.wikipedia.org/wiki/Silverstone_Circuit');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'Silverstone Circuit', 'Monza Circuit', 'Monza', 'Italy', 'http://en.wikipedia.org/wiki/Autodromo_Nazionale_Monza');
+
+-- Two races at Silverstone in 2020 to test DISTINCT
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (101, 2020, 4, 1, 'British Grand Prix', '2020-08-02', 'http://en.wikipedia.org/wiki/2020_British_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (102, 2020, 5, 1, '70th Anniversary Grand Prix', '2020-08-09', 'http://en.wikipedia.org/wiki/70th_Anniversary_Grand_Prix');
+
+-- Race at a different circuit where circuitRef or race.name is 'Silverstone Circuit' to catch column confusion
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (103, 2021, 1, 2, 'Silverstone Circuit', '2021-09-12', 'http://en.wikipedia.org/wiki/2021_Italian_Grand_Prix');
+
+-- Season with no races at all (catches queries selecting from seasons instead of races)
+```
+
+```sql
+-- DATASET 2
+-- Target: Substring/wildcard matching (LIKE '%Silverstone%'), case sensitivity, and LEFT JOIN from circuits to races when no races exist for the target circuit.
+INSERT INTO seasons (year, url) VALUES (1950, 'http://en.wikipedia.org/wiki/1950_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (1951, 'http://en.wikipedia.org/wiki/1951_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (1952, 'http://en.wikipedia.org/wiki/1952_Formula_One_season');
+
+-- Target circuit has NO races in this dataset (tests INNER JOIN vs LEFT JOIN on circuits)
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (10, 'silverstone', 'Silverstone Circuit', 'Silverstone', 'UK', 'http://url1');
+
+-- Decoy circuits with similar names to catch LIKE '%Silverstone%' or case-insensitive matches
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (11, 'old_silverstone', 'Silverstone Circuit Old', 'Silverstone', 'UK', 'http://url2');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (12, 'silverstone_lower', 'silverstone circuit', 'Silverstone', 'UK', 'http://url3');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (13, 'silverstone_short', 'Silverstone', 'Silverstone', 'UK', 'http://url4');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (201, 1950, 1, 11, 'Race 1', '1950-05-13', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (202, 1951, 1, 12, 'Race 2', '1951-05-13', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (203, 1952, 1, 13, 'Race 3', '1952-05-13', 'http://r3');
+```
+
+```sql
+-- DATASET 3
+-- Target: Misaligned join keys (e.g., T1.circuitId = T2.raceId or T1.circuitId = T2.round), aggregation mutants (MIN/MAX/COUNT vs DISTINCT), and unnecessary joins to downstream tables (e.g., results, qualifying, lapTimes).
+INSERT INTO seasons (year, url) VALUES (1999, 'http://s1999');
+INSERT INTO seasons (year, url) VALUES (2005, 'http://s2005');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://s2010');
+INSERT INTO seasons (year, url) VALUES (2015, 'http://s2015');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (5, 'silverstone', 'Silverstone Circuit', 'Silverstone', 'UK', 'http://c5');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (99, 'monaco', 'Circuit de Monaco', 'Monte-Carlo', 'Monaco', 'http://c99');
+
+-- Three different years for Silverstone to break MIN(year) or MAX(year) or LIMIT 1 mutants.
+-- Note: No rows in results/qualifying/driverStandings exist for these races, killing mutants that inner join those tables.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (501, 1999, 8, 5, 'British GP 99', '1999-07-11', 'http://r501');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (502, 2005, 11, 5, 'British GP 05', '2005-07-10', 'http://r502');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (503, 2010, 10, 5, 'British GP 10', '2010-07-11', 'http://r503');
+
+-- Decoy race where raceId = 5 and round = 5 (matching Silverstone's circuitId = 5), but held at circuitId = 99
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (5, 2015, 5, 99, 'Monaco GP', '2015-05-24', 'http://r5');
+```
+
+```sql
+-- DATASET 4
+-- Target: Hardcoded circuitId assumptions (e.g. assuming Silverstone is always circuitId = 1 or 9) and testing multiple circuits with identical names if allowed by schema (circuits.name is NOT UNIQUE).
+INSERT INTO seasons (year, url) VALUES (1980, 'http://s1980');
+INSERT INTO seasons (year, url) VALUES (1985, 'http://s1985');
+INSERT INTO seasons (year, url) VALUES (1990, 'http://s1990');
+
+-- CircuitId 1 and 9 are NOT Silverstone
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'albert_park', 'Albert Park Grand Prix Circuit', 'Melbourne', 'Australia', 'http://c1');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (9, 'bahrain', 'Bahrain International Circuit', 'Sakhir', 'Bahrain', 'http://c9');
+
+-- Two different circuit entries both named 'Silverstone Circuit' (e.g. layout variations) to test queries using `circuitId = (SELECT circuitId ... LIMIT 1)`
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (42, 'silverstone_gp', 'Silverstone Circuit', 'Silverstone', 'UK', 'http://c42');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (43, 'silverstone_arena', 'Silverstone Circuit', 'Silverstone', 'UK', 'http://c43');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1980, 1, 1, 'Australian GP', '1980-03-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 1980, 2, 9, 'Bahrain GP', '1980-03-15', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 1985, 5, 42, 'British GP 85', '1985-07-21', 'http://r3');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 1990, 8, 43, 'British GP 90', '1990-07-15', 'http://r4');
+```

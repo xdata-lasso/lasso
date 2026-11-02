@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- Comprehensive dataset testing:
+-- 1. Multiple badges for the same target user in 2011 (kills COUNT(DISTINCT T1.UserId), COUNT(DISTINCT T2.Id), COUNT(DISTINCT T1.Name), COUNT(DISTINCT T1.Date))
+-- 2. Multiple users with DisplayName = 'csgillespie' (kills GROUP BY T2.Id or LIMIT 1 on user lookup)
+-- 3. Boundary dates around 2011 and dates outside 2011 (kills <, <=, >, >=, BETWEEN mutants, missing date predicate, or using T2.CreationDate instead of T1.Date)
+-- 4. Other users with badges in 2011, including badge Name = 'csgillespie' (kills missing DisplayName predicate, T1.Name = 'csgillespie', or cross join / wrong join condition like T1.Id = T2.Id)
+-- 5. Badge with NULL UserId (kills RIGHT/LEFT JOIN and NULL handling errors)
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 100, '2010-05-01 10:00:00', 'csgillespie');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (2, 200, '2011-05-01 10:00:00', 'other_user');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (3, 150, '2012-05-01 10:00:00', 'csgillespie');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (4, 300, '2011-06-01 10:00:00', 'csgillespie_extra');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (5, 400, '2011-07-01 10:00:00', 'CSGILLESPIE');
+
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (10, 1, 'Teacher', '2011-01-01 00:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (11, 1, 'Teacher', '2011-01-01 00:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (12, 1, 'Editor', '2011-12-31 23:59:59');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (13, 3, 'Student', '2011-06-15 12:30:00');
+
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (14, 1, 'Yearling', '2010-12-31 23:59:59');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (15, 1, 'Yearling', '2012-01-01 00:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (16, 1, 'Scholar', NULL);
+
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 2, 'csgillespie', '2011-06-15 12:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (17, 4, 'Teacher', '2011-06-15 12:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (18, 5, 'Teacher', '2011-06-15 12:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (19, NULL, 'Teacher', '2011-06-15 12:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Zero-match dataset where 'csgillespie' exists and 2011 badges exist, but their intersection is empty.
+-- Kills OR instead of AND in WHERE clause, LEFT JOIN with COUNT(T2.Id) where filter is in ON clause, and HAVING/GROUP BY mutations that return empty result set instead of 0.
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 500, '2011-03-10 08:00:00', 'csgillespie');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (2, 300, '2010-03-10 08:00:00', 'john_doe');
+
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 1, 'Autobiographer', '2010-05-20 14:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (2, 1, 'Supporter', '2012-08-11 09:30:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (3, 2, 'Supporter', '2011-08-11 09:30:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (4, 2, 'Citizen Patrol', '2011-11-01 19:00:00');
+```
+
+```sql
+-- DATASET 3
+-- String manipulation / LIKE / SUBSTR trap dataset.
+-- Kills mutants using T1.Date LIKE '%2011%' or T2.DisplayName LIKE '%csgillespie%' when date/time components or substrings contain '2011' or 'csgillespie'.
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 100, '2011-01-01 00:00:00', 'csgillespie');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (2, 100, '2011-01-01 00:00:00', 'user_csgillespie_2');
+
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 1, 'Nice Answer', '2010-12-20 11:20:11');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (2, 2, 'Nice Answer', '2011-05-05 10:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (3, 1, 'Good Answer', '2011-07-04 15:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Join key confusion dataset (T1.Id = T2.Id vs T1.UserId = T2.Id, and T2.AccountId = T1.UserId).
+-- Kills mutants joining on wrong foreign/primary key columns.
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName, AccountId) VALUES (10, 100, '2011-01-01 00:00:00', 'csgillespie', 99);
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName, AccountId) VALUES (99, 100, '2011-01-01 00:00:00', 'wrong_user', 10);
+
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (10, 99, 'Popular Question', '2011-04-01 10:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (20, 10, 'Popular Question', '2011-04-01 10:00:00');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (30, 10, 'Notable Question', '2011-05-01 10:00:00');
+```

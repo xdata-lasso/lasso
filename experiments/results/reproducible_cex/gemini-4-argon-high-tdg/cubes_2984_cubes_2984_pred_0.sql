@@ -1,0 +1,51 @@
+-- Schema DDL
+CREATE TABLE "Student" ("StuID" INTEGER PRIMARY KEY, "LName" TEXT(12), "Fname" TEXT(12), "Age" INTEGER, "Sex" TEXT(1), "Major" INTEGER, "Advisor" INTEGER, "city_code" TEXT(3));
+
+CREATE TABLE "Dorm" ("dormid" INTEGER UNIQUE, "dorm_name" TEXT(20), "student_capacity" INTEGER, "gender" TEXT(1));
+
+CREATE TABLE "Dorm_amenity" ("amenid" INTEGER UNIQUE, "amenity_name" TEXT(25));
+
+CREATE TABLE "Has_amenity" ("amenid" INTEGER, "dormid" INTEGER, FOREIGN KEY ("amenid") REFERENCES "Dorm_amenity" ("amenid"), FOREIGN KEY ("dormid") REFERENCES "Dorm" ("dormid"));
+
+CREATE TABLE "Lives_in" ("dormid" INTEGER, "stuid" INTEGER, "room_number" INTEGER, FOREIGN KEY ("dormid") REFERENCES "Dorm" ("dormid"), FOREIGN KEY ("stuid") REFERENCES "Student" ("StuID"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO "Dorm" ("dormid", "dorm_name", "student_capacity", "gender") VALUES (10, 'Smith Hall', 200, 'X');
+INSERT INTO "Dorm" ("dormid", "dorm_name", "student_capacity", "gender") VALUES (20, 'Jones Hall', 150, 'F');
+INSERT INTO "Dorm" ("dormid", "dorm_name", "student_capacity", "gender") VALUES (30, 'Smith Hall North', 100, 'M');
+INSERT INTO "Dorm_amenity" ("amenid", "amenity_name") VALUES (1, 'Zen Garden');
+INSERT INTO "Dorm_amenity" ("amenid", "amenity_name") VALUES (2, 'Study Room');
+INSERT INTO "Dorm_amenity" ("amenid", "amenity_name") VALUES (10, 'Pool');
+INSERT INTO "Dorm_amenity" ("amenid", "amenity_name") VALUES (20, 'Air Conditioning');
+INSERT INTO "Dorm_amenity" ("amenid", "amenity_name") VALUES (99, 'Unused Amenity');
+INSERT INTO "Has_amenity" ("amenid", "dormid") VALUES (1, 10);
+INSERT INTO "Has_amenity" ("amenid", "dormid") VALUES (2, 10);
+INSERT INTO "Has_amenity" ("amenid", "dormid") VALUES (20, 10);
+INSERT INTO "Has_amenity" ("amenid", "dormid") VALUES (10, 20);
+INSERT INTO "Has_amenity" ("amenid", "dormid") VALUES (1, 30);
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1001, 'Doe', 'Jane', 20, 'F', 600, 1121, 'BAL');
+INSERT INTO "Lives_in" ("dormid", "stuid", "room_number") VALUES (20, 1001, 204);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT "amenity_name" FROM (SELECT "LHS"."amenid" AS "amenid", "LHS"."amenity_name" AS "amenity_name", "LHS"."dormid" AS "dormid", "RHS"."dorm_name" AS "dorm_name", "RHS"."student_capacity" AS "student_capacity", "RHS"."gender" AS "gender" FROM (SELECT "LHS"."amenid" AS "amenid", "LHS"."amenity_name" AS "amenity_name", "RHS"."dormid" AS "dormid" FROM "dorm_amenity" AS "LHS" INNER JOIN "has_amenity" AS "RHS" ON ("LHS"."amenid" = "RHS"."amenid")) AS "LHS" INNER JOIN (SELECT * FROM "dorm" WHERE ("dorm_name" = 'Smith Hall')) AS RHS ON (LHS.dormid = RHS.dormid)) ORDER BY amenity_name, "amenity_name" NULLS LAST;
+
+/*
+Gold Result:
+('Air Conditioning',)
+('Study Room',)
+('Zen Garden',)
+*/
+
+-- Prediction Query
+SELECT T3.amenity_name FROM dorm AS T1 JOIN has_amenity AS T2 ON T1.dormid = T2.dormid JOIN dorm_amenity AS T3 ON T2.amenid = T3.amenid WHERE T1.dorm_name = 'Smith Hall';
+
+/*
+Prediction Result:
+('Zen Garden',)
+('Study Room',)
+('Air Conditioning',)
+*/

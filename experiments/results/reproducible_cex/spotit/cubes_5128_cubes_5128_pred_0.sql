@@ -1,0 +1,56 @@
+-- Schema DDL
+CREATE TABLE "SERVICES" (
+    "SERVICE_ID" INT,
+    "SERVICE_TYPE_CODE" TEXT,
+    PRIMARY KEY ("SERVICE_ID")
+);
+CREATE TABLE "PARTICIPANTS" (
+    "PARTICIPANT_ID" INT,
+    "PARTICIPANT_TYPE_CODE" TEXT,
+    "PARTICIPANT_DETAILS" TEXT,
+    PRIMARY KEY ("PARTICIPANT_ID")
+);
+CREATE TABLE "EVENTS" (
+    "EVENT_ID" INT,
+    "SERVICE_ID" INT,
+    "EVENT_DETAILS" TEXT,
+    PRIMARY KEY ("EVENT_ID"),
+    FOREIGN KEY ("SERVICE_ID") REFERENCES "SERVICES"("SERVICE_ID")
+);
+CREATE TABLE "PARTICIPANTS_IN_EVENTS" (
+    "EVENT_ID" INT,
+    "PARTICIPANT_ID" INT,
+    PRIMARY KEY ("EVENT_ID", "PARTICIPANT_ID"),
+    FOREIGN KEY ("EVENT_ID") REFERENCES "EVENTS"("EVENT_ID"),
+    FOREIGN KEY ("PARTICIPANT_ID") REFERENCES "PARTICIPANTS"("PARTICIPANT_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO SERVICES VALUES (1, 0);
+INSERT INTO SERVICES VALUES (0, 0);
+INSERT INTO PARTICIPANTS VALUES (0, NULL, 22);
+INSERT INTO PARTICIPANTS VALUES (-1, -1, 12);
+INSERT INTO EVENTS VALUES (0, 1, 0);
+INSERT INTO EVENTS VALUES (-1, 1, 0);
+INSERT INTO PARTICIPANTS_IN_EVENTS VALUES (0, 0);
+INSERT INTO PARTICIPANTS_IN_EVENTS VALUES (0, -1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT participant_type_code FROM (SELECT LHS.participant_type_code AS participant_type_code, LHS.n AS n, RHS.n AS n_other FROM (SELECT participant_type_code, COUNT(*) AS n FROM participants GROUP BY participant_type_code) AS LHS CROSS JOIN (SELECT MAX(n) AS n FROM (SELECT participant_type_code, COUNT(*) AS n FROM participants GROUP BY participant_type_code)) AS RHS) WHERE (n >= n_other) ORDER BY participant_type_code;
+
+/*
+Gold Result:
+(None,)
+('-1',)
+*/
+
+-- Prediction Query
+SELECT participant_type_code FROM participants GROUP BY participant_type_code ORDER BY COUNT(*) DESC, participant_type_code NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('-1',)
+*/

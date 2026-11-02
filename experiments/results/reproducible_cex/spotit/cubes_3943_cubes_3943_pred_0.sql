@@ -1,0 +1,60 @@
+-- Schema DDL
+CREATE TABLE "CHIP_MODEL" (
+    "MODEL_NAME" TEXT,
+    "LAUNCH_YEAR" FLOAT,
+    "RAM_MIB" FLOAT,
+    "ROM_MIB" FLOAT,
+    "SLOTS" TEXT,
+    "WIFI" TEXT,
+    "BLUETOOTH" TEXT,
+    PRIMARY KEY ("MODEL_NAME")
+);
+CREATE TABLE "SCREEN_MODE" (
+    "GRAPHICS_MODE" FLOAT,
+    "CHAR_CELLS" TEXT,
+    "PIXELS" TEXT,
+    "HARDWARE_COLOURS" FLOAT,
+    "USED_KB" FLOAT,
+    "MAP" TEXT,
+    "TYPE" TEXT,
+    PRIMARY KEY ("GRAPHICS_MODE")
+);
+CREATE TABLE "PHONE" (
+    "HARDWARE_MODEL_NAME" TEXT,
+    "CHIP_MODEL" TEXT,
+    "SCREEN_MODE" TEXT,
+    "COMPANY_NAME" TEXT,
+    "ACCREDITATION_TYPE" TEXT,
+    "ACCREDITATION_LEVEL" TEXT,
+    "DATE" TEXT,
+    PRIMARY KEY ("HARDWARE_MODEL_NAME"),
+    FOREIGN KEY ("CHIP_MODEL") REFERENCES "CHIP_MODEL"("MODEL_NAME"),
+    FOREIGN KEY ("SCREEN_MODE") REFERENCES "SCREEN_MODE"("GRAPHICS_MODE")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO CHIP_MODEL VALUES (0, 15, NULL, 18, 19, 20, 21);
+INSERT INTO CHIP_MODEL VALUES (-1, 10, NULL, 11, 12, 13, 14);
+INSERT INTO SCREEN_MODE VALUES (5, 0, 0, 0, 0, 0, 0);
+INSERT INTO SCREEN_MODE VALUES (6, 0, 0, 0, 0, 0, 0);
+INSERT INTO PHONE VALUES (3, 0, 5, 0, 0, 0, 0);
+INSERT INTO PHONE VALUES (4, 0, 6, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT model_name, minram_mib AS ram_mib FROM (SELECT * FROM (SELECT * FROM (SELECT launch_year, model_name, MIN(ram_mib) AS minram_mib FROM chip_model GROUP BY launch_year, model_name) ORDER BY launch_year) LIMIT 1);
+
+/*
+Gold Result:
+('-1', None)
+*/
+
+-- Prediction Query
+SELECT Model_name, RAM_MiB FROM chip_model ORDER BY RAM_MiB ASC, chip_model.model_name NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('-1', None)
+*/

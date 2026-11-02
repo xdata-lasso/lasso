@@ -1,0 +1,25 @@
+-- Schema DDL
+CREATE TABLE "Players" ("player_id" INTEGER PRIMARY KEY, "player_name" TEXT(255));
+
+CREATE TABLE "Championships" ("year" INTEGER PRIMARY KEY, "Wimbledon" INTEGER, "Fr_open" INTEGER, "US_open" INTEGER, "Au_open" INTEGER, FOREIGN KEY ("Wimbledon") REFERENCES "Players" ("player_id"), FOREIGN KEY ("Fr_open") REFERENCES "Players" ("player_id"), FOREIGN KEY ("US_open") REFERENCES "Players" ("player_id"), FOREIGN KEY ("Au_open") REFERENCES "Players" ("player_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Players" ("player_id", "player_name") VALUES (22, '23');
+INSERT INTO "Players" ("player_id", "player_name") VALUES (21, '24');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT * FROM (SELECT player_id, player_name, SUM((CASE WHEN player_id = wimbledon THEN 1 ELSE 0 END + CASE WHEN player_id = fr_open THEN 1 ELSE 0 END + CASE WHEN player_id = us_open THEN 1 ELSE 0 END + CASE WHEN player_id = au_open THEN 1 ELSE 0 END)) AS grand_slams_count FROM players CROSS JOIN championships GROUP BY player_id) AS z WHERE grand_slams_count > 0;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH W_WINS AS (SELECT WIMBLEDON AS ID, COUNT(*) AS W_W FROM CHAMPIONSHIPS GROUP BY WIMBLEDON), F_WINS AS (SELECT FR_OPEN AS ID, COUNT(*) AS F_W FROM CHAMPIONSHIPS GROUP BY FR_OPEN), U_WINS AS (SELECT US_OPEN AS ID, COUNT(*) AS U_W FROM CHAMPIONSHIPS GROUP BY US_OPEN), AU_WINS AS (SELECT AU_OPEN AS ID, COUNT(*) AS A_W FROM CHAMPIONSHIPS GROUP BY AU_OPEN), WIN_COUNT AS (SELECT PLAYER_ID, PLAYER_NAME, COALESCE(W_WINS.W_W, 0) AS WW, COALESCE(F_WINS.F_W, 0) AS FW, COALESCE(U_WINS.U_W, 0) AS UW, COALESCE(AU_WINS.A_W, 0) AS AW FROM PLAYERS LEFT JOIN W_WINS ON PLAYERS.PLAYER_ID = W_WINS.ID LEFT JOIN F_WINS ON PLAYERS.PLAYER_ID = F_WINS.ID LEFT JOIN U_WINS ON PLAYERS.PLAYER_ID = U_WINS.ID LEFT JOIN AU_WINS ON PLAYERS.PLAYER_ID = AU_WINS.ID) SELECT PLAYER_ID, PLAYER_NAME, WW + FW + UW + AW AS GRAND_SLAMS_COUNT FROM WIN_COUNT WHERE WW > 0 OR FW > 0 OR UW > 0 OR AW > 0;
+
+/*
+Prediction Result:
+*/

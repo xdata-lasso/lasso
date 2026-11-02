@@ -1,0 +1,42 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Multiple organizations tied for the maximum `date_formed` (kills `LIMIT 1` mutants).
+-- 2. Ties with different `organization_name` values inserted in reverse alphabetical order (kills missing or `DESC` `ORDER BY organization_name` mutants).
+-- 3. Organizations with strictly older `date_formed` values (kills `MIN`, `<`, `<=`, or missing `WHERE` filter mutants).
+-- 4. Duplicate `organization_name` at the maximum date and multiple rows in the cross join (kills missing `DISTINCT` mutants).
+-- 5. A row with `NULL` `date_formed` (tests `NULL` handling in `MAX` and `>=` comparisons).
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (1, '2020-01-01 00:00:00', 'Alpha Corp', 'GB111');
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (2, '2023-06-15 12:00:00', 'Zeta Ltd', 'GB222');
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (3, '2023-06-15 12:00:00', 'Beta Inc', 'GB333');
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (4, '2023-06-15 12:00:00', 'Beta Inc', 'GB444');
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (5, NULL, 'Omega LLC', 'GB555');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Single unique maximum `date_formed`, where the oldest organization has the highest `organization_id` and `uk_vat_number` (kills mutants that take MAX(organization_id) or MAX(uk_vat_number) instead of MAX(date_formed)).
+-- 2. Unreferenced child table `Organization_Contact_Individuals` left empty while `Organizations` has rows (kills mutants that inner-join `Organizations` with `Organization_Contact_Individuals`).
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (10, '2022-12-31 23:59:59', 'Pinnacle Group', 'GB100');
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (20, '2019-05-10 08:30:00', 'Apex Solutions', 'GB999');
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (30, '2021-03-20 14:15:00', 'Vertex Holdings', 'GB500');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. All organizations have `NULL` for `date_formed` (in the Gold Query, `maxdate_formed` is NULL and `NULL >= NULL` is UNKNOWN, returning an empty result; kills mutants using `ORDER BY date_formed DESC LIMIT 1` or `IS NOT DISTINCT FROM`).
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (1, NULL, 'NullOrg One', 'GB001');
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (2, NULL, 'NullOrg Two', 'GB002');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Maximum `date_formed` has a `NULL` `organization_name` alongside a non-null `organization_name` (tests `SELECT DISTINCT` and `ORDER BY` behavior with `NULL` in the projected column, and kills `WHERE organization_name IS NOT NULL` mutants).
+-- 2. Same-day timestamps differing only by time components.
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (1, '2021-08-01 09:00:00', 'Morning Star', 'GB101');
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (2, '2021-08-01 18:00:00', NULL, 'GB102');
+INSERT INTO Organizations (organization_id, date_formed, organization_name, uk_vat_number) VALUES (3, '2021-08-01 18:00:00', 'Evening Star', 'GB103');
+```

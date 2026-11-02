@@ -1,0 +1,67 @@
+-- Schema DDL
+CREATE TABLE classroom (building TEXT(15), room_number TEXT(7), capacity REAL(4, 0), PRIMARY KEY (building, room_number));
+
+CREATE TABLE department (dept_name TEXT(20) PRIMARY KEY, building TEXT(15), budget REAL(12, 2) CHECK (budget > 0));
+
+CREATE TABLE course (course_id TEXT(8) PRIMARY KEY, title TEXT(50), dept_name TEXT(20), credits REAL(2, 0) CHECK (credits > 0), FOREIGN KEY (dept_name) REFERENCES department (dept_name) ON delete SET NULL);
+
+CREATE TABLE instructor (ID TEXT(5) PRIMARY KEY, name TEXT(20) NOT NULL, dept_name TEXT(20), salary REAL(8, 2) CHECK (salary > 29000), FOREIGN KEY (dept_name) REFERENCES department (dept_name) ON delete SET NULL);
+
+CREATE TABLE section (course_id TEXT(8), sec_id TEXT(8), semester TEXT(6) CHECK (semester IN ('Fall', 'Winter', 'Spring', 'Summer')), year REAL(4, 0) CHECK (year > 1701 AND year < 2100), building TEXT(15), room_number TEXT(7), time_slot_id TEXT(4), PRIMARY KEY (course_id, sec_id, semester, year), FOREIGN KEY (course_id) REFERENCES course (course_id) ON delete CASCADE, FOREIGN KEY (building, room_number) REFERENCES classroom (building, room_number) ON delete SET NULL);
+
+CREATE TABLE teaches (ID TEXT(5), course_id TEXT(8), sec_id TEXT(8), semester TEXT(6), year REAL(4, 0), PRIMARY KEY (ID, course_id, sec_id, semester, year), FOREIGN KEY (course_id, sec_id, semester, year) REFERENCES section (course_id, sec_id, semester, year) ON delete CASCADE, FOREIGN KEY (ID) REFERENCES instructor (ID) ON delete CASCADE);
+
+CREATE TABLE student (ID TEXT(5) PRIMARY KEY, name TEXT(20) NOT NULL, dept_name TEXT(20), tot_cred REAL(3, 0) CHECK (tot_cred >= 0), FOREIGN KEY (dept_name) REFERENCES department (dept_name) ON delete SET NULL);
+
+CREATE TABLE takes (ID TEXT(5), course_id TEXT(8), sec_id TEXT(8), semester TEXT(6), year REAL(4, 0), grade TEXT(2), PRIMARY KEY (ID, course_id, sec_id, semester, year), FOREIGN KEY (course_id, sec_id, semester, year) REFERENCES section (course_id, sec_id, semester, year) ON delete CASCADE, FOREIGN KEY (ID) REFERENCES student (ID) ON delete CASCADE);
+
+CREATE TABLE advisor (s_ID TEXT(5) PRIMARY KEY, i_ID TEXT(5), FOREIGN KEY (i_ID) REFERENCES instructor (ID) ON delete SET NULL, FOREIGN KEY (s_ID) REFERENCES student (ID) ON delete CASCADE);
+
+CREATE TABLE time_slot (time_slot_id TEXT(4), day TEXT(1), start_hr REAL(2) CHECK (start_hr >= 0 AND start_hr < 24), start_min REAL(2) CHECK (start_min >= 0 AND start_min < 60), end_hr REAL(2) CHECK (end_hr >= 0 AND end_hr < 24), end_min REAL(2) CHECK (end_min >= 0 AND end_min < 60), PRIMARY KEY (time_slot_id, day, start_hr, start_min));
+
+CREATE TABLE prereq (course_id TEXT(8), prereq_id TEXT(8), PRIMARY KEY (course_id, prereq_id), FOREIGN KEY (course_id) REFERENCES course (course_id) ON delete CASCADE, FOREIGN KEY (prereq_id) REFERENCES course (course_id));
+
+CREATE TABLE grade_value (grade TEXT(2) PRIMARY KEY, value REAL(4, 2));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+-- Tests:
+-- 1. Uncorrelated EXISTS vs Correlated EXISTS (Instructor 2 teaches nothing, Instructor 3 teaches in 2009).
+-- 2. Decoupled inner EXISTS vs Joined condition (Instructor 1 teaches in Fall 2010, while a different untaught section exists in Spring 2010).
+-- 3. Duplicate names in instructor table (DISTINCT vs ALL).
+-- 4. Multiple teaches records for the same instructor in 2010 (JOIN vs EXISTS).
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'Taylor', 100000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS101', 'Intro to CS', 'CS', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS102', 'Data Structures', 'CS', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('1', 'Alice', 'CS', 50000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('2', 'Bob', 'CS', 60000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('3', 'Charlie', 'CS', 70000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('4', 'Alice', 'CS', 55000);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '1', 'Fall', 2010, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '2', 'Fall', 2010, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS102', '1', 'Spring', 2010, NULL, NULL, NULL);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '1', 'Fall', 2009, NULL, NULL, NULL);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('1', 'CS101', '1', 'Fall', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('1', 'CS101', '2', 'Fall', 2010);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('3', 'CS101', '1', 'Fall', 2009);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM instructor WHERE EXISTS(SELECT * FROM teaches AS t1 INNER JOIN section ON (t1.course_id = section.course_id AND t1.sec_id = section.sec_id AND t1.semester = section.semester AND t1.year = section.year) WHERE t1.year = 2010 AND EXISTS(SELECT * FROM section WHERE semester = 'Spring' AND year = 2010));
+
+/*
+Gold Result:
+('Alice',)
+('Bob',)
+('Charlie',)
+('Alice',)
+*/
+
+-- Prediction Query
+SELECT name FROM instructor WHERE EXISTS(SELECT * FROM teaches AS t1 INNER JOIN section AS s1 ON (t1.course_id = s1.course_id AND t1.sec_id = s1.sec_id AND t1.semester = s1.semester AND t1.year = s1.year) WHERE t1.year = 2010 AND EXISTS(SELECT * FROM section AS s2 WHERE s2.semester = 'Spring' AND s1.year = s2.year AND year < 2010));
+
+/*
+Prediction Result:
+*/

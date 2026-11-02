@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by transcript_date (ASC vs DESC) and ensuring physical insertion order does not match chronological order.
+-- Also includes no rows in Transcript_Contents to kill mutants that incorrectly INNER JOIN Transcript_Contents.
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, '2023-05-01 10:00:00', 'Middle Transcript');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, '2021-01-15 08:30:00', 'Earliest Transcript');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (3, '2024-11-20 14:15:00', 'Latest Transcript');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on transcript_id when the minimum transcript_date is shared by multiple rows.
+-- The row with the smaller transcript_id (5) has alphabetically larger other_details ('Z_Details') than id 10 ('A_Details')
+-- to kill mutants that tie-break using MIN(other_details) or ORDER BY transcript_id DESC.
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (10, '2020-03-10 09:00:00', 'A_Details_Second_ID');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (5, '2020-03-10 09:00:00', 'Z_Details_First_ID');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, '2022-07-22 12:00:00', 'M_Details_Later_Date');
+```
+
+```sql
+-- DATASET 3
+-- Tests cases where the earliest transcript has no associated Transcript_Contents, while a later transcript does.
+-- Kills mutants that join Transcripts with Transcript_Contents.
+INSERT INTO "Courses" ("course_id", "course_name", "course_description", "other_details") VALUES (101, 'CS101', 'Intro to CS', NULL);
+INSERT INTO "Departments" ("department_id", "department_name", "department_description", "other_details") VALUES (1, 'Computer Science', 'CS Dept', NULL);
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name", "degree_summary_description", "other_details") VALUES (1, 1, 'BSc CS', 'Bachelor in CS', NULL);
+INSERT INTO "Semesters" ("semester_id", "semester_name", "semester_description", "other_details") VALUES (1, 'Fall 2022', 'Fall', NULL);
+INSERT INTO "Addresses" ("address_id", "line_1", "line_2", "line_3", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (1, '123 Main St', NULL, NULL, 'Metropolis', '10001', 'NY', 'USA', NULL);
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "middle_name", "last_name", "cell_mobile_number", "email_address", "ssn", "date_first_registered", "date_left", "other_student_details") VALUES (1, 1, 1, 'John', 'A', 'Doe', '555-1234', 'john@example.com', '123-45-6789', '2020-09-01', NULL, NULL);
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id", "other_details") VALUES (1, 1, 1, 1, NULL);
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, 1, 101);
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, '2019-06-01 00:00:00', 'Unlinked Earliest Transcript');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, '2022-12-15 00:00:00', 'Linked Later Transcript');
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in transcript_date and tie-breaking among NULL dates.
+-- In SQLite, NULLs are considered smaller than any non-NULL value in ASC order (unless NULLS LAST is specified on that specific column).
+-- Notice in the Gold Query: `ORDER BY transcript_date, transcripts.transcript_id NULLS LAST` -> NULLS LAST only applies to transcript_id, NOT transcript_date.
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (3, '2018-01-01 00:00:00', 'Valid Date');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (4, NULL, 'Null Date Higher ID');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, NULL, 'Null Date Lower ID');
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL in other_details for the minimum transcript_date row, while a later row has non-NULL other_details.
+-- Kills mutants that filter out `other_details IS NOT NULL` or use `MIN(other_details)`.
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, '2015-05-20 11:22:33', NULL);
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, '2016-05-20 11:22:33', 'Non-null details');
+```
+
+```sql
+-- DATASET 6
+-- Tests negative and zero transcript_id values with identical timestamps to strictly verify numeric sorting on transcript_id.
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (10, '2021-08-08 08:08:08', 'Positive ID');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (0, '2021-08-08 08:08:08', 'Zero ID');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (-5, '2021-08-08 08:08:08', 'Negative ID');
+```

@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests divergence between the flawed reference query (returns arbitrary/first grouped row due to missing WHERE n = maxn)
+-- vs. a query finding the mode of (end_date, policy_type_code) vs. a query finding the overall mode of policy_type_code.
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Alice');
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (2, 'Bob');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (1, 1, 'AUTO', '2020-01-01', '2021-01-01');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (2, 1, 'HOME', '2020-01-01', '2022-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (3, 2, 'HOME', '2020-06-01', '2022-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (4, 1, 'HOME', '2021-01-01', '2022-01-01');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (5, 1, 'LIFE', '2020-01-01', '2023-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (6, 2, 'LIFE', '2020-01-01', '2023-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (7, 1, 'LIFE', '2020-01-01', '2024-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (8, 2, 'LIFE', '2020-01-01', '2024-01-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests reverse ordering, MIN vs MAX count mutations, and grouping by Start_Date vs End_Date.
+-- Here the smallest (end_date, policy_type_code) group has the highest count (3), while another policy_type_code has the lowest count (1) at a later end_date.
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Charlie');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (10, 1, 'DENTAL', '2023-01-01', '2020-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (20, 1, 'DENTAL', '2022-01-01', '2020-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (30, 1, 'DENTAL', '2021-01-01', '2020-01-01');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (40, 1, 'VISION', '2019-01-01', '2025-01-01');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (50, 1, 'TRAVEL', '2019-01-01', '2026-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (60, 1, 'TRAVEL', '2019-01-01', '2027-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests inner joins with other tables (Customers, Claims, Settlements, Payments) and NULL handling in dates/codes.
+-- The policy in the first group has NULL Customer_ID and no Claims, while another policy has a full chain of Claims, Settlements, and Payments.
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (100, 'David');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (1, NULL, 'PET', '2020-01-01', '2020-05-05');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (2, 100, 'BOAT', '2020-01-01', '2025-05-05');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (3, 100, 'BOAT', '2020-01-01', '2025-05-05');
+
+INSERT INTO Claims (Claim_ID, Policy_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled) VALUES (10, 2, '2021-01-01', '2021-02-01', 5000, 4000);
+INSERT INTO Settlements (Settlement_ID, Claim_ID, Date_Claim_Made, Date_Claim_Settled, Amount_Claimed, Amount_Settled, Customer_Policy_ID) VALUES (100, 10, '2021-01-01', '2021-02-01', 5000, 4000, 2);
+INSERT INTO Payments (Payment_ID, Settlement_ID, Payment_Method_Code, Date_Payment_Made, Amount_Payment) VALUES (1000, 100, 'CHECK', '2021-02-05', 4000);
+```
+
+```sql
+-- DATASET 4
+-- Tests COUNT(*) vs COUNT( column ) with NULLs in End_Date and Start_Date, and same End_Date with different Policy_Type_Code.
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Eve');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (1, 1, 'HEALTH', NULL, NULL);
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (2, 1, 'HEALTH', NULL, NULL);
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (3, 1, 'FIRE', '2021-01-01', '2022-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (4, 1, 'FLOOD', '2021-01-01', '2022-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (5, 1, 'FLOOD', '2021-01-01', '2022-01-01');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (6, 1, 'FLOOD', '2021-01-01', '2022-01-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests tie-breaking on the same End_Date where lexicographically first Policy_Type_Code has a smaller count than the second Policy_Type_Code on that same End_Date.
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Frank');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (1, 1, 'ALPHA', '2020-01-01', '2022-12-31');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (2, 1, 'BETA', '2020-01-01', '2022-12-31');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (3, 1, 'BETA', '2020-01-01', '2022-12-31');
+
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (4, 1, 'GAMMA', '2020-01-01', '2021-12-31');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (5, 1, 'GAMMA', '2020-01-01', '2023-12-31');
+INSERT INTO Customer_Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (6, 1, 'GAMMA', '2020-01-01', '2024-12-31');
+```

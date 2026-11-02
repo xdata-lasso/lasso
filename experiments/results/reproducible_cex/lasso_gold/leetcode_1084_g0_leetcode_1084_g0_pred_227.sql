@@ -1,0 +1,32 @@
+-- Schema DDL
+CREATE TABLE "Product" ("product_id" INTEGER PRIMARY KEY, "product_name" TEXT(255), "unit_price" INTEGER, CHECK ("unit_price" > 0));
+
+CREATE TABLE "Sales" ("product_id" INTEGER, "seller_id" INTEGER, "buyer_id" INTEGER, "sale_date" DATE, "quantity" INTEGER, "price" INTEGER, FOREIGN KEY ("product_id") REFERENCES "Product" ("product_id"), CHECK ("quantity" > 0), CHECK ("price" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "product" ("product_id", "product_name", "unit_price") VALUES (1019, 'Daniel Wagner', 1020);
+INSERT INTO "product" ("product_id", "product_name", "unit_price") VALUES (1025, 'Cristian Santos', 1026);
+INSERT INTO "product" ("product_id", "product_name", "unit_price") VALUES (1036, 'Connie Lawrence', 1031);
+INSERT INTO "sales" ("product_id", "seller_id", "buyer_id", "sale_date", "quantity", "price") VALUES (1019, 1021, 1022, '2019-02-14', 1023, 1024);
+INSERT INTO "sales" ("product_id", "seller_id", "buyer_id", "sale_date", "quantity", "price") VALUES (1025, 1027, 1028, NULL, 1029, 1030);
+INSERT INTO "sales" ("product_id", "seller_id", "buyer_id", "sale_date", "quantity", "price") VALUES (1025, 1032, 1033, '2019-02-14', 1034, 1035);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT P.PRODUCT_ID, P.PRODUCT_NAME FROM PRODUCT AS P INNER JOIN (SELECT PRODUCT_ID FROM SALES GROUP BY PRODUCT_ID HAVING MIN(SALE_DATE) >= '2019-01-01' AND MAX(SALE_DATE) <= '2019-03-31') AS S ON (P.PRODUCT_ID = S.PRODUCT_ID);
+
+/*
+Gold Result:
+(1019, 'Daniel Wagner')
+(1025, 'Cristian Santos')
+*/
+
+-- Prediction Query
+SELECT PRODUCT_ID, PRODUCT_NAME FROM (SELECT A.PRODUCT_ID, B.PRODUCT_NAME, COUNT(1) AS TOTAL_SALE, SUM(CASE WHEN A.SALE_DATE BETWEEN '2019-01-01' AND '2019-03-31' THEN 1 ELSE 0 END) AS SPRING_SALE FROM SALES AS A LEFT JOIN PRODUCT AS B ON A.PRODUCT_ID = B.PRODUCT_ID GROUP BY 1, 2) AS C WHERE TOTAL_SALE = SPRING_SALE AND SPRING_SALE >= 1;
+
+/*
+Prediction Result:
+(1019, 'Daniel Wagner')
+*/

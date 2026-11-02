@@ -1,0 +1,64 @@
+-- Schema DDL
+CREATE TABLE "EMPLOYEE" (
+    "EMPLOYEE_ID" INT,
+    "NAME" TEXT,
+    "AGE" INT,
+    "CITY" TEXT,
+    PRIMARY KEY ("EMPLOYEE_ID")
+);
+CREATE TABLE "SHOP" (
+    "SHOP_ID" INT,
+    "NAME" TEXT,
+    "LOCATION" TEXT,
+    "DISTRICT" TEXT,
+    "NUMBER_PRODUCTS" INT,
+    "MANAGER_NAME" TEXT,
+    PRIMARY KEY ("SHOP_ID")
+);
+CREATE TABLE "HIRING" (
+    "EMPLOYEE_ID" INT,
+    "SHOP_ID" INT,
+    "START_FROM" TEXT,
+    "IS_FULL_TIME" INT,
+    PRIMARY KEY ("EMPLOYEE_ID"),
+    FOREIGN KEY ("EMPLOYEE_ID") REFERENCES "EMPLOYEE"("EMPLOYEE_ID"),
+    FOREIGN KEY ("SHOP_ID") REFERENCES "SHOP"("SHOP_ID")
+);
+CREATE TABLE "EVALUATION" (
+    "EMPLOYEE_ID" TEXT,
+    "YEAR_AWARDED" TEXT,
+    "BONUS" FLOAT,
+    PRIMARY KEY ("EMPLOYEE_ID", "YEAR_AWARDED"),
+    FOREIGN KEY ("EMPLOYEE_ID") REFERENCES "EMPLOYEE"("EMPLOYEE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO EMPLOYEE VALUES (0, 0, 0, 0);
+INSERT INTO EMPLOYEE VALUES (1, 0, 0, 0);
+INSERT INTO SHOP VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO SHOP VALUES (1, 0, 0, 0, 0, 0);
+INSERT INTO HIRING VALUES (1, 0, 0, -1);
+INSERT INTO HIRING VALUES (0, 0, 0, 0);
+INSERT INTO EVALUATION VALUES (0, 6, 0);
+INSERT INTO EVALUATION VALUES (0, 7, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT shop_id, employee_id, start_from, is_full_time FROM hiring ORDER BY shop_id, hiring.employee_id NULLS LAST;
+
+/*
+Gold Result:
+(0, 0, '0', 0)
+(0, 1, '0', -1)
+*/
+
+-- Prediction Query
+SELECT * FROM hiring;
+
+/*
+Prediction Result:
+(1, 0, '0', -1)
+(0, 0, '0', 0)
+*/

@@ -1,0 +1,58 @@
+```sql
+-- DATASET 1
+-- Tests DATETIME values with non-zero time components (kills mutants doing direct equality CreationDate = '2010-07-21')
+-- Tests NULL foreign keys (PostId, UserId) and NULL attributes (kills mutants with unnecessary INNER JOINs or COUNT(col) on nullable columns)
+-- Tests duplicate values in other columns (kills mutants using COUNT(DISTINCT PostHistoryTypeId/PostId/UserId))
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (1, 1, NULL, NULL, '2010-07-21 10:15:30', NULL, NULL, NULL, NULL);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (2, 1, NULL, NULL, '2010-07-21 23:59:59', NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary conditions around '2010-07-21', NULL CreationDate, and exact date string without time
+-- Kills mutants using >=, <=, >, <, !=, LIKE '%2010-07%', YEAR/MONTH only checks, or off-by-one date literals
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 100, '2010-07-21 08:00:00', 'User1');
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId, LasActivityDate, LastEditDate) VALUES (1, 1, '2010-07-21 09:00:00', 1, '2010-07-21 09:00:00', '2010-07-21 09:00:00');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (10, 2, 1, 'guid-1', '2010-07-20 23:59:59', 1, 'text', 'comment', 'User1');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (20, 2, 1, 'guid-2', '2010-07-21', 1, 'text', 'comment', 'User1');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (30, 2, 1, 'guid-3', '2010-07-21 00:00:00', 1, 'text', 'comment', 'User1');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (40, 2, 1, 'guid-4', '2010-07-22 00:00:00', 1, 'text', 'comment', 'User1');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (50, 2, 1, 'guid-5', '2011-07-21 12:00:00', 1, 'text', 'comment', 'User1');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (60, 2, 1, 'guid-6', '2010-08-21 12:00:00', 1, 'text', 'comment', 'User1');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (70, 2, 1, 'guid-7', NULL, 1, 'text', 'comment', 'User1');
+```
+
+```sql
+-- DATASET 3
+-- Tests zero-match scenario in postHistory while other tables have rows matching '2010-07-21'
+-- Kills mutants querying the wrong table (comments, posts, votes, users, badges, postLinks) or returning NULL/1 instead of 0
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 50, '2010-07-21 10:00:00', 'Alice');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 1, 'Teacher', '2010-07-21 11:00:00');
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId) VALUES (1, 1, '2010-07-21 12:00:00', 1);
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId) VALUES (1, 1, 5, 'Nice post', '2010-07-21 13:00:00', 1);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (1, 1, 2, '2010-07-21', 1);
+INSERT INTO postLinks (Id, CreationDate, PostId, RelatedPostId, LinkTypeId) VALUES (1, '2010-07-21 14:00:00', 1, 1, 1);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, CreationDate, UserId) VALUES (100, 1, 1, '2010-07-15 10:00:00', 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests parent-child date mismatch and 1-to-many relationships (1 post, multiple comments/votes, 1 postHistory)
+-- Kills mutants that join with posts/users/comments/votes and filter on the wrong table's CreationDate or fail to deduplicate after join
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (10, 200, '2009-01-01 00:00:00', 'Bob');
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId) VALUES (10, 1, '2009-05-05 00:00:00', 10);
+INSERT INTO comments (Id, PostId, Score, CreationDate, UserId) VALUES (1, 10, 1, '2009-05-06 00:00:00', 10);
+INSERT INTO comments (Id, PostId, Score, CreationDate, UserId) VALUES (2, 10, 2, '2009-05-07 00:00:00', 10);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (1, 10, 2, '2009-05-06', 10);
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) VALUES (2, 10, 2, '2009-05-07', 10);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (5, 1, 10, 'g1', '2010-07-21 15:30:00', 10, 'Body text', 'Initial', 'Bob');
+```
+
+```sql
+-- DATASET 5
+-- Tests aggregate function confusion (SUM(Id), MAX(Id), MIN(Id), AVG(Id), or selecting Id instead of COUNT(Id))
+-- Also tests ISO-8601 'T' separator format supported by SQLite DATE() function, which fails simple string prefix/substr checks if improperly written
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (100, 1, NULL, 'g100', '2010-07-21 01:02:03', NULL, 'A', 'B', 'C');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (200, 2, NULL, 'g200', '2010-07-21T14:22:10', NULL, 'D', 'E', 'F');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) VALUES (300, 3, NULL, 'g300', '2010-07-21 19:00:00', NULL, 'G', 'H', 'I');
+```

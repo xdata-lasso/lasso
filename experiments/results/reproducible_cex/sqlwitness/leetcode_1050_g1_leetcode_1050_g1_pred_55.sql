@@ -1,0 +1,23 @@
+-- Schema DDL
+CREATE TABLE "ActorDirector" ("timestamp" INTEGER PRIMARY KEY, "actor_id" INTEGER, "director_id" INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO actordirector (timestamp, actor_id, director_id) VALUES (4, 3, NULL), (0, 0, 0), (3, NULL, 0), (2, 0, 4), (1, NULL, 0), (5, 4, 0), (6, NULL, NULL), (7, 0, 3), (8, 2, 3), (9, 4, NULL), (10, NULL, NULL), (11, NULL, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ACTOR_ID, DIRECTOR_ID FROM ACTORDIRECTOR GROUP BY DIRECTOR_ID, ACTOR_ID HAVING COUNT(ACTOR_ID) > 2;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH CTE AS (SELECT ACTOR_ID, DIRECTOR_ID, COUNT(1) AS CNT, RANK() OVER (PARTITION BY ACTOR_ID, DIRECTOR_ID) AS RK FROM ACTORDIRECTOR GROUP BY ACTOR_ID, DIRECTOR_ID HAVING COUNT(1) >= 3 ORDER BY COUNT(1) DESC, ACTOR_ID NULLS LAST, DIRECTOR_ID NULLS LAST, CNT NULLS LAST, RK NULLS LAST) SELECT ACTOR_ID, DIRECTOR_ID FROM CTE WHERE RK = 1;
+
+/*
+Prediction Result:
+(None, None)
+*/

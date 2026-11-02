@@ -1,0 +1,86 @@
+```sql
+-- DATASET 1
+-- Core positive case alongside negative filters:
+-- Tests T1.name = 'Fellwar Stone', T2.language = 'Japanese', NOT T2.translation IS NULL, and the join condition T1.setCode = T2.setCode.
+-- Also tests schema traps (using sets.name or foreign_data.name instead of set_translations.translation).
+INSERT INTO "sets" (id, code, name) VALUES (1, 'DRK', 'The Dark');
+INSERT INTO "sets" (id, code, name) VALUES (2, '4ED', 'Fourth Edition');
+INSERT INTO "sets" (id, code, name) VALUES (3, '5ED', 'Fifth Edition');
+INSERT INTO "sets" (id, code, name) VALUES (4, 'CM2', 'Commander Anthology Volume II');
+
+INSERT INTO "cards" (id, uuid, name, asciiName, faceName, flavorName, setCode) VALUES (1, 'uuid-1', 'Fellwar Stone', 'Fellwar Stone', 'Fellwar Stone', 'Fellwar Stone', 'DRK');
+INSERT INTO "cards" (id, uuid, name, asciiName, faceName, flavorName, setCode) VALUES (2, 'uuid-2', 'Fellwar Stone', 'Fellwar Stone', 'Fellwar Stone', 'Fellwar Stone', '4ED');
+INSERT INTO "cards" (id, uuid, name, asciiName, faceName, flavorName, setCode) VALUES (3, 'uuid-3', 'Sol Ring', 'Fellwar Stone', 'Fellwar Stone', 'Fellwar Stone', '5ED');
+INSERT INTO "cards" (id, uuid, name, asciiName, faceName, flavorName, setCode) VALUES (4, 'uuid-4', 'Fellwar Stone', 'Other', 'Other', 'Other', 'CM2');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Japanese', 'DRK', 'ザ・ダーク');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'French', 'DRK', 'The Dark FR');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'Japanese', '4ED', NULL);
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (4, 'Japanese', '5ED', '第５版');
+
+INSERT INTO "foreign_data" (id, language, name, text, uuid) VALUES (1, 'Japanese', 'フェルワーの石', 'Card text in JP', 'uuid-1');
+```
+
+```sql
+-- DATASET 2
+-- Multiplicity / Duplicate preservation test (SELECT vs SELECT DISTINCT, JOIN vs IN/EXISTS subquery):
+-- Multiple 'Fellwar Stone' cards in the same set (e.g. variations/printings) and multiple matching sets returning identical or distinct translations.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'C16', 'Commander 2016');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'C17', 'Commander 2017');
+
+INSERT INTO "cards" (id, uuid, name, setCode, number) VALUES (1, 'uuid-c16-a', 'Fellwar Stone', 'C16', '254a');
+INSERT INTO "cards" (id, uuid, name, setCode, number) VALUES (2, 'uuid-c16-b', 'Fellwar Stone', 'C16', '254b');
+INSERT INTO "cards" (id, uuid, name, setCode, number) VALUES (3, 'uuid-c17', 'Fellwar Stone', 'C17', '210');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Japanese', 'C16', '統率者2016');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'Japanese', 'C17', '統率者2016');
+```
+
+```sql
+-- DATASET 3
+-- Outer Join / Dangling reference / NULL join key trap:
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN, and ensures unmatched cards or translations do not leak into results.
+INSERT INTO "sets" (id, code, name) VALUES (1, '9ED', 'Ninth Edition');
+INSERT INTO "sets" (id, code, name) VALUES (2, '10E', 'Tenth Edition');
+
+INSERT INTO "cards" (id, uuid, name, setCode) VALUES (1, 'uuid-9ed', 'Fellwar Stone', '9ED');
+INSERT INTO "cards" (id, uuid, name, setCode) VALUES (2, 'uuid-null', 'Fellwar Stone', NULL);
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Chinese Simplified', '9ED', '第九版');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'Japanese', '10E', '第10版');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'Japanese', NULL, 'Orphan Translation');
+```
+
+```sql
+-- DATASET 4
+-- String matching boundary conditions (exact match vs LIKE/contains, case sensitivity) and empty string vs NULL in translation:
+INSERT INTO "sets" (id, code, name) VALUES (1, 'S1', 'Set 1');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'S2', 'Set 2');
+INSERT INTO "sets" (id, code, name) VALUES (3, 'S3', 'Set 3');
+INSERT INTO "sets" (id, code, name) VALUES (4, 'S4', 'Set 4');
+
+INSERT INTO "cards" (id, uuid, name, setCode) VALUES (1, 'uuid-s1', 'Fellwar Stone', 'S1');
+INSERT INTO "cards" (id, uuid, name, setCode) VALUES (2, 'uuid-s2', 'Fellwar Stone ', 'S2');
+INSERT INTO "cards" (id, uuid, name, setCode) VALUES (3, 'uuid-s3', 'fellwar stone', 'S3');
+INSERT INTO "cards" (id, uuid, name, setCode) VALUES (4, 'uuid-s4', 'Fellwar Stone', 'S4');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Japanese', 'S1', '');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'Japanese', 'S2', 'Trailing Space Card Name');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'Japanese', 'S3', 'Lowercase Card Name');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (4, 'japanese', 'S4', 'Lowercase Language');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (5, 'Japanese ', 'S4', 'Trailing Space Language');
+```
+
+```sql
+-- DATASET 5
+-- Accidental ID join trap (T1.id = T2.id) vs proper setCode join (T1.setCode = T2.setCode), and accidental extra table joins (sets, legalities, rulings, foreign_data):
+-- Note: cards.setCode has no FK constraint in DDL, testing whether a query needlessly joins through the `sets` table when `sets` were omitted or mismatched, while keeping valid FKs for `set_translations`.
+INSERT INTO "sets" (id, code, name) VALUES (10, 'SET_A', 'Set A');
+INSERT INTO "sets" (id, code, name) VALUES (20, 'SET_B', 'Set B');
+
+INSERT INTO "cards" (id, uuid, name, setCode) VALUES (1, 'uuid-a', 'Black Lotus', 'SET_A');
+INSERT INTO "cards" (id, uuid, name, setCode) VALUES (2, 'uuid-b', 'Fellwar Stone', 'SET_B');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Japanese', 'SET_B', 'セットB');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'Japanese', 'SET_A', 'セットA');
+```

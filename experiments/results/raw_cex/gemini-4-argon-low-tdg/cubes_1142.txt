@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests basic CROSS JOIN vs NATURAL JOIN on artist_name, DISTINCT elimination, and ORDER BY ASC vs DESC.
+-- Notice songs belong to A_India, while A_BD_1 and A_BD_2 have NO songs of their own.
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Pop', '8', 'US');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Z_Artist', 'Pop', 'Bangladesh', 'Male');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('A_Artist', 'Pop', 'Bangladesh', 'Female');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Other_Artist', 'Pop', 'India', 'Male');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (1.0, 'Other_Artist', '5MB', '3:00', 'mp3');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (2.0, 'Other_Artist', '6MB', '4:00', 'mp3');
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_1', 'Pop', 1.0, 'Other_Artist', 'USA', 8.5, 'English', '2022-01-01', 320.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_2', 'Pop', 2.0, 'Other_Artist', 'UK', 9.0, 'English', '2022-02-01', 320.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition on song.rating > 7.0 (specifically rating = 7.0 and rating < 7.0).
+-- Under the gold query, this should return an empty result set. Mutants with >= 7.0 or < 7.0 will return rows.
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Rock', '9', 'UK');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('BD_Band', 'Rock', 'Bangladesh', 'Male');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (10.0, 'BD_Band', '4MB', '2:50', 'wav');
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Boundary_Song', 'Rock', 10.0, 'BD_Band', 'USA', 7.0, 'English', '2021-05-05', 256.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Low_Song', 'Rock', 10.0, 'BD_Band', 'Canada', 5.5, 'English', '2021-06-06', 128.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests the inequality condition (LHS.country <> RHS.country).
+-- Here, the only high-rated song (> 7.0) is ALSO from 'Bangladesh' or has NULL country.
+-- Gold query returns empty. Mutants missing `country <> country_other` or using `=` or `IS DISTINCT FROM` on NULLs will fail.
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Folk', '7', 'Bangladesh');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Baul_Singer', 'Folk', 'Bangladesh', 'Male');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (20.0, 'Baul_Singer', '3MB', '3:30', 'mp3');
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Local_Hit', 'Folk', 20.0, 'Baul_Singer', 'Bangladesh', 9.5, 'Bengali', '2020-01-01', 320.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Null_Country_Hit', 'Folk', 20.0, 'Baul_Singer', NULL, 8.0, 'Bengali', '2020-02-01', 320.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between LHS (artist) and RHS (song) columns, as well as genre.rating vs song.rating.
+-- Here:
+-- 1) An artist is from 'India' (not Bangladesh), while a song is from 'Bangladesh' with rating 9.0.
+--    Kills mutants that check RHS.country = 'Bangladesh' or project RHS.artist_name.
+-- 2) An artist is from 'Bangladesh', preferred_genre has genre.rating = '9', but song.rating = 6.0.
+--    Kills mutants that filter on genre.rating instead of song.rating.
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Jazz', '9.5', 'USA');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Indian_Artist', 'Jazz', 'India', 'Female');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('BD_Artist', 'Jazz', 'Bangladesh', 'Male');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (30.0, 'Indian_Artist', '7MB', '5:00', 'flac');
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('BD_Song', 'Jazz', 30.0, 'Indian_Artist', 'Bangladesh', 9.0, 'Bengali', '2023-01-01', 320.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Foreign_Low_Song', 'Jazz', 30.0, 'Indian_Artist', 'USA', 6.0, 'English', '2023-01-02', 320.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests Logical AND vs Logical OR in WHERE ("country" = 'Bangladesh' AND rating > 7.0),
+-- and tests inner vs outer WHERE interaction when multiple songs and artists exist.
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Classical', '6', 'Europe');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist_BD_Valid', 'Classical', 'Bangladesh', 'Female');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist_UK_Invalid', 'Classical', 'UK', 'Male');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist_Null_Country', 'Classical', NULL, 'Male');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (40.0, 'Artist_BD_Valid', '8MB', '6:00', 'mp3');
+-- A song from Bangladesh with high rating (matches Artist_UK_Invalid on country <> country_other and rating > 7.0, but fails LHS.country = 'Bangladesh')
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_BD_High', 'Classical', 40.0, 'Artist_BD_Valid', 'Bangladesh', 8.0, 'Bengali', '2019-03-15', 192.0);
+-- A song from France with rating just above 7.0 (7.01) that validates Artist_BD_Valid
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_FR_Edge', 'Classical', 40.0, 'Artist_UK_Invalid', 'France', 7.01, 'French', '2019-04-15', 192.0);
+```

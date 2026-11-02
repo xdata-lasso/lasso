@@ -1,0 +1,40 @@
+-- Schema DDL
+CREATE TABLE "PARENT" (
+    "ID" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "CHILD" (
+    "ID" INT,
+    "PARENT_ID" INT,
+    "TITLE" TEXT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("PARENT_ID") REFERENCES "PARENT"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO PARENT VALUES (0, 7);
+INSERT INTO PARENT VALUES (1, 9);
+INSERT INTO CHILD VALUES (0, 1, 8);
+INSERT INTO CHILD VALUES (1, 1, 10);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT TITLE FROM CHILD WHERE PARENT_ID = 1;
+
+/*
+Gold Result:
+('8',)
+('10',)
+*/
+
+-- Prediction Query
+SELECT NAME FROM PARENT JOIN CHILD ON PARENT.ID = CHILD.PARENT_ID WHERE PARENT.ID = 1;
+
+/*
+Prediction Result:
+('9',)
+('9',)
+*/

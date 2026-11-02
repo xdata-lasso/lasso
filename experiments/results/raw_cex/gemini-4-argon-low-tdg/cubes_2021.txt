@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE filter: 'Ludie' is excluded. If not excluded, group ('2020-01-01', 'Alpha') would have count 3 instead of 2.
+-- 2. COUNT(DISTINCT first_name) vs COUNT(first_name): Group ('2020-01-01', 'Alpha') has two 'Alice's and one 'Bob' (distinct count = 2, total count = 3).
+-- 3. GROUP BY both columns: ('2020-01-01', 'Alpha') vs ('2020-01-01', 'Beta') vs ('2020-01-02', 'Alpha').
+-- 4. Outer SELECT DISTINCT and ORDER BY: Multiple groups produce count 1, testing deduplication and ascending sort order (1, 2).
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '100 Main St', 'Metropolis', '10001', 'NY', 'USA');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (1, 1, 'Alpha', 'Alice', 'M', 'Smith', '1980-01-01', '2010-01-01', '2020-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (2, 1, 'Alpha', 'Alice', 'N', 'Jones', '1981-01-01', '2011-01-01', '2020-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (3, 1, 'Alpha', 'Bob', 'O', 'Brown', '1982-01-01', '2012-01-01', '2020-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (4, 1, 'Alpha', 'Ludie', 'P', 'White', '1983-01-01', '2013-01-01', '2020-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (5, 1, 'Beta', 'Charlie', 'Q', 'Green', '1984-01-01', '2014-01-01', '2020-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (6, 1, 'Alpha', 'Charlie', 'R', 'Black', '1985-01-01', '2015-01-01', '2020-01-02');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. A group consisting solely of 'Ludie' ('2021-05-05', 'SoloLudie') should be completely filtered out by the WHERE clause (as opposed to returning a count of 0 or 1).
+-- 2. NULL handling in "first_name": SQL standard `first_name <> 'Ludie'` evaluates to UNKNOWN for NULL, filtering it out.
+-- 3. NULL handling in GROUP BY columns ("date_left_staff" is NULL, "nickname" is NULL): SQLite groups NULLs together.
+-- 4. Unreferenced vs referenced tables: Adding rows to Customers/Vehicles/Lessons to kill mutants that inner-join Staff with Lessons or other tables.
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '200 Oak Ave', 'Gotham', '20002', 'NJ', 'USA');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (1, 1, 'SoloLudie', 'Ludie', 'A', 'One', '1990-01-01', '2015-01-01', '2021-05-05');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (2, 1, 'NullNameGroup', NULL, 'B', 'Two', '1991-01-01', '2016-01-01', '2021-06-06');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (3, 1, NULL, 'Dave', 'C', 'Three', '1992-01-01', '2017-01-01', NULL);
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (4, 1, NULL, 'Eve', 'D', 'Four', '1993-01-01', '2018-01-01', NULL);
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (5, 1, NULL, 'Frank', 'E', 'Five', '1994-01-01', '2019-01-01', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. String comparison operators (<> vs < or >): 'Ludie' compared against 'Aaron' (< 'Ludie') and 'Zack' (> 'Ludie') in different groups to ensure neither < nor > alone matches <>.
+-- 2. Case sensitivity & boundary strings: 'ludie' (lowercase) and 'Ludie ' (trailing space) should NOT be excluded by `first_name <> 'Ludie'`.
+-- 3. Checking that "nickname" = 'Ludie' or "last_name" = 'Ludie' is not accidentally filtered instead of "first_name".
+-- 4. Reverse insertion order of counts (group with count 4 inserted before group with count 1) to strictly test `ORDER BY count___` ASC.
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '300 Pine Rd', 'Star City', '30003', 'CA', 'USA');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (1, 1, 'G1', 'Aaron', 'A', 'Ludie', '1980-01-01', '2010-01-01', '2022-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (2, 1, 'G1', 'Zack', 'B', 'Smith', '1980-01-02', '2010-01-02', '2022-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (3, 1, 'G1', 'ludie', 'C', 'Smith', '1980-01-03', '2010-01-03', '2022-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (4, 1, 'G1', 'Ludie', 'D', 'Smith', '1980-01-04', '2010-01-04', '2022-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (5, 1, 'Ludie', 'Aaron', 'E', 'Smith', '1980-01-05', '2010-01-05', '2022-02-02');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Distinguishing COUNT(DISTINCT first_name) from COUNT(DISTINCT last_name), COUNT(DISTINCT middle_name), or COUNT(DISTINCT staff_id).
+-- 2. Distinguishing GROUP BY (date_left_staff, nickname) from GROUP BY (date_joined_staff, nickname) or GROUP BY (date_of_birth, nickname).
+-- 3. Ensuring foreign key relationships to Lessons do not affect the query (some staff have lessons, some do not).
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '400 Elm St', 'Central City', '40004', 'MO', 'USA');
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (1, 'Sedan');
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "customer_status_code", "date_became_customer", "date_of_birth", "first_name", "last_name", "amount_outstanding", "email_address", "phone_number", "cell_mobile_phone_number") VALUES (1, 1, 'Active', '2020-01-01', '2000-01-01', 'Cust', 'One', 0.0, 'c1@example.com', '111-2222', '333-4444');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (1, 1, 'SameNick', 'John', 'M1', 'L1', '1970-01-01', '2000-01-01', '2023-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (2, 1, 'SameNick', 'John', 'M2', 'L2', '1970-01-01', '2000-01-01', '2023-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (3, 1, 'SameNick', 'Paul', 'M1', 'L1', '1970-01-01', '2000-01-02', '2023-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (4, 1, 'SameNick', 'George', 'M1', 'L1', '1970-01-02', '2000-01-02', '2023-01-01');
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code", "lesson_date", "lesson_time", "price") VALUES (1, 1, 1, 1, 'Completed', '2021-01-01', '10:00', 50.0);
+```

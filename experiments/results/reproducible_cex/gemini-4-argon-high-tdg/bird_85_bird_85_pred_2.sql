@@ -1,0 +1,39 @@
+-- Schema DDL
+CREATE TABLE frpm (CDSCode TEXT NOT NULL PRIMARY KEY, "Academic Year" TEXT NULL, "County Code" TEXT NULL, "District Code" INTEGER NULL, "School Code" TEXT NULL, "County Name" TEXT NULL, "District Name" TEXT NULL, "School Name" TEXT NULL, "District Type" TEXT NULL, "School Type" TEXT NULL, "Educational Option Type" TEXT NULL, "NSLP Provision Status" TEXT NULL, "Charter School (Y/N)" INTEGER NULL, "Charter School Number" TEXT NULL, "Charter Funding Type" TEXT NULL, IRC INTEGER NULL, "Low Grade" TEXT NULL, "High Grade" TEXT NULL, "Enrollment (K-12)" REAL NULL, "Free Meal Count (K-12)" REAL NULL, "Percent (%) Eligible Free (K-12)" REAL NULL, "FRPM Count (K-12)" REAL NULL, "Percent (%) Eligible FRPM (K-12)" REAL NULL, "Enrollment (Ages 5-17)" REAL NULL, "Free Meal Count (Ages 5-17)" REAL NULL, "Percent (%) Eligible Free (Ages 5-17)" REAL NULL, "FRPM Count (Ages 5-17)" REAL NULL, "Percent (%) Eligible FRPM (Ages 5-17)" REAL NULL, "2013-14 CALPADS Fall 1 Certification Status" INTEGER NULL, FOREIGN KEY (CDSCode) REFERENCES schools (CDSCode));
+
+CREATE TABLE satscores (cds TEXT NOT NULL PRIMARY KEY, rtype TEXT NOT NULL, sname TEXT NULL, dname TEXT NULL, cname TEXT NULL, enroll12 INTEGER NOT NULL, NumTstTakr INTEGER NOT NULL, AvgScrRead INTEGER NULL, AvgScrMath INTEGER NULL, AvgScrWrite INTEGER NULL, NumGE1500 INTEGER NULL, FOREIGN KEY (cds) REFERENCES schools (CDSCode));
+
+CREATE TABLE schools (CDSCode TEXT NOT NULL PRIMARY KEY, NCESDist TEXT NULL, NCESSchool TEXT NULL, StatusType TEXT NOT NULL, County TEXT NOT NULL, District TEXT NOT NULL, School TEXT NULL, Street TEXT NULL, StreetAbr TEXT NULL, City TEXT NULL, Zip TEXT NULL, State TEXT NULL, MailStreet TEXT NULL, MailStrAbr TEXT NULL, MailCity TEXT NULL, MailZip TEXT NULL, MailState TEXT NULL, Phone TEXT NULL, Ext TEXT NULL, Website TEXT NULL, OpenDate DATE NULL, ClosedDate DATE NULL, Charter INTEGER NULL, CharterNum TEXT NULL, FundingType TEXT NULL, DOC TEXT NOT NULL, DOCType TEXT NOT NULL, SOC TEXT NULL, SOCType TEXT NULL, EdOpsCode TEXT NULL, EdOpsName TEXT NULL, EILCode TEXT NULL, EILName TEXT NULL, GSoffered TEXT NULL, GSserved TEXT NULL, Virtual TEXT NULL, Magnet INTEGER NULL, Latitude REAL NULL, Longitude REAL NULL, AdmFName1 TEXT NULL, AdmLName1 TEXT NULL, AdmEmail1 TEXT NULL, AdmFName2 TEXT NULL, AdmLName2 TEXT NULL, AdmEmail2 TEXT NULL, AdmFName3 TEXT NULL, AdmLName3 TEXT NULL, AdmEmail3 TEXT NULL, LastUpdate DATE NOT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, AdmFName1, AdmLName1, AdmFName2, AdmFName3, LastUpdate) VALUES ('CDS001', '99999', '88888', 'Active', 'Alameda', 'Dist A', 'School One', '50', 'Unified', 'Alusine', 'Conteh', 'Jane', 'Mark', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, AdmFName1, AdmLName1, AdmFName2, AdmFName3, LastUpdate) VALUES ('CDS002', '99998', '88887', 'Active', 'Alameda', 'Dist B', 'School Two', '50', 'Unified', 'Bob', 'Smith', 'Alusine', 'Luke', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, AdmFName1, AdmLName1, AdmFName2, AdmFName3, LastUpdate) VALUES ('CDS003', '99997', '88886', 'Active', 'Alameda', 'Dist C', 'School Three', '50', 'Unified', 'Charlie', 'Brown', 'Sara', 'Alusine', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, AdmFName1, AdmLName1, AdmFName2, AdmFName3, LastUpdate) VALUES ('CDS004', '99996', '88885', 'Active', 'Alameda', 'Dist D', 'School Four', '50', 'Unified', 'David', 'Alusine', 'Nina', 'Paul', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, AdmFName1, AdmLName1, AdmFName2, AdmFName3, LastUpdate) VALUES ('CDS005', '99995', '88884', 'Active', 'Alameda', 'Dist E', 'School Five', '50', 'Unified', NULL, 'Taylor', 'Anna', 'Tom', '2020-01-01');
+INSERT INTO frpm (CDSCode, "County Code", "District Code", "School Code", "County Name", "District Name", "School Name", "Enrollment (K-12)", "Free Meal Count (K-12)", "Percent (%) Eligible Free (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible FRPM (K-12)", "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS001', '01', 10001, '0000001', 'Alameda', 'Dist A', 'School One', 80.0, 25.0, 0.31, 40.0, 50.0, 50.0, 20.0, 40.0, 30.0, 60.0);
+INSERT INTO frpm (CDSCode, "County Code", "District Code", "School Code", "County Name", "District Name", "School Name", "Enrollment (K-12)", "Free Meal Count (K-12)", "Percent (%) Eligible Free (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible FRPM (K-12)", "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS002', '01', 10002, '0000002', 'Alameda', 'Dist B', 'School Two', 100.0, 50.0, 50.0, 60.0, 60.0, 90.0, 45.0, 50.0, 54.0, 60.0);
+INSERT INTO frpm (CDSCode, "County Code", "District Code", "School Code", "County Name", "District Name", "School Name", "Enrollment (K-12)", "Free Meal Count (K-12)", "Percent (%) Eligible Free (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible FRPM (K-12)", "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS003', '01', 10003, '0000003', 'Alameda', 'Dist C', 'School Three', 200.0, 70.0, 35.0, 80.0, 40.0, 180.0, 63.0, 35.0, 72.0, 40.0);
+INSERT INTO frpm (CDSCode, "County Code", "District Code", "School Code", "County Name", "District Name", "School Name", "Enrollment (K-12)", "Free Meal Count (K-12)", "Percent (%) Eligible Free (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible FRPM (K-12)", "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS004', '01', 10004, '0000004', 'Alameda', 'Dist D', 'School Four', 150.0, 30.0, 20.0, 45.0, 30.0, 140.0, 28.0, 20.0, 42.0, 30.0);
+INSERT INTO frpm (CDSCode, "County Code", "District Code", "School Code", "County Name", "District Name", "School Name", "Enrollment (K-12)", "Free Meal Count (K-12)", "Percent (%) Eligible Free (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible FRPM (K-12)", "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS005', '01', 10005, '0000005', 'Alameda', 'Dist E', 'School Five', 120.0, 60.0, 50.0, 72.0, 60.0, 100.0, 50.0, 50.0, 60.0, 60.0);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS002', 'S', 'School Two', 'Dist B', 'Alameda', 100, 50, 500, 510, 490, 25);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1."Free Meal Count (K-12)" * 100 / T1."Enrollment (K-12)", T1."District Code" FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.AdmFName1 = 'Alusine';
+
+/*
+Gold Result:
+(31.25, 10001)
+*/
+
+-- Prediction Query
+SELECT frpm."percent (%) eligible free (k-12)", frpm."district code" FROM frpm INNER JOIN schools ON frpm."cdscode" = schools."cdscode" WHERE schools."admfname1" = 'Alusine';
+
+/*
+Prediction Result:
+(0.31, 10001)
+*/

@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions around product_id = 11 (10, 11, 12, NULL) to catch off-by-one (<, <=, >, >=, !=) and missing WHERE clause mutants.
+-- 2. Column confusion: order_item_id = 11 and order_id = 11 when product_id != 11.
+-- 3. Ordering: Inserted out of order (order_item_id 30, then 10, then 20) to catch missing ORDER BY or DESC mutants.
+-- 4. Multiplicity in Shipment_Items: order_item_id 10 has 0 shipments, order_item_id 30 has 2 shipments (catches unnecessary JOINs to Shipment_Items).
+-- 5. Nullable Foreign Keys: order_item_id 20 has NULL order_id (catches unnecessary INNER JOIN to Orders).
+
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Alice', 'Regular');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (11, 1, 'Pending', '2023-01-01 10:00:00', 'Order 11');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (100, 1, 'Shipped', '2023-01-02 10:00:00', 'Order 100');
+
+INSERT INTO Products (product_id, product_name, product_details) VALUES (10, 'Prod 10', 'Boundary Low');
+INSERT INTO Products (product_id, product_name, product_details) VALUES (11, 'Prod 11', 'Target Product');
+INSERT INTO Products (product_id, product_name, product_details) VALUES (12, 'Prod 12', 'Boundary High');
+
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (30, 11, 100, 'Shipped', 'Target Item 30');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (10, 11, 100, 'Pending', 'Target Item 10');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (20, 11, NULL, 'Pending', 'Target Item 20 with NULL order_id');
+
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (11, 10, 100, 'Shipped', 'Trap: order_item_id is 11, product_id is 10');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (40, 12, 11, 'Shipped', 'Trap: order_id is 11, product_id is 12');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (50, NULL, 100, 'Cancelled', 'Trap: NULL product_id');
+
+INSERT INTO Invoices (invoice_number, invoice_date, invoice_details) VALUES (1, '2023-01-03 10:00:00', 'Inv 1');
+
+INSERT INTO Shipments (shipment_id, invoice_number, order_id, shipment_tracking_number, shipment_date, other_shipment_details) VALUES (1, 1, 100, 'TRK1', '2023-01-04 10:00:00', 'Ship 1');
+INSERT INTO Shipments (shipment_id, invoice_number, order_id, shipment_tracking_number, shipment_date, other_shipment_details) VALUES (2, 1, 100, 'TRK2', '2023-01-05 10:00:00', 'Ship 2');
+
+INSERT INTO Shipment_Items (shipment_id, order_item_id) VALUES (1, 30);
+INSERT INTO Shipment_Items (shipment_id, order_item_id) VALUES (2, 30);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Empty result set for the target condition (product_id = 11 exists in Products, but has no rows in Order_Items).
+-- 2. Catches mutants using RIGHT/LEFT JOIN from Products or selecting product_id instead of order_item_id.
+-- 3. String/number confusion: product_name is '11' for product_id = 99.
+
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (11, 'Customer 11', 'Trap ID 11');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (1, 11, 'Open', '2023-02-01 00:00:00', 'Order 1');
+
+INSERT INTO Products (product_id, product_name, product_details) VALUES (11, 'Unordered Product', 'No order items reference this');
+INSERT INTO Products (product_id, product_name, product_details) VALUES (99, '11', 'Product name is 11');
+
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (1, 99, 1, '11', 'Trap status and product name 11');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Aggregate vs non-aggregate mutants (e.g., COUNT, MIN, MAX, SUM, AVG) by having two specific matching items (2 and 5) where count=2, min=2, max=5, sum=7, avg=3.5.
+-- 2. Ordering when order_id and order_item_status are in reverse order compared to order_item_id (catches ORDER BY wrong column).
+-- 3. LIMIT 1 mutants (since more than 1 row is returned).
+
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Cust', 'Details');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (10, 1, 'New', '2023-03-01 00:00:00', 'Ord 10');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (20, 1, 'New', '2023-03-02 00:00:00', 'Ord 20');
+
+INSERT INTO Products (product_id, product_name, product_details) VALUES (11, 'Target', 'Details');
+
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (5, 11, 10, 'A_Status', 'First inserted, higher item_id, lower order_id and status');
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (2, 11, 20, 'Z_Status', 'Second inserted, lower item_id, higher order_id and status');
+```

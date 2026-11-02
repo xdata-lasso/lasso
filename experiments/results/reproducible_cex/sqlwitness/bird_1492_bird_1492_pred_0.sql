@@ -1,0 +1,32 @@
+-- Schema DDL
+CREATE TABLE customers (CustomerID INTEGER UNIQUE NOT NULL PRIMARY KEY, Segment TEXT NULL, Currency TEXT NULL);
+
+CREATE TABLE gasstations (GasStationID INTEGER UNIQUE NOT NULL PRIMARY KEY, ChainID INTEGER NULL, Country TEXT NULL, Segment TEXT NULL);
+
+CREATE TABLE products (ProductID INTEGER UNIQUE NOT NULL PRIMARY KEY, Description TEXT NULL);
+
+CREATE TABLE "transactions_1k" (TransactionID INTEGER PRIMARY KEY AUTOINCREMENT, Date DATE, Time TEXT, CustomerID INTEGER, CardID INTEGER, GasStationID INTEGER, ProductID INTEGER, Amount INTEGER, Price REAL);
+
+CREATE TABLE "yearmonth" (CustomerID INTEGER NOT NULL REFERENCES customers ON update CASCADE ON delete CASCADE REFERENCES customers, Date TEXT NOT NULL, Consumption REAL, PRIMARY KEY (Date, CustomerID));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO customers (customerid, segment, currency) VALUES (1, 'KAM', 'EUR'), (0, 'KAM', NULL), (100, 'Euro', 'KAM'), (99, 'KAM', 'EUR'), (2, 'EUR', 'EUR'), (-1, 'EUR', 'Euro'), (101, 'EUR', 'KAM'), (3, 'default2', 'KAM'), (4, NULL, 'default1'), (5, 'default2', 'KAM'), (6, 'default1', 'EUR'), (7, 'KAM', 'default2'), (8, 'default1', 'Euro'), (9, 'EUR', 'EUR'), (10, NULL, 'KAM'), (11, 'default1', 'Euro'), (12, 'default2', 'default1');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CAST(SUM(Currency = 'EUR') AS REAL) * 100 / COUNT(CustomerID) FROM customers WHERE Segment = 'KAM';
+
+/*
+Gold Result:
+(50.0,)
+*/
+
+-- Prediction Query
+SELECT (CAST(SUM(CASE WHEN Currency = 'Euro' THEN 1 ELSE 0 END) AS REAL) / COUNT(*)) * 100 AS percentage FROM customers WHERE Segment = 'KAM';
+
+/*
+Prediction Result:
+(0.0,)
+*/

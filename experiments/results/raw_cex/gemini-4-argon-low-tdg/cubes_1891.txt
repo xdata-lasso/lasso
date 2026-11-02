@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+-- Tests basic distinguishability between total row count (4), distinct location_address_id count (2), distinct route_id count (3), and Addresses table row count (5).
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (10, '123 Main', 'CityA', '10001', 'StateA', 'CountryA');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (20, '456 Oak', 'CityB', '10002', 'StateB', 'CountryB');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (30, '789 Pine', 'CityC', '10003', 'StateC', 'CountryC');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (40, '101 Maple', 'CityD', '10004', 'StateD', 'CountryD');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (50, '202 Birch', 'CityE', '10005', 'StateE', 'CountryE');
+
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (1, 'Route_1', 'Details_1');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (2, 'Route_2_Target', 'Details_2');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (3, 'Route_3_DistinctRoutes', 'Details_3');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (4, 'Route_4_TotalLocations', 'Details_4');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (5, 'Route_5_TotalAddresses', 'Details_5');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (10, 'Route_10_AddressIdMatch', 'Details_10');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (20, 'Route_20_AddressIdMatch', 'Details_20');
+
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('LOC1', 1, 10, 'LocNameA');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('LOC2', 1, 10, 'LocNameA');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('LOC3', 2, 10, 'LocNameB');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('LOC4', 3, 20, 'LocNameB');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY (GROUP BY treats NULL as a group vs COUNT(DISTINCT location_address_id) which ignores NULLs).
+-- Distinct non-null location_address_id = 2, but GROUP BY location_address_id produces 3 groups (100, 200, NULL). Total rows = 4.
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (100, 'Addr 100', 'City1', '001', 'St1', 'C1');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (200, 'Addr 200', 'City2', '002', 'St2', 'C2');
+
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (1, 'Route_1', 'Details_1');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (2, 'Route_2_CountDistinctTrap', 'Details_2');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (3, 'Route_3_TargetWithNullGroup', 'Details_3');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (4, 'Route_4_TotalRowsTrap', 'Details_4');
+
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('L1', 1, 100, 'Loc1');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('L2', 1, 200, 'Loc2');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('L3', 2, NULL, 'Loc3');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('L4', 2, NULL, 'Loc4');
+```
+
+```sql
+-- DATASET 3
+-- Tests empty Delivery_Route_Locations table where COUNT(*) over empty grouped subquery returns 0, matching route_id = 0 (also tests LEFT JOIN vs INNER JOIN).
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (0, 'Route_Zero_Target', 'Zero Details');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (1, 'Route_One', 'One Details');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (2, 'Route_Two', 'Two Details');
+```
+
+```sql
+-- DATASET 4
+-- Tests queries that mistakenly join Delivery_Routes directly with Delivery_Route_Locations on route_id (standard FK join) or filter by route having locations, and tests ORDER BY route_name vs route_id.
+-- Here, 3 distinct location_address_ids exist, so route_id = 3 is selected. Notice route_id = 3 has NO rows in Delivery_Route_Locations.
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (1, 'A1', 'C1', 'Z1', 'S1', 'Country1');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (2, 'A2', 'C2', 'Z2', 'S2', 'Country2');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (3, 'A3', 'C3', 'Z3', 'S3', 'Country3');
+
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (1, 'Z_Route_HasLocations_1', 'D1');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (2, 'M_Route_HasLocations_2', 'D2');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (3, 'A_Route_Target_NoLocations', 'D3');
+
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('C1', 1, 1, 'N1');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('C2', 1, 2, 'N2');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('C3', 2, 3, 'N3');
+```
+
+```sql
+-- DATASET 5
+-- Tests when inner subquery count (n) per group is confused with outer COUNT(*) of groups.
+-- Here there is only 1 group (address 500), which has 3 rows.
+-- Outer COUNT(*) = 1 (matches route_id 1). Inner COUNT(*) = 3 (would match route_id 3 if outer aggregation was omitted or MAX/SUM used).
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (500, 'Addr 500', 'CityX', '999', 'StateX', 'CountryX');
+
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (1, 'Route_1_OuterCountTarget', 'Details 1');
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (3, 'Route_3_InnerCountTrap', 'Details 3');
+
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('X1', 3, 500, 'LocX1');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('X2', 3, 500, 'LocX2');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('X3', 3, 500, 'LocX3');
+```

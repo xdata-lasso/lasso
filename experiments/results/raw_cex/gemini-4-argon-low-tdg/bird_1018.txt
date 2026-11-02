@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. AND vs OR on forename='Lewis' and surname='Hamilton'
+-- 2. AVG vs SUM/COUNT/MIN/MAX
+-- 3. AVG(milliseconds) vs AVG(DISTINCT milliseconds)
+-- 4. Floating point average vs integer division (47500 / 3 = 15833.333...)
+-- 5. PitStops vs LapTimes vs Results table confusion
+-- 6. milliseconds vs duration/stop/lap column confusion
+-- 7. Incorrect join condition (e.g., raceId = driverId)
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://monza.com');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://2021.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2021, 1, 1, 'Italian GP', '2021-09-12', 'http://italiangp.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2021, 2, 1, 'British GP', '2021-07-18', 'http://britishgp.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mercedes', 'Mercedes', 'http://mercedes.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://hamilton.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'lewis_other', 'Lewis', 'Smith', 'http://smith.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'hamilton_other', 'Duncan', 'Hamilton', 'http://duncan.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'verstappen', 'Max', 'Verstappen', 'http://max.com');
+
+-- Target driver (Lewis Hamilton) pitStops: two identical values (15000) and one different (17500), plus one NULL
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (10, 1, 1, 10, '14:00:00', '15.000', 15000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (10, 1, 2, 25, '14:30:00', '15.000', 15000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (10, 1, 3, 40, '15:00:00', '17.500', 17500);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (10, 1, 4, 45, '15:10:00', NULL, NULL);
+
+-- Decoy pitStops for partial name matches and other drivers
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (10, 2, 1, 12, '14:05:00', '50.000', 50000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (10, 3, 1, 15, '14:10:00', '60.000', 60000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 4, 1, 20, '14:20:00', '90.000', 90000);
+
+-- Decoy rows in lapTimes and results for Lewis Hamilton to catch wrong table selection
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 1, 1, 1, '01:20.000', 80000);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, milliseconds, statusId) VALUES (1, 10, 1, 1, 1, '1', 1, 25.0, 53, 5000000, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Multiple drivers with same name ('Lewis Hamilton') having different driverIds
+-- 2. GROUP BY T2.driverId mutant (would return 2 rows instead of 1)
+-- 3. Multiple races for the same driver (GROUP BY raceId mutant would return multiple rows)
+-- 4. Case sensitivity / exact string match vs LIKE '%Lewis%'
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://silverstone.com');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://2022.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (101, 2022, 1, 1, 'Race 1', '2022-03-20', 'http://r1.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (102, 2022, 2, 1, 'Race 2', '2022-03-27', 'http://r2.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'hamilton1', 'Lewis', 'Hamilton', 'http://lh1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'hamilton2', 'Lewis', 'Hamilton', 'http://lh2.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (30, 'hamilton_jr', 'Lewis Jr', 'Hamilton-Smith', 'http://lh3.com');
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (101, 10, 1, 15, '14:00:00', '20.000', 20000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (102, 10, 1, 18, '15:00:00', '22.000', 22000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (101, 20, 1, 10, '14:10:00', '30.000', 30000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (101, 30, 1, 12, '14:15:00', '99.000', 99000);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty matching pitStops for Lewis Hamilton (returns NULL in gold query)
+-- 2. Catches COALESCE/IFNULL(AVG(milliseconds), 0) or COUNT(milliseconds) mutants
+-- 3. Catches missing WHERE clause when other drivers have pitStops
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://spa.com');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://2020.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Belgian GP', '2020-08-30', 'http://belgiangp.com');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://hamilton.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'bottas', 'Valtteri', 'Bottas', 'http://bottas.com');
+
+-- Only Bottas has pit stops; Lewis Hamilton has none
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 2, 1, 10, '14:00:00', '25.000', 25000);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Single pitStop for Lewis Hamilton where AVG(milliseconds) == milliseconds, testing boundary conditions (e.g. stop > 1, lap > 1)
+-- 2. Swapped forename and surname ('Hamilton' as forename, 'Lewis' as surname)
+-- 3. DriverRef = 'hamilton' vs forename = 'Lewis' AND surname = 'Hamilton'
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Monaco', 'http://monaco.com');
+INSERT INTO seasons (year, url) VALUES (2019, 'http://2019.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2019, 1, 1, 'Monaco GP', '2019-05-26', 'http://monacogp.com');
+
+-- Target driver with non-standard driverRef and code
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (1, 'not_hamilton_ref', 'XXX', 'Lewis', 'Hamilton', 'http://lh.com');
+-- Decoy driver with driverRef = 'hamilton' and code = 'HAM', but different name
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (2, 'hamilton', 'HAM', 'John', 'Doe', 'http://jd.com');
+-- Decoy driver with swapped forename and surname
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (3, 'swapped', 'SWP', 'Hamilton', 'Lewis', 'http://swp.com');
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 1, 1, '14:00:00', '21.345', 21345);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 2, 1, 10, '14:15:00', '40.000', 40000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 3, 1, 12, '14:20:00', '50.000', 50000);
+```

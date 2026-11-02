@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (VoteTypeId = 8 vs boundary values 7, 9, NULL), 
+-- primary ordering (BountyAmount DESC vs ASC), and ensures highest BountyAmount for VoteTypeId != 8 is ignored.
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (1, 'Alice', 'https://alice.org');
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (2, 'Bob', 'https://bob.org');
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (3, 'Charlie', 'https://charlie.org');
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (4, 'Diana', 'https://diana.org');
+
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (10, 7, 1, 1000);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (20, 9, 1, 2000);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (30, NULL, 1, 3000);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (40, 8, 2, 100);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (50, 8, 3, 500);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (60, 8, 4, 250);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on votes.Id ASC when top BountyAmount is tied.
+-- Also tests multiple votes by the same user (to refute SUM(BountyAmount) or COUNT(*) GROUP BY mutations)
+-- and ensures join without LIMIT 1 or DISTINCT is refuted.
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (10, 'UserTen', 'https://ten.com');
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (20, 'UserTwenty', 'https://twenty.com');
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (30, 'UserThirty', 'https://thirty.com');
+
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (5, 8, 20, 300);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (2, 8, 10, 300);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (8, 8, 30, 200);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (9, 8, 30, 200);
+```
+
+```sql
+-- DATASET 3
+-- Tests when the winning top vote has a NULL UserId (should return empty set, refuting IS NOT NULL filters on UserId or OFFSET/second-row fallbacks).
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (1, 'FallbackUser', 'https://fallback.com');
+
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (1, 8, NULL, 500);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (2, 8, 1, 400);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL BountyAmount handling in SQLite (in DESC order without NULLS FIRST, numeric values > NULL).
+-- Also tests confounding columns (PostId = 8, BountyAmount = 8, Id = 8, Reputation = 1000) to refute wrong column references.
+INSERT INTO users (Id, Reputation, DisplayName, WebsiteUrl) VALUES (1, 50, 'WinnerUser', 'https://winner.com');
+INSERT INTO users (Id, Reputation, DisplayName, WebsiteUrl) VALUES (2, 9999, 'NullBountyUser', 'https://nullbounty.com');
+INSERT INTO users (Id, Reputation, DisplayName, WebsiteUrl) VALUES (8, 8888, 'ConfuseUser8', 'https://user8.com');
+
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (8, 8, 800);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (100, 1, 10);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (1, 100, 8, 2, NULL);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (2, 100, 8, 1, 50);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (8, 8, 1, 8, 900);
+```
+
+```sql
+-- DATASET 5
+-- Tests when all VoteTypeId = 8 rows have NULL or negative BountyAmount, verifying tie-breaker on votes.Id ASC and negative number sorting.
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (1, 'NegTen', NULL);
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (2, 'NegFifty', 'https://neg50.com');
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (3, 'NullBounty', 'https://null.com');
+
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (10, 8, 2, -50);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (20, 8, 1, -10);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (5, 8, 3, NULL);
+```
+
+```sql
+-- DATASET 6
+-- Tests when NO votes have VoteTypeId = 8 (subquery returns NULL, outer query must return 0 rows; refutes LEFT JOIN or COALESCE mutations).
+INSERT INTO users (Id, DisplayName, WebsiteUrl) VALUES (1, 'OnlyUser', 'https://only.com');
+
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (1, 1, 1, 100);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (2, 2, 1, 200);
+```
+
+```sql
+-- DATASET 7
+-- Tests when multiple votes with VoteTypeId = 8 have NULL BountyAmount (and no non-null BountyAmounts exist), 
+-- ensuring the secondary sort `votes.id` breaks the tie among NULLs.
+-- Also tests joining on users.Id vs users.AccountId.
+INSERT INTO users (Id, AccountId, DisplayName, WebsiteUrl) VALUES (101, 202, 'User101', 'https://u101.com');
+INSERT INTO users (Id, AccountId, DisplayName, WebsiteUrl) VALUES (202, 101, 'User202', 'https://u202.com');
+
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (99, 8, 202, NULL);
+INSERT INTO votes (Id, VoteTypeId, UserId, BountyAmount) VALUES (11, 8, 101, NULL);
+```

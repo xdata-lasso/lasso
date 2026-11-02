@@ -1,0 +1,14 @@
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (-2147483648, 'customer_name_1', 'cus_c14ddf', 'BRONZE', 853.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (-2147483647, 'customer_name_2', 'cus_c14ddf', 'BRONZE', 794.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (-2147483646, 'customer_name_3', 'cus_c14ddf', 'BRONZE', 2353.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (-2147483645, 'customer_name_4', 'cus_c14ddf', 'BRONZE', 0.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (-2147483644, 'customer_name_5', 'cus_c14ddf', 'BRONZE', 794.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (-2147483641, 'customer_name_8', 'cus_c14ddf', 'BRONZE', 2353.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (2, 'C', 'cus_c14ddf', 'BRONZE', 0.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (3, 'A', 'cus_c14ddf', 'BRONZE', 853.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (4, 'customer_name_9', 'cus_b7d2a4', 'BRONZE', 0.09);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (5, 'customer_name_10', 'cus_b7d2a4', 'BRONZE', 0.1);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (6, 'customer_name_11', 'cus_b7d2a4', 'BRONZE', 0.0);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (7, 'customer_name_12', 'cus_b7d2a4', 'BRONZE', 0.5);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (8, 'customer_name_13', 'cus_b7d2a4', 'BRONZE', 0.13);
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (9, 'customer_name_14', 'cus_b7d2a4', 'BRONZE', 0.14);

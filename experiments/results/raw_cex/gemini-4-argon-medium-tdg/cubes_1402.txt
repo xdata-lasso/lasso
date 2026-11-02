@@ -1,0 +1,58 @@
+```sql
+-- DATASET 1
+-- Tests zero matching rows in Project_Outcomes.
+-- Notably, COUNT(*) OVER () returns 0 rows here, whereas standard aggregate COUNT(*) without GROUP BY would return 1 row with value 0.
+-- Also tests inner join vs left join on Research_Outcomes where 'Patent' exists in parent table but not child table.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('UNI', 'University');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'UNI', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Project 1');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('Patent', 'Patent Outcome');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('Paper', 'Research Paper');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('Paper', 1, 'Published in journal');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES (NULL, 1, 'Unknown outcome');
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple matching 'Patent' rows (kills missing DISTINCT, missing WHERE clause, and tests NULLs in other columns like project_id/outcome_details).
+-- Also includes case-sensitivity / partial match traps ('patent', 'PatentPending') and duplicate project_ids.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('UNI', 'University');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (1, 'UNI', 'Org 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (1, 1, 'Project 1');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (2, 1, 'Project 2');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('Patent', 'Patent Outcome');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('patent', 'Lowercase patent');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('PatentPend', 'Patent Pending');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('Paper', 'Research Paper');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('Patent', 1, 'Patent A');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('Patent', 1, 'Patent B on same project');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('Patent', 2, NULL);
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('Patent', NULL, 'Patent with NULL project_id');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('patent', 1, 'Should not match = Patent');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('PatentPend', 2, 'Should not match LIKE Patent%');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('Paper', 1, 'Paper A');
+```
+
+```sql
+-- DATASET 3
+-- Tests single matching row and checks against unneeded joins to Projects/Organisations where some Projects have no Outcomes.
+-- Also tests when 'Patent' is the ONLY outcome_code in Project_Outcomes (kills != 'Patent' or NOT IN mutants).
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('CORP', 'Corporation');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (10, 'CORP', 'Corp 10');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (100, 10, 'Project 100');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (200, 10, 'Project 200 without outcomes');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('Patent', 'Patent');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('Patent', 100, 'Single Patent');
+```
+
+```sql
+-- DATASET 4
+-- Tests exact duplicate rows in Project_Outcomes (since Project_Outcomes has no PRIMARY KEY).
+-- Distinguishes COUNT(*) from COUNT(DISTINCT project_id), COUNT(DISTINCT outcome_details), or subquery deduplication before counting.
+INSERT INTO "Organisation_Types" ("organisation_type", "organisation_type_description") VALUES ('GOV', 'Government');
+INSERT INTO "Organisations" ("organisation_id", "organisation_type", "organisation_details") VALUES (5, 'GOV', 'Gov Agency');
+INSERT INTO "Projects" ("project_id", "organisation_id", "project_details") VALUES (50, 5, 'Project 50');
+INSERT INTO "Research_Outcomes" ("outcome_code", "outcome_description") VALUES ('Patent', 'Patent');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('Patent', 50, 'Identical Row');
+INSERT INTO "Project_Outcomes" ("outcome_code", "project_id", "outcome_details") VALUES ('Patent', 50, 'Identical Row');
+```

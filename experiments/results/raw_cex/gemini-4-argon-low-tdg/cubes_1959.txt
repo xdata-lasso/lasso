@@ -1,0 +1,95 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering on job_title_code, duplicate preservation (SELECT vs SELECT DISTINCT), ordering by staff_id, and staff with no assignments.
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (1, 'Chain A');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 1, 'Store 1', '123 Main St', '555-0100', 'store1@example.com');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (10, 1, 'Electronics');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (20, 1, 'Clothing');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (30, 1, 'Home');
+
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (1, 'M', 'Alice');
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (2, 'F', 'Bob');
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (3, 'M', 'Charlie');
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (4, 'F', 'Diana');
+
+-- Staff 2 has two 'Department Manager' assignments (tests duplicate rows vs DISTINCT)
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (2, 10, '2020-01-01', 'Department Manager', '2021-01-01');
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (2, 20, '2021-01-02', 'Department Manager', '2022-01-01');
+
+-- Staff 1 has one 'Department Manager' assignment and one 'Sales Associate' assignment
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (1, 10, '2019-01-01', 'Sales Associate', '2020-01-01');
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (1, 30, '2020-01-01', 'Department Manager', '2022-01-01');
+
+-- Staff 3 only has a non-matching assignment
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (3, 20, '2020-01-01', 'Clerical', '2022-01-01');
+-- Staff 4 has no assignments at all (tests RIGHT JOIN / FULL OUTER JOIN mutants)
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in staff_gender, NULL handling in staff_id (LEFT JOIN preservation vs INNER JOIN), and string case/substring matching for 'Department Manager'.
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (1, 'Chain B');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 1, 'Store 2', '456 Oak St', '555-0200', 'store2@example.com');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (100, 1, 'Grocery');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (200, 1, 'Pharmacy');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (300, 1, 'Bakery');
+
+-- Staff with NULL gender, and various IDs to test sorting and NULLS LAST
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (5, NULL, 'Eve');
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (10, 'F', 'Frank');
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (15, 'M', 'Grace');
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (20, 'M', 'Department Manager');
+
+-- Exact match with NULL staff_gender
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (5, 100, '2021-05-01', 'Department Manager', NULL);
+
+-- Exact match with valid staff_gender
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (10, 100, '2021-06-01', 'Department Manager', '2023-01-01');
+
+-- Assignment with NULL staff_id (allowed in SQLite even in PK unless NOT NULL is specified, tests LEFT JOIN vs INNER JOIN and NULLS LAST on staff_id)
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (NULL, 200, '2021-07-01', 'Department Manager', '2023-01-01');
+
+-- Near-misses on job_title_code (case sensitivity, LIKE '%Department%', wrong column check)
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (15, 200, '2021-08-01', 'department manager', '2023-01-01');
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (15, 300, '2021-09-01', 'Assistant Department Manager', '2023-01-01');
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (20, 300, '2021-10-01', 'Manager', '2023-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition mutations (e.g., joining on department_id = staff_id instead of staff_id = staff_id) and ordering directions (ASC vs DESC).
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (1, 'Chain C');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 1, 'Store 3', '789 Pine St', '555-0300', 'store3@example.com');
+
+-- Department IDs overlap with Staff IDs to catch wrong join key mutations (e.g. LHS.department_id = RHS.staff_id)
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (1, 1, 'Dept 1');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (2, 1, 'Dept 2');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (3, 1, 'Dept 3');
+
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (1, 'F', 'Hannah');
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (2, 'M', 'Ian');
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (3, 'F', 'Jack');
+
+-- Staff 3 manages Dept 2 (if joined on department_id = staff_id, gender would be 'M' from Staff 2 instead of 'F' from Staff 3)
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (3, 2, '2022-01-01', 'Department Manager', '2022-12-31');
+
+-- Staff 2 manages Dept 1 (if joined on department_id = staff_id, gender would be 'F' from Staff 1 instead of 'M' from Staff 2)
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (2, 1, '2022-01-01', 'Department Manager', '2022-12-31');
+
+-- Staff 1 is NOT a Department Manager, but manages Dept 3 as 'Supervisor'
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (1, 3, '2022-01-01', 'Supervisor', '2022-12-31');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when no 'Department Manager' exists, and NULL job_title_code handling.
+INSERT INTO "Department_Store_Chain" ("dept_store_chain_id", "dept_store_chain_name") VALUES (1, 'Chain D');
+INSERT INTO "Department_Stores" ("dept_store_id", "dept_store_chain_id", "store_name", "store_address", "store_phone", "store_email") VALUES (1, 1, 'Store 4', '101 Maple St', '555-0400', 'store4@example.com');
+INSERT INTO "Departments" ("department_id", "dept_store_id", "department_name") VALUES (10, 1, 'Toys');
+
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (1, 'M', 'Kevin');
+INSERT INTO "Staff" ("staff_id", "staff_gender", "staff_name") VALUES (2, 'F', 'Laura');
+
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (1, 10, '2020-01-01', NULL, '2021-01-01');
+INSERT INTO "Staff_Department_Assignments" ("staff_id", "department_id", "date_assigned_from", "job_title_code", "date_assigned_to") VALUES (2, 10, '2020-01-01', 'Cashier', '2021-01-01');
+```

@@ -1,0 +1,91 @@
+```sql
+-- DATASET 1
+-- Tests TG boundary conditions (< 200 vs <= 200, > 200, = 200, NULL) and Symptoms IS NOT NULL vs IS NULL
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (4, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (5, 'F');
+
+-- ID 1: Valid match (TG = 199, Symptoms NOT NULL)
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (1, '2020-01-01', 'Fever');
+INSERT INTO Laboratory (ID, Date, TG) VALUES (1, '2020-01-01', 199);
+
+-- ID 2: Boundary fail (TG = 200, Symptoms NOT NULL) - kills <= 200 and = 200 mutants
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (2, '2020-01-01', 'Headache');
+INSERT INTO Laboratory (ID, Date, TG) VALUES (2, '2020-01-01', 200);
+
+-- ID 3: Boundary fail (TG = 201, Symptoms NOT NULL) - kills > 200 and >= 200 mutants
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (3, '2020-01-01', 'Cough');
+INSERT INTO Laboratory (ID, Date, TG) VALUES (3, '2020-01-01', 201);
+
+-- ID 4: Null fail (TG IS NULL, Symptoms NOT NULL)
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (4, '2020-01-01', 'Fatigue');
+INSERT INTO Laboratory (ID, Date, TG) VALUES (4, '2020-01-01', NULL);
+
+-- ID 5: Null fail (TG = 150, Symptoms IS NULL) - kills missing NOT Symptoms IS NULL or OR instead of AND
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (5, '2020-01-01', NULL);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (5, '2020-01-01', 150);
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(T1.ID) vs COUNT(DISTINCT T1.ID) and join condition on ID only vs (ID and Date)
+INSERT INTO Patient (ID, SEX) VALUES (10, 'M');
+
+-- Multiple Examination rows and multiple Laboratory rows for the same Patient ID with different Dates
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (10, '2021-01-01', 'Rash');
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (10, '2021-02-01', 'Joint Pain');
+
+INSERT INTO Laboratory (ID, Date, TG) VALUES (10, '2021-03-01', 120);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (10, '2021-04-01', 180);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN and dangling records with NULL IDs
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+
+-- Patient 1: In Examination only (no Laboratory record) - kills LEFT JOIN with COUNT(*)
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (1, '2022-01-01', 'Nausea');
+
+-- Patient 2: In Laboratory only (no Examination record) - kills RIGHT JOIN / missing join
+INSERT INTO Laboratory (ID, Date, TG) VALUES (2, '2022-01-01', 100);
+
+-- Examination record with NULL ID - kills COUNT(*) if outer joined or improperly filtered
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (NULL, '2022-01-01', 'Dizziness');
+
+-- Patient 3: Valid matching record across both tables with matching dates
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (3, '2022-05-05', 'Chills');
+INSERT INTO Laboratory (ID, Date, TG) VALUES (3, '2022-05-05', 150);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set (COUNT should return 0) and empty string vs NULL for Symptoms, plus column confusion (e.g., Diagnosis vs Symptoms, T-CHO vs TG)
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (1, 'M', 'SLE');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (2, 'F', 'RA');
+
+-- ID 1: Symptoms is empty string '' (which is NOT NULL in SQL), TG is 199, T-CHO is 250, Diagnosis is NULL
+INSERT INTO Examination (ID, "Examination Date", Symptoms, Diagnosis) VALUES (1, '2023-01-01', '', NULL);
+INSERT INTO Laboratory (ID, Date, TG, "T-CHO", GOT) VALUES (1, '2023-01-01', 199, 250, 250);
+
+-- ID 2: Symptoms is NULL, Diagnosis is NOT NULL, TG is 250, T-CHO is 150
+INSERT INTO Examination (ID, "Examination Date", Symptoms, Diagnosis) VALUES (2, '2023-01-01', NULL, 'APS');
+INSERT INTO Laboratory (ID, Date, TG, "T-CHO", GOT) VALUES (2, '2023-01-01', 250, 150, 150);
+```
+
+```sql
+-- DATASET 5
+-- Tests case where zero rows match all predicates (ensures query returns 0 and not NULL or >0)
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (1, '2023-06-01', NULL);
+INSERT INTO Laboratory (ID, Date, TG) VALUES (1, '2023-06-01', 100);
+
+INSERT INTO Examination (ID, "Examination Date", Symptoms) VALUES (2, '2023-06-01', 'Pain');
+INSERT INTO Laboratory (ID, Date, TG) VALUES (2, '2023-06-01', 200);
+```

@@ -1,0 +1,69 @@
+-- Schema DDL
+CREATE TABLE "PATIENTS" (
+    "PATIENT_ID" INT,
+    "FIRST_NAME" TEXT,
+    "LAST_NAME" TEXT,
+    "DATE_OF_BIRTH" DATE,
+    "GENDER" TEXT,
+    PRIMARY KEY ("PATIENT_ID")
+);
+CREATE TABLE "DOCTORS" (
+    "DOCTOR_ID" INT,
+    "FIRST_NAME" TEXT,
+    "LAST_NAME" TEXT,
+    "SPECIALTY" TEXT,
+    "YEARS_EXPERIENCE" INT,
+    PRIMARY KEY ("DOCTOR_ID")
+);
+CREATE TABLE "APPOINTMENTS" (
+    "APPOINTMENT_ID" INT,
+    "PATIENT_ID" INT,
+    "DOCTOR_ID" INT,
+    "APPOINTMENT_DATE" DATETIME,
+    "STATUS" TEXT,
+    PRIMARY KEY ("APPOINTMENT_ID"),
+    FOREIGN KEY ("PATIENT_ID") REFERENCES "PATIENTS"("PATIENT_ID"),
+    FOREIGN KEY ("DOCTOR_ID") REFERENCES "DOCTORS"("DOCTOR_ID")
+);
+CREATE TABLE "PRESCRIPTIONS" (
+    "PRESCRIPTION_ID" INT,
+    "APPOINTMENT_ID" INT,
+    "MEDICATION_NAME" TEXT,
+    "DOSAGE" TEXT,
+    "DURATION_DAYS" INT,
+    PRIMARY KEY ("PRESCRIPTION_ID"),
+    FOREIGN KEY ("APPOINTMENT_ID") REFERENCES "APPOINTMENTS"("APPOINTMENT_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO PATIENTS VALUES (0, 21, 22, '0001-01-01', 23);
+INSERT INTO PATIENTS VALUES (1, 26, 27, '0001-01-01', 28);
+INSERT INTO DOCTORS VALUES (0, 13, 14, 15, NULL);
+INSERT INTO DOCTORS VALUES (-1, 16, NULL, NULL, NULL);
+INSERT INTO APPOINTMENTS VALUES (-1, 0, 0, 19, 20);
+INSERT INTO APPOINTMENTS VALUES (0, 0, 0, 24, 25);
+INSERT INTO PRESCRIPTIONS VALUES (1, 0, 0, 0, 0);
+INSERT INTO PRESCRIPTIONS VALUES (0, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT p.first_name, d.first_name FROM Appointments AS a JOIN Patients AS p ON a.patient_id = p.patient_id JOIN Doctors AS d ON a.doctor_id = d.doctor_id;
+
+/*
+Gold Result:
+('21', '13')
+('21', '13')
+*/
+
+-- Prediction Query
+SELECT p.first_name, d.first_name FROM Appointments AS a JOIN Patients AS p ON a.patient_id = a.patient_id JOIN Doctors AS d ON a.doctor_id = d.doctor_id;
+
+/*
+Prediction Result:
+('21', '13')
+('26', '13')
+('21', '13')
+('26', '13')
+*/

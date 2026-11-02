@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Core test: Multiple matching rows with identical costs (to catch SUM(DISTINCT cost), AVG, MAX, MIN, COUNT),
+-- boundary dates (2019-08-19, 2019-08-21, substring '2019-08-20 10:00:00'),
+-- missing/dangling foreign keys (NULL link_to_member/link_to_budget) to catch unnecessary INNER JOINs,
+-- different 'approved' statuses to catch extra WHERE predicates,
+-- and a parent event/budget with event_date='2019-08-20' but different expense_date to catch wrong date column references.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Orientation', '2019-08-20', 'Social', 'Note', 'Room 1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Workshop', '2019-09-01', 'Academic', 'Note', 'Room 2', 'Closed');
+
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'CS', 'EECS', 'Engineering');
+
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (12345, 'Standard', 'Tech City', 'Tech County', 'California', 'CA');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'Alice', 'Smith', 'alice@example.com', 'President', 'M', '555-0101', 12345, 'M1');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 100.5, 50.0, 150, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Supplies', 200.0, 100.0, 300, 'Closed', 'E2');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Pizza', '2019-08-20', 25.5, 'true', 'MEM1', 'B2');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Soda', '2019-08-20', 25.5, 'false', 'MEM1', 'B2');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP3', 'Napkins', '2019-08-20', 10.25, NULL, NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP4', 'Ice', '2019-08-20', NULL, 'true', 'MEM1', 'B2');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP5', 'Early Prep', '2019-08-19', 100.0, 'true', 'MEM1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP6', 'Late Fee', '2019-08-21', 50.0, 'true', 'MEM1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP7', 'Timestamped', '2019-08-20 12:00:00', 75.0, 'true', 'MEM1', 'B1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP8', 'Null Date', NULL, 40.0, 'true', 'MEM1', 'B1');
+
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2019-08-20', 500, 'Dues', 'None', 'MEM1');
+```
+
+```sql
+-- DATASET 2
+-- Edge case: No rows match the target date '2019-08-20'.
+-- Gold Query returns a single row with NULL.
+-- Catches mutants using GROUP BY expense_date (which returns 0 rows instead of 1 row with NULL),
+-- COUNT(cost) (returns 0 instead of NULL), or COALESCE/TOTAL (returns 0.0 instead of NULL).
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Banners', '2019-08-19', 45.0, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Markers', '2019-08-21', 15.0, 'true', NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Edge case: Single matching row with non-integer cost.
+-- Specifically catches mutants that omit SUM() (i.e. SELECT cost FROM expense ...),
+-- when compared against Dataset 1 (which has multiple matching rows) and Dataset 2 (0 matching rows),
+-- and tests exact floating point representation without aggregation vs with aggregation.
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Single Item', '2019-08-20', 33.33, 'true', NULL, NULL);
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP2', 'Other Date', '2018-08-20', 99.99, 'true', NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Edge case: Join fan-out / cartesian multiplication trap.
+-- If a mutant joins `expense` to `member` and `attendance` or `income` (1-to-many relationships from member),
+-- a single expense row linked to a member with multiple attendances/incomes will be duplicated in the SUM.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Event 1', '2019-08-20', 'Social', 'N1', 'L1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Event 2', '2019-08-20', 'Social', 'N2', 'L2', 'Open');
+
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'Math', 'Math', 'Science');
+
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (54321, 'Standard', 'Town', 'County', 'State', 'ST');
+
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'Bob', 'Jones', 'bob@example.com', 'Treasurer', 'L', '555-0202', 54321, 'M1');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'MEM1');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E2', 'MEM1');
+
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2019-08-20', 100, 'Fundraiser', 'N1', 'MEM1');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC2', '2019-08-20', 200, 'Sponsorship', 'N2', 'MEM1');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'General', 80.0, 20.0, 100, 'Open', 'E1');
+
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', ' Venue Deposit', '2019-08-20', 80.0, 'true', 'MEM1', 'B1');
+```

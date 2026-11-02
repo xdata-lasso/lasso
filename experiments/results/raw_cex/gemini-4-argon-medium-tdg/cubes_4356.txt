@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Ties for the maximum count (Z_Loc and A_Loc have count 3), multiple non-maximum locations (B_Loc has 2, C_Loc has 1).
+-- Tests ORDER BY, DISTINCT, ties for max, and queries that confuse COUNT(*) with SUM(Attendance) or MAX(Attendance).
+INSERT INTO "member" ("Member_ID", "Name", "Nationality", "Role") VALUES ('1', 'Alice', 'USA', 'Violin');
+INSERT INTO "member" ("Member_ID", "Name", "Nationality", "Role") VALUES ('2', 'Bob', 'UK', 'Cello');
+
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-01-01', 'H1', 'Z_Loc', 10);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, '2023-01-02', 'H2', 'Z_Loc', 10);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (3.0, '2023-01-03', 'H3', 'Z_Loc', 10);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (4.0, '2023-01-04', 'H4', 'A_Loc', 20);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (5.0, '2023-01-05', 'H5', 'A_Loc', 20);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (6.0, '2023-01-06', 'H6', 'A_Loc', 20);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (7.0, '2023-01-07', 'H7', 'B_Loc', 500);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (8.0, '2023-01-08', 'H8', 'B_Loc', 500);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (9.0, '2023-01-09', 'H9', 'C_Loc', 1000);
+
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES (1, 7, 5);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES (2, 7, 5);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES (1, 8, 5);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES (2, 8, 5);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES (1, 9, 10);
+```
+
+```sql
+-- DATASET 2
+-- All locations are tied for the maximum count (each has count 2).
+-- Because of the condition (n < maxn), the reference query MUST return an empty result set.
+-- Kills standard Top-1 or MAX(COUNT) mutants that fail to check if a strictly smaller group exists.
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-01-01', 'H1', 'Loc_A', 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, '2023-01-02', 'H2', 'Loc_A', 200);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (3.0, '2023-01-03', 'H3', 'Loc_B', 300);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (4.0, '2023-01-04', 'H4', 'Loc_B', 400);
+```
+
+```sql
+-- DATASET 3
+-- Only a single distinct location exists in the table.
+-- Since n = maxn for the only group, (n < maxn) is false, so the reference query returns an empty set.
+-- Kills mutants using n <= maxn or simple GROUP BY ORDER BY COUNT(*) DESC LIMIT 1.
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-01-01', 'H1', 'Only_Loc', 150);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, '2023-01-02', 'H1', 'Only_Loc', 250);
+```
+
+```sql
+-- DATASET 4
+-- Single unique maximum location (Win_Loc with count 3) and multiple tied non-maximum locations (Lose_1, Lose_2 with count 1).
+-- Tests that DISTINCT properly collapses the multiple cross-join matches from Lose_1 and Lose_2.
+-- Also includes NULL values in non-grouping columns (Host, Attendance, Date) on the winning location to kill COUNT(column) mutants.
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-01-01', NULL, 'Win_Loc', NULL);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, NULL, 'H1', 'Win_Loc', NULL);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (3.0, '2023-01-01', 'H1', 'Win_Loc', 50);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (4.0, '2023-02-01', 'H2', 'Lose_1', 500);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (5.0, '2023-03-01', 'H3', 'Lose_2', 600);
+```
+
+```sql
+-- DATASET 5
+-- Tests handling of NULL as a Location group vs non-NULL Location groups, and duplicate values in Date/Host within the same Location.
+-- Kills mutants using COUNT(Location) instead of COUNT(*), or COUNT(DISTINCT Host/Date).
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-05-01', 'SameHost', 'Dup_Loc', 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, '2023-05-01', 'SameHost', 'Dup_Loc', 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (3.0, '2023-05-01', 'SameHost', 'Dup_Loc', 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (4.0, '2023-06-01', 'H1', 'Other_Loc', 200);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (5.0, '2023-06-02', 'H2', 'Other_Loc', 300);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (6.0, '2023-07-01', 'H3', NULL, 400);
+```

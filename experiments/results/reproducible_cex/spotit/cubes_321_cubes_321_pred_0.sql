@@ -1,0 +1,47 @@
+-- Schema DDL
+CREATE TABLE "COURSE" (
+    "COURSE_ID" INT,
+    "STARING_DATE" TEXT,
+    "COURSE" TEXT,
+    PRIMARY KEY ("COURSE_ID")
+);
+CREATE TABLE "TEACHER" (
+    "TEACHER_ID" INT,
+    "NAME" TEXT,
+    "AGE" TEXT,
+    "HOMETOWN" TEXT,
+    PRIMARY KEY ("TEACHER_ID")
+);
+CREATE TABLE "COURSE_ARRANGE" (
+    "COURSE_ID" INT,
+    "TEACHER_ID" INT,
+    "GRADE" INT,
+    PRIMARY KEY ("COURSE_ID", "TEACHER_ID", "GRADE"),
+    FOREIGN KEY ("TEACHER_ID") REFERENCES "TEACHER"("TEACHER_ID"),
+    FOREIGN KEY ("COURSE_ID") REFERENCES "COURSE"("COURSE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO COURSE VALUES (-1, 0, 0);
+INSERT INTO COURSE VALUES (0, 0, 0);
+INSERT INTO TEACHER VALUES (-1, NULL, 0, 0);
+INSERT INTO TEACHER VALUES (0, 0, 0, 0);
+INSERT INTO COURSE_ARRANGE VALUES (-1, 0, 0);
+INSERT INTO COURSE_ARRANGE VALUES (0, -1, -1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT * FROM teacher AS LHS WHERE NOT EXISTS(SELECT 1 FROM course_arrange AS RHS WHERE (LHS.teacher_id = RHS.teacher_id))) ORDER BY name;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT Name FROM teacher WHERE NOT Teacher_id IN (SELECT Teacher_id FROM course_arrange);
+
+/*
+Prediction Result:
+*/

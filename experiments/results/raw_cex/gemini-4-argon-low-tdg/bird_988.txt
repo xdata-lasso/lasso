@@ -1,0 +1,143 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Nationality predicate ('German' vs 'British', 'german', NULL).
+-- 2. DOB year boundary conditions (1979, 1980, 1985, 1986, NULL).
+-- 3. INNER JOIN vs LEFT JOIN (valid driver with NO pitStops).
+-- 4. AVG(duration) vs SUM(duration), MIN(duration), MAX(duration), COUNT(*).
+-- 5. AVG(duration) vs AVG(milliseconds) (inversely correlated values).
+-- 6. GROUP BY without HAVING vs no GROUP BY (duplicate rows).
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://monza.com');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://2020.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Italian GP', '2020-09-06', 'http://itgp.com');
+
+-- Driver 1: Valid (1980 boundary), 3 pitStops -> SUM=30.0, AVG=10.0, MIN=10.0, MAX=10.0. Milliseconds AVG=50000 (high).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (1, 'd1', 'Nick', 'Heidfeld', '1980-01-01', 'German', 'http://d1.com');
+
+-- Driver 2: Valid (1985 boundary), 2 pitStops -> SUM=24.0, AVG=12.0, MIN=2.0, MAX=22.0. Milliseconds AVG=10000 (low).
+-- Note: Driver 1 vs Driver 2 kills AVG vs SUM (10 < 12, but 30 > 24), AVG vs MIN (10 > 2), AVG vs COUNT (3 > 2), and duration vs milliseconds (10 < 12, but 50000 > 10000).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (2, 'd2', 'Nico', 'Rosberg', '1985-12-31', 'German', 'http://d2.com');
+
+-- Driver 3: Valid (1983), 1 pitStop -> SUM=15.0, AVG=15.0, MIN=15.0, MAX=15.0.
+-- Kills AVG vs MAX when compared with Driver 2 (AVG: D2(12) < D3(15), MAX: D2(22) > D3(15)).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (3, 'd3', 'Adrian', 'Sutil', '1983-05-15', 'German', 'http://d3.com');
+
+-- Driver 4: Invalid nationality ('British'), valid DOB (1982), very fast pitStop (duration=1.0).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (4, 'd4', 'Jenson', 'Button', '1982-01-19', 'British', 'http://d4.com');
+
+-- Driver 5: Invalid DOB (1979-12-31, just below 1980), valid nationality ('German'), fast pitStop (duration=1.0).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (5, 'd5', 'Ralf', 'Schumacher', '1979-12-31', 'German', 'http://d5.com');
+
+-- Driver 6: Invalid DOB (1986-01-01, just above 1985), valid nationality ('German'), fast pitStop (duration=1.0).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (6, 'd6', 'Sebastian', 'Vettel', '1986-01-01', 'German', 'http://d6.com');
+
+-- Driver 7: Valid German & DOB (1981), but NO pitStops (kills LEFT JOIN on drivers).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (7, 'd7', 'Timo', 'Glock', '1981-03-18', 'German', 'http://d7.com');
+
+-- Driver 8: NULL nationality and NULL dob.
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (8, 'd8', 'Unknown', 'Driver', NULL, NULL, 'http://d8.com');
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 1, 10, '14:00:00', '10.0', 50000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 2, 20, '14:20:00', '10.0', 50000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 3, 30, '14:40:00', '10.0', 50000);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 2, 1, 10, '14:00:00', '2.0', 10000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 2, 2, 20, '14:20:00', '22.0', 10000);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 3, 1, 15, '14:10:00', '15.0', 15000);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 4, 1, 10, '14:00:00', '1.0', 1000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 5, 1, 10, '14:00:00', '1.0', 1000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 6, 1, 10, '14:00:00', '1.0', 1000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 8, 1, 10, '14:00:00', '1.0', 1000);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. LIMIT 5 boundary (7 valid groups, testing exact cutoff at 5).
+-- 2. Tie-breaking in ORDER BY: identical AVG(duration), broken by forename ASC, then surname ASC.
+-- 3. Grouping by (forename, surname) vs grouping by driverId (two distinct driverIds sharing the same forename and surname).
+-- 4. Grouping by BOTH (forename, surname) vs ONLY forename or ONLY surname.
+-- 5. AVG(duration) with NULL duration values.
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://spa.com');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://2021.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2021, 1, 1, 'Belgian GP', '2021-08-29', 'http://belgp.com');
+
+-- Group 1 & 2 share forename 'Alpha', have tied AVG(duration) = 20.0. Tests tie-breaking on surname ('A_Surname' vs 'B_Surname') and GROUP BY forename only.
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (1, 'd1', 'Alpha', 'B_Surname', '1981-05-05', 'German', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (2, 'd2', 'Alpha', 'A_Surname', '1982-05-05', 'German', 'http://d2.com');
+
+-- Group 3 shares surname 'A_Surname' with Driver 2, also tied AVG(duration) = 20.0. Tests tie-breaking on forename ('Alpha' vs 'Beta') and GROUP BY surname only.
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (3, 'd3', 'Beta', 'A_Surname', '1983-05-05', 'German', 'http://d3.com');
+
+-- Group 4: Two different driverIds (4 and 5) with the EXACT SAME forename and surname ('Gamma', 'SameName').
+-- Driver 4 has duration 10.0, Driver 5 has duration 20.0.
+-- Combined AVG for ('Gamma', 'SameName') is 15.0 (ranks 1st overall!).
+-- If grouped by driverId instead of (forename, surname), Driver 4 gets 10.0 and Driver 5 gets 20.0, producing duplicate ('Gamma', 'SameName') in output and shifting the LIMIT 5 cutoff.
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (4, 'd4', 'Gamma', 'SameName', '1980-06-06', 'German', 'http://d4.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (5, 'd5', 'Gamma', 'SameName', '1984-06-06', 'German', 'http://d5.com');
+
+-- Group 5: Driver 6 with AVG(duration) = 25.0 (one stop is 25.0, one stop is NULL; if NULL treated as 0, AVG is 12.5, jumping to 1st place).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (6, 'd6', 'Delta', 'NullTest', '1985-01-01', 'German', 'http://d6.com');
+
+-- Group 6: Driver 7 with AVG(duration) = 30.0 (6th place, excluded by LIMIT 5).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (7, 'd7', 'Epsilon', 'Sixth', '1982-02-02', 'German', 'http://d7.com');
+
+-- Group 7: Driver 8 with AVG(duration) = 40.0 (7th place, excluded by LIMIT 5).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (8, 'd8', 'Zeta', 'Seventh', '1983-03-03', 'German', 'http://d8.com');
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 1, 10, '14:00:00', '20.0', 20000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 2, 1, 10, '14:00:00', '20.0', 20000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 3, 1, 10, '14:00:00', '20.0', 20000);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 4, 1, 10, '14:00:00', '10.0', 10000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 5, 1, 10, '14:00:00', '20.0', 20000);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 6, 1, 10, '14:00:00', '25.0', 25000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 6, 2, 20, '14:20:00', NULL, 25000);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 7, 1, 10, '14:00:00', '30.0', 30000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 8, 1, 10, '14:00:00', '40.0', 40000);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. STRFTIME('%Y', T2.dob) BETWEEN '1980' AND '1985' vs T2.dob BETWEEN '1980' AND '1985'.
+--    In SQLite, '1985-01-01' > '1985' lexically, so `T2.dob BETWEEN '1980' AND '1985'` FAILS for any date in 1985!
+-- 2. ORDER BY AVG(T1.duration) vs ORDER BY T1.duration (numeric average vs string sorting / non-aggregated column).
+--    String sorting of '9.0' vs '10.0' puts '10.0' before '9.0', whereas AVG('9.0') = 9.0 < AVG('10.0') = 10.0.
+-- 3. AVG(DISTINCT T1.duration) vs AVG(T1.duration).
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://silverstone.com');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://2022.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2022, 1, 1, 'British GP', '2022-07-03', 'http://britgp.com');
+
+-- Driver 1: Born in 1985 ('1985-06-15').
+-- Kills mutant `T2.dob BETWEEN '1980' AND '1985'` because '1985-06-15' > '1985'.
+-- Also has duration '9.0' (AVG = 9.0).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (1, 'd1', 'Karl', 'Wendlinger', '1985-06-15', 'German', 'http://d1.com');
+
+-- Driver 2: Born in 1984 ('1984-06-15').
+-- Has pitStop durations: '10.0', '10.0', '16.0'.
+-- True AVG = (10 + 10 + 16) / 3 = 12.0.
+-- AVG(DISTINCT duration) = (10 + 16) / 2 = 13.0.
+-- String sort on duration '10.0' < '9.0', which would wrongly put Driver 2 ahead of Driver 1 if sorted lexically without AVG.
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (2, 'd2', 'Heinz', 'Frentzen', '1984-06-15', 'German', 'http://d2.com');
+
+-- Driver 3: Born in 1981 ('1981-04-10').
+-- Has pitStop duration: '12.5'.
+-- True AVG = 12.5 (so Driver 2 (12.0) < Driver 3 (12.5), but under AVG(DISTINCT), Driver 2 (13.0) > Driver 3 (12.5)!).
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (3, 'd3', 'Christian', 'Danner', '1981-04-10', 'German', 'http://d3.com');
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 1, 10, '14:00:00', '9.0', 9000);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 2, 1, 10, '14:00:00', '10.0', 10000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 2, 2, 20, '14:20:00', '10.0', 10000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 2, 3, 30, '14:40:00', '16.0', 16000);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 3, 1, 10, '14:00:00', '12.5', 12500);
+```

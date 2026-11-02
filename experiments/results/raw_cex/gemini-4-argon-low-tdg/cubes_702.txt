@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (DESC vs ASC), LIMIT 1 vs no limit, and prevents mutants that require INNER JOINs with Transcript_Contents or other tables.
+-- Also tests ordering where the latest date has neither the minimum nor maximum transcript_id, and where other_details order conflicts with transcript_date order.
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, '2021-05-15 10:00:00', 'Z_details');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, '2023-08-20 14:30:00', 'M_details');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (3, '2022-01-10 09:15:00', 'A_details');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in transcript_date (in SQLite, NULLs are considered smaller than any non-NULL value, so DESC places NULLs last).
+-- Also tests tie-breaking on maximum transcript_date, and ensures that if a mutant inner-joins with Transcript_Contents, it gets a different result (since the latest transcript has no contents).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "country") VALUES (1, '123 Main St', 'Seattle', 'USA');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'Computer Science');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BS CS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall 2022');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'Database Systems');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (1, 1, 1, 'Alice', 'Smith');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, 1, 1);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (10, NULL, 'Null date transcript');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (20, '2020-01-01 00:00:00', 'Has contents');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (30, '2024-12-31 23:59:59', 'Latest date 1 - no contents');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (40, '2024-12-31 23:59:59', 'Latest date 2 - tie on max date');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (20, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests edge case where all rows have NULL transcript_date, or only a single row exists with NULL transcript_date.
+-- Catches mutants that use WHERE transcript_date IS NOT NULL or MAX() in ways that might behave differently on empty/null sets.
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, NULL, 'Only transcript has null date');
+```
+
+```sql
+-- DATASET 4
+-- Tests chronological sorting within the same year/month/day (time component precision) and ensures that string/datetime sorting works properly when transcript_id order is strictly inverse to transcript_date order.
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (100, '2023-06-15 08:00:00', 'Morning');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (50, '2023-06-15 18:45:30', 'Evening');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (75, '2023-06-15 12:30:00', 'Afternoon');
+```
+
+```sql
+-- DATASET 5
+-- Tests mutants that mistakenly query other date columns in the schema (e.g., Students.date_first_registered or Students.date_left) or join with Transcript_Contents multiplying rows.
+INSERT INTO "Addresses" ("address_id", "line_1") VALUES (1, '456 Oak Ave');
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'History');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BA History');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Spring 2023');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (1, 'World History');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES (2, 'Modern History');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name", "date_first_registered", "date_left") VALUES (1, 1, 1, 'Bob', 'Jones', '2018-09-01 00:00:00', '2022-05-30 00:00:00');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 1, 1, 1);
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (1, 1, 1);
+INSERT INTO "Student_Enrolment_Courses" ("student_course_id", "student_enrolment_id", "course_id") VALUES (2, 1, 2);
+
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (1, '2023-05-01 10:00:00', 'Older transcript with multiple contents');
+INSERT INTO "Transcripts" ("transcript_id", "transcript_date", "other_details") VALUES (2, '2023-05-02 10:00:00', 'Newest transcript with one content');
+
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 1);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (1, 2);
+INSERT INTO "Transcript_Contents" ("transcript_id", "student_course_id") VALUES (2, 1);
+```

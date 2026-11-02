@@ -1,0 +1,29 @@
+-- Schema DDL
+CREATE TABLE Examination (ID INTEGER NULL, "Examination Date" DATE NULL, "aCL IgG" REAL NULL, "aCL IgM" REAL NULL, ANA INTEGER NULL, "ANA Pattern" TEXT NULL, "aCL IgA" INTEGER NULL, Diagnosis TEXT NULL, KCT TEXT NULL, RVVT TEXT NULL, LAC TEXT NULL, Symptoms TEXT NULL, Thrombosis INTEGER NULL, FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE Patient (ID INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, SEX TEXT NULL, Birthday DATE NULL, Description DATE NULL, "First Date" DATE NULL, Admission TEXT NULL, Diagnosis TEXT NULL);
+
+CREATE TABLE Laboratory (ID INTEGER DEFAULT 0 NOT NULL, Date DATE DEFAULT '0000-00-00' NOT NULL, GOT INTEGER NULL, GPT INTEGER NULL, LDH INTEGER NULL, ALP INTEGER NULL, TP REAL NULL, ALB REAL NULL, UA REAL NULL, UN INTEGER NULL, CRE REAL NULL, "T-BIL" REAL NULL, "T-CHO" INTEGER NULL, TG INTEGER NULL, CPK INTEGER NULL, GLU INTEGER NULL, WBC REAL NULL, RBC REAL NULL, HGB REAL NULL, HCT REAL NULL, PLT INTEGER NULL, PT REAL NULL, APTT INTEGER NULL, FG REAL NULL, PIC INTEGER NULL, TAT INTEGER NULL, TAT2 INTEGER NULL, "U-PRO" TEXT NULL, IGG INTEGER NULL, IGA INTEGER NULL, IGM INTEGER NULL, CRP TEXT NULL, RA TEXT NULL, RF TEXT NULL, C3 INTEGER NULL, C4 INTEGER NULL, RNP TEXT NULL, SM TEXT NULL, SC170 TEXT NULL, SSA TEXT NULL, SSB TEXT NULL, CENTROMEA TEXT NULL, DNA TEXT NULL, "DNA-II" INTEGER NULL, PRIMARY KEY (ID, Date), FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO patient (id, sex, birthday, description, "first date", admission, diagnosis) VALUES (0, NULL, '1990-01-01', '2023-01-01', '1990-01-02', NULL, '%Y'), (79, '1990-01-01', '1990-01-02', '1990-01-01', '1989-12-31', 'default1', 'default1'), (80, 'default2', '1990-10-27', NULL, '1990-10-27', '1990', '%Y'), (501, 'default1', '1990-10-27', '1990-01-01', '2023-01-01', '1990-01-01', 'default1'), (1, NULL, NULL, '2023-01-02', '1990-01-02', '1990', '%Y'), (81, 'default2', '1990-01-02', '1990-01-02', '2023-01-01', '1990-01-01', '1990'), (500, '1990', '1990-01-02', '1990-01-02', NULL, NULL, '1990-01-01'), (499, 'default2', NULL, '2023-01-02', '1990-10-27', '1990-01-01', '1990'), (2, '1990-01-01', '1990-01-02', '1990-01-02', '1989-12-31', 'default2', '1990'), (3, 'default1', '1989-12-31', '1990-01-02', '2023-01-01', 'default2', '%Y'), (4, '1990', NULL, '2023-01-02', NULL, '1990-01-01', 'default2'), (5, 'default2', '2023-01-02', '1990-01-02', '2023-01-02', '1990', 'default1'), (6, '1990-01-01', '2023-01-01', '1990-10-27', '2023-01-02', 'default1', 'default2'), (7, '1990', '1989-12-31', '2023-01-01', '1990-10-27', NULL, 'default1'), (8, '1990-01-01', NULL, '1990-01-01', '1990-01-01', 'default2', '1990-01-01'), (9, 'default2', '1989-12-31', '1989-12-31', '1990-10-27', '1990-01-01', NULL), (10, '1990-01-01', '1990-01-02', '2023-01-01', '1990-01-02', 'default2', 'default1');
+INSERT INTO laboratory (id, date, got, gpt, ldh, alp, tp, alb, ua, un, cre, "t-bil", "t-cho", tg, cpk, glu, wbc, rbc, hgb, hct, plt, pt, aptt, fg, pic, tat, tat2, "u-pro", igg, iga, igm, crp, ra, rf, c3, c4, rnp, sm, sc170, ssa, ssb, centromea, dna, "dna-ii") VALUES (3, '2023-01-02', 81, 500, 80, 80, 1.0, 81.0, 501.0, 1, 1.0, 499.0, 500, 81, 499, 80, 0.0, NULL, 1.0, 79.0, 0, 80.0, 1, 1.0, 80, 80, 500, NULL, 499, 80, 501, 'default1', '1990-01-01', '1990', 81, 499, '1990', NULL, '1990', NULL, '1990', '%Y', NULL, 500), (7, '1989-12-31', 1, 500, 80, 1, NULL, 1.0, 81.0, 499, 501.0, 499.0, 1, 500, 499, 79, 79.0, 0.0, 79.0, 501.0, 1, 0.0, 1, 501.0, 0, 1, 1, '%Y', 0, 499, 0, '%Y', 'default1', 'default1', NULL, 80, 'default2', NULL, '%Y', '%Y', '1990-01-01', '%Y', '1990', 500), (501, '2023-01-01', 501, 79, 79, 0, 499.0, 499.0, 501.0, 500, 499.0, 79.0, NULL, 1, 499, 1, NULL, 0.0, 80.0, 501.0, NULL, 501.0, 1, 1.0, 80, 500, NULL, 'default2', 500, 0, 1, '%Y', NULL, '1990-01-01', 499, 81, 'default2', '%Y', 'default2', '1990', 'default2', 'default2', '1990-01-01', 1), (79, '2023-01-02', 501, 80, 1, 80, 1.0, 79.0, 499.0, 80, 501.0, 79.0, 80, 0, 0, 501, 0.0, 80.0, 499.0, 1.0, 499, 500.0, 499, 79.0, NULL, 1, 80, '1990-01-01', 79, 1, 79, '1990-01-01', 'default1', 'default2', 501, 79, NULL, '1990-01-01', 'default2', '1990-01-01', '%Y', 'default1', '%Y', NULL), (499, '2023-01-02', 500, 79, 1, 80, 0.0, 501.0, 500.0, 499, 81.0, 499.0, 80, NULL, 499, 81, 499.0, 81.0, 499.0, 0.0, 499, 0.0, 500, 1.0, 1, 80, 501, '1990-01-01', 500, 80, 501, NULL, '%Y', '%Y', 499, 501, 'default1', '1990-01-01', 'default1', NULL, '%Y', '%Y', '%Y', 501), (4, '1990-01-01', 499, 81, 79, 501, NULL, NULL, NULL, 500, 499.0, 81.0, 79, 500, 80, 499, 499.0, 1.0, 499.0, NULL, 1, 500.0, 499, 80.0, NULL, 79, 79, NULL, 500, 0, 501, NULL, 'default1', NULL, 79, 80, 'default2', '%Y', 'default1', NULL, NULL, NULL, NULL, 1), (9, '2023-01-01', NULL, 499, 0, 500, 79.0, 81.0, 500.0, 501, 80.0, 499.0, 1, 79, NULL, 81, 500.0, 0.0, NULL, 79.0, NULL, 0.0, 501, NULL, 81, 80, 1, 'default1', 0, 80, 80, NULL, 'default1', '1990', 79, 499, 'default1', '1990', 'default2', '1990-01-01', 'default2', '%Y', '%Y', NULL), (4, '1990-10-27', NULL, 499, 80, 79, 81.0, 500.0, 81.0, 499, 499.0, 80.0, 0, 500, 80, 500, 501.0, 80.0, NULL, 501.0, 500, NULL, 81, 79.0, 499, NULL, 499, 'default1', 499, 80, 499, '1990-01-01', 'default1', '%Y', 0, NULL, '1990', 'default1', '%Y', 'default2', '1990-01-01', 'default2', '%Y', 500);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.IGA BETWEEN 80 AND 500 AND T1."First Date" > '1990-01-01';
+
+/*
+Gold Result:
+(4,)
+*/
+
+-- Prediction Query
+SELECT COUNT(DISTINCT "Patient"."ID") FROM "Laboratory" INNER JOIN "Patient" ON "Laboratory"."ID" = "Patient"."ID" WHERE "Laboratory"."IGA" > 80 AND "Laboratory"."IGA" < 500 AND STRFTIME('%Y', "Patient"."First Date") >= '1990';
+
+/*
+Prediction Result:
+(1,)
+*/

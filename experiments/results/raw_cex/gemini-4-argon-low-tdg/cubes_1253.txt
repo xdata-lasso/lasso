@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests basic INNER JOIN vs LEFT/RIGHT JOIN (Properties with and without Residents),
+-- ORDER BY property_id (out of insertion order), and NULL values in Resident columns (e.g., date_moved_out, other_details).
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (20, 'APT', '200 Second St', NULL);
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (10, 'HSE', '100 First St', 'Has garden');
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (30, 'CONDO', '300 Third St', 'Unoccupied');
+
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (1, 20, '2023-01-01 10:00:00', NULL, NULL);
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (2, 10, '2022-05-15 08:30:00', '2023-05-15 12:00:00', 'Moved out');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary values for property_id (negative, zero, positive) to kill ordering and filtering mutants,
+-- and tests potential join fan-out if a mutant mistakenly joins with Residents_Services, Customer_Events, or Things.
+INSERT INTO "Customers" ("customer_id", "customer_details") VALUES (1, 'John Doe');
+INSERT INTO "Organizations" ("organization_id", "parent_organization_id", "organization_details") VALUES (1, NULL, 'Main Org');
+INSERT INTO "Services" ("service_id", "organization_id", "service_type_code", "service_details") VALUES (101, 1, 'CLEAN', 'Cleaning');
+INSERT INTO "Services" ("service_id", "organization_id", "service_type_code", "service_details") VALUES (102, 1, 'REPAIR', 'Repair');
+INSERT INTO "Things" ("thing_id", "organization_id", "Type_of_Thing_Code", "service_type_code", "service_details") VALUES (1, 1, 'SENSOR', 'MAINT', 'Door Sensor');
+
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (0, 'ZERO', '0 Zero Ave', 'Zero ID');
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (-5, 'NEG', '-5 Minus Rd', 'Negative ID');
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (5, 'POS', '5 Plus Blvd', 'Positive ID');
+
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (10, 0, '2021-01-01 00:00:00', NULL, 'Res at 0');
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (20, -5, '2021-02-01 00:00:00', NULL, 'Res at -5');
+
+INSERT INTO "Residents_Services" ("resident_id", "service_id", "property_id", "date_moved_in", "date_requested", "date_provided", "other_details") VALUES (10, 101, 0, '2021-01-01 00:00:00', '2021-01-02 00:00:00', '2021-01-03 00:00:00', 'S1');
+INSERT INTO "Residents_Services" ("resident_id", "service_id", "property_id", "date_moved_in", "date_requested", "date_provided", "other_details") VALUES (10, 102, 0, '2021-01-01 00:00:00', '2021-01-04 00:00:00', NULL, 'S2');
+
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (1000, 10, 0, '2021-01-01 00:00:00', 1, 1);
+INSERT INTO "Customer_Events" ("Customer_Event_ID", "resident_id", "property_id", "date_moved_in", "customer_id", "thing_id") VALUES (1001, 10, 0, '2021-01-01 00:00:00', 1, 1);
+
+INSERT INTO "Customer_Event_Notes" ("Customer_Event_Note_ID", "Customer_Event_ID", "service_type_code", "resident_id", "property_id", "date_moved_in") VALUES (500, 1000, 'CLEAN', 10, 0, '2021-01-01 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests incorrect GROUP BY columns (e.g., grouping by property_type_code or property_address instead of property_id),
+-- and tests incorrect JOIN conditions (e.g., LHS.property_id = RHS.resident_id or joining on other_details).
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (1, 'DUP_TYPE', 'Same Address', 'Match');
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (2, 'DUP_TYPE', 'Same Address', 'Match');
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (3, 'UNIQUE_TYPE', 'Diff Address', 'NoResident');
+
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (3, 1, '2020-01-01 00:00:00', '2020-06-01 00:00:00', 'Resident ID matches Property 3');
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (99, 2, '2020-01-01 00:00:00', NULL, 'Diff');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty Residents table while Properties table is populated (verifies empty result set vs NULL count rows).
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (1, 'HSE', '123 Main St', 'Details 1');
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (2, 'APT', '456 Oak St', 'Details 2');
+```
+
+```sql
+-- DATASET 5
+-- Tests Properties with NULL attributes to catch mutants that mistakenly filter out NULLs in RHS columns,
+-- and tests SUM(property_id) or MAX(resident_id) vs COUNT(*) mutations.
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (50, NULL, NULL, NULL);
+INSERT INTO "Properties" ("property_id", "property_type_code", "property_address", "other_details") VALUES (100, '', '', '');
+
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (500, 50, '2023-03-01 09:00:00', NULL, NULL);
+INSERT INTO "Residents" ("resident_id", "property_id", "date_moved_in", "date_moved_out", "other_details") VALUES (5, 100, '2023-04-01 09:00:00', NULL, '');
+```

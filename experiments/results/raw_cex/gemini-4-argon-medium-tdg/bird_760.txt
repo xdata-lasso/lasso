@@ -1,0 +1,108 @@
+```sql
+-- DATASET 1
+-- Tests basic calculation, fractional division (CAST AS REAL), 
+-- BETWEEN inclusive bounds (150, 180) vs exclusive bounds (149, 181),
+-- INNER JOIN vs LEFT JOIN (NULL publisher_id), and NULLpublisher_name handling.
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'DC Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (3, NULL);
+
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (1, 'Hero_150_Marvel', 1, 150);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (2, 'Hero_180_DC', 2, 180);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (3, 'Hero_165_NullPubName', 3, 165);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (4, 'Hero_149_Marvel_Out', 1, 149);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (5, 'Hero_181_Marvel_Out', 1, 181);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (6, 'Hero_170_NoPublisher', NULL, 170);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (7, 'Hero_NullHeight_Marvel', 1, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests 0% Marvel Comics result (numerator = 0, denominator > 0) 
+-- and ensures CASE ELSE NULL is not mutated to ELSE 0 (since COUNT(0) counts the row).
+-- Also tests string matching exactness (case sensitivity and substring matching).
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'marvel comics');
+INSERT INTO publisher (id, publisher_name) VALUES (3, 'Marvel Comics Inc.');
+INSERT INTO publisher (id, publisher_name) VALUES (4, 'Image Comics');
+
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (1, 'Hero_Lower_Marvel', 2, 160);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (2, 'Hero_Prefix_Marvel', 3, 170);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (3, 'Hero_Image', 4, 175);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (4, 'Hero_TrueMarvel_TooTall', 1, 200);
+```
+
+```sql
+-- DATASET 3
+-- Tests 100% Marvel Comics result, multiple Marvel publishers (if duplicate names exist),
+-- and ensures COUNT(DISTINCT ...) mutations on publisher_id or height_cm are caught.
+INSERT INTO publisher (id, publisher_name) VALUES (10, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (20, 'Dark Horse Comics');
+
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (1, 'Marvel_Twin_1', 10, 165);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (2, 'Marvel_Twin_2', 10, 165);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (3, 'Marvel_Boundary_Low', 10, 150);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (4, 'DarkHorse_TooShort', 20, 120);
+```
+
+```sql
+-- DATASET 4
+-- Tests upper boundary 180 specifically for Marvel Comics vs non-Marvel at 150,
+-- and tests mutations that confuse weight_kg with height_cm or id with height_cm.
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'DC Comics');
+
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm, weight_kg) VALUES (1, 'Marvel_180', 1, 180, 90);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm, weight_kg) VALUES (2, 'Marvel_175', 1, 175, 160);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm, weight_kg) VALUES (3, 'DC_150', 2, 150, 160);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm, weight_kg) VALUES (4, 'DC_WeightInRange_HeightOut', 2, 190, 165);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm, weight_kg) VALUES (160, 'Marvel_IDInRange_HeightOut', 1, 210, 170);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set after WHERE filtering (division by zero -> NULL in SQLite),
+-- and ensures unjoined publishers or out-of-range heroes aren't counted via broken joins/filters.
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'DC Comics');
+
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (1, 'Short_Marvel', 1, 140);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (2, 'Tall_DC', 2, 190);
+INSERT INTO superhero (id, superhero_name, publisher_id, height_cm) VALUES (3, 'Unpublished_In_Range', NULL, 165);
+```
+
+```sql
+-- DATASET 6
+-- Tests mutations that unnecessarily join other tables (like alignment, gender, race, colour, hero_power, hero_attribute)
+-- which would either drop rows (if INNER JOIN on NULL FKs) or multiply rows (if 1-to-many join with hero_power/hero_attribute).
+INSERT INTO alignment (id, alignment) VALUES (1, 'Good');
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO race (id, race) VALUES (1, 'Human');
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'DC Comics');
+INSERT INTO superpower (id, power_name) VALUES (1, 'Flight');
+INSERT INTO superpower (id, power_name) VALUES (2, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Intelligence');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Speed');
+
+-- Hero 1 (Marvel): has NULLs for all other dimension FKs, and has multiple powers/attributes
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (1, 'Minimal_Marvel', NULL, NULL, NULL, NULL, NULL, NULL, 1, NULL, 160, NULL);
+
+-- Hero 2 (DC): has all FKs populated, but only 1 power/attribute
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (2, 'Full_DC', 'Clark', 1, 1, 1, 1, 1, 2, 1, 170, 80);
+
+-- Hero 3 (DC): has all FKs populated, no powers/attributes
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (3, 'Powerless_DC', 'Bruce', 1, 1, 1, 1, 1, 2, 1, 175, 85);
+
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 2);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 1);
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 2, 90);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 50);
+```

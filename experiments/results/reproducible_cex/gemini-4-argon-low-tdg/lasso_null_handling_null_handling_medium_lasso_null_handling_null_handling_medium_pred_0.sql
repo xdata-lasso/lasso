@@ -1,0 +1,31 @@
+-- Schema DDL
+CREATE TABLE Employees (employee_id INTEGER PRIMARY KEY, first_name TEXT, department_id INTEGER);
+
+CREATE TABLE Departments (department_id INTEGER PRIMARY KEY, manager_id INTEGER, FOREIGN KEY (manager_id) REFERENCES Employees (employee_id));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+-- Tests NULL handling in NOT IN subquery (kills mutants that omit WHERE manager_id IS NOT NULL)
+-- Also tests basic differentiation between managers and non-managers.
+INSERT INTO Employees (employee_id, first_name, department_id) VALUES (1, 'Alice', 10);
+INSERT INTO Employees (employee_id, first_name, department_id) VALUES (2, 'Bob', 10);
+INSERT INTO Departments (department_id, manager_id) VALUES (10, 1);
+INSERT INTO Departments (department_id, manager_id) VALUES (20, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT first_name FROM Employees WHERE NOT employee_id IN (SELECT manager_id FROM Departments WHERE NOT manager_id IS NULL);
+
+/*
+Gold Result:
+('Bob',)
+*/
+
+-- Prediction Query
+SELECT first_name FROM Employees WHERE NOT employee_id IN (SELECT manager_id FROM Departments);
+
+/*
+Prediction Result:
+*/

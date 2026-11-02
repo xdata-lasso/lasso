@@ -1,0 +1,102 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Tie for the highest average rating (M1 and M2 both have avg 4.5, testing LIMIT 1 vs MAX).
+-- 2. Multiple ratings per movie (M1 has two ratings of 4 and 5, testing DISTINCT in outer SELECT).
+-- 3. Movie with higher SUM(stars) and higher COUNT(stars) and higher single MAX(stars), but lower AVG(stars) (M3 has 5, 5, 2 -> sum=12, max=5, avg=4.0).
+-- 4. Unrated movie (M4, testing INNER JOIN vs LEFT JOIN).
+-- 5. Ordering of tied results by title ('Alpha' vs 'Beta').
+INSERT INTO Movie (mID, title, year, director) VALUES (1, 'Beta', 2000, 'Dir A');
+INSERT INTO Movie (mID, title, year, director) VALUES (2, 'Alpha', 2001, 'Dir B');
+INSERT INTO Movie (mID, title, year, director) VALUES (3, 'Gamma', 2002, 'Dir C');
+INSERT INTO Movie (mID, title, year, director) VALUES (4, 'Delta', 2003, 'Dir D');
+
+INSERT INTO Reviewer (rID, name) VALUES (101, 'Rev 1');
+INSERT INTO Reviewer (rID, name) VALUES (102, 'Rev 2');
+INSERT INTO Reviewer (rID, name) VALUES (103, 'Rev 3');
+
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (101, 1, 4, '2020-01-01');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (102, 1, 5, '2020-01-02');
+
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (101, 2, 4, '2020-01-03');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (103, 2, 5, '2020-01-04');
+
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (101, 3, 5, '2020-01-05');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (102, 3, 5, '2020-01-06');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (103, 3, 2, '2020-01-07');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Two distinct movies (different mID) sharing the exact same title ('DuplicateTitle'), where one has the highest average (5.0) and the other has a lower average (2.0). This kills mutants that GROUP BY title instead of mID.
+-- 2. Floating point average vs integer average (M2 has 4 and 5 -> 4.5, M1 has 5 -> 5.0).
+INSERT INTO Movie (mID, title, year, director) VALUES (1, 'DuplicateTitle', 1995, 'Dir X');
+INSERT INTO Movie (mID, title, year, director) VALUES (2, 'DuplicateTitle', 2010, 'Dir Y');
+INSERT INTO Movie (mID, title, year, director) VALUES (3, 'OtherTitle', 2015, 'Dir Z');
+
+INSERT INTO Reviewer (rID, name) VALUES (201, 'Alice');
+INSERT INTO Reviewer (rID, name) VALUES (202, 'Bob');
+
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (201, 1, 5, '2021-05-01');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (201, 2, 2, '2021-05-02');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (201, 3, 4, '2021-05-03');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (202, 3, 5, '2021-05-04');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Same reviewer rating the same movie multiple times with different stars (testing AVG(stars) vs AVG(DISTINCT stars) or COUNT(DISTINCT rID)).
+-- 2. Highest average movie has a lower individual max star rating than another movie (M1 has 4, 4 -> avg 4.0; M2 has 5, 1 -> avg 3.0. Kills mutants finding movie with MAX(stars) instead of MAX(AVG(stars))).
+INSERT INTO Movie (mID, title, year, director) VALUES (10, 'Steady Good', 2018, 'Dir 1');
+INSERT INTO Movie (mID, title, year, director) VALUES (20, 'Polarizing', 2019, 'Dir 2');
+
+INSERT INTO Reviewer (rID, name) VALUES (301, 'Critic');
+
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (301, 10, 4, '2022-01-01');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (301, 10, 4, '2022-01-02');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (301, 10, 4, '2022-01-03');
+
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (301, 20, 5, '2022-01-04');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (301, 20, 1, '2022-01-05');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. NULL values in Rating.stars (M1 has 5 and NULL -> AVG is 5.0; M2 has 4 and 4 -> AVG is 4.0. If NULL is treated as 0, M1 avg becomes 2.5 and loses to M2).
+-- 2. NULL values in Movie.title and Rating.ratingDate (testing NULL handling in joins, DISTINCT, and ORDER BY).
+INSERT INTO Movie (mID, title, year, director) VALUES (1, NULL, 2000, NULL);
+INSERT INTO Movie (mID, title, year, director) VALUES (2, 'Valid Title', 2005, 'Some Dir');
+INSERT INTO Movie (mID, title, year, director) VALUES (3, 'Lower Avg', 2010, 'Some Dir');
+
+INSERT INTO Reviewer (rID, name) VALUES (401, NULL);
+INSERT INTO Reviewer (rID, name) VALUES (402, 'Named');
+
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (401, 1, 5, NULL);
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (402, 1, NULL, '2023-01-01');
+
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (401, 2, 5, NULL);
+
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (401, 3, 4, '2023-01-02');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (402, 3, 4, '2023-01-03');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Two distinct movies with the exact same title both achieving the highest average rating (tests whether DISTINCT title collapses them into a single output row).
+-- 2. Movie where all ratings have NULL stars (AVG is NULL; tests that NULL meanstars does not match NULL = NULL in the join condition or override MAX(meanstars)).
+INSERT INTO Movie (mID, title, year, director) VALUES (1, 'TwinPeak', 1990, 'Lynch');
+INSERT INTO Movie (mID, title, year, director) VALUES (2, 'TwinPeak', 2017, 'Lynch');
+INSERT INTO Movie (mID, title, year, director) VALUES (3, 'NullMovie', 2020, 'Unknown');
+INSERT INTO Movie (mID, title, year, director) VALUES (4, 'Mediocre', 2021, 'Smith');
+
+INSERT INTO Reviewer (rID, name) VALUES (501, 'R1');
+
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (501, 1, 5, '2020-01-01');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (501, 2, 5, '2020-01-02');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (501, 3, NULL, '2020-01-03');
+INSERT INTO Rating (rID, mID, stars, ratingDate) VALUES (501, 4, 3, '2020-01-04');
+```

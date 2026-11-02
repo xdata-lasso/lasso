@@ -1,0 +1,29 @@
+-- Schema DDL
+CREATE TABLE "Visits" ("visit_id" INTEGER, "customer_id" INTEGER, UNIQUE ("visit_id"));
+
+CREATE TABLE "Transactions" ("transaction_id" INTEGER, "visit_id" INTEGER, "amount" INTEGER, FOREIGN KEY ("visit_id") REFERENCES "Visits" ("visit_id"), UNIQUE ("transaction_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Visits" ("visit_id", "customer_id") VALUES (18, 24);
+INSERT INTO "Visits" ("visit_id", "customer_id") VALUES (25, NULL);
+INSERT INTO "Transactions" ("transaction_id", "visit_id", "amount") VALUES (NULL, NULL, NULL);
+INSERT INTO "Transactions" ("transaction_id", "visit_id", "amount") VALUES (18, 18, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CUSTOMER_ID, COUNT(*) AS COUNT_NO_TRANS FROM VISITS WHERE NOT VISIT_ID IN (SELECT DISTINCT VISIT_ID FROM TRANSACTIONS) GROUP BY CUSTOMER_ID;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH VISIT_T AS (SELECT VISIT_ID, SUM(AMOUNT) AS TOTAL FROM TRANSACTIONS GROUP BY VISIT_ID), VISIT_C AS (SELECT V.VISIT_ID, V.CUSTOMER_ID, VT.TOTAL FROM VISITS AS V LEFT JOIN VISIT_T AS VT ON V.VISIT_ID = VT.VISIT_ID) SELECT CUSTOMER_ID, COUNT(*) AS COUNT_NO_TRANS FROM VISIT_C AS VC WHERE VC.TOTAL IS NULL GROUP BY CUSTOMER_ID;
+
+/*
+Prediction Result:
+(None, 1)
+(24, 1)
+*/

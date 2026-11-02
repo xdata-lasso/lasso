@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, non-matching (Version_Number != COUNT), duplicate matches requiring DISTINCT, and ORDER BY sorting.
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('A', 'Type A');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('B', 'Type B');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('C', 'Type C');
+
+-- Type C: count = 1, version = 1 (Matches)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, 'C', 1, '2020-01-01', '2021-01-01', 'Det 1');
+
+-- Type A: count = 2, both versions = 2 (Matches twice, tests DISTINCT)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (2, 'A', 2, '2020-01-01', '2021-01-01', 'Det 2');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (3, 'A', 2, '2020-01-01', '2021-01-01', 'Det 3');
+
+-- Type B: count = 2, versions = 1 and 3 (No match, tests Version_Number = COUNT(*) condition)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (4, 'B', 1, '2020-01-01', '2021-01-01', 'Det 4');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (5, 'B', 3, '2020-01-01', '2021-01-01', 'Det 5');
+```
+
+```sql
+-- DATASET 2
+-- Tests cross-type join condition (LHS.template_type_code = RHS.template_type_code) and MAX/MIN vs COUNT mutations.
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T1', 'Type 1');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T2', 'Type 2');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T3', 'Type 3');
+
+-- T1: count = 1, version = 2 (Does not match T1's count, but equals T2's count. Tests missing join on template_type_code)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, 'T1', 2, '2020-01-01', '2021-01-01', 'D1');
+
+-- T2: count = 2, versions = 5, 5 (Does not match count, but would match if mutant used MAX(version_number) or MIN(version_number))
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (2, 'T2', 5, '2020-01-01', '2021-01-01', 'D2');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (3, 'T2', 5, '2020-01-01', '2021-01-01', 'D3');
+
+-- T3: count = 3, versions = 10, 3, 1 (Matches because of version 3, where 3 is neither MIN nor MAX)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (4, 'T3', 10, '2020-01-01', '2021-01-01', 'D4');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (5, 'T3', 3, '2020-01-01', '2021-01-01', 'D5');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (6, 'T3', 1, '2020-01-01', '2021-01-01', 'D6');
+```
+
+```sql
+-- DATASET 3
+-- Tests COUNT(*) vs COUNT(Version_Number) / COUNT(DISTINCT Version_Number) and NULL handling in Template_Type_Code and Version_Number.
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('N1', 'Null Test 1');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('N2', 'Null Test 2');
+
+-- N1: 2 rows, one has NULL Version_Number. COUNT(*) is 2, COUNT(Version_Number) is 1.
+-- Row 1 has Version_Number = 2, so it matches COUNT(*) = 2, but not COUNT(Version_Number) = 1.
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, 'N1', 2, NULL, NULL, NULL);
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (2, 'N1', NULL, NULL, NULL, NULL);
+
+-- N2: 2 rows, one has Version_Number = 1, one has NULL. Matches if mutant uses COUNT(Version_Number) = 1.
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (3, 'N2', 1, NULL, NULL, NULL);
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (4, 'N2', NULL, NULL, NULL, NULL);
+
+-- NULL Template_Type_Code: 1 row with Version_Number = 1. GROUP BY groups NULLs, but inner join `LHS.code = RHS.code` fails on NULL = NULL.
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (5, NULL, 1, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests mutants that erroneously join with Ref_Template_Types, Documents, or Paragraphs (e.g., counting documents instead of templates, or filtering out templates without documents).
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('DOC_TEST_1', 'Has no documents');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('DOC_TEST_2', 'Has multiple documents');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('UNUSED_TYPE', 'No templates at all');
+
+-- DOC_TEST_1: 1 template, version = 1, no documents. (Should be in result, fails if inner joined with Documents)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (10, 'DOC_TEST_1', 1, '2022-01-01', '2023-01-01', 'Details');
+
+-- DOC_TEST_2: 1 template, version = 2, but has 2 documents. (Should NOT be in result, but would be if joined with Documents before counting)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (20, 'DOC_TEST_2', 2, '2022-01-01', '2023-01-01', 'Details');
+
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (100, 20, 'Doc 1', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (101, 20, 'Doc 2', 'Desc', 'Other');
+
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (1000, 100, 'Para 1', 'Other');
+```
+
+```sql
+-- DATASET 5
+-- Tests confusion between Template_ID and Version_Number in join condition (e.g., LHS.template_id = RHS.n).
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('ID_VS_VER_1', 'Type 1');
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('ID_VS_VER_2', 'Type 2');
+
+-- ID_VS_VER_1: count = 1, Template_ID = 1, Version_Number = 99 (Should NOT match, matches if Template_ID = n)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, 'ID_VS_VER_1', 99, '2020-01-01', '2021-01-01', 'D1');
+
+-- ID_VS_VER_2: count = 1, Template_ID = 99, Version_Number = 1 (Should match, fails if Template_ID = n)
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (99, 'ID_VS_VER_2', 1, '2020-01-01', '2021-01-01', 'D2');
+```

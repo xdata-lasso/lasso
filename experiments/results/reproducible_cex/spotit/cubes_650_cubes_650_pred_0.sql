@@ -1,0 +1,63 @@
+-- Schema DDL
+CREATE TABLE "CITY" (
+    "ID" INT,
+    "COUNTRYCODE" TEXT,
+    "NAME" TEXT,
+    "DISTRICT" TEXT,
+    "POPULATION" INT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("COUNTRYCODE") REFERENCES "COUNTRY"("CODE")
+);
+CREATE TABLE "COUNTRY" (
+    "CODE" TEXT,
+    "NAME" TEXT,
+    "CONTINENT" TEXT,
+    "REGION" TEXT,
+    "SURFACEAREA" FLOAT,
+    "INDEPYEAR" INT,
+    "POPULATION" INT,
+    "LIFEEXPECTANCY" FLOAT,
+    "GNP" FLOAT,
+    "GNPOLD" FLOAT,
+    "LOCALNAME" TEXT,
+    "GOVERNMENTFORM" TEXT,
+    "HEADOFSTATE" TEXT,
+    "CAPITAL" INT,
+    "CODE2" TEXT,
+    PRIMARY KEY ("CODE")
+);
+CREATE TABLE "COUNTRYLANGUAGE" (
+    "COUNTRYCODE" TEXT,
+    "LANGUAGE" TEXT,
+    "ISOFFICIAL" TEXT,
+    "PERCENTAGE" FLOAT,
+    PRIMARY KEY ("LANGUAGE", "COUNTRYCODE"),
+    FOREIGN KEY ("COUNTRYCODE") REFERENCES "COUNTRY"("CODE")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO CITY VALUES (-1, 0, 0, 0, 0);
+INSERT INTO CITY VALUES (0, 0, 0, 0, 0);
+INSERT INTO COUNTRY VALUES (0, NULL, 0, 0, 0, 0, NULL, 0, 0, 0, 0, 0, NULL, 0, 0);
+INSERT INTO COUNTRY VALUES (-1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO COUNTRYLANGUAGE VALUES (0, 4, 0, 0);
+INSERT INTO COUNTRYLANGUAGE VALUES (0, 5, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name, population, headofstate FROM (SELECT * FROM (SELECT * FROM country ORDER BY surfacearea DESC, country.code NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+('0', 0, '0')
+*/
+
+-- Prediction Query
+SELECT Name, population, HeadOfState FROM country ORDER BY SurfaceArea DESC, country.code NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('0', 0, '0')
+*/

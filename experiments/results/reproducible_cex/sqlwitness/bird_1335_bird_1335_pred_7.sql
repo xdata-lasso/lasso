@@ -1,0 +1,38 @@
+-- Schema DDL
+CREATE TABLE event (event_id TEXT CONSTRAINT event_pk PRIMARY KEY, event_name TEXT, event_date TEXT, type TEXT, notes TEXT, location TEXT, status TEXT);
+
+CREATE TABLE major (major_id TEXT CONSTRAINT major_pk PRIMARY KEY, major_name TEXT, department TEXT, college TEXT);
+
+CREATE TABLE zip_code (zip_code INTEGER CONSTRAINT zip_code_pk PRIMARY KEY, type TEXT, city TEXT, county TEXT, state TEXT, short_state TEXT);
+
+CREATE TABLE "attendance" (link_to_event TEXT, link_to_member TEXT, PRIMARY KEY (link_to_event, link_to_member), FOREIGN KEY (link_to_event) REFERENCES event (event_id), FOREIGN KEY (link_to_member) REFERENCES member (member_id));
+
+CREATE TABLE "budget" (budget_id TEXT PRIMARY KEY, category TEXT, spent REAL, remaining REAL, amount INTEGER, event_status TEXT, link_to_event TEXT, FOREIGN KEY (link_to_event) REFERENCES event (event_id));
+
+CREATE TABLE "expense" (expense_id TEXT PRIMARY KEY, expense_description TEXT, expense_date TEXT, cost REAL, approved TEXT, link_to_member TEXT, link_to_budget TEXT, FOREIGN KEY (link_to_budget) REFERENCES budget (budget_id), FOREIGN KEY (link_to_member) REFERENCES member (member_id));
+
+CREATE TABLE "income" (income_id TEXT CONSTRAINT income_pk PRIMARY KEY, date_received TEXT, amount INTEGER, source TEXT, notes TEXT, link_to_member TEXT, FOREIGN KEY (link_to_member) REFERENCES member (member_id));
+
+CREATE TABLE "member" (member_id TEXT CONSTRAINT member_pk PRIMARY KEY, first_name TEXT, last_name TEXT, email TEXT, position TEXT, t_shirt_size TEXT, phone TEXT, zip INTEGER, link_to_major TEXT, FOREIGN KEY (link_to_major) REFERENCES major (major_id), FOREIGN KEY (zip) REFERENCES zip_code (zip_code));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('default1', 'September Meeting', 'September Meeting', 'default2', 'default2', 'default2', NULL), ('Advertisement', 'September Meeting', 'default1', 'Advertisement', '09', 'default1', 'September Meeting'), ('default2', 'September Meeting', 'default1', 'Advertisement', NULL, 'default1', NULL), ('09', 'Advertisement', 'default2', '09', 'September Meeting', 'default1', 'Advertisement'), ('September Meeting', NULL, 'Advertisement', NULL, 'Advertisement', NULL, NULL), ('unique_5', NULL, 'Advertisement', 'default1', 'September Meeting', 'default1', 'Advertisement'), ('unique_6', 'September Meeting', '09', 'Advertisement', 'default1', '09', '09'), ('unique_7', 'default1', 'September Meeting', 'default1', 'default1', 'September Meeting', 'Advertisement'), ('unique_8', NULL, 'Advertisement', 'default1', '09', 'September Meeting', 'default1'), ('unique_9', NULL, 'default1', NULL, '09', 'September Meeting', 'September Meeting'), ('unique_10', NULL, '09', 'default1', 'default2', '09', 'September Meeting'), ('unique_11', '09', 'default1', '09', 'default1', '09', 'default1'), ('unique_12', NULL, '09', NULL, 'default2', 'default1', 'Advertisement'), ('unique_13', 'default2', 'default2', NULL, 'Advertisement', '09', 'Advertisement'), ('unique_14', NULL, 'Advertisement', 'default2', 'default2', NULL, NULL), ('unique_15', 'default1', 'September Meeting', 'default2', 'default1', 'September Meeting', 'default1'), ('unique_16', 'Advertisement', 'Advertisement', 'Advertisement', 'September Meeting', 'Advertisement', 'September Meeting'), ('unique_17', 'Advertisement', 'September Meeting', 'default2', NULL, 'September Meeting', 'default2'), ('unique_18', 'default2', '09', 'default1', NULL, 'September Meeting', NULL), ('unique_19', 'September Meeting', 'September Meeting', 'September Meeting', '09', NULL, '09'), ('unique_20', 'default1', 'default1', 'September Meeting', 'Advertisement', '09', NULL), ('unique_21', '09', 'default1', 'default1', '09', NULL, 'September Meeting'), ('unique_22', 'September Meeting', '09', 'default1', NULL, 'September Meeting', NULL), ('unique_23', 'Advertisement', 'default2', '09', '09', NULL, 'Advertisement'), ('unique_24', '09', NULL, '09', 'September Meeting', 'Advertisement', 'default2'), ('unique_25', '09', 'default2', NULL, 'September Meeting', 'default1', 'default1'), ('unique_26', 'September Meeting', 'Advertisement', '09', 'Advertisement', '09', 'Advertisement'), ('unique_27', 'default1', 'Advertisement', 'September Meeting', 'September Meeting', 'default1', 'Advertisement'), ('unique_28', NULL, 'default1', '09', 'September Meeting', 'Advertisement', '09'), ('unique_29', 'September Meeting', 'default1', '09', NULL, NULL, 'default2'), ('unique_30', NULL, '09', 'September Meeting', 'default2', 'Advertisement', 'default1'), ('unique_31', '09', NULL, 'September Meeting', NULL, 'default1', 'Advertisement'), ('unique_32', NULL, 'default2', NULL, 'default2', 'default2', 'default1'), ('unique_33', NULL, '09', '09', 'Advertisement', NULL, 'Advertisement'), ('unique_34', NULL, '09', 'September Meeting', '09', 'default2', 'September Meeting'), ('unique_35', NULL, 'September Meeting', '09', 'default1', 'default2', 'default2');
+INSERT INTO budget (budget_id, link_to_event, category, spent, remaining, amount, event_status) VALUES ('September Meeting', 'unique_34', '09', 5.0, 6.0, 7, 'default2'), ('09', 'unique_30', 'default1', 0.0, NULL, 0, 'September Meeting'), ('default1', 'unique_15', 'default2', 3.0, 6.0, NULL, 'default1'), ('Advertisement', 'unique_22', NULL, 6.0, 7.0, 3, '09'), ('default2', 'unique_12', 'September Meeting', 2.0, 2.0, 5, 'default1'), ('unique_5', 'unique_9', '09', NULL, 6.0, 7, 'default1'), ('unique_6', 'unique_13', 'September Meeting', 2.0, 5.0, 6, NULL), ('unique_7', 'unique_9', 'Advertisement', 2.0, NULL, 2, 'default2'), ('unique_8', 'unique_13', 'default1', 2.0, 2.0, 1, NULL), ('unique_9', 'unique_6', 'September Meeting', 3.0, 6.0, 0, 'September Meeting'), ('unique_10', 'unique_6', 'Advertisement', 0.0, 3.0, 6, 'default1'), ('unique_11', 'unique_16', NULL, NULL, NULL, 0, 'Advertisement'), ('unique_12', 'Advertisement', 'default2', 2.0, 0.0, 0, 'default2'), ('unique_13', 'unique_17', 'September Meeting', 7.0, NULL, 3, 'default1'), ('unique_14', 'unique_13', 'default1', 3.0, 5.0, 0, 'Advertisement'), ('unique_15', '09', 'September Meeting', 6.0, 5.0, 0, 'default1'), ('unique_16', 'unique_22', 'default1', 1.0, 6.0, 6, 'default1'), ('unique_17', 'unique_8', 'September Meeting', 1.0, 7.0, 1, NULL), ('unique_18', 'unique_27', 'September Meeting', 7.0, 1.0, 3, 'default2'), ('unique_19', 'unique_14', 'default2', 6.0, NULL, 3, 'default2'), ('unique_20', 'unique_11', 'Advertisement', 7.0, 3.0, 2, 'default2'), ('unique_21', 'unique_34', '09', 0.0, NULL, NULL, 'default1'), ('unique_22', 'unique_15', 'Advertisement', 7.0, 3.0, 3, '09'), ('unique_23', 'unique_30', NULL, 6.0, 2.0, NULL, '09'), ('unique_24', 'unique_35', 'September Meeting', 3.0, 7.0, 5, '09'), ('unique_25', 'unique_12', NULL, 7.0, 0.0, 2, '09'), ('unique_26', 'unique_24', 'default1', 6.0, NULL, 1, NULL), ('unique_27', 'unique_33', '09', NULL, 2.0, 3, 'September Meeting'), ('unique_28', 'unique_11', 'Advertisement', 3.0, 3.0, 0, '09'), ('unique_29', 'unique_16', 'September Meeting', NULL, 7.0, 7, 'default2'), ('unique_30', '09', 'September Meeting', NULL, 7.0, 5, 'default2'), ('unique_31', 'unique_23', '09', 5.0, NULL, 5, 'default1');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T2.spent FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event WHERE T1.event_name = 'September Meeting' AND T2.category = 'Advertisement' AND SUBSTRING(T1.event_date, 6, 2) = '09';
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT b.spent FROM budget AS b JOIN event AS e ON b.link_to_event = e.event_id WHERE e.event_name = 'September Meeting' AND b.category = 'Advertisement';
+
+/*
+Prediction Result:
+(0.0,)
+*/

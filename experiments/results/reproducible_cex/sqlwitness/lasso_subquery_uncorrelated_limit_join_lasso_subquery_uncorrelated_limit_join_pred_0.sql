@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE EMPLOYEES (EMP_ID INTEGER PRIMARY KEY, DEPT_ID INTEGER, SALARY INTEGER);
+
+CREATE TABLE DEPARTMENTS (DEPT_ID INTEGER PRIMARY KEY, DEPT_NAME TEXT, BUDGET INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO departments (dept_id, dept_name, budget) VALUES (2, NULL, 2), (0, 'default2', 1);
+INSERT INTO employees (emp_id, dept_id, salary) VALUES (2, NULL, 1), (1, 1, NULL), (0, 1, 2), (3, 0, 2);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT EMP_ID FROM EMPLOYEES WHERE DEPT_ID = (SELECT DEPT_ID FROM DEPARTMENTS ORDER BY BUDGET DESC, DEPARTMENTS.dept_id NULLS LAST LIMIT 1);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT T1.EMP_ID FROM EMPLOYEES AS T1 INNER JOIN DEPARTMENTS AS T2 ON T1.DEPT_ID = T2.DEPT_ID ORDER BY T2.BUDGET DESC, T1.emp_id NULLS LAST, T2.dept_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+(3,)
+*/

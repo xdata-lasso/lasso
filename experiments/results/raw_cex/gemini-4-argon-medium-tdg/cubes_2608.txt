@@ -1,0 +1,71 @@
+```sql
+-- DATASET 1
+-- Tests standard behavior with duplicate balances, distinct balances, and a decoy SAVINGS table.
+-- Catches mutants missing DISTINCT, missing OVER () (grouping vs non-grouping), using SUM(DISTINCT), or querying the wrong table (SAVINGS/ACCOUNTS).
+INSERT INTO ACCOUNTS (custid, name) VALUES (1, 'Alice');
+INSERT INTO ACCOUNTS (custid, name) VALUES (2, 'Bob');
+INSERT INTO ACCOUNTS (custid, name) VALUES (3, 'Charlie');
+INSERT INTO ACCOUNTS (custid, name) VALUES (4, 'Diana');
+INSERT INTO SAVINGS (custid, balance) VALUES (1, 1000.0);
+INSERT INTO SAVINGS (custid, balance) VALUES (2, 2000.0);
+INSERT INTO CHECKING (custid, balance) VALUES (1, 100.5);
+INSERT INTO CHECKING (custid, balance) VALUES (2, 100.5);
+INSERT INTO CHECKING (custid, balance) VALUES (3, 250.25);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty CHECKING table while ACCOUNTS and SAVINGS are populated.
+-- Catches mutants that replace the window function `SELECT DISTINCT SUM(balance) OVER ()` (which returns 0 rows on empty table) with plain aggregate `SELECT SUM(balance)` (which returns 1 row with NULL on empty table), or mutants using INNER/LEFT JOIN with ACCOUNTS/SAVINGS.
+INSERT INTO ACCOUNTS (custid, name) VALUES (1, 'Alice');
+INSERT INTO ACCOUNTS (custid, name) VALUES (2, 'Bob');
+INSERT INTO SAVINGS (custid, balance) VALUES (1, 500.0);
+INSERT INTO SAVINGS (custid, balance) VALUES (2, 600.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests CHECKING table where all balances are NULL.
+-- Reference query returns 1 row with NULL (since rows exist in CHECKING, window function outputs NULL for each row, and DISTINCT collapses them to 1 row).
+-- Catches mutants using COALESCE(balance, 0), COUNT(balance), or WHERE balance IS NOT NULL.
+INSERT INTO ACCOUNTS (custid, name) VALUES (1, 'Alice');
+INSERT INTO ACCOUNTS (custid, name) VALUES (2, 'Bob');
+INSERT INTO CHECKING (custid, balance) VALUES (1, NULL);
+INSERT INTO CHECKING (custid, balance) VALUES (2, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests mix of positive, negative, zero, and NULL balances.
+-- Catches mutants filtering out negative/zero values, mis-evaluating AVG vs SUM, or mishandling NULLs in arithmetic.
+INSERT INTO ACCOUNTS (custid, name) VALUES (1, 'Alice');
+INSERT INTO ACCOUNTS (custid, name) VALUES (2, 'Bob');
+INSERT INTO ACCOUNTS (custid, name) VALUES (3, 'Charlie');
+INSERT INTO ACCOUNTS (custid, name) VALUES (4, 'Diana');
+INSERT INTO CHECKING (custid, balance) VALUES (1, -150.75);
+INSERT INTO CHECKING (custid, balance) VALUES (2, 50.25);
+INSERT INTO CHECKING (custid, balance) VALUES (3, 0.0);
+INSERT INTO CHECKING (custid, balance) VALUES (4, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests single row in CHECKING with non-matching rows in SAVINGS.
+-- Catches mutants that erroneously join CHECKING and SAVINGS (e.g., NATURAL JOIN or JOIN ON custid), or replace SUM with COUNT.
+INSERT INTO ACCOUNTS (custid, name) VALUES (1, 'Alice');
+INSERT INTO ACCOUNTS (custid, name) VALUES (2, 'Bob');
+INSERT INTO SAVINGS (custid, balance) VALUES (2, 42.0);
+INSERT INTO CHECKING (custid, balance) VALUES (1, 42.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests window framing mutations (e.g., OVER (ORDER BY balance) or OVER (PARTITION BY balance)).
+-- Having multiple distinct balances ensures that an accidental ORDER BY or PARTITION BY inside the OVER() clause produces multiple rows (running totals or partition sums) that survive SELECT DISTINCT and fail against the Reference Query's single total row.
+INSERT INTO ACCOUNTS (custid, name) VALUES (1, 'Alice');
+INSERT INTO ACCOUNTS (custid, name) VALUES (2, 'Bob');
+INSERT INTO ACCOUNTS (custid, name) VALUES (3, 'Charlie');
+INSERT INTO CHECKING (custid, balance) VALUES (1, 10.0);
+INSERT INTO CHECKING (custid, balance) VALUES (2, 20.0);
+INSERT INTO CHECKING (custid, balance) VALUES (3, 40.0);
+```

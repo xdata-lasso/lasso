@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE "Queries" ("query_name" TEXT(255), "result" TEXT(255), "position" INTEGER, "rating" INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Queries" ("query_name", "result", "position", "rating") VALUES ('5', '6', 1, 3);
+INSERT INTO "Queries" ("query_name", "result", "position", "rating") VALUES ('7', '8', 1, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT query_name, ROUND(AVG(CAST(rating AS REAL) / position), 2) AS quality, ROUND(CAST(SUM(CASE WHEN rating < 3 THEN 1 ELSE 0 END) AS REAL) / COUNT(*) * 100, 2) AS poor_query_percentage FROM Queries WHERE NOT query_name IS NULL GROUP BY query_name;
+
+/*
+Gold Result:
+('5', 3.0, 0.0)
+('7', None, 0.0)
+*/
+
+-- Prediction Query
+WITH TEMP AS (SELECT QUERY_NAME, ROUND(CAST(SUM(CAST(RATING AS REAL) / POSITION) AS REAL) / COUNT(*), 2) AS QUALITY, SUM(CASE WHEN RATING < 3 THEN 1 ELSE 0 END) AS LESS, SUM(CASE WHEN NOT RATING IS NULL THEN 1 ELSE 0 END) AS ALLL FROM QUERIES GROUP BY QUERY_NAME) SELECT QUERY_NAME, QUALITY, ROUND((CAST(LESS AS REAL) / ALLL) * 100, 2) AS POOR_QUERY_PERCENTAGE FROM TEMP;
+
+/*
+Prediction Result:
+('5', 3.0, 0.0)
+('7', None, None)
+*/

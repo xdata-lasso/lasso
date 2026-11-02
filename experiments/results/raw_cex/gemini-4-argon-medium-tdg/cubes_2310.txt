@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Tests standard counts (0, 1, 2, 3), ordering (out-of-order insertion), and unrelated child tables (Statements, Documents_with_Expenses).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type 1', 'Desc 1');
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T2', 'Type 2', 'Desc 2');
+
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('B1', 'Budget 1');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (30, 'Project with 2 docs');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (10, 'Project with 3 docs');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (20, 'Project with 1 doc');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (40, 'Project with 0 docs');
+
+-- Project 30 has 2 documents (inserted first to test ORDER BY project_id)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 30, 'T1', '2023-01-01', 'Doc 1', 'Desc', NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 30, 'T1', '2023-01-01', 'Doc 1', 'Desc', NULL);
+
+-- Project 20 has 1 document
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 20, 'T1', '2023-01-02', 'Doc 3', 'Desc', 'Other');
+
+-- Project 10 has 3 documents (some with NULL columns to catch COUNT(col) vs COUNT(*))
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 10, 'T1', '2023-01-03', 'Doc 4', NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 10, 'T2', NULL, NULL, 'Desc', NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (6, 10, NULL, NULL, NULL, NULL, NULL);
+
+-- Populate child tables for only 1 document of Project 30 to kill mutants that inner-join Statements or Documents_with_Expenses
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (1, 'Statement for Doc 1');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (1, 'B1', 'Expense for Doc 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (100, 1, 'Account 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (101, 1, 'Account 2');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL Project_ID in Documents (2 rows with NULL Project_ID) to distinguish COUNT(*) from COUNT(project_id).
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Project 1');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (2, 'Project 2');
+
+-- 2 documents with NULL Project_ID
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (10, NULL, NULL, '2023-05-01', 'Null Proj Doc 1', 'D1', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (11, NULL, NULL, '2023-05-02', 'Null Proj Doc 2', 'D2', 'O2');
+
+-- 2 documents for Project 2
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (12, 2, NULL, '2023-05-03', 'P2 Doc 1', 'D3', 'O3');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (13, 2, NULL, '2023-05-04', 'P2 Doc 2', 'D4', 'O4');
+
+-- 1 document for Project 1
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (14, 1, NULL, '2023-05-05', 'P1 Doc 1', 'D5', 'O5');
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary condition where no project has >= 2 documents (empty result set for Gold Query, non-empty for n >= 1 or n < 2 mutants).
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (100, 'Single Doc Project A');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (200, 'Single Doc Project B');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (300, 'Zero Doc Project C');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 200, NULL, '2023-01-01', 'Doc A', 'Desc A', 'Other A');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 100, NULL, '2023-01-02', 'Doc B', 'Desc B', 'Other B');
+```
+
+```sql
+-- DATASET 4
+-- Tests grouping by wrong column (e.g., Document_Type_Code or Document_Name) vs grouping by Project_ID, and HAVING SUM(project_id) vs COUNT(*).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('TYPE_A', 'Name A', 'Desc A');
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('TYPE_B', 'Name B', 'Desc B');
+
+-- Using negative and zero Project_IDs to break mutants that confuse COUNT(*) with SUM(Project_ID) or MIN/MAX
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (-5, 'Negative ID Project');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (0, 'Zero ID Project');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (5, 'Positive ID Project');
+
+-- Project -5 has 2 documents with different types
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, -5, 'TYPE_A', '2023-01-01', 'N1', 'D1', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, -5, 'TYPE_B', '2023-01-02', 'N2', 'D2', 'O2');
+
+-- Project 0 has 2 documents
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 0, 'TYPE_A', '2023-01-03', 'N3', 'D3', 'O3');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 0, 'TYPE_B', '2023-01-04', 'N4', 'D4', 'O4');
+
+-- Project 5 has 1 document (SUM(Project_ID) is 5 >= 2, but COUNT(*) is 1 < 2)
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 5, 'TYPE_A', '2023-01-05', 'N5', 'D5', 'O5');
+```

@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests basic anti-join behavior, ORDER BY sorting, and duplicate service_name with different service_ids where BOTH are unbooked (tests DISTINCT).
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (1, 'CARD', '123456', 'p1@test.com');
+
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (1, 'T1', 'Zebra Service', 'Desc 1');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (2, 'T2', 'Alpha Service', 'Desc 2');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (3, 'T3', 'Alpha Service', 'Desc 3');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (4, 'T4', 'Booked Service', 'Desc 4');
+
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (1, 4, 101, '2023-01-01 10:00:00', '2022-12-01 09:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests critical semantic difference: two services share the SAME service_name, one is booked in Party_Services and the other is NOT booked.
+-- Because the Reference Query checks NOT EXISTS on (LHS.service_name = RHS.service_name), 'Shared Name' must be excluded completely.
+-- Mutants checking (service_id NOT IN (SELECT service_id FROM Party_Services)) will fail by returning 'Shared Name'.
+-- Also includes a service referenced in Forms (but not Party_Services) to kill mutants confusing Forms with Party_Services.
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (1, 'CASH', '555-0101', 'party1@example.com');
+
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (10, 'TYPE_A', 'Shared Name', 'First instance, booked');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (20, 'TYPE_B', 'Shared Name', 'Second instance, unbooked');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (30, 'TYPE_C', 'Unique Unbooked', 'Only in Forms, not Party_Services');
+
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (1, 10, 201, '2023-05-10 14:00:00', '2023-05-01 08:00:00');
+
+INSERT INTO "Forms" ("form_id", "service_id", "form_type_code", "form_number", "form_name", "form_description") VALUES (1, 30, 'F1', 'FN-30', 'Form 30', 'Form for Service 30');
+INSERT INTO "Party_Forms" ("party_id", "form_id", "date_completion_started", "form_status_code", "date_fully_completed") VALUES (1, 1, '2023-05-02 10:00:00', 'DONE', '2023-05-03 10:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in service_name and NULL service_id in Party_Services.
+-- In SQL, NULL = NULL is UNKNOWN, so NOT EXISTS evaluates to TRUE for a service with service_name IS NULL.
+-- Also tests NOT IN vs NOT EXISTS when Party_Services has a NULL service_id (resulting in NULL RHS.service_name).
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (1, 'CARD', '555-9999', 'nulltest@example.com');
+
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (1, 'T1', NULL, 'Booked service with NULL name');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (2, 'T2', 'Valid Unbooked', 'Normal unbooked service');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (3, 'T3', 'Valid Booked', 'Normal booked service');
+
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (1, 1, 301, '2023-06-01 10:00:00', '2023-05-20 10:00:00');
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (1, 3, 302, '2023-06-02 10:00:00', '2023-05-21 10:00:00');
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (1, NULL, 303, '2023-06-03 10:00:00', '2023-05-22 10:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary condition: Party_Services is completely empty, and Services has multiple rows.
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (1, 'S1', 'Service B', 'Description B');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (2, 'S2', 'Service A', 'Description A');
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary condition: All services are booked (multiple times), so the result set should be empty.
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (1, 'CARD', '111-2222', 'p1@test.org');
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (2, 'CASH', '333-4444', 'p2@test.org');
+
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (1, 'C1', 'Consulting', 'Consulting desc');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (2, 'C2', 'Auditing', 'Auditing desc');
+
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (1, 1, 501, '2023-07-01 09:00:00', '2023-06-15 09:00:00');
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (2, 1, 502, '2023-07-02 09:00:00', '2023-06-16 09:00:00');
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (1, 2, 503, '2023-07-03 09:00:00', '2023-06-17 09:00:00');
+```
+
+```sql
+-- DATASET 6
+-- Tests column confusion mutants (e.g., matching service_type_code or service_descriptio instead of service_name, or matching booking_id/customer_id with service_id).
+INSERT INTO "Parties" ("party_id", "payment_method_code", "party_phone", "party_email") VALUES (100, 'CARD', '000-1111', 'user100@test.com');
+
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (1, 'MatchName', 'BookedService', 'UnbookedService');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (2, 'BookedService', 'UnbookedService', 'BookedService');
+INSERT INTO "Services" ("service_id", "service_type_code", "service_name", "service_descriptio") VALUES (100, 'T100', 'ServiceWithIDMatchingCustomerAndBooking', 'Desc 100');
+
+INSERT INTO "Party_Services" ("customer_id", "service_id", "booking_id", "service_datetime", "booking_made_date") VALUES (100, 1, 100, '2023-08-01 12:00:00', '2023-07-25 12:00:00');
+```

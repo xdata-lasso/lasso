@@ -1,0 +1,37 @@
+-- Schema DDL
+CREATE TABLE Examination (ID INTEGER NULL, "Examination Date" DATE NULL, "aCL IgG" REAL NULL, "aCL IgM" REAL NULL, ANA INTEGER NULL, "ANA Pattern" TEXT NULL, "aCL IgA" INTEGER NULL, Diagnosis TEXT NULL, KCT TEXT NULL, RVVT TEXT NULL, LAC TEXT NULL, Symptoms TEXT NULL, Thrombosis INTEGER NULL, FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE Patient (ID INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, SEX TEXT NULL, Birthday DATE NULL, Description DATE NULL, "First Date" DATE NULL, Admission TEXT NULL, Diagnosis TEXT NULL);
+
+CREATE TABLE Laboratory (ID INTEGER DEFAULT 0 NOT NULL, Date DATE DEFAULT '0000-00-00' NOT NULL, GOT INTEGER NULL, GPT INTEGER NULL, LDH INTEGER NULL, ALP INTEGER NULL, TP REAL NULL, ALB REAL NULL, UA REAL NULL, UN INTEGER NULL, CRE REAL NULL, "T-BIL" REAL NULL, "T-CHO" INTEGER NULL, TG INTEGER NULL, CPK INTEGER NULL, GLU INTEGER NULL, WBC REAL NULL, RBC REAL NULL, HGB REAL NULL, HCT REAL NULL, PLT INTEGER NULL, PT REAL NULL, APTT INTEGER NULL, FG REAL NULL, PIC INTEGER NULL, TAT INTEGER NULL, TAT2 INTEGER NULL, "U-PRO" TEXT NULL, IGG INTEGER NULL, IGA INTEGER NULL, IGM INTEGER NULL, CRP TEXT NULL, RA TEXT NULL, RF TEXT NULL, C3 INTEGER NULL, C4 INTEGER NULL, RNP TEXT NULL, SM TEXT NULL, SC170 TEXT NULL, SSA TEXT NULL, SSB TEXT NULL, CENTROMEA TEXT NULL, DNA TEXT NULL, "DNA-II" INTEGER NULL, PRIMARY KEY (ID, Date), FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+-- Tests basic ordering by HGB DESC, year subtraction vs exact day/month age calculation, and Examination vs Laboratory confusion.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1980-12-31', '2000-01-01', '2000-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', '1970-06-15', '1999-05-05', '1998-03-03', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'F', '1990-01-01', '2010-01-01', '2010-01-01', '+', 'MCTD');
+INSERT INTO Laboratory (ID, Date, HGB, HCT, RBC, WBC) VALUES (1, '2005-01-01', 15.8, 35.0, 4.1, 8.0);
+INSERT INTO Laboratory (ID, Date, HGB, HCT, RBC, WBC) VALUES (2, '2010-01-01', 12.1, 48.0, 5.5, 4.0);
+INSERT INTO Laboratory (ID, Date, HGB, HCT, RBC, WBC) VALUES (3, '2015-06-01', 9.5, 40.0, 4.5, 6.0);
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '2012-05-05', 'APS');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (2, '2011-04-04', 'SJS');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT STRFTIME('%Y', T2.Date) - STRFTIME('%Y', T1.Birthday), T1.Diagnosis FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID ORDER BY T2.HGB DESC, T1.id NULLS LAST, T2.id NULLS LAST, T2.date NULLS LAST LIMIT 1;
+
+/*
+Gold Result:
+(25, 'SLE')
+*/
+
+-- Prediction Query
+SELECT (CAST(STRFTIME('%Y', E."Examination Date") AS INTEGER) - CAST(STRFTIME('%Y', P.Birthday) AS INTEGER)) AS Age, P.Diagnosis FROM Laboratory AS L INNER JOIN Patient AS P ON L.ID = P.ID INNER JOIN Examination AS E ON L.ID = E.ID WHERE L.HGB = (SELECT MAX(HGB) FROM Laboratory);
+
+/*
+Prediction Result:
+(32, 'SLE')
+*/

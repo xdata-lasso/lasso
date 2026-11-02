@@ -1,0 +1,155 @@
+```sql
+-- DATASET 1
+-- Core predicate and join coverage: Tests individual WHERE conditions (name, year, forename, surname), column selection (fastestLap vs rank/laps/grid/position), and table confusion (circuits.name vs races.name).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'albert_park', 'Albert Park Grand Prix Circuit', 'http://c1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (2, 'fake_aus', 'Australian Grand Prix', 'http://c2');
+
+INSERT INTO seasons (year, url) VALUES (2007, 'http://s2007');
+INSERT INTO seasons (year, url) VALUES (2008, 'http://s2008');
+INSERT INTO seasons (year, url) VALUES (2009, 'http://s2009');
+
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mclaren', 'McLaren', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'd_hamilton', 'Duncan', 'Hamilton', 'http://d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'lewis_other', 'Lewis', 'Smith', 'http://d3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'alonso', 'Fernando', 'Alonso', 'http://d4');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2008, 1, 1, 'Australian Grand Prix', '2008-03-16', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2007, 1, 1, 'Australian Grand Prix', '2007-03-18', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2009, 1, 1, 'Australian Grand Prix', '2009-03-29', 'http://r3');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 2008, 2, 2, 'Malaysian Grand Prix', '2008-03-23', 'http://r4');
+
+-- Target match: Lewis Hamilton in 2008 Australian Grand Prix (fastestLap = 39)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (1, 1, 1, 1, 22, 1, 1, '1', 1, 10.0, 58, 39, 2, '1:27.452', '218.300', 1);
+
+-- Wrong year (2007)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (2, 2, 1, 1, 2, 4, 3, '3', 3, 6.0, 58, 41, 3, '1:26.351', '220.000', 1);
+
+-- Wrong year (2009)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (3, 3, 1, 1, 1, 18, 4, '4', 4, 5.0, 58, 42, 4, '1:29.000', '215.000', 1);
+
+-- Wrong race name (Malaysian GP, even though circuit is named 'Australian Grand Prix')
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (4, 4, 1, 1, 22, 9, 5, '5', 5, 4.0, 56, 43, 5, '1:35.000', '205.000', 1);
+
+-- Wrong forename (Duncan Hamilton in 2008 Australian GP)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (5, 1, 2, 1, 23, 2, 2, '2', 2, 8.0, 58, 44, 6, '1:28.000', '217.000', 1);
+
+-- Wrong surname (Lewis Smith in 2008 Australian GP)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (6, 1, 3, 1, 24, 3, 3, '3', 3, 6.0, 58, 45, 7, '1:28.500', '216.000', 1);
+
+-- Completely different driver in 2008 Australian GP
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (7, 1, 4, 1, 5, 11, 4, '4', 4, 5.0, 58, 46, 1, '1:27.000', '219.000', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests accidental joins on non-key columns (e.g., matching resultId=raceId, driverId=number, raceId=year, etc.) by ensuring all IDs are skewed and distinct from domain values, and tests alternative tables (lapTimes, qualifying, driverStandings).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (10, 'albert_park', 'Albert Park', 'http://c10');
+INSERT INTO seasons (year, url) VALUES (2008, 'http://s2008');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (20, 'mclaren', 'McLaren', 'http://con20');
+INSERT INTO status (statusId, status) VALUES (30, 'Finished');
+
+-- Driver 50 is Lewis Hamilton (number 22). Driver 22 is someone else to catch T1.number = T3.driverId or T1.driverId = T3.number.
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, url) VALUES (50, 'hamilton', 22, 'HAM', 'Lewis', 'Hamilton', 'http://d50');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, url) VALUES (22, 'other_driver', 50, 'OTH', 'Nick', 'Heidfeld', 'http://d22');
+
+-- Race 100 is 2008 Australian GP. Race 50 is another race to catch T1.driverId = T2.raceId.
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (100, 2008, 1, 10, 'Australian Grand Prix', '2008-03-16', 'http://r100');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (50, 2008, 2, 10, 'Bahrain Grand Prix', '2008-04-06', 'http://r50');
+
+-- Correct result row: resultId 500, raceId 100, driverId 50, fastestLap 39
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, statusId) VALUES (500, 100, 50, 20, 22, 1, 1, '1', 1, 10.0, 58, 39, 2, 30);
+
+-- Decoy result rows to catch wrong join keys
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, statusId) VALUES (100, 50, 22, 20, 50, 2, 2, '2', 2, 8.0, 58, 99, 1, 30);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLap, rank, statusId) VALUES (50, 100, 22, 20, 50, 3, 3, '3', 3, 6.0, 58, 88, 3, 30);
+
+-- Populate lapTimes, qualifying, pitStops, driverStandings with different numbers to kill mutants querying the wrong table
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (100, 50, 15, 1, '1:27.452', 87452);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (100, 50, 1, 18, '14:30:00', '22.5', 22500);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 100, 50, 20, 22, 1, '1:26.572', '1:25.187', '1:26.714');
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (1, 100, 50, 10.0, 1, '1', 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/OUTER JOIN, NULL handling in fastestLap, and multiplicity/DISTINCT/aggregation (MAX, MIN, SUM, COUNT).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'albert_park', 'Albert Park', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2008, 'http://s2008');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mclaren', 'McLaren', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- Two drivers matching 'Lewis' 'Hamilton' and two races matching 2008 'Australian Grand Prix'
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton_1', 'Lewis', 'Hamilton', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'hamilton_2', 'Lewis', 'Hamilton', 'http://d2');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2008, 1, 1, 'Australian Grand Prix', '2008-03-16', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2008, 2, 1, 'Australian Grand Prix', '2008-03-17', 'http://r2');
+
+-- Multiple matching results: two with identical fastestLap (25) to test DISTINCT, one with a different value (30) to test MIN/MAX/AVG/SUM/LIMIT 1, and one with NULL to test IS NOT NULL / COUNT.
+-- Note: driver 2 and race 2 have no results for one combination to test LEFT JOIN.
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (1, 1, 1, 1, 1, '1', 1, 10.0, 58, 25, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (2, 1, 1, 1, 2, '2', 2, 8.0, 58, 25, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (3, 1, 1, 1, 3, '3', 3, 6.0, 58, 30, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (4, 1, 1, 1, 4, '4', 4, 5.0, 58, NULL, 1);
+```
+
+```sql
+-- DATASET 4
+-- String boundary / LIKE / Substring / Case-sensitivity test: Tests mutants that use LIKE '%Australian%', LIKE 'Lewis%', LOWER(), or swap forename and surname.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2008, 'http://s2008');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- Exact match driver
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'd1', 'Lewis', 'Hamilton', 'http://d1');
+-- Swapped forename and surname
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'd2', 'Hamilton', 'Lewis', 'http://d2');
+-- Prefix/Suffix variations
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'd3', 'LewisJr', 'HamiltonSr', 'http://d3');
+-- Case variations
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'd4', 'lewis', 'hamilton', 'http://d4');
+
+-- Exact match race
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2008, 1, 1, 'Australian Grand Prix', '2008-03-16', 'http://r1');
+-- Prefix/Substring race name variations
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2008, 2, 1, 'South Australian Grand Prix', '2008-04-01', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2008, 3, 1, 'Australian Grand Prix II', '2008-05-01', 'http://r3');
+-- Case variation
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 2008, 4, 1, 'australian grand prix', '2008-06-01', 'http://r4');
+
+-- Results for each combination
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (1, 1, 1, 1, 1, '1', 1, 10.0, 58, 55, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (2, 1, 2, 1, 2, '2', 2, 8.0, 58, 12, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (3, 1, 3, 1, 3, '3', 3, 6.0, 58, 13, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (4, 1, 4, 1, 4, '4', 4, 5.0, 58, 14, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (5, 2, 1, 1, 1, '1', 1, 10.0, 58, 15, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (6, 3, 1, 1, 1, '1', 1, 10.0, 58, 16, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (7, 4, 1, 1, 1, '1', 1, 10.0, 58, 17, 1);
+```
+
+```sql
+-- DATASET 5
+-- Empty result set & Logical OR / De Morgan test: Both the 2008 Australian GP and Lewis Hamilton exist and have results, but Lewis Hamilton did NOT participate in the 2008 Australian GP.
+-- Gold query returns empty set. Mutants with OR instead of AND, or missing joins/conditions, will return rows.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'albert_park', 'Albert Park', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2008, 'http://s2008');
+INSERT INTO seasons (year, url) VALUES (2009, 'http://s2009');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mclaren', 'McLaren', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'kovalainen', 'Heikki', 'Kovalainen', 'http://d2');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2008, 1, 1, 'Australian Grand Prix', '2008-03-16', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2009, 1, 1, 'Australian Grand Prix', '2009-03-29', 'http://r2');
+
+-- Heikki Kovalainen in 2008 Australian GP
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (1, 1, 2, 1, 3, '5', 5, 4.0, 58, 43, 1);
+
+-- Lewis Hamilton in 2009 Australian GP
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLap, statusId) VALUES (2, 2, 1, 1, 18, 'D', 20, 0.0, 58, 39, 1);
+```

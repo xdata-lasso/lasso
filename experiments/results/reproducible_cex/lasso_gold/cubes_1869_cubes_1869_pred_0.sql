@@ -1,0 +1,47 @@
+-- Schema DDL
+CREATE TABLE "Course_Authors_and_Tutors" ("author_id" INTEGER PRIMARY KEY, "author_tutor_ATB" TEXT(3), "login_name" TEXT(40), "password" TEXT(40), "personal_name" TEXT(80), "middle_name" TEXT(80), "family_name" TEXT(80), "gender_mf" TEXT(1), "address_line_1" TEXT(80));
+
+CREATE TABLE "Students" ("student_id" INTEGER PRIMARY KEY, "date_of_registration" DATETIME, "date_of_latest_logon" DATETIME, "login_name" TEXT(40), "password" TEXT(10), "personal_name" TEXT(40), "middle_name" TEXT(40), "family_name" TEXT(40));
+
+CREATE TABLE "Subjects" ("subject_id" INTEGER PRIMARY KEY, "subject_name" TEXT(120));
+
+CREATE TABLE "Courses" ("course_id" INTEGER PRIMARY KEY, "subject_id" INTEGER, "author_id" INTEGER, "course_name" TEXT(120), "course_description" TEXT(255), FOREIGN KEY ("subject_id") REFERENCES "Subjects" ("subject_id"), FOREIGN KEY ("author_id") REFERENCES "Course_Authors_and_Tutors" ("author_id"));
+
+CREATE TABLE "Student_Course_Enrolment" ("registration_id" INTEGER PRIMARY KEY, "student_id" INTEGER, "course_id" INTEGER, "date_of_enrolment" DATETIME, "date_of_completion" DATETIME, FOREIGN KEY ("student_id") REFERENCES "Students" ("student_id"), FOREIGN KEY ("course_id") REFERENCES "Courses" ("course_id"));
+
+CREATE TABLE "Student_Tests_Taken" ("registration_id" INTEGER, "date_test_taken" DATETIME, "test_result" TEXT(255), FOREIGN KEY ("registration_id") REFERENCES "Student_Course_Enrolment" ("registration_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "course_authors_and_tutors" ("author_id", "author_tutor_atb", "login_name", "password", "personal_name", "middle_name", "family_name", "gender_mf", "address_line_1") VALUES (1159, 'strong', 'Andrew Lowery', 'marriage', 'Brenda Thornton', 'Aaron Miller', 'Scott', 'thing', '43410 Robert Underpass Suite 117
+Lake Zacharybury, VT 19319');
+INSERT INTO "course_authors_and_tutors" ("author_id", "author_tutor_atb", "login_name", "password", "personal_name", "middle_name", "family_name", "gender_mf", "address_line_1") VALUES (1164, 'author', 'Nicholas Fuller', 'sport', 'Nicole Anderson', 'George Day', 'Greer', 'reveal', '221 Johnson Flats Apt. 305
+Zacharyside, NJ 33703');
+INSERT INTO "students" ("student_id", "date_of_registration", "date_of_latest_logon", "login_name", "password", "personal_name", "middle_name", "family_name") VALUES (1160, '1974-11-06', '1975-01-07', 'Aaron Gomez', 'own', 'Bernie', 'Matthew Miller', 'Zieme');
+INSERT INTO "students" ("student_id", "date_of_registration", "date_of_latest_logon", "login_name", "password", "personal_name", "middle_name", "family_name") VALUES (1165, '1978-04-10', '1979-05-11', 'Matthew Mitchell', 'training', 'Bernie', 'Sharon Rivera', 'Zieme');
+INSERT INTO "subjects" ("subject_id", "subject_name") VALUES (1161, 'Andrea Fox');
+INSERT INTO "subjects" ("subject_id", "subject_name") VALUES (1166, 'Jacob Preston');
+INSERT INTO "courses" ("course_id", "subject_id", "author_id", "course_name", "course_description") VALUES (1162, 1161, 1159, 'Virginia Spencer', 'Them analysis hit health section ground.');
+INSERT INTO "courses" ("course_id", "subject_id", "author_id", "course_name", "course_description") VALUES (1167, 1166, 1164, 'Stephanie Hughes', 'Many marriage under mind.');
+INSERT INTO "student_course_enrolment" ("registration_id", "student_id", "course_id", "date_of_enrolment", "date_of_completion") VALUES (1163, 1160, 1162, '1976-02-09', '1977-03-09');
+INSERT INTO "student_course_enrolment" ("registration_id", "student_id", "course_id", "date_of_enrolment", "date_of_completion") VALUES (1168, 1165, 1167, '1976-02-08', '1977-03-10');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT "date_of_enrolment", "date_of_completion" FROM (SELECT "LHS"."registration_id" AS "registration_id", "LHS"."student_id" AS "student_id", "LHS"."course_id" AS "course_id", "LHS"."date_of_enrolment" AS "date_of_enrolment", "LHS"."date_of_completion" AS "date_of_completion", "RHS"."date_of_registration" AS "date_of_registration", "RHS"."date_of_latest_logon" AS "date_of_latest_logon", "RHS"."login_name" AS "login_name", "RHS"."password" AS "password", "RHS"."personal_name" AS "personal_name", "RHS"."middle_name" AS "middle_name", "RHS"."family_name" AS "family_name" FROM "student_course_enrolment" AS "LHS" INNER JOIN (SELECT * FROM "students" WHERE ("family_name" = 'Zieme' AND "personal_name" = 'Bernie')) AS RHS ON (LHS.student_id = RHS.student_id)) ORDER BY date_of_enrolment, "date_of_enrolment" NULLS LAST, "date_of_completion" NULLS LAST;
+
+/*
+Gold Result:
+('1976-02-08', '1977-03-10')
+('1976-02-09', '1977-03-09')
+*/
+
+-- Prediction Query
+SELECT T1.date_of_enrolment, T1.date_of_completion FROM Student_Course_Enrolment AS T1 JOIN Students AS T2 ON T1.student_id = T2.student_id WHERE T2.family_name = 'Zieme' AND T2.personal_name = 'Bernie';
+
+/*
+Prediction Result:
+('1976-02-09', '1977-03-09')
+('1976-02-08', '1977-03-10')
+*/

@@ -1,0 +1,92 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Missing DISTINCT in COUNT(DISTINCT T.molecule_id) vs COUNT(T.molecule_id) / COUNT(T.bond_id).
+-- 2. Missing WHERE clause or incorrect operator (e.g., != '#', = '-', = '=').
+-- 3. NULL handling in molecule_id (COUNT(DISTINCT molecule_id) vs COUNT(*)) and bond_type.
+-- 4. Unnecessary INNER JOINs with atom/connected (m1 has no atoms/connections).
+-- 5. Querying from molecule table without filtering by bond_type (m4 has no bonds).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m4', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm2', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm2', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm3', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm3', 'o');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm2', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b4', 'm2', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b5', 'm3', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b6', 'm3', NULL);
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b7', NULL, '#');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b3');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a1', 'b3');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a3', 'a4', 'b5');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Zero-count boundary condition when no '#' bonds exist (kills GROUP BY without HAVING/WHERE properly handled, or returning NULL/1 instead of 0).
+-- 2. String matching mutations (e.g., LIKE '%#%' vs = '#', or = '-' / '=').
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'n');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '##');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm2', '=');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Counting wrong columns: COUNT(DISTINCT bond_type) would return 1, whereas COUNT(DISTINCT molecule_id) returns 3.
+-- 2. Additional filtering mutations on molecule.label (e.g., WHERE label = '+' or label = '-') or atom.element.
+-- 3. Joins with atom/connected where some molecules have connected bonds and others do not.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', NULL);
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', 'n');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm2', 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a5', 'm3', 'h');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm2', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm3', '#');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a1', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a3', 'a4', 'b2');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Confusion between column values (e.g., molecule_id = '#' or bond_id = '#' vs bond_type = '#').
+-- 2. Discrepancy between atom.molecule_id and bond.molecule_id if joined via connected.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('#', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '#');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('#', '#', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm2', '#');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('#', '#', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm2', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm3', '#');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('#', 'a2', 'b3');
+```

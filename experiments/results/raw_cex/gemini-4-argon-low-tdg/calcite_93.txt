@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests LEFT JOIN unmatched rows (EMP.SAL is NULL, testing COUNT(*) vs COUNT(EMP.SAL) and INNER JOIN vs LEFT JOIN),
+-- boundary values around 11 (10, 11, 12), negative SAL values, and disambiguation between BONUS.SAL and EMP.SAL.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'SALES');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'ALICE', 'CLERK', NULL, '2020-01-01', 10, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 10, 'BOB', 'CLERK', 1, '2020-01-02', 11, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 10, 'CHARLIE', 'MANAGER', 1, '2020-01-03', 12, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 10, 'DAVID', 'ANALYST', 3, '2020-01-04', -5, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 10, 'UNMATCHED_EMP', 'PRESIDENT', NULL, '2020-01-05', 100, 0, 0);
+
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('ALICE', 'MANAGER', 50, 10);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('BOB', 'SALESMAN', 5, 20);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('CHARLIE', 'CLERK', 8, 30);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('DAVID', 'ANALYST', 20, 40);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('UNMATCHED_BONUS_1', 'CLERK', 10, 50);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('UNMATCHED_BONUS_2', 'MANAGER', 20, 60);
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY expression collapsing: EMP.SAL = -20 (< 11 -> -1 * -20 = 20) and EMP.SAL = 20 (>= 11 -> 20).
+-- Both should collapse into the same group (20) with a count of 2. Kills GROUP BY EMP.SAL or ABS(EMP.SAL) mutants.
+-- Also tests EMP.SAL = 5 (< 11 -> -5) to ensure positive < 11 becomes negative (kills ABS(EMP.SAL) mutant).
+-- Also tests 0 boundary.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'E_NEG20', 'CLERK', NULL, '2021-01-01', -20, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 10, 'E_POS20', 'CLERK', NULL, '2021-01-02', 20, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 10, 'E_POS5', 'CLERK', NULL, '2021-01-03', 5, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 10, 'E_ZERO', 'CLERK', NULL, '2021-01-04', 0, 0, 0);
+
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('E_NEG20', 'CLERK', 100, 0);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('E_POS20', 'CLERK', 200, 0);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('E_POS5', 'CLERK', 300, 0);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('E_ZERO', 'CLERK', 400, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests 1-to-Many and Many-to-Many join multiplicity between BONUS and EMP on ENAME,
+-- as well as collapsing positive and negative values around the < 11 threshold (-10 and 10 both map to -10/10, wait:
+-- EMP.SAL = 10 -> -10; EMP.SAL = -10 -> 10).
+-- Also tests EMP.SAL = -11 (< 11 -> 11) collapsing with EMP.SAL = 11 (>= 11 -> 11).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 20, 'DUP_EMP', 'ANALYST', NULL, '2022-03-01', -11, 5, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (11, 20, 'DUP_EMP', 'SALESMAN', NULL, '2022-03-02', 11, 15, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (12, 20, 'SINGLE_EMP', 'MANAGER', NULL, '2022-03-03', 10, 25, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (13, 20, 'NEG10_EMP', 'CLERK', NULL, '2022-03-04', -10, 35, 1);
+
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('DUP_EMP', 'ANALYST', 999, 5);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('SINGLE_EMP', 'MANAGER', 888, 25);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('SINGLE_EMP', 'CLERK', 777, 99);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('NEG10_EMP', 'CLERK', 666, 35);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty BONUS table vs non-empty EMP table (LEFT JOIN from empty table must return 0 rows).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'OPERATIONS');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (101, 30, 'LONELY', 'CLERK', NULL, '2023-01-01', 9, 0, 0);
+```
+
+```sql
+-- DATASET 5
+-- Tests non-empty BONUS table with empty EMP table (all rows in BONUS unmatched, grouped into a single NULL group).
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('GHOST1', 'CLERK', 5, 0);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('GHOST2', 'MANAGER', 15, 100);
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('GHOST3', 'ANALYST', 11, 50);
+```

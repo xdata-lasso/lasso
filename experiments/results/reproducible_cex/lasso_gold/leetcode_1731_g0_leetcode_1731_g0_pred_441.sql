@@ -1,0 +1,29 @@
+-- Schema DDL
+CREATE TABLE "Employees" ("employee_id" INTEGER PRIMARY KEY, "name" TEXT(255), "reports_to" INTEGER, "age" INTEGER, FOREIGN KEY ("reports_to") REFERENCES "Employees" ("employee_id"), CHECK ("age" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "employees" ("employee_id", "name", "reports_to", "age") VALUES (1045, 'Holly Wood', 1046, 1047);
+INSERT INTO "employees" ("employee_id", "name", "reports_to", "age") VALUES (1048, 'Derek Zuniga', 1045, 1049);
+INSERT INTO "employees" ("employee_id", "name", "reports_to", "age") VALUES (1046, 'Holly Wood', 1046, 1047);
+INSERT INTO "employees" ("employee_id", "name", "reports_to", "age") VALUES (1050, 'Holly Wood', 1046, 1047);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT TB1.EMPLOYEE_ID, TB1.NAME, COUNT(*) AS REPORTS_COUNT, ROUND(AVG(TB2.AGE), 0) AS AVERAGE_AGE FROM EMPLOYEES AS TB1 JOIN EMPLOYEES AS TB2 ON TB1.EMPLOYEE_ID = TB2.REPORTS_TO GROUP BY 1 ORDER BY TB1.EMPLOYEE_ID, TB1.NAME NULLS LAST, REPORTS_COUNT NULLS LAST, AVERAGE_AGE NULLS LAST;
+
+/*
+Gold Result:
+(1045, 'Holly Wood', 1, 1049.0)
+(1046, 'Holly Wood', 3, 1047.0)
+*/
+
+-- Prediction Query
+SELECT MGR.EMPLOYEE_ID, MGR.NAME, COUNT(EMP.EMPLOYEE_ID) AS REPORTS_COUNT, ROUND(AVG(EMP.AGE)) AS AVERAGE_AGE FROM EMPLOYEES AS MGR JOIN EMPLOYEES AS EMP ON MGR.EMPLOYEE_ID = EMP.REPORTS_TO AND MGR.EMPLOYEE_ID <> EMP.EMPLOYEE_ID GROUP BY 1 ORDER BY 1, MGR.EMPLOYEE_ID NULLS LAST, MGR.NAME NULLS LAST, REPORTS_COUNT NULLS LAST, AVERAGE_AGE NULLS LAST;
+
+/*
+Prediction Result:
+(1045, 'Holly Wood', 1, 1049.0)
+(1046, 'Holly Wood', 2, 1047.0)
+*/

@@ -1,0 +1,124 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, column projection order (distinct eye, hair, skin colour IDs), and single-condition filter failures (AND vs OR, inequality mutants).
+INSERT INTO colour (id, colour) VALUES (10, 'Blue');
+INSERT INTO colour (id, colour) VALUES (20, 'Blond');
+INSERT INTO colour (id, colour) VALUES (30, 'White');
+INSERT INTO colour (id, colour) VALUES (40, 'Green');
+INSERT INTO colour (id, colour) VALUES (50, 'Black');
+INSERT INTO colour (id, colour) VALUES (60, 'Brown');
+
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Dark Horse Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Marvel Comics');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'Male');
+
+-- Target match: Dark Horse Comics + Female, with distinct colour IDs
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (100, 'Barb Wire', 1, 10, 20, 30, 1);
+
+-- Wrong gender (Dark Horse Comics + Male)
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (101, 'Hellboy', 2, 40, 50, 60, 1);
+
+-- Wrong publisher (Marvel Comics + Female)
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (102, 'Black Widow', 1, 40, 50, 30, 2);
+
+-- Wrong both (Marvel Comics + Male)
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (103, 'Iron Man', 2, 10, 50, 30, 2);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate output rows (kills SELECT DISTINCT mutants) and NULL values in projected columns (kills IS NOT NULL or INNER JOIN colour table mutants).
+INSERT INTO colour (id, colour) VALUES (1, 'Red');
+INSERT INTO colour (id, colour) VALUES (2, 'Black');
+INSERT INTO colour (id, colour) VALUES (3, 'Pale');
+
+INSERT INTO publisher (id, publisher_name) VALUES (10, 'Dark Horse Comics');
+INSERT INTO gender (id, gender) VALUES (20, 'Female');
+
+-- Two distinct superheroes with identical colour ID combinations to ensure duplicate rows are preserved
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (1, 'Heroine A', 20, 1, 2, 3, 10);
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (2, 'Heroine B', 20, 1, 2, 3, 10);
+
+-- Superhero with NULLs in the projected colour columns (valid under schema, would be dropped if mutant inner joins on colour table)
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (3, 'Heroine Nulls', 20, NULL, 2, NULL, 10);
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition integrity (kills cross joins, wrong FK joins like superhero.id = publisher.id, or LEFT JOIN mutants with NULL FKs).
+INSERT INTO colour (id, colour) VALUES (11, 'Yellow');
+INSERT INTO colour (id, colour) VALUES (22, 'Silver');
+INSERT INTO colour (id, colour) VALUES (33, 'Blue');
+INSERT INTO colour (id, colour) VALUES (44, 'Orange');
+INSERT INTO colour (id, colour) VALUES (55, 'Purple');
+INSERT INTO colour (id, colour) VALUES (66, 'Pink');
+
+-- Deliberately offset IDs to catch mutants joining T1.id = T2.id or T1.publisher_id = T3.id
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'DC Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (5, 'Dark Horse Comics');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO gender (id, gender) VALUES (5, 'Other');
+INSERT INTO gender (id, gender) VALUES (9, 'Female');
+
+-- Decoy: superhero.id = 5 (matches Dark Horse ID), publisher_id = 1 (DC), gender_id = 5 (matches Dark Horse ID)
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (5, 'ID Clash Decoy 1', 5, 11, 22, 33, 1);
+
+-- Decoy: superhero.id = 9 (matches Female ID), publisher_id = 9 (NULL/invalid avoided, use 5), gender_id = 1 (Male)
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (9, 'ID Clash Decoy 2', 1, 11, 22, 33, 5);
+
+-- Decoys with NULL foreign keys (to kill OUTER JOIN mutants)
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (10, 'Null Publisher', 9, 11, 22, 33, NULL);
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (11, 'Null Gender', NULL, 11, 22, 33, 5);
+
+-- True match: id = 99, publisher_id = 5 ('Dark Horse Comics'), gender_id = 9 ('Female')
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (99, 'True Match', 9, 44, 55, 66, 5);
+```
+
+```sql
+-- DATASET 4
+-- Tests string literal exact matching (kills LIKE '%...%', case-insensitivity, or substring mutants) and unreferenced auxiliary tables.
+INSERT INTO colour (id, colour) VALUES (7, 'Amber');
+INSERT INTO colour (id, colour) VALUES (8, 'Auburn');
+INSERT INTO colour (id, colour) VALUES (9, 'Olive');
+INSERT INTO colour (id, colour) VALUES (10, 'Grey');
+
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Dark Horse Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Dark Horse');
+INSERT INTO publisher (id, publisher_name) VALUES (3, 'dark horse comics');
+INSERT INTO publisher (id, publisher_name) VALUES (4, 'Dark Horse Comics Inc.');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'female');
+INSERT INTO gender (id, gender) VALUES (3, 'Female-Mutant');
+
+-- Exact match ( without alignment_id or race_id to kill unnecessary INNER JOINs to alignment/race )
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id, alignment_id, race_id) VALUES (1, 'Exact Match Hero', 1, 7, 8, 9, 1, NULL, NULL);
+
+-- Near-miss string decoys
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (2, 'Prefix Publisher', 1, 10, 10, 10, 2);
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (3, 'Lowercase Publisher', 1, 10, 10, 10, 3);
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (4, 'Superstring Publisher', 1, 10, 10, 10, 4);
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (5, 'Lowercase Gender', 2, 10, 10, 10, 1);
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (6, 'Superstring Gender', 3, 10, 10, 10, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set handling when tables are populated with near-matches (kills mutants that drop WHERE clauses or use OR instead of AND).
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO colour (id, colour) VALUES (2, 'Green');
+INSERT INTO colour (id, colour) VALUES (3, 'Red');
+
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Dark Horse Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Image Comics');
+
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'Male');
+
+-- Only Dark Horse + Male and Image + Female exist; query must return 0 rows
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (1, 'DH Male', 2, 1, 2, 3, 1);
+INSERT INTO superhero (id, superhero_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (2, 'Image Female', 1, 3, 2, 1, 2);
+```

@@ -1,0 +1,14 @@
+INSERT INTO "categories" ("category_id", "category_name", "department") VALUES (1001, 'Allison Hill', 'ELECTRONICS');
+INSERT INTO "customers" ("customer_id", "customer_name", "country", "tier", "credit_limit") VALUES (1002, 'Brian Yang', 'Mayotte', 'BRONZE', 1003.5);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1004, 1002, 'performance', 'PAID', 1011.5);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1005, 1002, 'knowledge', 'PAID', 1022.5);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1006, 1002, 'almost', 'PAID', 1033.5);
+INSERT INTO "orders" ("order_id", "customer_id", "order_date", "order_status", "total_amount") VALUES (1007, 1002, 'all', 'PAID', 1044.5);
+INSERT INTO "products" ("product_id", "category_id", "product_name", "price", "stock_quantity") VALUES (1015, 1001, 'David Guzman', 1022.5, 1026);
+INSERT INTO "products" ("product_id", "category_id", "product_name", "price", "stock_quantity") VALUES (1016, 1001, 'Michelle Miles', 1031.5, 1037.0);
+INSERT INTO "products" ("product_id", "category_id", "product_name", "price", "stock_quantity") VALUES (1017, 1001, 'Jerry Ramirez', 1040.5, 1048.0);
+INSERT INTO "products" ("product_id", "category_id", "product_name", "price", "stock_quantity") VALUES (1018, 1001, 'Olivia Moore', 1049.5, 1059.0);
+INSERT INTO "order_items" ("item_id", "order_id", "product_id", "quantity", "unit_price", "discount") VALUES (1030, 1004, 1015, 1034, 1038.5, 0.1);
+INSERT INTO "order_items" ("item_id", "order_id", "product_id", "quantity", "unit_price", "discount") VALUES (1031, 1004, 1016, 1043.0, 1049.5, 0.1);
+INSERT INTO "order_items" ("item_id", "order_id", "product_id", "quantity", "unit_price", "discount") VALUES (1032, 1004, 1017, 1052.0, 1060.5, 0.1);
+INSERT INTO "order_items" ("item_id", "order_id", "product_id", "quantity", "unit_price", "discount") VALUES (1033, 1004, 1018, 1061.0, 1071.5, 0.1);

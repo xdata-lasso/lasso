@@ -1,0 +1,54 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by NumGE1500 DESC, killing mutants that order by other columns (enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, Phone), mutants that use ASC instead of DESC, and mutants that omit LIMIT 1.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Phone, DOC, DOCType, LastUpdate) VALUES ('CDS_1', 'Active', 'Alameda', 'Dist1', 'School1', '111-111-1111', '01', 'District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Phone, DOC, DOCType, LastUpdate) VALUES ('CDS_2', 'Active', 'Butte', 'Dist2', 'School2', '222-222-2222', '02', 'District', '2020-01-02');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Phone, DOC, DOCType, LastUpdate) VALUES ('CDS_3', 'Active', 'Colusa', 'Dist3', 'School3', '333-333-3333', '03', 'District', '2020-01-03');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_1', 'S', 'School1', 'Dist1', 'Alameda', 1000, 900, 700, 700, 700, 100);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_2', 'S', 'School2', 'Dist2', 'Butte', 500, 400, 500, 500, 500, 300);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_3', 'S', 'School3', 'Dist3', 'Colusa', 800, 700, 600, 600, 600, 200);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T1.cds ASC when T1.NumGE1500 values are equal. Also includes an unmatched row in schools to kill RIGHT JOIN / FULL OUTER JOIN mutants or queries querying schools directly without joining satscores.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Phone, DOC, DOCType, LastUpdate) VALUES ('CDS_A', 'Active', 'CountyA', 'DistA', 'SchoolA', '555-000-0001', '01', 'TypeA', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Phone, DOC, DOCType, LastUpdate) VALUES ('CDS_B', 'Active', 'CountyB', 'DistB', 'SchoolB', '555-000-0002', '01', 'TypeB', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Phone, DOC, DOCType, LastUpdate) VALUES ('CDS_C', 'Active', 'CountyC', 'DistC', 'SchoolC', '555-000-0003', '01', 'TypeC', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('CDS_B', 'S', 100, 80, 500);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('CDS_A', 'S', 200, 90, 500);
+```
+
+```sql
+-- DATASET 3
+-- Tests SQLite's handling of NULL in ORDER BY NumGE1500 DESC (in SQLite, NULLs are considered smaller than any non-NULL value, so DESC places non-NULLs first and NULLs last). Kills mutants that use IS NOT NULL filters, COALESCE, or NULLS FIRST.
+INSERT INTO schools (CDSCode, StatusType, County, District, Phone, DOC, DOCType, LastUpdate) VALUES ('CDS_NULL', 'Active', 'C1', 'D1', '999-999-0000', '01', 'T1', '2021-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, Phone, DOC, DOCType, LastUpdate) VALUES ('CDS_VAL', 'Active', 'C2', 'D2', '999-999-1111', '01', 'T1', '2021-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('CDS_NULL', 'S', 500, 400, NULL);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('CDS_VAL', 'S', 100, 50, 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests the case where the winning row has a NULL Phone, while the second-place row has a non-NULL Phone. Kills mutants that add WHERE T2.Phone IS NOT NULL. Also tests missing rows in frpm to kill mutants that unnecessarily INNER JOIN the frpm table.
+INSERT INTO schools (CDSCode, StatusType, County, District, Phone, DOC, DOCType, LastUpdate) VALUES ('CDS_WIN_NULL_PHONE', 'Active', 'C1', 'D1', NULL, '01', 'T1', '2021-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, Phone, DOC, DOCType, LastUpdate) VALUES ('CDS_LOSE_HAS_PHONE', 'Active', 'C2', 'D2', '888-888-8888', '01', 'T1', '2021-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('CDS_WIN_NULL_PHONE', 'S', 300, 200, 150);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('CDS_LOSE_HAS_PHONE', 'S', 300, 200, 100);
+
+INSERT INTO frpm (CDSCode, "Academic Year") VALUES ('CDS_LOSE_HAS_PHONE', '2013-14');
+```
+
+```sql
+-- DATASET 5
+-- Tests join condition accuracy: T1.cds = T2.CDSCode vs joining on school/district/county names (e.g., T1.sname = T2.School or T1.dname = T2.District), and tests rtype/StatusType/Charter filters by having the winning record have non-standard values ('D', 'Closed', Charter=0).
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Phone, Charter, DOC, DOCType, LastUpdate) VALUES ('10001', 'Closed', 'CountyX', 'DistrictX', 'SchoolX', '777-111-2222', 0, '01', 'T1', '2021-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Phone, Charter, DOC, DOCType, LastUpdate) VALUES ('10002', 'Active', 'CountyY', 'DistrictY', 'SchoolY', '777-333-4444', 1, '01', 'T1', '2021-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('10001', 'D', 'SchoolY', 'DistrictY', 'CountyY', 50, 40, 400, 400, 400, 35);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('10002', 'S', 'SchoolX', 'DistrictX', 'CountyX', 50, 40, 600, 600, 600, 25);
+```

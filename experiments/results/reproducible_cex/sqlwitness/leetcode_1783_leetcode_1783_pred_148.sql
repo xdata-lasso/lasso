@@ -1,0 +1,33 @@
+-- Schema DDL
+CREATE TABLE "Players" ("player_id" INTEGER PRIMARY KEY, "player_name" TEXT(255));
+
+CREATE TABLE "Championships" ("year" INTEGER PRIMARY KEY, "Wimbledon" INTEGER, "Fr_open" INTEGER, "US_open" INTEGER, "Au_open" INTEGER, FOREIGN KEY ("Wimbledon") REFERENCES "Players" ("player_id"), FOREIGN KEY ("Fr_open") REFERENCES "Players" ("player_id"), FOREIGN KEY ("US_open") REFERENCES "Players" ("player_id"), FOREIGN KEY ("Au_open") REFERENCES "Players" ("player_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO players (player_id, player_name) VALUES (2, 'default1'), (1, 'US OPEN'), (-1, 'default1'), (0, 'WIMBLEDON');
+INSERT INTO championships (year, wimbledon, fr_open, us_open, au_open) VALUES (1, 1, 0, 1, -1), (-1, 1, 1, 0, NULL), (0, NULL, 0, 2, -1), (2, 1, 0, 2, 2);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT * FROM (SELECT player_id, player_name, SUM((CASE WHEN player_id = wimbledon THEN 1 ELSE 0 END + CASE WHEN player_id = fr_open THEN 1 ELSE 0 END + CASE WHEN player_id = us_open THEN 1 ELSE 0 END + CASE WHEN player_id = au_open THEN 1 ELSE 0 END)) AS grand_slams_count FROM players CROSS JOIN championships GROUP BY player_id) AS z WHERE grand_slams_count > 0;
+
+/*
+Gold Result:
+(-1, 'default1', 2)
+(0, 'WIMBLEDON', 4)
+(1, 'US OPEN', 5)
+(2, 'default1', 3)
+*/
+
+-- Prediction Query
+SELECT A.PLAYER_ID, A.PLAYER_NAME, SUM(A.SLAM_COUNT) AS GRAND_SLAMS_COUNT FROM (SELECT A.PLAYER_ID, A.PLAYER_NAME, COUNT(WIMBLEDON) AS SLAM_COUNT, 'WIMBLEDON' AS EVENT_TYPE FROM PLAYERS AS A CROSS JOIN CHAMPIONSHIPS AS B WHERE (A.PLAYER_ID = B.WIMBLEDON) GROUP BY A.PLAYER_ID, A.PLAYER_NAME UNION SELECT A.PLAYER_ID, A.PLAYER_NAME, COUNT(FR_OPEN) AS SLAM_COUNT, 'FRENCH OPEN' AS EVENT_TYPE FROM PLAYERS AS A CROSS JOIN CHAMPIONSHIPS AS B WHERE (A.PLAYER_ID = B.FR_OPEN) GROUP BY A.PLAYER_ID, A.PLAYER_NAME UNION SELECT A.PLAYER_ID, A.PLAYER_NAME, COUNT(WIMBLEDON) AS SLAM_COUNT, 'US OPEN' AS EVENT_TYPE FROM PLAYERS AS A CROSS JOIN CHAMPIONSHIPS AS B WHERE (A.PLAYER_ID = B.US_OPEN) GROUP BY A.PLAYER_ID, A.PLAYER_NAME UNION SELECT A.PLAYER_ID, A.PLAYER_NAME, COUNT(FR_OPEN) AS SLAM_COUNT, 'AU OPEN' AS EVENT_TYPE FROM PLAYERS AS A CROSS JOIN CHAMPIONSHIPS AS B WHERE (A.PLAYER_ID = B.AU_OPEN) GROUP BY A.PLAYER_ID, A.PLAYER_NAME) AS A GROUP BY A.PLAYER_ID, A.PLAYER_NAME;
+
+/*
+Prediction Result:
+(-1, 'default1', 2)
+(0, 'WIMBLEDON', 4)
+(1, 'US OPEN', 5)
+(2, 'default1', 2)
+*/

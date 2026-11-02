@@ -1,0 +1,112 @@
+```sql
+-- DATASET 1
+-- Tests basic counting of 'ca' elements per label, WHERE filter (ignoring 'c' and NULL), and ORDER BY DESC vs ASC / missing LIMIT 1.
+-- Also tests grouping by T2.label vs T2.molecule_id: '+' has 2 molecules with 2 'ca' each (total 4), '-' has 1 molecule with 3 'ca' (total 3).
+-- Also includes a 'c' atom in '-' to catch mutants missing the WHERE clause (which would make '-' tie or beat '+').
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m4', '0');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm2', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'ca');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm3', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a6', 'm3', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a7', 'm3', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a8', 'm3', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a9', 'm3', 'c');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a10', 'm4', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a11', 'm4', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(T2.label) vs COUNT(*) or COUNT(T1.atom_id) when T2.label is NULL.
+-- NULL label has 3 'ca' atoms (COUNT(T2.label) = 0, COUNT(*) = 3).
+-- '+' label has 2 'ca' atoms (COUNT(T2.label) = 2, COUNT(*) = 2).
+-- Reference query returns '+'. A mutant using COUNT(*) will return NULL.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', NULL);
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'ca');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm2', 'ca');
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T2.label (ASC vs DESC) and NULLS LAST when counts are equal.
+-- Both 'a' and 'b' have 2 'ca' atoms. Reference query orders by T2.label ASC, returning 'a'.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', 'b');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', 'a');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'ca');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm2', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'ca');
+```
+
+```sql
+-- DATASET 4
+-- Tests COUNT(T2.label) vs COUNT(DISTINCT T2.molecule_id) or COUNT(DISTINCT T2.label).
+-- Label 'x' has 1 molecule with 3 'ca' atoms (COUNT(label)=3, COUNT(DISTINCT molecule_id)=1).
+-- Label 'y' has 2 molecules with 1 'ca' atom each (COUNT(label)=2, COUNT(DISTINCT molecule_id)=2).
+-- Reference query returns 'x'.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', 'x');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', 'y');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', 'y');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'ca');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm3', 'ca');
+```
+
+```sql
+-- DATASET 5
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN and handling of unjoined rows.
+-- Includes 'ca' atoms with NULL molecule_id, and molecules with label 'z' that have 0 atoms.
+-- Also tests tie-breaker between NULL label (count 0) and a molecule that shouldn't be included or has 0 'ca'.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', NULL);
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', 'z');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', 'w');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', NULL, 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', NULL, 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm3', 'ca');
+```
+
+```sql
+-- DATASET 6
+-- Tests case sensitivity and exact string matching on element = 'ca' (e.g. 'CA', 'Ca', 'ca_extra').
+-- Also tests superfluous joins with 'bond' or 'connected' tables (m1 has 'ca' atoms but no bonds/connections; m2 has fewer 'ca' atoms but multiple bonds/connections).
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', 'target');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', 'decoy');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'ca');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm2', 'ca');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'CA');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm2', 'Ca');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm2', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm2', '2');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm2', '1');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a4', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a4', 'a3', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a5', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a5', 'a3', 'b2');
+```

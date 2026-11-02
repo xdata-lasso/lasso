@@ -1,0 +1,71 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match and single-condition boundary failures (kills mutants with wrong WHERE predicates, OR instead of AND, or missing conditions).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 500.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 600.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 700.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201202', 800.0);
+
+-- Exact match on all conditions
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-24', '10:00:00', 1, 10, 100, 1, 10, 124.05);
+-- Fails T1.Date condition
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '10:00:00', 2, 11, 100, 1, 10, 124.05);
+-- Fails T1.Price condition (boundary value)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-24', '10:00:00', 3, 12, 100, 1, 10, 124.00);
+-- Fails T2.Date condition (via CustomerID 4)
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-24', '10:00:00', 4, 13, 100, 1, 10, 124.05);
+```
+
+```sql
+-- DATASET 2
+-- Tests JOIN semantics, missing ON clauses (Cartesian product), and LEFT/RIGHT JOIN mutations.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'LAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'LAM', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (30, 'LAM', 'CZK');
+
+-- Customer 10 has matching yearmonth, Customer 20 has NO yearmonth, Customer 30 has yearmonth but NO transaction
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201201', 150.25);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (30, '201201', 999.99);
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (101, '2012-08-24', '12:00:00', 10, 20, 200, 2, 5, 124.05);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (102, '2012-08-24', '12:05:00', 20, 21, 200, 2, 5, 124.05);
+```
+
+```sql
+-- DATASET 3
+-- Tests bag semantics (multiplicity) to kill DISTINCT mutants, GROUP BY mutants, or semi-join (IN/EXISTS) rewrites.
+-- Also tests multiple yearmonth entries for the same customer.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (5, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (5, '201201', 333.33);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (5, '201208', 444.44);
+
+-- Two identical qualifying transactions for the same customer on the same day
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (501, '2012-08-24', '08:00:00', 5, 50, 500, 1, 20, 124.05);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (502, '2012-08-24', '18:00:00', 5, 50, 500, 1, 20, 124.05);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling, column confusion (e.g., T1.Date vs T2.Date, T1.Amount vs T1.Price vs T2.Consumption), and empty result set behavior.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (7, NULL, NULL);
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (8, 'SME', 'CZK');
+
+-- Consumption is NULL for Customer 7, consumption is 124.05 for Customer 8 (tests confusion between T1.Price and T2.Consumption)
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (7, '201201', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (8, '201201', 124.05);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (8, '2012-08-24', 100.0);
+
+-- Customer 7 matches all criteria, has NULL consumption
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (701, '2012-08-24', '09:30:00', 7, 70, 700, 3, 1, 124.05);
+-- Customer 8 has Amount = 124.05 instead of Price = 124.05, and another row with Date = '201201'
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (702, '2012-08-24', '09:35:00', 8, 80, 700, 3, 124, 100.00);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (703, '201201', '09:40:00', 8, 80, 700, 3, 10, 124.05);
+-- Transaction with NULL CustomerID, Date, or Price
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (704, '2012-08-24', '09:45:00', NULL, 80, 700, 3, 10, 124.05);
+```

@@ -1,0 +1,117 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE predicates: T1.name = 'Chinese Grand Prix' AND T1.year = 2017 (kills OR, missing year, missing name, wrong constants)
+-- 2. ORDER BY T2.points DESC vs ASC, and vs T2.position or T2.wins
+-- 3. LIMIT 3 (5 valid entries inserted)
+-- 4. Table confusion: driverStandings vs results (results has completely different points/drivers)
+-- 5. Column projections: forename vs surname vs driverRef vs code
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'shanghai', 'Shanghai International Circuit', 'http://en.wikipedia.org/wiki/Shanghai_International_Circuit');
+
+INSERT INTO seasons (year, url) VALUES (2016, 'http://en.wikipedia.org/wiki/2016_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2017, 'http://en.wikipedia.org/wiki/2017_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2018, 'http://en.wikipedia.org/wiki/2018_Formula_One_season');
+
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mercedes', 'Mercedes', 'http://en.wikipedia.org/wiki/Mercedes-Benz_in_Formula_One');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (1, 'hamilton', 'HAM', 'Lewis', 'Hamilton', 'http://en.wikipedia.org/wiki/Lewis_Hamilton');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (2, 'vettel', 'VET', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Sebastian_Vettel');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (3, 'verstappen', 'VER', 'Max', 'Verstappen', 'http://en.wikipedia.org/wiki/Max_Verstappen');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (4, 'ricciardo', 'RIC', 'Daniel', 'Ricciardo', 'http://en.wikipedia.org/wiki/Daniel_Ricciardo');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (5, 'raikkonen', 'RAI', 'Kimi', 'Räikkönen', 'http://en.wikipedia.org/wiki/Kimi_R%C3%A4ikk%C3%B6nen');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (6, 'bottas', 'BOT', 'Valtteri', 'Bottas', 'http://en.wikipedia.org/wiki/Valtteri_Bottas');
+
+-- Target race: Chinese Grand Prix 2017
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2017, 2, 1, 'Chinese Grand Prix', '2017-04-09', 'http://en.wikipedia.org/wiki/2017_Chinese_Grand_Prix');
+-- Distractor races: wrong year or wrong name
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (11, 2016, 3, 1, 'Chinese Grand Prix', '2016-04-17', 'http://en.wikipedia.org/wiki/2016_Chinese_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (12, 2018, 3, 1, 'Chinese Grand Prix', '2018-04-15', 'http://en.wikipedia.org/wiki/2018_Chinese_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (13, 2017, 1, 1, 'Australian Grand Prix', '2017-03-26', 'http://en.wikipedia.org/wiki/2017_Australian_Grand_Prix');
+
+-- Standings for target race (raceId = 10)
+-- Deliberately anti-correlating points with position and wins to catch mutants ordering by position or wins
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (101, 10, 1, 43.0, 5, '5', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (102, 10, 2, 40.5, 4, '4', 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (103, 10, 3, 25.0, 3, '3', 2);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (104, 10, 4, 18.0, 2, '2', 3);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (105, 10, 5, 15.0, 1, '1', 4);
+
+-- Standings for distractor races with higher points (so if WHERE is wrong, top 3 changes)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (106, 11, 6, 100.0, 1, '1', 5);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (107, 12, 6, 95.0, 1, '1', 5);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (108, 13, 6, 90.0, 1, '1', 5);
+
+-- Distractor results table rows (if mutant queries results instead of driverStandings)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, statusId) VALUES (1, 10, 6, 1, 1, 1, '1', 1, 99.0, 56, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, statusId) VALUES (2, 10, 5, 1, 2, 2, '2', 2, 88.0, 56, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, statusId) VALUES (3, 10, 4, 1, 3, 3, '3', 3, 77.0, 56, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Tie-breaking in ORDER BY: T2.points DESC, T1.raceid NULLS LAST, T2.driverstandingsid NULLS LAST, T3.driverid NULLS LAST
+-- 2. Duplicate forename/surname with same points (kills SELECT DISTINCT mutants)
+-- 3. Fewer or exact boundary rows and tie-breaker ordering between raceId and driverStandingsId
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'shanghai', 'Shanghai International Circuit', 'http://en.wikipedia.org/wiki/Shanghai_International_Circuit');
+
+INSERT INTO seasons (year, url) VALUES (2017, 'http://en.wikipedia.org/wiki/2017_Formula_One_season');
+
+-- Two distinct drivers who happen to share the exact same forename and surname (or testing DISTINCT removal when points are equal)
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (10, 'smith1', 'SM1', 'John', 'Smith', 'http://en.wikipedia.org/wiki/John_Smith_1');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (20, 'smith2', 'SM2', 'John', 'Smith', 'http://en.wikipedia.org/wiki/John_Smith_2');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (30, 'doe1', 'DO1', 'Jane', 'Doe', 'http://en.wikipedia.org/wiki/Jane_Doe');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (40, 'brown1', 'BR1', 'Bob', 'Brown', 'http://en.wikipedia.org/wiki/Bob_Brown');
+
+-- Two races in 2017 named 'Chinese Grand Prix' to test secondary sort on T1.raceId and tertiary sort on T2.driverStandingsId
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (100, 2017, 1, 1, 'Chinese Grand Prix', '2017-04-01', 'http://en.wikipedia.org/wiki/2017_Chinese_GP_1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (200, 2017, 2, 1, 'Chinese Grand Prix', '2017-04-09', 'http://en.wikipedia.org/wiki/2017_Chinese_GP_2');
+
+-- All have 50.0 points.
+-- Row A: raceId=100, driverStandingsId=500, driverId=10 ('John', 'Smith', 50.0)
+-- Row B: raceId=100, driverStandingsId=600, driverId=20 ('John', 'Smith', 50.0) -> identical output to Row A; if DISTINCT is used, only one 'John', 'Smith', 50.0 appears!
+-- Row C: raceId=100, driverStandingsId=700, driverId=30 ('Jane', 'Doe', 50.0)
+-- Row D: raceId=200, driverStandingsId=100, driverId=40 ('Bob', 'Brown', 50.0) -> smaller driverStandingsId (100), but larger raceId (200), so comes 4th (excluded by LIMIT 3)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (500, 100, 10, 50.0, 1, '1', 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (600, 100, 20, 50.0, 2, '2', 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (700, 100, 30, 50.0, 3, '3', 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (100, 200, 40, 50.0, 1, '1', 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN (races with no standings, drivers with no standings)
+-- 2. Join condition mutations (e.g. joining T3.driverId = T2.driverStandingsId or T3.driverId = T1.raceId)
+-- 3. Case sensitivity / partial string matching on 'Chinese Grand Prix' (e.g. LIKE '%Chinese%')
+-- 4. Zero and negative/fractional points, fewer than 3 matching rows (only 2 matching rows)
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (5, 'shanghai', 'Shanghai', 'http://example.com/c5');
+
+INSERT INTO seasons (year, url) VALUES (2017, 'http://example.com/s2017');
+
+-- IDs are deliberately offset (driverId: 50, 60, 70; raceId: 50, 60; driverStandingsId: 50, 60)
+-- so that wrong join keys (like T3.driverId = T1.raceId or T3.driverId = T2.driverStandingsId) produce wrong driver names
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (50, 'd50', 'D50', 'WrongDriver50', 'Sur50', 'http://example.com/d50');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (60, 'd60', 'D60', 'CorrectFirst', 'DriverOne', 'http://example.com/d60');
+INSERT INTO drivers (driverId, driverRef, code, forename, surname, url) VALUES (70, 'd70', 'D70', 'CorrectSecond', 'DriverTwo', 'http://example.com/d70');
+
+-- Race 50: exact match, but NO driverStandings (tests LEFT JOIN from races)
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (50, 2017, 1, 5, 'Chinese Grand Prix', '2017-04-09', 'http://example.com/r50');
+-- Race 60: exact match, has 2 driverStandings
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (60, 2017, 2, 5, 'Chinese Grand Prix', '2017-04-16', 'http://example.com/r60');
+-- Race 70: substring match 'Chinese Grand Prix Special' (kills LIKE '%Chinese Grand Prix%')
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (70, 2017, 3, 5, 'Chinese Grand Prix Special', '2017-04-23', 'http://example.com/r70');
+
+-- Standings for Race 60:
+-- driverStandingsId=50 links raceId=60 and driverId=60 (if joined on driverId=driverStandingsId, gets driver 50!)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (50, 60, 60, 12.5, 1, '1', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (80, 60, 70, 0.0, 2, '2', 0);
+
+-- Standings for Race 70 (distractor race):
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (90, 70, 50, 100.0, 1, '1', 5);
+```

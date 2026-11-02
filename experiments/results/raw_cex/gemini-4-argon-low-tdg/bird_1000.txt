@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by T2.date DESC vs T2.year DESC, T2.round DESC, T2.raceId DESC, T1.circuitId DESC, and column selection (location vs name/country).
+-- Also includes an unreferenced circuit to catch INNER JOIN vs LEFT JOIN / missing JOIN mutants.
+INSERT INTO seasons (year, url) VALUES (2021, 'http://en.wikipedia.org/wiki/2021_F1');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://en.wikipedia.org/wiki/2022_F1');
+INSERT INTO seasons (year, url) VALUES (2023, 'http://en.wikipedia.org/wiki/2023_F1');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'monza', 'Autodromo Nazionale di Monza', 'Monza_Loc', 'Italy', 'http://monza');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'silverstone', 'Silverstone Circuit', 'Silverstone_Loc', 'UK', 'http://silverstone');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (3, 'spa', 'Circuit de Spa-Francorchamps', 'Spa_Loc', 'Belgium', 'http://spa');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (4, 'unraced_ref', 'Unraced Circuit', 'Unraced_Loc', 'Nowhere', 'http://unraced');
+
+-- Race with the latest date (2023-11-20), but smaller raceId (10), smaller circuitId (1), smaller round (1), and smaller year (2022) than other rows to catch wrong ORDER BY columns.
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (10, 2022, 1, 1, 'Italian Grand Prix', '2023-11-20', '10:00:00', 'http://race10');
+-- Race with highest year (2023) and highest round (20), but earlier date (2023-05-01).
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (20, 2023, 20, 2, 'British Grand Prix', '2023-05-01', '18:00:00', 'http://race20');
+-- Race with highest raceId (30) and highest circuitId among raced (3), earliest date (2021-03-01).
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (30, 2021, 5, 3, 'Belgian Grand Prix', '2021-03-01', '14:00:00', 'http://race30');
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple races on the exact same latest date ('2023-12-01'), checking tie-breaking by T1.circuitId ASC (and catching mutants without tie-breakers or with DESC tie-breakers).
+-- Also tests multiple races on the same latest date so queries without LIMIT 1 return multiple rows.
+INSERT INTO seasons (year, url) VALUES (2023, 'http://en.wikipedia.org/wiki/2023_F1');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (5, 'bahrain', 'Bahrain International Circuit', 'Sakhir', 'Bahrain', 'http://bahrain');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (10, 'jeddah', 'Jeddah Corniche Circuit', 'Jeddah', 'Saudi Arabia', 'http://jeddah');
+
+-- Both races share the maximum date '2023-12-01'.
+-- Circuit 5 has raceId 100; Circuit 10 has raceId 50.
+-- Gold query orders by T2.date DESC, T1.circuitId ASC -> picks circuitId 5 ('Sakhir').
+-- A mutant ordering by T2.date DESC, T2.raceId ASC (or T1.circuitId DESC) will pick circuitId 10 ('Jeddah').
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (100, 2023, 2, 5, 'Bahrain GP', '2023-12-01', '15:00:00', 'http://race100');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (50, 2023, 1, 10, 'Saudi Arabian GP', '2023-12-01', '20:00:00', 'http://race50');
+```
+
+```sql
+-- DATASET 3
+-- Tests cases where the latest race belongs to a circuit that has ONLY ONE race, while another circuit has MANY races (testing mutants that mistakenly group by circuit and count races).
+-- Also tests same date inside the same year where month/day determines the order ('2023-10-15' vs '2023-02-28').
+INSERT INTO seasons (year, url) VALUES (2023, 'http://en.wikipedia.org/wiki/2023_F1');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'austin', 'Circuit of the Americas', 'Austin', 'USA', 'http://austin');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'miami', 'Miami International Autodrome', 'Miami', 'USA', 'http://miami');
+
+-- Circuit 1 has 3 races, all earlier in 2023.
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2023, 1, 1, 'US GP 1', '2023-01-10', '12:00:00', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2023, 2, 1, 'US GP 2', '2023-02-15', '12:00:00', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (3, 2023, 3, 1, 'US GP 3', '2023-03-20', '12:00:00', 'http://r3');
+
+-- Circuit 2 has only 1 race, but it is the latest in 2023.
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (4, 2023, 4, 2, 'Miami GP', '2023-10-15', '12:00:00', 'http://r4');
+```
+
+```sql
+-- DATASET 4
+-- Tests join condition mistakes (e.g., T1.circuitId = T2.raceId or T1.circuitId = T2.round) and tests when the winning circuit has NULL in other optional columns (alt, lat, lng, country) vs non-null location.
+INSERT INTO seasons (year, url) VALUES (2020, 'http://en.wikipedia.org/wiki/2020_F1');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (1, 'c1', 'Circuit One', 'Loc_One', 'Country_One', 10.0, 10.0, 100, 'http://c1');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (2, 'c2', 'Circuit Two', 'Loc_Two', NULL, NULL, NULL, NULL, 'http://c2');
+
+-- Race 1 is on circuit 2 (latest date), with round 1. If a mutant joins on T1.circuitId = T2.raceId or T1.circuitId = T2.round, it will match Circuit 1 ('Loc_One') instead of Circuit 2 ('Loc_Two').
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2020, 1, 2, 'Race One', '2020-12-31', NULL, 'http://race1');
+-- Race 2 is on circuit 1 (earlier date), with round 2.
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2020, 2, 1, 'Race Two', '2020-01-01', '14:00:00', 'http://race2');
+```
+
+```sql
+-- DATASET 5
+-- Tests tie-breaking on the 3rd ORDER BY key (T2.raceId ASC) when both T2.date and T1.circuitId are identical, plus checks handling of NULL location if that ever occurs vs non-null, and tests multiple races at the exact same circuit.
+INSERT INTO seasons (year, url) VALUES (2019, 'http://en.wikipedia.org/wiki/2019_F1');
+INSERT INTO seasons (year, url) VALUES (2024, 'http://en.wikipedia.org/wiki/2024_F1');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (7, 'suzuka', 'Suzuka Circuit', 'Suzuka', 'Japan', 'http://suzuka');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (8, 'fuji', 'Fuji Speedway', 'Oyama', 'Japan', 'http://fuji');
+
+-- Circuit 8 has an old race (2019) AND the newest race (2024).
+-- Ensures mutants that filter by MIN(date) per circuit or confuse MIN/MAX fail.
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2019, 1, 8, 'Japanese GP Old', '2019-04-01', '06:00:00', 'http://r_old');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2024, 1, 7, 'Japanese GP Mid', '2024-04-01', '06:00:00', 'http://r_mid');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (3, 2024, 2, 8, 'Japanese GP New', '2024-11-01', '06:00:00', 'http://r_new');
+```

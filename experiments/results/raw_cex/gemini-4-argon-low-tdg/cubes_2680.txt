@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, join condition, and ordering:
+-- 1. Multiple customers named 'Jeramie' vs other names, case sensitivity ('jeramie'), substring ('Jeramie Smith'), and NULL name.
+-- 2. Join integrity: 'Jeramie' without orders (tests LEFT JOIN vs INNER JOIN), orders with NULL customer_id (tests RIGHT JOIN).
+-- 3. Ordering: non-sequential order_id insertion (30, 10, 20) to verify ORDER BY order_id ASC.
+-- 4. Duplicate elimination: identical order_status values across different order_ids for 'Jeramie'.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Jeramie', 'Target customer 1');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Alice', 'Non-target customer');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (3, 'jeramie', 'Lowercase name');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (4, 'Jeramie Smith', 'Superstring name');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (5, NULL, 'Null name');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (6, 'Jeramie', 'Target customer 2 with no orders');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (7, 'Jeramie', 'Target customer 3');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (30, 1, 'Pending', '2023-01-03 10:00:00', 'Order 30');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (10, 1, 'Shipped', '2023-01-01 10:00:00', 'Order 10');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (20, 7, 'Shipped', '2023-01-02 10:00:00', 'Order 20');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (5, 2, 'Cancelled', '2023-01-04 10:00:00', 'Alice Order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (15, 3, 'Delivered', '2023-01-05 10:00:00', 'jeramie Order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (25, 4, 'Processing', '2023-01-06 10:00:00', 'Jeramie Smith Order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (35, 5, 'New', '2023-01-07 10:00:00', 'Null Customer Name Order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (40, NULL, 'Orphaned', '2023-01-08 10:00:00', 'Order with NULL customer_id');
+```
+
+```sql
+-- DATASET 2
+-- Tests structural mutations and column mix-ups:
+-- 1. Swapped join keys (e.g., matching order_id = customer_id instead of customer_id = customer_id).
+-- 2. Filtering on wrong text columns (customer_details = 'Jeramie', order_status = 'Jeramie', order_details = 'Jeramie').
+-- 3. NULL values in order_status and INTEGER PRIMARY KEY NULL behavior.
+-- 4. Unnecessary joins with child tables (Order_Items, Shipments) that would either filter out valid orders or multiply rows.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (10, 'Bob', 'Jeramie');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (20, 'Jeramie', 'Valid');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'Widget', 'Standard');
+
+INSERT INTO "Invoices" ("invoice_number", "invoice_date", "invoice_details") VALUES (1, '2023-02-01 00:00:00', 'Inv 1');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (10, 10, 'Jeramie', '2023-02-01 12:00:00', 'Jeramie');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (20, 10, 'Open', '2023-02-02 12:00:00', 'Matches Jeramie customer_id 20 if joined on order_id=customer_id');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (100, 20, NULL, '2023-02-03 12:00:00', 'Order with NULL status and no items/shipments');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (50, 20, 'Paid', '2023-02-04 12:00:00', 'Order with multiple items and shipments');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 1, 50, 'OK', 'Item 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 1, 50, 'OK', 'Item 2');
+
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (1, 1, 50, 'TRK1', '2023-02-05 00:00:00', 'Ship 1');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (2, 1, 50, 'TRK2', '2023-02-06 00:00:00', 'Ship 2');
+
+INSERT INTO "Shipment_Items" ("shipment_id", "order_item_id") VALUES (1, 1);
+INSERT INTO "Shipment_Items" ("shipment_id", "order_item_id") VALUES (2, 2);
+```
+
+```sql
+-- DATASET 3
+-- Tests ordering mutations (e.g., sorting by order_status first, sorting by date_order_placed, sorting by customer_id, or DESC vs ASC)
+-- and negative/zero integer primary keys.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (100, 'Jeramie', 'First Jeramie');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (50, 'Jeramie', 'Second Jeramie');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (-5, 100, 'Z_Status', '2023-05-01 00:00:00', 'Negative ID, latest date, highest status');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (0, 50, 'M_Status', '2023-01-01 00:00:00', 'Zero ID, earliest date, middle status');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (5, 100, 'A_Status', '2023-03-01 00:00:00', 'Positive ID, middle date, lowest status');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set behavior when 'Jeramie' is absent from the database, while other customers and orders exist.
+-- Catches mutants that omit the WHERE clause or use OR instead of AND / improper filtering.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Charlie', 'Detail 1');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Dana', 'Detail 2');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, 1, 'Shipped', '2023-01-01 00:00:00', 'Order 1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, 2, 'Pending', '2023-01-02 00:00:00', 'Order 2');
+```

@@ -1,0 +1,13 @@
+{
+  "id": "join_order_limit_vs_subquery_max_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE customers (customer_id INTEGER NOT NULL PRIMARY KEY, region TEXT NOT NULL);\nCREATE TABLE orders (order_id INTEGER NOT NULL PRIMARY KEY, customer_id INTEGER NOT NULL, total_amount INTEGER NOT NULL, FOREIGN KEY (customer_id) REFERENCES customers (customer_id));\nCREATE TABLE shipments (shipment_id INTEGER NOT NULL PRIMARY KEY, customer_id INTEGER NOT NULL, shipping_cost INTEGER NOT NULL, shipped_date DATE NOT NULL, FOREIGN KEY (customer_id) REFERENCES customers (customer_id));",
+  "correct_query": "SELECT s.shipping_cost FROM orders AS o INNER JOIN shipments AS s ON o.customer_id = s.customer_id ORDER BY o.total_amount DESC, s.shipped_date ASC, o.order_id NULLS LAST, s.shipment_id NULLS LAST LIMIT 1",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "unfiltered_subquery_max_on_joined_table",
+      "description": "Mutant replaces ORDER BY o.total_amount DESC LIMIT 1 over the joined tables with a global WHERE o.total_amount = (SELECT MAX(total_amount) FROM orders) filter, which fails when the order with the maximum total_amount has no matching rows in shipments",
+      "query": "SELECT s.shipping_cost FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN shipments AS s ON c.customer_id = s.customer_id WHERE o.total_amount = (SELECT MAX(total_amount) FROM orders) ORDER BY s.shipped_date ASC, o.order_id NULLS LAST, c.customer_id NULLS LAST, s.shipment_id NULLS LAST LIMIT 1"
+    }
+  ]
+}

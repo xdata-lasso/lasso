@@ -1,0 +1,38 @@
+```sql
+-- DATASET 1
+-- Empty enzyme table (0 rows) while medicine has data.
+-- Distinguishes window function COUNT(*) OVER () (returns empty result set) from aggregate COUNT(*) (returns 0), and catches queries targeting the wrong table.
+INSERT INTO "medicine" ("id", "name", "Trade_Name", "FDA_approved") VALUES (1, 'Amisulpride', 'Solian', 'Yes');
+INSERT INTO "medicine" ("id", "name", "Trade_Name", "FDA_approved") VALUES (2, 'Clozapine', 'Clozaril', 'Yes');
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows in enzyme with duplicate values, NULLs, and partial interactions.
+-- Kills mutants missing DISTINCT (would return 3 rows instead of 1), mutants using COUNT(column) where NULLs exist, mutants using COUNT(DISTINCT ...), and mutants joining with medicine_enzyme_interaction.
+INSERT INTO "medicine" ("id", "name", "Trade_Name", "FDA_approved") VALUES (1, 'Ibuprofen', 'Advil', 'Yes');
+INSERT INTO "enzyme" ("id", "name", "Location", "Product", "Chromosome", "OMIM", "Porphyria") VALUES (1, 'ALAD', 'Cytosol', 'Porphobilinogen', '9q34', 125270, 'ALA dehydratase deficiency');
+INSERT INTO "enzyme" ("id", "name", "Location", "Product", "Chromosome", "OMIM", "Porphyria") VALUES (2, 'ALAD', 'Cytosol', 'Porphobilinogen', '9q34', NULL, NULL);
+INSERT INTO "enzyme" ("id", "name", "Location", "Product", "Chromosome", "OMIM", "Porphyria") VALUES (3, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "medicine_enzyme_interaction" ("enzyme_id", "medicine_id", "interaction_type") VALUES (1, 1, 'inhibitor');
+```
+
+```sql
+-- DATASET 3
+-- Single row in enzyme, multiple rows in medicine and interaction tables.
+-- Tests boundary condition of 1 row (where DISTINCT vs non-DISTINCT coincide, but PARTITION BY or wrong table references like medicine or medicine_enzyme_interaction diverge).
+INSERT INTO "medicine" ("id", "name", "Trade_Name", "FDA_approved") VALUES (1, 'MedA', 'TradeA', 'Yes');
+INSERT INTO "medicine" ("id", "name", "Trade_Name", "FDA_approved") VALUES (2, 'MedB', 'TradeB', 'No');
+INSERT INTO "enzyme" ("id", "name", "Location", "Product", "Chromosome", "OMIM", "Porphyria") VALUES (10, 'CYP2D6', 'Endoplasmic reticulum', 'Hydroxylated substrate', '22q13.1', 124030, 'None');
+INSERT INTO "medicine_enzyme_interaction" ("enzyme_id", "medicine_id", "interaction_type") VALUES (10, 1, 'substrate');
+INSERT INTO "medicine_enzyme_interaction" ("enzyme_id", "medicine_id", "interaction_type") VALUES (10, 2, 'inhibitor');
+```
+
+```sql
+-- DATASET 4
+-- Enzymes with varying group sizes on attributes (e.g. Location, Chromosome).
+-- Kills mutants that introduce PARTITION BY (e.g., COUNT(*) OVER (PARTITION BY Location)) or GROUP BY (e.g., SELECT DISTINCT COUNT(*) FROM enzyme GROUP BY Location), which would return multiple distinct counts (1, 2) instead of a single count (3).
+INSERT INTO "enzyme" ("id", "name", "Location", "Product", "Chromosome", "OMIM", "Porphyria") VALUES (1, 'HMBS', 'Cytosol', 'Hydroxymethylbilane', '11q23.3', 609806, 'Acute intermittent porphyria');
+INSERT INTO "enzyme" ("id", "name", "Location", "Product", "Chromosome", "OMIM", "Porphyria") VALUES (2, 'UROS', 'Cytosol', 'Uroporphyrinogen III', '10q25.2', 606938, 'Congenital erythropoietic porphyria');
+INSERT INTO "enzyme" ("id", "name", "Location", "Product", "Chromosome", "OMIM", "Porphyria") VALUES (3, 'CPOX', 'Mitochondria', 'Protoporphyrinogen IX', '3q12', 612732, 'Hereditary coproporphyria');
+```

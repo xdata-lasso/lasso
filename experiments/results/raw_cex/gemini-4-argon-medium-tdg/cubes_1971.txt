@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- Tests standard averaging with duplicate prices, non-integer average, NULL prices, other product types, and products not present in Order_Items or Product_Suppliers.
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'Clothes', 'Shirt', 10.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'Clothes', 'Pants', 10.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, 'Clothes', 'Jacket', 25.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (4, 'Clothes', 'Unpriced Item', NULL);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (5, 'Hardware', 'Hammer', 100.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (6, 'Books', 'Clothes', 50.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (7, 'clothes', 'Socks', 5.0);
+
+INSERT INTO "Customers" ("customer_id", "payment_method_code", "customer_code", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (1, 'CC', 'C001', 'John Doe', '123 Main St', '555-0100', 'john@example.com');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (1, 1, 'Completed', '2023-01-01 10:00:00');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id") VALUES (1, 1, 1);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id") VALUES (2, 1, 1);
+
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (1, 'Acme Corp', '555-0200');
+INSERT INTO "Product_Suppliers" ("product_id", "supplier_id", "date_supplied_from", "date_supplied_to", "total_amount_purchased", "total_value_purchased") VALUES (1, 1, '2022-01-01', '2023-01-01', '100', 1000.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set for 'Clothes' (kills mutants without GROUP BY that return a single row with NULL when no rows match WHERE).
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'Hardware', 'Drill', 50.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'Books', 'Novel', 20.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, NULL, 'Mystery', 15.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests single row for 'Clothes' where product_price is NULL (should return 1 row with NULL, whereas inner WHERE product_price IS NOT NULL would return 0 rows).
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'Clothes', 'Free Sample', NULL);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'Hardware', 'Wrench', 15.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests case where AVG, SUM, COUNT, MIN, MAX all produce distinct values for 'Clothes', including 0.0 and decimal values.
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'Clothes', 'Clearance Item', 0.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'Clothes', 'Belt', 12.5);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, 'Clothes', 'Suit', 87.5);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (4, 'Clothes', 'Tie', 20.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests join fan-out mutants: all 'Clothes' products are in Order_Items and Product_Suppliers, but with asymmetric multiplicities that skew the average if inner joined without distinctness.
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'Clothes', 'Hat', 10.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'Clothes', 'Coat', 100.0);
+
+INSERT INTO "Customers" ("customer_id", "payment_method_code", "customer_code", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (1, 'CASH', 'C002', 'Jane Roe', '456 Oak St', '555-0300', 'jane@example.com');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (1, 1, 'Pending', '2023-02-01 12:00:00');
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (2, 1, 'Shipped', '2023-02-02 12:00:00');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id") VALUES (1, 1, 1);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id") VALUES (2, 2, 1);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id") VALUES (3, 2, 2);
+
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (1, 'Supplier A', '555-1111');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (2, 'Supplier B', '555-2222');
+
+INSERT INTO "Product_Suppliers" ("product_id", "supplier_id", "date_supplied_from", "date_supplied_to", "total_amount_purchased", "total_value_purchased") VALUES (1, 1, '2022-01-01', '2023-01-01', '50', 50.0);
+INSERT INTO "Product_Suppliers" ("product_id", "supplier_id", "date_supplied_from", "date_supplied_to", "total_amount_purchased", "total_value_purchased") VALUES (1, 2, '2022-01-01', '2023-01-01', '50', 50.0);
+INSERT INTO "Product_Suppliers" ("product_id", "supplier_id", "date_supplied_from", "date_supplied_to", "total_amount_purchased", "total_value_purchased") VALUES (2, 1, '2022-01-01', '2023-01-01', '10', 500.0);
+```

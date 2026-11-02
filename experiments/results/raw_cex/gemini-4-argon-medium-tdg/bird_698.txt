@@ -1,0 +1,51 @@
+```sql
+-- DATASET 1
+-- Tests basic predicate matching, column ordering, and filtering against near-miss titles (LIKE vs =, case sensitivity, NULLs).
+-- Also intentionally omits rows from child tables (comments, postHistory, etc.) to kill mutants that incorrectly use INNER JOINs to compute counts.
+INSERT INTO posts (Id, PostTypeId, Title, CommentCount, AnswerCount, Score, ViewCount, FavoriteCount) VALUES (1, 1, 'Clustering 1D data', 5, 2, 10, 100, 3);
+INSERT INTO posts (Id, PostTypeId, Title, CommentCount, AnswerCount, Score, ViewCount, FavoriteCount) VALUES (2, 1, 'clustering 1d data', 99, 88, 20, 200, 4);
+INSERT INTO posts (Id, PostTypeId, Title, CommentCount, AnswerCount, Score, ViewCount, FavoriteCount) VALUES (3, 1, 'Clustering 1D data extra', 77, 66, 30, 300, 5);
+INSERT INTO posts (Id, PostTypeId, Title, CommentCount, AnswerCount, Score, ViewCount, FavoriteCount) VALUES (4, 1, 'Prefix Clustering 1D data', 55, 44, 40, 400, 6);
+INSERT INTO posts (Id, PostTypeId, Title, CommentCount, AnswerCount, Score, ViewCount, FavoriteCount) VALUES (5, 1, NULL, 33, 22, 50, 500, 7);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate output rows (kills SELECT DISTINCT mutants), multiple matching rows (kills LIMIT 1 or aggregation mutants like SUM/MAX), and NULL/0 boundary values.
+INSERT INTO posts (Id, PostTypeId, Title, CommentCount, AnswerCount) VALUES (1, 1, 'Clustering 1D data', 3, 1);
+INSERT INTO posts (Id, PostTypeId, Title, CommentCount, AnswerCount) VALUES (2, 1, 'Clustering 1D data', 3, 1);
+INSERT INTO posts (Id, PostTypeId, Title, CommentCount, AnswerCount) VALUES (3, 2, 'Clustering 1D data', 0, NULL);
+INSERT INTO posts (Id, PostTypeId, Title, CommentCount, AnswerCount) VALUES (4, 1, 'Clustering 1D data', NULL, 0);
+INSERT INTO posts (Id, PostTypeId, Title, CommentCount, AnswerCount) VALUES (5, 1, 'Other Title', 3, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests denormalized column selection vs. dynamic count computation via JOINs/subqueries on child tables (comments, answers in posts), and tests unnecessary INNER JOIN to users.
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (10, 'TestUser', 100);
+
+-- Target post 1: Has OwnerUserId = NULL (kills INNER JOIN users), CommentCount = 10, AnswerCount = 4, but actual linked comments = 1 and actual answers = 1.
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, Title, CommentCount, AnswerCount) VALUES (1, 1, NULL, 'Clustering 1D data', 10, 4);
+
+-- Target post 2: Has valid OwnerUserId, CommentCount = 0, AnswerCount = 0, but has linked comments and answer posts in the database.
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, Title, CommentCount, AnswerCount) VALUES (2, 1, 10, 'Clustering 1D data', 0, 0);
+
+-- Child answer posts (PostTypeId = 2, ParentId = 1 or 2)
+INSERT INTO posts (Id, PostTypeId, ParentId, OwnerUserId, Title, CommentCount, AnswerCount) VALUES (3, 2, 1, 10, NULL, 0, 0);
+INSERT INTO posts (Id, PostTypeId, ParentId, OwnerUserId, Title, CommentCount, AnswerCount) VALUES (4, 2, 2, 10, NULL, 0, 0);
+INSERT INTO posts (Id, PostTypeId, ParentId, OwnerUserId, Title, CommentCount, AnswerCount) VALUES (5, 2, 2, 10, NULL, 0, 0);
+
+-- Child comments linked to target posts
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (101, 1, 10, 1, 'Single comment on post 1');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (102, 2, 10, 1, 'First comment on post 2');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (103, 2, 10, 2, 'Second comment on post 2');
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between Title and other text columns (Body, Tags, OwnerDisplayName) where 'Clustering 1D data' might appear.
+INSERT INTO posts (Id, PostTypeId, Title, Body, Tags, OwnerDisplayName, CommentCount, AnswerCount) VALUES (1, 1, 'Different Title', 'Clustering 1D data', '<clustering>', 'User1', 11, 12);
+INSERT INTO posts (Id, PostTypeId, Title, Body, Tags, OwnerDisplayName, CommentCount, AnswerCount) VALUES (2, 1, 'Another Title', 'Body text', 'Clustering 1D data', 'User2', 21, 22);
+INSERT INTO posts (Id, PostTypeId, Title, Body, Tags, OwnerDisplayName, CommentCount, AnswerCount) VALUES (3, 1, 'Third Title', 'Body text', '<tags>', 'Clustering 1D data', 31, 32);
+INSERT INTO posts (Id, PostTypeId, Title, Body, Tags, OwnerDisplayName, CommentCount, AnswerCount) VALUES (4, 1, 'Clustering 1D data', 'Normal body', '<1d><clustering>', 'User4', 41, 42);
+```

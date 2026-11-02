@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests: SUM vs AVG/MAX/MIN, GROUP BY CustomerID vs Segment/Currency, WHERE Currency = 'EUR' vs other/NULL, ORDER BY DESC vs ASC, LIMIT 1.
+-- Customer 1 (EUR): 3 rows summing to 180 (Monthly = 15.0, AVG = 60, MAX = 100)
+-- Customer 2 (EUR): 1 row of 120 (Monthly = 10.0, AVG = 120, MAX = 120) -> Kills AVG/MAX mutants because Cust 2 has higher AVG/MAX than Cust 1, but Cust 1 has higher SUM.
+-- Customer 3 (USD): 1 row of 1200 (Monthly = 100.0) -> Kills missing WHERE Currency = 'EUR' mutant.
+-- Customer 4 (NULL): 1 row of 2400 -> Kills NULL handling mutants.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'USD');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'LAM', NULL);
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201203', 30.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 120.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 1200.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201201', 2400.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests: Floating point division vs Integer division, DISTINCT inside SUM (SUM(DISTINCT Consumption)), and negative/zero values.
+-- Customer 1 (EUR): 2 rows with identical consumption (25.5 + 25.5 = 51.0). 51.0 / 12 = 4.25.
+-- Customer 2 (EUR): 2 rows with distinct consumption (30.0 + 18.0 = 48.0). 48.0 / 12 = 4.0.
+-- If mutant uses SUM(DISTINCT), Cust 1 becomes 25.5 / 12 = 2.125, making Cust 2 the top (4.0).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'LAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201301', 25.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201302', 25.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201301', 30.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201302', 18.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests: Empty result set when no 'EUR' customers exist or no matching yearmonth rows exist, and LEFT JOIN vs INNER JOIN when all 'EUR' customers have no yearmonth records.
+-- Customer 1 (EUR) has no rows in yearmonth. (INNER JOIN returns empty; LEFT JOIN returns 1 row with NULL).
+-- Customer 2 (CZK) has rows in yearmonth.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 360.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests: Negative consumption values and NULL consumption handling, plus LEFT JOIN vs INNER JOIN when sums are negative.
+-- Customer 1 (EUR): has no yearmonth rows (LEFT JOIN gives NULL).
+-- Customer 2 (EUR): has negative consumption sum (-120.0 / 12 = -10.0) and a NULL consumption row.
+-- Customer 3 (EUR): has more negative consumption sum (-240.0 / 12 = -20.0).
+-- In SQLite, DESC ordering places numeric values above NULLs, whereas ASC places NULLs first, or COALESCE mutants might turn NULL into 0 (making Customer 1 beat Customer 2's -10.0).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'LAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', -120.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201202', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', -240.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests: GROUP BY Date instead of CustomerID, or missing GROUP BY altogether.
+-- Date '201201' has a huge total across two EUR customers (100 + 100 = 200), whereas the max per customer is Customer 1 with (100 + 50 = 150).
+-- If grouped by Date, max sum is 200 (for '201201'). If missing GROUP BY, sum is 250. Gold query grouped by CustomerID gives 150 / 12 = 12.5.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 100.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests: Case sensitivity / String matching on Currency ('eur', 'EUR ', 'EU') and ordering by CustomerID instead of MonthlyConsumption.
+-- Customer 10 (EUR): Consumption = 24.0 (Monthly = 2.0)
+-- Customer 20 (EUR): Consumption = 12.0 (Monthly = 1.0) -> Higher CustomerID, lower consumption (kills ORDER BY CustomerID DESC).
+-- Customer 30 ('eur'): Consumption = 1200.0 -> Kills case-insensitive LIKE/LOWER mutants.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (30, 'SME', 'eur');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201205', 24.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201205', 12.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (30, '201205', 1200.0);
+```

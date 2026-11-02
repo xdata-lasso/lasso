@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+/* Tests filtering before window function vs after, and basic ordering (odhhck DESC) */
+INSERT INTO kiegyk (xpcyry, eevprf, iqtngr) VALUES (1, 'CatA', 'InfoA');
+INSERT INTO kiegyk (xpcyry, eevprf, iqtngr) VALUES (2, 'CatB', 'InfoB');
+
+/* Cat 1: Highest odhhck has asrhsh = 1 (must be ignored before ranking). Second highest has asrhsh = 0 (should win). Also tests asrhsh = -1. */
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (10, 1, 'Item_Ignored_High', 500.0, 1);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (11, 1, 'Item_Ignored_Neg', 600.0, -1);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (12, 1, 'Item_Valid_Mid', 300.0, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (13, 1, 'Item_Valid_Low', 100.0, 0);
+
+/* Cat 2: Only has rows with asrhsh != 0 (Category 2 should not appear in output at all). */
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (20, 2, 'Item_Cat2_Ignored', 900.0, 1);
+```
+
+```sql
+-- DATASET 2
+/* Tests tie-breaking on odhhck (ROW_NUMBER vs RANK/DENSE_RANK, and yxwgwj ASC vs DESC) */
+INSERT INTO kiegyk (xpcyry, eevprf, iqtngr) VALUES (10, 'CatTie1', 'Info1');
+INSERT INTO kiegyk (xpcyry, eevprf, iqtngr) VALUES (20, 'CatTie2', 'Info2');
+
+/* Cat 10: Ties at the maximum odhhck (250.0). Insertion order is reversed relative to yxwgwj ASC to catch missing secondary sort. */
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (105, 10, 'Tie_High_ID', 250.0, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (102, 10, 'Tie_Low_ID_Winner', 250.0, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (101, 10, 'Lower_Val_Lowest_ID', 150.0, 0);
+
+/* Cat 20: Ties at a non-maximum odhhck, and negative odhhck values. */
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (201, 20, 'Neg_Winner', -10.5, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (202, 20, 'Neg_Tie_1', -50.0, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (203, 20, 'Neg_Tie_2', -50.0, 0);
+```
+
+```sql
+-- DATASET 3
+/* Tests PARTITION BY xpcyry (multiple categories with distinct ranges) and GROUP BY / MAX(odhhck) bare-column correlation traps */
+INSERT INTO kiegyk (xpcyry, eevprf, iqtngr) VALUES (1, 'Cat1', 'Info1');
+INSERT INTO kiegyk (xpcyry, eevprf, iqtngr) VALUES (2, 'Cat2', 'Info2');
+INSERT INTO kiegyk (xpcyry, eevprf, iqtngr) VALUES (3, 'Cat3', 'Info3');
+
+/* Cat 1: Winner has middle ID (50), highest odhhck (99.9). */
+/* In SQLite, a mutant using GROUP BY xpcyry with MIN(yxwgwj) or MAX(yxwgwj) instead of window functions will pick the wrong mvuloq/yxwgwj. */
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (10, 1, 'First_ID_Low_Val', 10.0, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (50, 1, 'Mid_ID_Max_Val_Winner', 99.9, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (90, 1, 'Last_ID_Mid_Val', 50.0, 0);
+
+/* Cat 2: Single valid element. Tests rank_in_cat = 1 vs rank_in_cat = 2 or > 1. */
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (200, 2, 'Lone_Winner', 0.0, 0);
+
+/* Cat 3: Two elements have the exact same max odhhck (50.0) as Cat 1's non-winner, testing cross-partition leakage (e.g., WHERE odhhck IN (SELECT MAX(odhhck)...)). */
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (300, 3, 'Cat3_Winner', 50.0, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (301, 3, 'Cat3_Loser', 25.0, 0);
+```
+
+```sql
+-- DATASET 4
+/* Tests column swaps in ORDER BY / PARTITION BY (e.g., partitioning by asrhsh or ordering by xpcyry/mvuloq) */
+INSERT INTO kiegyk (xpcyry, eevprf, iqtngr) VALUES (5, 'CatFive', 'Info5');
+INSERT INTO kiegyk (xpcyry, eevprf, iqtngr) VALUES (6, 'CatSix', 'Info6');
+
+/* mvuloq alphabetical order is opposite to odhhck DESC and yxwgwj ASC */
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (1, 6, 'Z_Name', 10.0, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (2, 6, 'A_Name', 20.0, 0);
+
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (3, 5, 'M_Name', 100.0, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (4, 5, 'B_Name', 100.0, 0);
+```
+
+```sql
+-- DATASET 5
+/* Tests join-based mutants (e.g., inner joining dcmdll with tizbxo or rdmcrj) where valid dcmdll rows have no child records or multiple child records */
+INSERT INTO kiegyk (xpcyry, eevprf, iqtngr) VALUES (1, 'CatJoinTest', 'Info');
+INSERT INTO nhosiz (ryiyuk, djnfoa, xxiqyf, fomiuw) VALUES (1, 'User1', 'TypeA', 1);
+INSERT INTO ayzfwn (qdujuq, ryiyuk, tgelyf, ryqatk, padlzj, hbhscc) VALUES (1, 1, 'T1', 'R1', 'STANDARD', 0.0);
+
+/* Winner has NO child rows in tizbxo or rdmcrj. Loser HAS child rows. */
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (1, 1, 'Winner_No_Children', 500.0, 0);
+INSERT INTO dcmdll (yxwgwj, xpcyry, mvuloq, odhhck, asrhsh) VALUES (2, 1, 'Loser_With_Children', 400.0, 0);
+
+INSERT INTO tizbxo (acwubh, qdujuq, yxwgwj, cbkcqh, ivpgre, xssphz) VALUES (1, 1, 2, 10, 1.0, 1.0);
+INSERT INTO rdmcrj (pzngdd, yxwgwj, ryiyuk, vnlnno, xbvuud, bmxkzd) VALUES (1, 2, 1, 5, 0, 'Review');
+```

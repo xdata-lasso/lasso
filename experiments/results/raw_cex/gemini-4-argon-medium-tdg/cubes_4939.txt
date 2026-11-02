@@ -1,0 +1,126 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. LIMIT 17 boundary (20 rows total; catches off-by-one LIMIT 16, LIMIT 18, or missing LIMIT).
+-- 2. Join vs Single Table mutants (Customer 1 has no orders/addresses; Customer 2 has multiple orders/addresses causing join fan-out; Customer 3 has normal associations; some contact channels have NULL customer_id which inner joins would drop).
+-- 3. Duplicate output rows (channels with identical channel_code and contact_number to catch erroneous SELECT DISTINCT).
+-- 4. Ascending vs Descending order on active_from_date and tie-breaker columns.
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Credit Card', 'Alice Smith', '2020-01-01 10:00:00', 'No orders or addresses');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'PayPal', 'Bob Jones', '2020-02-01 10:00:00', 'Multiple orders and addresses');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (3, 'Cash', 'Charlie Brown', '2020-03-01 10:00:00', 'Single order and address');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (4, 'Debit', 'David White', '2020-04-01 10:00:00', 'No contact channels');
+
+INSERT INTO Addresses (address_id, address_content, city, zip_postcode, state_province_county, country, other_address_details) VALUES (10, '123 Main St', 'Seattle', '98101', 'WA', 'USA', NULL);
+INSERT INTO Addresses (address_id, address_content, city, zip_postcode, state_province_county, country, other_address_details) VALUES (20, '456 Oak Ave', 'Portland', '97201', 'OR', 'USA', NULL);
+
+INSERT INTO Customer_Addresses (customer_id, address_id, date_address_from, address_type, date_address_to) VALUES (2, 10, '2020-02-01 00:00:00', 'Billing', '2021-02-01 00:00:00');
+INSERT INTO Customer_Addresses (customer_id, address_id, date_address_from, address_type, date_address_to) VALUES (2, 20, '2020-02-01 00:00:00', 'Shipping', NULL);
+INSERT INTO Customer_Addresses (customer_id, address_id, date_address_from, address_type, date_address_to) VALUES (3, 10, '2020-03-01 00:00:00', 'Home', NULL);
+
+INSERT INTO Products (product_id, product_details) VALUES (100, 'Laptop');
+INSERT INTO Products (product_id, product_details) VALUES (200, 'Mouse');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (1000, 2, 'Completed', '2021-01-10 12:00:00', 'First order');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (1001, 2, 'Pending', '2021-01-15 12:00:00', 'Second order');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (1002, 3, 'Shipped', '2021-02-10 12:00:00', 'Third order');
+
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (1000, 100, '1');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (1000, 200, '2');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (1002, 100, '1');
+
+-- 20 rows in Customer_Contact_Channels with distinct/tied active_from_date
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Email', '2021-01-01 00:00:00', '2022-01-01 00:00:00', '111-0001');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Email', '2021-01-02 00:00:00', '2022-01-02 00:00:00', '111-0001');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Phone', '2021-01-03 00:00:00', '2022-01-03 00:00:00', '111-0003');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (3, 'SMS', '2021-01-04 00:00:00', '2021-06-04 00:00:00', '111-0004');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (NULL, 'Fax', '2021-01-05 00:00:00', '2022-01-05 00:00:00', '111-0005');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Mobile', '2021-01-06 00:00:00', NULL, '111-0006');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Email', '2021-01-07 00:00:00', '2021-01-08 00:00:00', '111-0007');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (3, 'Phone', '2021-01-08 00:00:00', '2022-01-08 00:00:00', '111-0008');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Pager', '2021-01-09 00:00:00', '2022-01-09 00:00:00', '111-0009');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'SMS', '2021-01-10 00:00:00', '2022-01-10 00:00:00', '111-0010');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (3, 'Email', '2021-01-11 00:00:00', '2022-01-11 00:00:00', '111-0011');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Fax', '2021-01-12 00:00:00', '2022-01-12 00:00:00', '111-0012');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Mobile', '2021-01-13 00:00:00', '2022-01-13 00:00:00', '111-0013');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (3, 'Pager', '2021-01-14 00:00:00', '2022-01-14 00:00:00', '111-0014');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'Phone', '2021-01-15 00:00:00', '2022-01-15 00:00:00', '111-0015');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Fax', '2021-01-16 00:00:00', '2022-01-16 00:00:00', '111-0016');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (3, 'Mobile', '2021-01-17 00:00:00', '2022-01-17 00:00:00', '111-0017');
+-- Rows 18, 19, 20 (excluded by LIMIT 17)
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'SMS', '2021-01-18 00:00:00', '2022-01-18 00:00:00', '111-0018');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'Pager', '2021-01-19 00:00:00', '2022-01-19 00:00:00', '111-0019');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (3, 'Fax', '2021-01-20 00:00:00', '2022-01-20 00:00:00', '111-0020');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Tie-breaking and NULLS FIRST vs NULLS LAST across all 5 ORDER BY columns at the exact LIMIT 17 boundary.
+-- 2. Note: active_from_date has default ASC (NULLS FIRST in SQLite), whereas the 4 tie-breaker columns explicitly specify NULLS LAST.
+-- 3. Swapping active_from_date with active_to_date (inverted chronological orders between the two columns).
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Card', 'Cust 1', '2019-01-01', NULL);
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Card', 'Cust 2', '2019-01-02', NULL);
+
+-- Group A: NULL active_from_date (comes FIRST in default SQLite ASC)
+-- Tests tie-breaking on customer_id (1, 2, NULLS LAST)
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'A_C1', NULL, '2025-12-31', '900-0001');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'A_C2', NULL, '2025-12-30', '900-0002');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (NULL, 'A_CNULL', NULL, '2025-12-29', '900-0003');
+
+-- Group B: active_from_date = '2022-05-01', customer_id = 1
+-- Tests tie-breaking on channel_code ('B1', 'B2', NULLS LAST)
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'B1', '2022-05-01', '2025-11-30', '900-0004');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'B2', '2022-05-01', '2025-11-29', '900-0005');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, NULL, '2022-05-01', '2025-11-28', '900-0006');
+
+-- Group C: active_from_date = '2022-06-01', customer_id = 1, channel_code = 'C'
+-- Tests tie-breaking on active_to_date ('2023-01-01', '2023-01-02', NULLS LAST)
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'C', '2022-06-01', '2023-01-01', '900-0007');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'C', '2022-06-01', '2023-01-02', '900-0008');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'C', '2022-06-01', NULL, '900-0009');
+
+-- Group D: active_from_date = '2022-07-01', customer_id = 1, channel_code = 'D', active_to_date = '2024-01-01'
+-- Tests tie-breaking on contact_number ('800-0001', '800-0002', NULLS LAST)
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'D', '2022-07-01', '2024-01-01', '800-0001');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'D', '2022-07-01', '2024-01-01', '800-0002');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'D', '2022-07-01', '2024-01-01', NULL);
+
+-- Group E: Boundary rows around LIMIT 17 (Rows 13 to 22)
+-- All have active_from_date = '2022-08-01', varying across tie-breakers so that any change in tie-breaker order or NULLS LAST changes which rows make the top 17 cut!
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'E1', '2022-08-01', '2023-05-01', '700-0013');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'E2', '2022-08-01', '2023-05-01', '700-0014');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'E2', '2022-08-01', '2023-05-02', '700-0015');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'E2', '2022-08-01', '2023-05-02', '700-0016');
+-- Row 17 (last row included by Gold Query):
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'E2', '2022-08-01', '2023-05-02', NULL);
+-- Row 18+ (excluded by Gold Query, but would be included if NULLS FIRST was used on active_to_date, channel_code, or customer_id):
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, 'E2', '2022-08-01', NULL, '700-0018');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (1, NULL, '2022-08-01', '2023-01-01', '700-0019');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (2, 'E0', '2022-08-01', '2023-01-01', '700-0020');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (NULL, 'E0', '2022-08-01', '2023-01-01', '700-0021');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Small dataset (< 17 rows) where all rows are returned, focusing purely on exact multi-column sorting permutations.
+-- 2. Same active_from_date for all rows to force evaluation of the exact sequence of secondary sort keys:
+--    customer_id -> channel_code -> active_to_date -> contact_number.
+--    If a mutant swaps the priority of any two sort keys (e.g., sorting by channel_code before customer_id), the output order will differ.
+
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (10, 'Visa', 'User 10', '2020-01-01', NULL);
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (20, 'MasterCard', 'User 20', '2020-01-01', NULL);
+
+-- Customer 20 has 'AAA' channel_code (would sort before Customer 10's 'ZZZ' if channel_code preceded customer_id)
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (20, 'AAA', '2023-01-01', '2023-01-01', '000-0001');
+
+-- Customer 10 with 'ZZZ' vs 'BBB' channel_code, where 'ZZZ' has earlier active_to_date (tests channel_code vs active_to_date priority)
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (10, 'ZZZ', '2023-01-01', '2023-02-01', '000-0002');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (10, 'BBB', '2023-01-01', '2023-09-01', '999-9999');
+
+-- Customer 10, channel_code 'BBB', earlier active_to_date with larger contact_number vs later active_to_date with smaller contact_number (tests active_to_date vs contact_number priority)
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (10, 'BBB', '2023-01-01', '2023-05-01', '888-8888');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (10, 'BBB', '2023-01-01', '2023-06-01', '111-1111');
+```

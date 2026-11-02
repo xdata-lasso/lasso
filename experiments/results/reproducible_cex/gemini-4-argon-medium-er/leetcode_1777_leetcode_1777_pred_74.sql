@@ -1,0 +1,24 @@
+-- Schema DDL
+CREATE TABLE "Products" ("product_id" INTEGER, "store" TEXT(255), "price" INTEGER, PRIMARY KEY ("product_id", "store"), CHECK ("price" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Products" ("product_id", "store", "price") VALUES (NULL, 'store1', 10);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT product_id, SUM(CASE WHEN store = 'store1' THEN price ELSE NULL END) AS store1, SUM(CASE WHEN store = 'store2' THEN price ELSE NULL END) AS store2, SUM(CASE WHEN store = 'store3' THEN price ELSE NULL END) AS store3 FROM products GROUP BY product_id;
+
+/*
+Gold Result:
+(None, 10, None, None)
+*/
+
+-- Prediction Query
+WITH S1 AS (SELECT PRODUCT_ID, PRICE AS STORE1 FROM PRODUCTS WHERE STORE = 'store1'), S2 AS (SELECT PRODUCT_ID, PRICE AS STORE2 FROM PRODUCTS WHERE STORE = 'store2'), S3 AS (SELECT PRODUCT_ID, PRICE AS STORE3 FROM PRODUCTS WHERE STORE = 'store3'), COLTAB AS (SELECT DISTINCT PRODUCT_ID FROM PRODUCTS), TEMP1 AS (SELECT COLTAB.*, S1.STORE1 FROM COLTAB LEFT OUTER JOIN S1 ON COLTAB.PRODUCT_ID = S1.PRODUCT_ID), TEMP2 AS (SELECT TEMP1.*, S2.STORE2 FROM TEMP1 LEFT OUTER JOIN S2 ON TEMP1.PRODUCT_ID = S2.PRODUCT_ID), TEMP3 AS (SELECT TEMP2.*, S3.STORE3 FROM TEMP2 LEFT OUTER JOIN S3 ON TEMP2.PRODUCT_ID = S3.PRODUCT_ID) SELECT * FROM TEMP3;
+
+/*
+Prediction Result:
+(None, None, None, None)
+*/

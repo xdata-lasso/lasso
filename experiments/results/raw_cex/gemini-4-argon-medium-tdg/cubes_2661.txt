@@ -1,0 +1,110 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions (counts of 1, 4, 5, 6), ordering (insert order vs alphabetical vs count order), and inner join mutants with competition_result.
+INSERT INTO "club" ("Club_ID", "name", "Region", "Start_year") VALUES (1, 'Alpha', 'North', '1990');
+INSERT INTO "club" ("Club_ID", "name", "Region", "Start_year") VALUES (2, 'Beta', 'South', '1995');
+
+-- 'Tournament' has count 4 (boundary < 5, should be included)
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (1, 2001, 'Tournament', 'USA');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (2, 2001, 'Tournament', 'USA');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (3, 2002, 'Tournament', 'UK');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (4, 2003, 'Tournament', 'France');
+
+-- 'Cup' has count 1 (should be included, tests ordering: 'Cup' < 'Tournament' alphabetically, but count 1 < 4)
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (5, 2000, 'Cup', 'Spain');
+
+-- 'League' has count 5 (boundary = 5, should be excluded; kills <= 5 mutants)
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (6, 2001, 'League', 'Germany');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (7, 2002, 'League', 'Germany');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (8, 2003, 'League', 'Italy');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (9, 2004, 'League', 'Italy');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (10, 2005, 'League', 'France');
+
+-- 'Friendly' has count 6 (boundary > 5, should be excluded; kills > 5 or != 5 mutants)
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (11, 2001, 'Friendly', 'Brazil');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (12, 2002, 'Friendly', 'Brazil');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (13, 2003, 'Friendly', 'Argentina');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (14, 2004, 'Friendly', 'Argentina');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (15, 2005, 'Friendly', 'Chile');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (16, 2006, 'Friendly', 'Chile');
+
+-- Only some competitions have results (kills mutants that unnecessarily join competition_result)
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (1, 1, 2, '2-1');
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (6, 1, 2, '0-0');
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (7, 1, 2, '1-3');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling (COUNT(*) vs COUNT(Competition_type), COUNT(Year), COUNT(Country)) and COUNT(DISTINCT ...) mutants.
+-- 'Qualifier' has 5 rows, so COUNT(*) = 5 (excluded). However, Year and Country have NULLs and duplicates, so COUNT(Year) = 3, COUNT(DISTINCT Year) = 2, etc.
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (1, 2010, 'Qualifier', 'USA');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (2, 2010, 'Qualifier', 'USA');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (3, 2012, 'Qualifier', NULL);
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (4, NULL, 'Qualifier', 'Canada');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (5, NULL, 'Qualifier', NULL);
+
+-- NULL Competition_type has 2 rows. COUNT(*) is 2 (< 5, so NULL is included), whereas COUNT(Competition_type) is 0.
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (6, 2015, NULL, 'Mexico');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (7, 2016, NULL, 'Mexico');
+
+-- 'Exhibition' has 3 rows with all NULLs in other non-PK columns.
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (8, NULL, 'Exhibition', NULL);
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (9, NULL, 'Exhibition', NULL);
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (10, NULL, 'Exhibition', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests ordering where alphabetical order of Competition_type is strictly inverse to the count (n), and tests counts of 2 and 3.
+-- Also tests when competition_result has multiple rows per competition (inflating join counts).
+INSERT INTO "club" ("Club_ID", "name", "Region", "Start_year") VALUES (10, 'Club X', 'East', '1980');
+INSERT INTO "club" ("Club_ID", "name", "Region", "Start_year") VALUES (20, 'Club Y', 'West', '1985');
+INSERT INTO "club" ("Club_ID", "name", "Region", "Start_year") VALUES (30, 'Club Z', 'North', '1990');
+
+-- 'Z_Type' has count 1
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (101, 2020, 'Z_Type', 'CountryA');
+
+-- 'M_Type' has count 2
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (102, 2020, 'M_Type', 'CountryB');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (103, 2021, 'M_Type', 'CountryB');
+
+-- 'A_Type' has count 3, but if joined with competition_result without distinct, it will have 6 rows (>= 5).
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (104, 2020, 'A_Type', 'CountryC');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (105, 2021, 'A_Type', 'CountryC');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (106, 2022, 'A_Type', 'CountryC');
+
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (104, 10, 20, '1-0');
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (104, 20, 30, '2-2');
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (105, 10, 30, '3-1');
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (105, 20, 10, '0-1');
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (106, 30, 10, '1-1');
+INSERT INTO "competition_result" ("Competition_ID", "Club_ID_1", "Club_ID_2", "Score") VALUES (106, 30, 20, '4-0');
+
+-- 'B_Type' has count 4
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (107, 2020, 'B_Type', 'CountryD');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (108, 2021, 'B_Type', 'CountryD');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (109, 2022, 'B_Type', 'CountryD');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (110, 2023, 'B_Type', 'CountryD');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set (all competition types have >= 5 rows) and ensures queries without GROUP BY or with wrong HAVING clauses fail.
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (1, 1990, 'Championship', 'UK');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (2, 1991, 'Championship', 'UK');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (3, 1992, 'Championship', 'UK');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (4, 1993, 'Championship', 'UK');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (5, 1994, 'Championship', 'UK');
+```
+
+```sql
+-- DATASET 5
+-- Tests grouping by the wrong column (e.g., Country or Year instead of Competition_type) or missing GROUP BY altogether (where total table rows < 5).
+-- Total rows in table = 4 (< 5). If GROUP BY is omitted, a single row is returned instead of 3 distinct types.
+-- Also, 'Domestic' shares the same Country ('France') across 2 rows, while 'International' has 2 different countries.
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (1, 2000, 'Domestic', 'France');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (2, 2000, 'Domestic', 'France');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (3, 2000, 'International', 'France');
+INSERT INTO "competition" ("Competition_ID", "Year", "Competition_type", "Country") VALUES (4, 2000, 'Regional', 'France');
+```

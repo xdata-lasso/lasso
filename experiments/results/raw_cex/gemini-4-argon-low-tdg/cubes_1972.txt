@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by total_amount_purchased DESC, LIMIT 3, and column confusion (total_value_purchased vs total_amount_purchased, product_price vs total_amount_purchased, supplier_id vs product_id).
+-- Also includes unreferenced Products and Suppliers to catch incorrect JOINs or querying the wrong table.
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (1, 'TYPE_A', 'Prod 1', 9999.00);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (2, 'TYPE_B', 'Prod 2', 100.00);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (3, 'TYPE_C', 'Prod 3', 200.00);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (4, 'TYPE_D', 'Prod 4', 300.00);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (5, 'TYPE_E', 'Prod 5', 400.00);
+
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (10, 'Sup 10', '111-1111');
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (20, 'Sup 20', '222-2222');
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (30, 'Sup 30', '333-3333');
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (40, 'Sup 40', '444-4444');
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (50, 'Sup 50', '555-5555');
+
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (2, 40, '2020-01-01', '2021-01-01', '900', 10.00);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (3, 30, '2020-02-01', '2021-02-01', '800', 20.00);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (4, 20, '2020-03-01', '2021-03-01', '700', 30.00);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (5, 10, '2020-04-01', '2021-04-01', '600', 9999.00);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate product_id in the top 3 results (catches SELECT DISTINCT, GROUP BY product_id, SUM/MAX aggregations) and lexicographical TEXT sorting ('90' > '85' > '500' > '1000' in TEXT, vs 1000 > 500 > 90 > 85 if cast to numeric).
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (10, 'T1', 'P10', 50.0);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (20, 'T2', 'P20', 60.0);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (30, 'T3', 'P30', 70.0);
+
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (1, 'S1', '123');
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (2, 'S2', '456');
+
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (10, 1, '2021-01-01', '2021-06-01', '90', 500.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (10, 2, '2021-02-01', '2021-07-01', '85', 400.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (20, 1, '2021-03-01', '2021-08-01', '500', 300.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (30, 1, '2021-04-01', '2021-09-01', '1000', 1000.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on total_amount_purchased using secondary sort key (product_id ASC NULLS LAST) and tertiary sort key (supplier_id ASC NULLS LAST), as well as handling NULL in total_amount_purchased.
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (1, 'T1', 'P1', 10.0);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (2, 'T1', 'P2', 20.0);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (3, 'T1', 'P3', 30.0);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (4, 'T1', 'P4', 40.0);
+
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (10, 'S10', '000');
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (20, 'S20', '000');
+
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (3, 10, '2022-01-01', '2022-02-01', '500', 100.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (1, 20, '2022-01-01', '2022-02-01', '500', 900.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (2, 10, '2022-01-01', '2022-02-01', '500', 500.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (2, 20, '2022-01-01', '2022-02-01', '500', 200.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (4, 10, '2022-01-01', '2022-02-01', NULL, 9999.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests correlation / JOIN confusion with Order_Items (e.g. mutants that count order items or filter by products in Order_Items) and datasets with fewer than 3 rows (2 rows in Product_Suppliers).
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (101, 'A', 'Prod 101', 15.0);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (102, 'B', 'Prod 102', 25.0);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (103, 'C', 'Prod 103', 35.0);
+
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (1, 'Supplier 1', '111');
+
+INSERT INTO Customers (customer_id, payment_method_code, customer_code, customer_name, customer_address, customer_phone, customer_email) VALUES (1, 'CARD', 'C1', 'Cust 1', 'Addr 1', '999', 'c1@test.com');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status_code, order_date) VALUES (1, 1, 'PAID', '2022-05-01');
+
+INSERT INTO Order_Items (order_item_id, product_id, order_id) VALUES (1, 103, 1);
+INSERT INTO Order_Items (order_item_id, product_id, order_id) VALUES (2, 103, 1);
+INSERT INTO Order_Items (order_item_id, product_id, order_id) VALUES (3, 103, 1);
+INSERT INTO Order_Items (order_item_id, product_id, order_id) VALUES (4, 102, 1);
+
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (101, 1, '2020-01-01', '2020-12-31', '999', 50.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (102, 1, '2020-01-01', '2020-12-31', '111', 500.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary conditions where 3rd and 4th rows have identical total_amount_purchased and different product_id, and where sum of amounts per product differs from single row max.
+-- Product 7 has two rows ('300' and '300', sum 600), Product 8 has '500', Product 9 has '400', Product 6 has '300'.
+-- Top 3 by row: Product 8 ('500'), Product 9 ('400'), Product 6 ('300', since product_id 6 < 7).
+-- If grouped by product_id with SUM: Product 7 (600), Product 8 (500), Product 9 (400).
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (6, 'X', 'P6', 10.0);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (7, 'X', 'P7', 10.0);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (8, 'X', 'P8', 10.0);
+INSERT INTO Products (product_id, product_type_code, product_name, product_price) VALUES (9, 'X', 'P9', 10.0);
+
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (1, 'S1', '111');
+INSERT INTO Suppliers (supplier_id, supplier_name, supplier_phone) VALUES (2, 'S2', '222');
+
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (8, 1, '2021-01-01', '2021-02-01', '500', 500.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (9, 1, '2021-01-01', '2021-02-01', '400', 400.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (7, 1, '2021-01-01', '2021-02-01', '300', 300.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (7, 2, '2021-01-01', '2021-02-01', '300', 300.0);
+INSERT INTO Product_Suppliers (product_id, supplier_id, date_supplied_from, date_supplied_to, total_amount_purchased, total_value_purchased) VALUES (6, 2, '2021-01-01', '2021-02-01', '300', 300.0);
+```

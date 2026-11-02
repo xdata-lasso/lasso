@@ -1,0 +1,47 @@
+-- Schema DDL
+CREATE TABLE "ROOMS" (
+    "ROOMID" TEXT,
+    "ROOMNAME" TEXT,
+    "BEDS" INT,
+    "BEDTYPE" TEXT,
+    "MAXOCCUPANCY" INT,
+    "BASEPRICE" INT,
+    "DECOR" TEXT,
+    PRIMARY KEY ("ROOMID")
+);
+CREATE TABLE "RESERVATIONS" (
+    "CODE" INT,
+    "ROOM" TEXT,
+    "CHECKIN" TEXT,
+    "CHECKOUT" TEXT,
+    "RATE" FLOAT,
+    "LASTNAME" TEXT,
+    "FIRSTNAME" TEXT,
+    "ADULTS" INT,
+    "KIDS" INT,
+    PRIMARY KEY ("CODE"),
+    FOREIGN KEY ("ROOM") REFERENCES "ROOMS"("ROOMID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ROOMS VALUES (2, 0, 0, 0, 0, 0, 0);
+INSERT INTO ROOMS VALUES (3, 0, 0, 0, 0, 0, 0);
+INSERT INTO RESERVATIONS VALUES (-1, 2, 0, 0, 0, 810074058118529537, 6, 0, -1);
+INSERT INTO RESERVATIONS VALUES (0, 2, 0, 0, 0, 810074058118529537, 7, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT KIDS FROM RESERVATIONS WHERE (FIRSTNAME = 'ROY' OR LASTNAME = 'SWEAZY') ORDER BY kids, reservations.code NULLS LAST;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT kids FROM Reservations WHERE FirstName = 'ROY' AND LastName = 'SWEAZY';
+
+/*
+Prediction Result:
+*/

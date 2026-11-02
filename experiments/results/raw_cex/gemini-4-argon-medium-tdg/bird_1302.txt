@@ -1,0 +1,102 @@
+```sql
+-- DATASET 1
+-- Tests OR vs AND, individual column conditions (KCT, RVVT, LAC), operator precedence (parentheses around ORs), and COUNT(ID) vs COUNT(DISTINCT ID) via 1-to-many joins.
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (1, 'F', 'SLE');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (2, 'M', 'APS');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (3, 'F', 'SLE');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (4, 'M', 'APS');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (5, 'F', 'RA');
+
+-- Patient 1: Two Lab records with CPK < 250, one Exam with ONLY KCT = '+'
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (1, '2020-01-01', 100);
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (1, '2020-01-02', 249);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (1, '2020-01-01', '+', '-', '-');
+
+-- Patient 2: One Lab with CPK < 250, one Exam with ONLY RVVT = '+'
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (2, '2020-01-01', 150);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (2, '2020-01-01', '-', '+', NULL);
+
+-- Patient 3: One Lab with CPK < 250, one Exam with ONLY LAC = '+'
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (3, '2020-01-01', 200);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (3, '2020-01-01', NULL, '-', '+');
+
+-- Patient 4: CPK >= 250, but RVVT = '+' and LAC = '+' (Kills missing parentheses around ORs: A AND B OR C OR D)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (4, '2020-01-01', 300);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (4, '2020-01-01', '-', '+', '+');
+
+-- Patient 5: All three '+', and CPK < 250
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (5, '2020-01-01', 120);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (5, '2020-01-01', '+', '+', '+');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary values for CPK (249, 250, 251, NULL) and negative/NULL cases for KCT, RVVT, LAC.
+INSERT INTO Patient (ID, SEX) VALUES (10, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (20, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (30, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (40, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (50, 'F');
+
+-- Patient 10: Boundary CPK = 250 (Should NOT match < 250, kills <= 250 or = 250)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (10, '2021-01-01', 250);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (10, '2021-01-01', '+', '+', '+');
+
+-- Patient 20: Boundary CPK = 249 (Should match < 250)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (20, '2021-01-01', 249);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (20, '2021-01-01', '+', '-', '-');
+
+-- Patient 30: CPK is NULL (Should NOT match)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (30, '2021-01-01', NULL);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (30, '2021-01-01', '+', '+', '+');
+
+-- Patient 40: CPK < 250, but KCT, RVVT, LAC are '-' or NULL (Should NOT match, kills IS NOT NULL or != '-' mutations)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (40, '2021-01-01', 100);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (40, '2021-01-01', '-', '-', '-');
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (40, '2021-01-02', NULL, NULL, NULL);
+
+-- Patient 50: CPK > 250 (251) (Kills > 250 or != 250)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (50, '2021-01-01', 251);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (50, '2021-01-01', '+', '-', '-');
+```
+
+```sql
+-- DATASET 3
+-- Tests JOIN semantics: INNER JOIN vs LEFT JOIN, missing joins, or joining on Date in addition to ID.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (101, 'F', '1980-05-10');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (102, 'M', '1975-08-20');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (103, 'F', '1990-12-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (104, 'M', '1985-03-15');
+
+-- Patient 101: Has matching Lab, but NO Examination record (Kills missing Examination join or LEFT JOIN)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (101, '2022-05-01', 80);
+
+-- Patient 102: Has matching Examination, but NO Laboratory record (Kills missing Laboratory join or LEFT JOIN)
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (102, '2022-05-01', '+', '+', '+');
+
+-- Patient 103: Has both Lab and Examination, but on DIFFERENT dates (Kills mutant joining on T2.Date = T3."Examination Date")
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (103, '2022-05-01', 90);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (103, '2022-06-15', '-', '+', '-');
+
+-- Patient 104: Has multiple Examinations and multiple Labs, some matching, some not (Tests Cartesian product per ID in join)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (104, '2022-01-01', 110);
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (104, '2022-02-01', 400);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (104, '2022-03-01', '-', '-', '+');
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (104, '2022-04-01', '+', '-', '-');
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (104, '2022-05-01', '-', '-', '-');
+```
+
+```sql
+-- DATASET 4
+-- Tests aggregation mutations (e.g., SUM(T1.ID), AVG(T1.ID), MAX(T1.ID), COUNT(T3.KCT) when KCT is NULL) and empty result sets.
+INSERT INTO Patient (ID, SEX) VALUES (10, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (25, 'M');
+
+-- Patient 10: Matches via LAC = '+', while KCT and RVVT are NULL (Kills COUNT(T3.KCT) or COUNT(T3.RVVT))
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (10, '2023-01-01', 50);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (10, '2023-01-01', NULL, NULL, '+');
+
+-- Patient 25: Matches via KCT = '+', while RVVT and LAC are NULL (Large ID 25 ensures SUM(ID)=35 != COUNT(ID)=2)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (25, '2023-01-01', 60);
+INSERT INTO Examination (ID, "Examination Date", KCT, RVVT, LAC) VALUES (25, '2023-01-01', '+', NULL, NULL);
+```

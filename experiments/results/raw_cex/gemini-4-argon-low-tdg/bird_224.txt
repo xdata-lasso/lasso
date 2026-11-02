@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, column confusion (atom_id vs atom_id2), and DISTINCT vs ALL behavior when multiple rows return the same bond_id.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR000', '+');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_1', 'TR000', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_2', 'TR000', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_3', 'TR000', 'o');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_1_2', 'TR000', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_2_1', 'TR000', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_1_3', 'TR000', '2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_1', 'TR000_2', 'TR000_1_2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_3', 'TR000_2', 'TR000_1_2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_2', 'TR000_1', 'TR000_2_1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_1', 'TR000_3', 'TR000_1_3');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in bond_id (kills unnecessary INNER JOIN to bond table or IS NOT NULL filters) and multiple distinct bond_id results.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR000', '-');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_1', 'TR000', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_2', 'TR000', 'n');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_3', 'TR000', 'o');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('BOND_A', 'TR000', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('BOND_B', 'TR000', '2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_1', 'TR000_2', 'BOND_A');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_3', 'TR000_2', NULL);
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_2', 'TR000_2', 'BOND_B');
+```
+
+```sql
+-- DATASET 3
+-- Tests string comparison edge cases (LIKE, prefix/suffix matches, case sensitivity, inequality operators <, >, !=).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR000', '+');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_1', 'TR000', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_2', 'TR000', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_20', 'TR000', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('tr000_2', 'TR000', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_3', 'TR000', 'c');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_EXACT', 'TR000', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_LOWER', 'TR000', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_PREFIX', 'TR000', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_LESS', 'TR000', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_GREATER', 'TR000', '1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_1', 'TR000_2', 'B_EXACT');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_1', 'tr000_2', 'B_LOWER');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_1', 'TR000_20', 'B_PREFIX');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_2', 'TR000_1', 'B_LESS');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_2', 'TR000_3', 'B_GREATER');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when table is populated, and kills mutants querying the bond table directly or joining on molecule_id = 'TR000'.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR000', NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_1', NULL, NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_2', NULL, NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_3', 'TR000', 'c');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', NULL, NULL);
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B2', 'TR000', '1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_2', 'TR000_1', 'B1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_1', 'TR000_3', 'B2');
+```
+
+```sql
+-- DATASET 5
+-- Tests kills for mutants with hardcoded LIMIT 1 or aggregation functions (MIN/MAX/COUNT) by having 3 distinct matching rows with varied bond_ids, and unreferenced parent rows in atom/bond.
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', NULL, 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', NULL, 'n');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', NULL, 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_2', NULL, 'h');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_10', NULL, '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_20', NULL, '2');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B_30', NULL, '3');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_2', NULL, '1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'TR000_2', 'B_10');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'TR000_2', 'B_20');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A3', 'TR000_2', 'B_30');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'TR000_2');
+```

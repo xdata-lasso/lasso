@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary condition on posts.Score (49, 50, 51) to kill > 50, = 50, <= 50, < 50 mutants.
+-- 2. Fractional division (1 out of 3 = 33.3333%) to kill integer division mutants (which would yield 33 or 0).
+-- 3. Multiple posts per user to kill COUNT(DISTINCT T1.Id) mutants.
+-- 4. LastEditorUserId vs OwnerUserId to kill join column mutants (T1.Id = T2.LastEditorUserId).
+-- 5. Non-max reputation users with high-scoring posts to kill missing max_reputation filter or MIN(Reputation) mutants.
+-- 6. Users with NULL reputation.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 1000, 'MaxRepUser');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 500, 'MidRepUser');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (3, NULL, 'NullRepUser');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Score) VALUES (101, 1, 2, 50);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Score) VALUES (102, 1, 2, 49);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Score) VALUES (103, 1, 2, 10);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Score) VALUES (104, 2, 1, 51);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Score) VALUES (105, 2, 1, 100);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Score) VALUES (106, 3, 1, 60);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Global MAX(Reputation) vs MAX(Reputation) among users who have posts.
+--    Here, User 1 has the highest reputation (2000) but owns NO posts.
+--    User 2 has lower reputation (1000) and owns posts.
+--    The reference query should match 0 rows (returning NULL due to division by 0 or SUM over empty set).
+--    Mutants that compute MAX(Reputation) after joining with posts (or use ORDER BY Reputation DESC LIMIT 1 on the joined table) will falsely return 100.0.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 2000, 'MaxRepNoPosts');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 1000, 'SecondRepWithPosts');
+
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (201, 2, 75);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (202, 2, 80);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Tied maximum reputation across multiple users (User 1 and User 2 both have Reputation = 500).
+--    Kills mutants that use `LIMIT 1` when finding the user with the maximum reputation instead of joining on `Reputation = MAX(Reputation)`.
+-- 2. NULL Score handling in posts (Post 303 has Score = NULL) to ensure ELSE 0 is triggered while still being counted in COUNT(T1.Id) vs COUNT(T2.Score).
+-- 3. Post with NULL OwnerUserId to test INNER JOIN vs RIGHT/FULL OUTER JOIN behavior.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 500, 'TiedMax1');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 500, 'TiedMax2');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (3, 100, 'LowRep');
+
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (301, 1, 60);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (302, 1, 20);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (303, 2, NULL);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (304, 2, 55);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (305, 3, 10);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (306, NULL, 90);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. All posts of the max reputation user have Score < 50 (Numerator = 0, Denominator > 0, Result = 0.0).
+--    Kills mutants that use `WHERE T2.Score >= 50` instead of conditional aggregation (which would result in 100.0 or NULL).
+--    Kills mutants that use `ELSE 1` or `ELSE NULL` in the CASE expression.
+-- 2. Also includes a tied max reputation user who has NO posts at all (User 2), killing `LEFT JOIN posts` mutants (where COUNT(T1.Id) would count the user even without posts, changing the denominator from 2 to 3 if numerator > 0, so we include one post >= 50 on User 3 who shares max rep to make the denominator difference visible).
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 800, 'MaxRepLowScores');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 800, 'MaxRepNoPosts');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (3, 800, 'MaxRepOneHighScore');
+
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (401, 1, 0);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (402, 1, -10);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (403, 1, 49);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (404, 3, 50);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Pure zero numerator case (0.0 result) where the sole max-reputation user only has posts with Score < 50.
+--    Directly kills `WHERE T2.Score >= 50` filter mutants (which would return NULL instead of 0.0) and `COUNT(CASE WHEN T2.Score >= 50 THEN 1 ELSE 0 END)` mutants (since COUNT(0) is 1, returning 100.0 instead of 0.0).
+-- 2. Confounding columns on users and posts (Views, UpVotes, ViewCount, AnswerCount, CommentCount) set to >= 50 to kill mutants referencing the wrong column instead of Score or Reputation.
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, Age) VALUES (1, 900, 10, 10, 10, 25);
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, Age) VALUES (2, 100, 5000, 5000, 5000, 99);
+
+INSERT INTO posts (Id, OwnerUserId, Score, ViewCount, AnswerCount, CommentCount, FavoriteCount) VALUES (501, 1, 49, 100, 60, 70, 80);
+INSERT INTO posts (Id, OwnerUserId, Score, ViewCount, AnswerCount, CommentCount, FavoriteCount) VALUES (502, 1, 0, 200, 50, 50, 50);
+INSERT INTO posts (Id, OwnerUserId, Score, ViewCount, AnswerCount, CommentCount, FavoriteCount) VALUES (503, 2, 100, 5, 0, 0, 0);
+```

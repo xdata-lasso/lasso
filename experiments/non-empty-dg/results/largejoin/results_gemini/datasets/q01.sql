@@ -1,0 +1,5 @@
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a4', 'b1');
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');

@@ -1,0 +1,190 @@
+```sql
+-- DATASET 1
+-- Tests HAVING boundary conditions: counts of 0, 1, 2 (exact boundary), and 3.
+-- Also tests COUNT(dept_name) vs COUNT(DISTINCT dept_name).
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('CS', 100, 50000);
+
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (101, 'Intro CS', 'CS', 4);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (102, 'Algos', 'CS', 4);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (103, 'OS', 'CS', 4);
+
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (101, 1, 2023, 100, 10, 1);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (102, 1, 2023, 100, 11, 2);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (103, 1, 2023, 100, 12, 3);
+
+-- Student 1: Takes 0 courses (Count = 0)
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (1, 'ZeroTakes', 'CS', 0);
+
+-- Student 2: Takes 1 course (Count = 1)
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (2, 'OneTake', 'CS', 4);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (2, 101, 1, 2023, 90);
+
+-- Student 3: Takes 2 courses (Count = 2, exact >= 2 boundary)
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (3, 'TwoTakes', 'CS', 8);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (3, 101, 1, 2023, 85);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (3, 102, 1, 2023, 92);
+
+-- Student 4: Takes 3 courses (Count = 3, strictly > 2)
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (4, 'ThreeTakes', 'CS', 12);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (4, 101, 1, 2023, 80);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (4, 102, 1, 2023, 85);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (4, 103, 1, 2023, 90);
+```
+
+```sql
+-- DATASET 2
+-- Tests NATURAL JOIN constraints across all 5 tables.
+-- Specifically targets mutants that omit a table from the join or use explicit joins missing a shared column condition
+-- (e.g., matching building between department and section, matching dept_name between student and course, matching sec_id/year between takes and section).
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('CS', 100, 50000);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Math', 200, 40000);
+
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (101, 'CS1', 'CS', 4);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (102, 'CS2', 'CS', 4);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (201, 'Math1', 'Math', 4);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (202, 'Math2', 'Math', 4);
+
+-- Valid CS sections (building matches CS department building 100)
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (101, 1, 2023, 100, 1, 1);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (102, 1, 2023, 100, 2, 2);
+
+-- Invalid CS sections (building 200 does NOT match CS department building 100)
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (101, 2, 2023, 200, 1, 1);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (102, 2, 2023, 200, 2, 2);
+
+-- Valid Math sections (building matches Math department building 200)
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (201, 1, 2023, 200, 1, 1);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (202, 1, 2023, 200, 2, 2);
+
+-- Student 10 (CS): Takes 2 courses, but they are Math courses (student.dept_name != course.dept_name). Should NOT be returned.
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (10, 'CrossDeptStudent', 'CS', 8);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (10, 201, 1, 2023, 90);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (10, 202, 1, 2023, 90);
+
+-- Student 20 (CS): Takes 2 CS courses, but in sections located in building 200 (department.building != section.building). Should NOT be returned.
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (20, 'WrongBuildingStudent', 'CS', 8);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (20, 101, 2, 2023, 90);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (20, 102, 2, 2023, 90);
+
+-- Student 30 (CS): Takes 2 CS courses, but the year in 'takes' (2022) doesn't match 'section' (2023). Should NOT be returned.
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (30, 'WrongYearStudent', 'CS', 8);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (30, 101, 1, 2022, 90);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (30, 102, 1, 2022, 90);
+
+-- Student 40 (CS): Matches all natural join conditions for 2 courses. SHOULD be returned.
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (40, 'ValidStudent', 'CS', 8);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (40, 101, 1, 2023, 90);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (40, 102, 1, 2023, 90);
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY clause variations and same course taken multiple times.
+-- Checks:
+-- 1. Student taking the SAME course in two different years/sections (COUNT(dept_name) = 2, COUNT(DISTINCT course_id) = 1).
+-- 2. Two students in the same department each taking 1 course (kills mutants grouping only by dept_name instead of student.ID).
+-- 3. One student ID associated with two different departments, 1 course in each (kills mutants grouping only by student.ID without student.dept_name).
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Physics', 300, 60000);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Bio', 400, 50000);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Chem', 500, 50000);
+
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (301, 'Mech', 'Physics', 4);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (401, 'Genetics', 'Bio', 4);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (501, 'OrgChem', 'Chem', 4);
+
+-- Two sections of the SAME Physics course in different years
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (301, 1, 2022, 300, 10, 1);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (301, 1, 2023, 300, 10, 1);
+
+-- Sections for Bio and Chem
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (401, 1, 2023, 400, 20, 2);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (501, 1, 2023, 500, 30, 3);
+
+-- Student 100: Retakes the same Physics course 301 in 2022 and 2023. (Should be returned).
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (100, 'Retaker', 'Physics', 8);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (100, 301, 1, 2022, 60);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (100, 301, 1, 2023, 95);
+
+-- Students 201 and 202: Both in Bio, each takes 1 Bio course. Total for Bio = 2, but per student = 1. (Neither should be returned).
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (201, 'BioOne', 'Bio', 4);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (202, 'BioTwo', 'Bio', 4);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (201, 401, 1, 2023, 88);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (202, 401, 1, 2023, 92);
+
+-- Student ID 300: Dual-record student in Bio and Chem, taking 1 course in Bio and 1 course in Chem.
+-- Grouped by (ID, dept_name), each group has count = 1. Grouped only by ID, count = 2. (Should NOT be returned).
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (300, 'DualMajor', 'Bio', 4);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (300, 'DualMajor', 'Chem', 4);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (300, 401, 1, 2023, 85);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (300, 501, 1, 2023, 85);
+```
+
+```sql
+-- DATASET 4
+-- Tests accidental joins with irrelevant tables (INSTRUCTOR, TEACHES) and NULL handling in non-join columns.
+-- If a mutant includes TEACHES or INSTRUCTOR, or filters out NULLs on grade/title/credits/tot_cred, it will fail.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Art', 600, NULL);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('Music', 700, 30000);
+
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (601, NULL, 'Art', NULL);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (602, 'Painting', 'Art', 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (701, 'Theory', 'Music', 3);
+
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (601, 1, 2023, 600, NULL, NULL);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (602, 1, 2023, 600, 10, 1);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (701, 1, 2023, 700, 20, 2);
+
+-- Student 500: Has NULL name, NULL tot_cred, and NULL grades, but valid 2 Art courses. (Should be returned).
+-- Note: Art department has NO instructors and NO teaches entries.
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (500, NULL, 'Art', NULL);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (500, 601, 1, 2023, NULL);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (500, 602, 1, 2023, NULL);
+
+-- Student 600: Takes only 1 Music course, but that section is taught by 2 instructors in TEACHES.
+-- If a mutant joins TEACHES, this student's row is duplicated to 2 and falsely passes HAVING COUNT >= 2. (Should NOT be returned).
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (600, 'MusicStudent', 'Music', 3);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (600, 701, 1, 2023, 95);
+
+INSERT INTO "instructor" ("ID", "name", "salary", "dept_name") VALUES (901, 'Prof A', 70000, 'Music');
+INSERT INTO "instructor" ("ID", "name", "salary", "dept_name") VALUES (902, 'Prof B', 75000, 'Music');
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "instructor") VALUES (901, 701, 1, 2023, 901);
+INSERT INTO "teaches" ("ID", "course_id", "sec_id", "year", "instructor") VALUES (902, 701, 1, 2023, 902);
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL values in NATURAL JOIN columns and COUNT(dept_name).
+-- In SQLite, NULL != NULL in a NATURAL JOIN. Also COUNT(dept_name) ignores NULLs whereas COUNT(*) counts them.
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES (NULL, 800, 10000);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('History', NULL, 20000);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('English', 900, 25000);
+
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (801, 'NullDept1', NULL, 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (802, 'NullDept2', NULL, 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (851, 'Hist1', 'History', 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (852, 'Hist2', 'History', 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (901, 'Eng1', 'English', 3);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES (902, 'Eng2', 'English', 3);
+
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (801, 1, 2023, 800, 1, 1);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (802, 1, 2023, 800, 2, 2);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (851, 1, 2023, NULL, 1, 1);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (852, 1, 2023, NULL, 2, 2);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (901, 1, 2023, 900, 1, 1);
+INSERT INTO "section" ("course_id", "sec_id", "year", "building", "room_number", "time_slot_id") VALUES (902, 1, 2023, 900, 2, 2);
+
+-- Student 701: NULL dept_name. Takes 2 courses with NULL dept_name. (Should NOT join in standard SQL / SQLite).
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (701, 'NullDeptStudent', NULL, 6);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (701, 801, 1, 2023, 80);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (701, 802, 1, 2023, 85);
+
+-- Student 702: 'History' dept, which has NULL building in both department and section. (Should NOT join on building).
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (702, 'NullBldgStudent', 'History', 6);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (702, 851, 1, 2023, 80);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (702, 852, 1, 2023, 85);
+
+-- Student 703: Valid 'English' dept with non-null join keys. (SHOULD be returned).
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES (703, 'ValidEngStudent', 'English', 6);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (703, 901, 1, 2023, 90);
+INSERT INTO "takes" ("ID", "course_id", "sec_id", "year", "grade") VALUES (703, 902, 1, 2023, 95);
+```

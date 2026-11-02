@@ -1,0 +1,116 @@
+```sql
+-- DATASET 1
+-- Target: Partial composite key matches on (course_id, sec_id, semester, year), 
+-- multiple valid sections per student (testing DISTINCT), and a student taking BOTH a 10101 section and a non-10101 section (testing "takes a section not taught by 10101" vs "never took a section taught by 10101").
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'Taylor', 100000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('C1', 'Intro CS', 'CS', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('C2', 'Algorithms', 'CS', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'CS', 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20202', 'Wu', 'CS', 70000);
+
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('C1', '1', 'Fall', 2020);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('C2', '1', 'Fall', 2020);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('C1', '2', 'Fall', 2020);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('C1', '1', 'Spring', 2020);
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('C1', '1', 'Fall', 2021);
+
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'C1', '1', 'Fall', 2020);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('20202', 'C2', '1', 'Fall', 2020);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('20202', 'C1', '2', 'Fall', 2020);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('20202', 'C1', '1', 'Spring', 2020);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('20202', 'C1', '1', 'Fall', 2021);
+
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S1', 'Alice', 'CS', 30);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S2', 'Bob', 'CS', 30);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S3', 'Charlie', 'CS', 30);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S4', 'David', 'CS', 30);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S5', 'Eve', 'CS', 30);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S6', 'Frank', 'CS', 30);
+
+-- S1 takes only 10101's exact section (should not be counted)
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S1', 'C1', '1', 'Fall', 2020, 'A');
+-- S2 takes different course_id, same sec_id, semester, year
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S2', 'C2', '1', 'Fall', 2020, 'B');
+-- S3 takes different sec_id, same course_id, semester, year
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S3', 'C1', '2', 'Fall', 2020, 'A');
+-- S4 takes different semester, same course_id, sec_id, year
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S4', 'C1', '1', 'Spring', 2020, 'C');
+-- S5 takes different year, same course_id, sec_id, semester, plus another valid section (tests DISTINCT)
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S5', 'C1', '1', 'Fall', 2021, 'A');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S5', 'C2', '1', 'Fall', 2020, 'B');
+-- S6 takes BOTH 10101's section and another section (should be counted)
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S6', 'C1', '1', 'Fall', 2020, 'A');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S6', 'C2', '1', 'Fall', 2020, 'A');
+```
+
+```sql
+-- DATASET 2
+-- Target: Co-taught sections (taught by BOTH '10101' and another instructor) and sections with NO instructor in `teaches`.
+-- Kills mutants using `JOIN teaches WHERE teaches.ID <> '10101'`, which falsely include co-taught sections and drop sections without instructors.
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'Taylor', 100000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('C1', 'Intro CS', 'CS', 4);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('C2', 'DB', 'CS', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'CS', 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20202', 'Wu', 'CS', 70000);
+
+-- Section 1: Co-taught by 10101 and 20202
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('C1', '1', 'Fall', 2020);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'C1', '1', 'Fall', 2020);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('20202', 'C1', '1', 'Fall', 2020);
+
+-- Section 2: Taught by NOBODY (no entry in teaches)
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('C2', '1', 'Spring', 2021);
+
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S1', 'Alice', 'CS', 30);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S2', 'Bob', 'CS', 30);
+-- Student S3 takes no courses at all (tests `FROM student` vs `FROM takes`)
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S3', 'Charlie', 'CS', 0);
+
+-- S1 takes the co-taught section (must NOT be counted)
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S1', 'C1', '1', 'Fall', 2020, 'A');
+-- S2 takes the section with no instructor (MUST be counted)
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S2', 'C2', '1', 'Spring', 2021, 'B');
+```
+
+```sql
+-- DATASET 3
+-- Target: Student ID colliding with Instructor ID '10101', and Instructor '10101' teaching 0 sections.
+-- Kills mutants that filter `takes.ID <> '10101'` or fail when the subquery returns an empty set.
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'Taylor', 100000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('C1', 'Intro CS', 'CS', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'CS', 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('30303', 'Gold', 'CS', 80000);
+
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('C1', '1', 'Fall', 2020);
+-- 10101 teaches nothing; 30303 teaches C1
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('30303', 'C1', '1', 'Fall', 2020);
+
+-- Student with ID '10101'
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('10101', 'StudentOne', 'CS', 12);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S2', 'StudentTwo', 'CS', 16);
+
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('10101', 'C1', '1', 'Fall', 2020, 'A');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S2', 'C1', '1', 'Fall', 2020, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Target: Boundary condition where ALL `takes` rows are taught by '10101' (Expected output: 0).
+-- Also includes advisor relationship to '10101' to kill mutants using `advisor` instead of `teaches`.
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'Taylor', 100000);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('C1', 'Intro CS', 'CS', 4);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('10101', 'Srinivasan', 'CS', 65000);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('20202', 'Wu', 'CS', 70000);
+
+INSERT INTO section (course_id, sec_id, semester, year) VALUES ('C1', '1', 'Fall', 2020);
+INSERT INTO teaches (ID, course_id, sec_id, semester, year) VALUES ('10101', 'C1', '1', 'Fall', 2020);
+
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S1', 'Alice', 'CS', 30);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S2', 'Bob', 'CS', 30);
+
+INSERT INTO advisor (s_ID, i_ID) VALUES ('S1', '20202');
+INSERT INTO advisor (s_ID, i_ID) VALUES ('S2', '10101');
+
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S1', 'C1', '1', 'Fall', 2020, 'A');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S2', 'C1', '1', 'Fall', 2020, 'B');
+```

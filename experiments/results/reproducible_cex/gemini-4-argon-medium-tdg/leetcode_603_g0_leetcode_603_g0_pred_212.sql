@@ -1,0 +1,38 @@
+-- Schema DDL
+CREATE TABLE "cinema" ("seat_id" INTEGER PRIMARY KEY, "free" INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 4
+-- Tests NULL values and non-binary integers in the 'free' column.
+-- Specifically kills mutants using `free != 0`, `free > 0`, or `IS NOT NULL` instead of `free = 1`.
+INSERT INTO cinema (seat_id, free) VALUES (1, 1);
+INSERT INTO cinema (seat_id, free) VALUES (2, NULL);
+INSERT INTO cinema (seat_id, free) VALUES (3, 1);
+INSERT INTO cinema (seat_id, free) VALUES (4, 2);
+INSERT INTO cinema (seat_id, free) VALUES (5, 1);
+INSERT INTO cinema (seat_id, free) VALUES (6, -1);
+INSERT INTO cinema (seat_id, free) VALUES (7, 1);
+INSERT INTO cinema (seat_id, free) VALUES (8, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT O1.SEAT_ID FROM CINEMA AS O1 WHERE O1.FREE = 1 AND ((SELECT FREE FROM CINEMA AS O2 WHERE O2.SEAT_ID = O1.SEAT_ID - 1) = 1 OR (SELECT FREE FROM CINEMA AS O2 WHERE O2.SEAT_ID = O1.SEAT_ID + 1) = 1);
+
+/*
+Gold Result:
+(7,)
+(8,)
+*/
+
+-- Prediction Query
+SELECT DISTINCT A.SEAT_ID FROM CINEMA AS A LEFT JOIN CINEMA AS B ON A.SEAT_ID - B.SEAT_ID = 1 LEFT JOIN CINEMA AS C ON C.SEAT_ID - A.SEAT_ID = 1 WHERE A.FREE = TRUE AND (B.FREE IS TRUE OR C.FREE IS TRUE) ORDER BY A.SEAT_ID ASC;
+
+/*
+Prediction Result:
+(3,)
+(5,)
+(7,)
+(8,)
+*/

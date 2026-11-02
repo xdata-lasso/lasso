@@ -1,0 +1,78 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions (< vs <=, > vs >=, date-only upper bound '2023-12-31' vs full timestamp) and column confusion (patient_id vs appointment_id vs doctor_id).
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (101, 'Alice', 'Smith', '1980-01-01', 'F');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (102, 'Bob', 'Jones', '1985-02-02', 'M');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (103, 'Charlie', 'Brown', '1990-03-03', 'M');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (104, 'Diana', 'Prince', '1995-04-04', 'F');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (105, 'Evan', 'Wright', '2000-05-05', 'M');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (106, 'Fiona', 'Gallagher', '1998-06-06', 'F');
+
+INSERT INTO Doctors (doctor_id, first_name, last_name, specialty, years_experience) VALUES (201, 'Gregory', 'House', 'Diagnostician', 20);
+INSERT INTO Doctors (doctor_id, first_name, last_name, specialty, years_experience) VALUES (202, 'Meredith', 'Grey', 'General Surgery', 10);
+
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (1, 101, 201, '2022-12-31 23:59:59', 'Completed');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (2, 102, 201, '2023-01-01 00:00:00', 'Completed');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (3, 103, 202, '2023-06-15 14:30:00', 'Scheduled');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (4, 104, 202, '2023-12-31 00:00:00', 'Cancelled');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (5, 105, 201, '2023-12-31 23:59:59', 'No-Show');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (6, 106, 202, '2024-01-01 00:00:00', 'Scheduled');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate patient_id preservation (kills SELECT DISTINCT or GROUP BY patient_id mutants) and unnecessary INNER JOINs with Prescriptions.
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (10, 'John', 'Doe', '1975-05-15', 'M');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (20, 'Jane', 'Doe', '1978-08-20', 'F');
+
+INSERT INTO Doctors (doctor_id, first_name, last_name, specialty, years_experience) VALUES (30, 'Stephen', 'Strange', 'Neurosurgery', 15);
+
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (100, 10, 30, '2023-03-10 09:00:00', 'Completed');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (200, 10, 30, '2023-07-22 11:15:00', 'Completed');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (300, 10, 30, '2024-02-01 10:00:00', 'Scheduled');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (400, 20, 30, '2023-11-05 16:45:00', 'Cancelled');
+
+INSERT INTO Prescriptions (prescription_id, appointment_id, medication_name, dosage, duration_days) VALUES (1000, 100, 'Ibuprofen', '400mg', 7);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling (NULL patient_id, NULL appointment_date, NULL doctor_id) and unreferenced Patients (kills RIGHT/FULL JOIN or querying from Patients directly without filtering).
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (1, 'Patient', 'One', '2023-05-05', 'M');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (2, 'Patient', 'Two', '1990-01-01', 'F');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (3, 'Patient', 'Three', '2023-08-08', 'F');
+
+INSERT INTO Doctors (doctor_id, first_name, last_name, specialty, years_experience) VALUES (10, 'Doc', 'Holiday', 'Dentistry', 25);
+
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (50, NULL, 10, '2023-04-01 12:00:00', 'Completed');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (51, 1, NULL, '2023-05-01 12:00:00', NULL);
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (52, 2, 10, NULL, 'Completed');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when all appointments are outside the target year (kills mutants with missing WHERE clause or OR instead of AND in range checks).
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (501, 'Old', 'Patient', '1950-10-10', 'M');
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (502, 'Future', 'Patient', '2010-10-10', 'F');
+
+INSERT INTO Doctors (doctor_id, first_name, last_name, specialty, years_experience) VALUES (601, 'Leonard', 'McCoy', 'General', 30);
+
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (901, 501, 601, '2021-06-15 10:00:00', 'Completed');
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (902, 502, 601, '2025-06-15 10:00:00', 'Scheduled');
+
+INSERT INTO Prescriptions (prescription_id, appointment_id, medication_name, dosage, duration_days) VALUES (701, 901, 'Amoxicillin', '500mg', 10);
+INSERT INTO Prescriptions (prescription_id, appointment_id, medication_name, dosage, duration_days) VALUES (702, 902, 'Vitamin D', '1000IU', 30);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple prescriptions per appointment (kills mutants that unnecessarily JOIN Prescriptions without DISTINCT, causing row multiplication).
+INSERT INTO Patients (patient_id, first_name, last_name, date_of_birth, gender) VALUES (77, 'Multi', 'Rx', '1988-08-08', 'M');
+
+INSERT INTO Doctors (doctor_id, first_name, last_name, specialty, years_experience) VALUES (88, 'John', 'Watson', 'Internal Medicine', 12);
+
+INSERT INTO Appointments (appointment_id, patient_id, doctor_id, appointment_date, status) VALUES (99, 77, 88, '2023-09-15 08:30:00', 'Completed');
+
+INSERT INTO Prescriptions (prescription_id, appointment_id, medication_name, dosage, duration_days) VALUES (1, 99, 'MedA', '10mg', 5);
+INSERT INTO Prescriptions (prescription_id, appointment_id, medication_name, dosage, duration_days) VALUES (2, 99, 'MedB', '20mg', 10);
+```

@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. LEFT JOIN vs INNER JOIN (2020-01-03 has 0 removals, would be dropped by INNER JOIN).
+-- 2. Average of daily averages vs Global average (1/3 + 1/1 + 0/2)/3 = 44.44% vs 2/6 = 33.33%.
+-- 3. Precision / Rounding (44.444... -> 44.44) and integer division if CAST AS REAL is omitted.
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (1, 1, '2020-01-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (2, 2, '2020-01-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (3, 3, '2020-01-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (4, 4, '2020-01-02', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (5, 5, '2020-01-03', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (6, 6, '2020-01-03', 'report', 'spam');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (1, '2020-01-10');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (4, '2020-01-10');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. COUNT(DISTINCT R.POST_ID) vs COUNT(R.POST_ID) and COUNT(DISTINCT A.POST_ID) vs COUNT(A.POST_ID).
+-- Multiple users reporting the same post on the same day with unbalanced report counts between removed and non-removed posts.
+-- With DISTINCT: 1 removed / 2 total = 50.0%. Without DISTINCT: 3 removed / 4 total = 75.0%.
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (1, 10, '2020-02-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (2, 10, '2020-02-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (3, 10, '2020-02-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (4, 11, '2020-02-01', 'report', 'spam');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (10, '2020-02-05');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Filtering predicates: ACTION = 'report' AND EXTRA = 'spam' (including NULLs, other actions, other extras, AND vs OR).
+-- 2. Unreported removals (RIGHT/FULL JOIN mutation check) and removals happening on dates different from ACTION_DATE.
+-- 3. Same post reported as spam on two different days.
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (1, 101, '2020-03-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (2, 102, '2020-03-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (3, 103, '2020-03-01', 'report', 'racism');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (4, 104, '2020-03-01', 'view', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (5, 105, '2020-03-01', 'report', NULL);
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (6, 106, '2020-03-01', NULL, 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (7, 101, '2020-03-02', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (8, 107, '2020-03-02', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (9, 108, '2020-03-02', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (10, 109, '2020-03-03', 'like', NULL);
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (101, '2020-03-10');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (103, '2020-03-01');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (104, '2020-03-01');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (105, '2020-03-01');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (106, '2020-03-01');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (109, '2020-03-03');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (999, '2020-03-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Post having both a 'spam' report and a non-spam action on the same day.
+-- 2. Outer query using COUNT(DISTINCT DAILY_AVG) instead of COUNT(*) when multiple days have the exact same daily average (e.g. two days with 50% and one day with 100%).
+-- Correct: (0.5 + 0.5 + 1.0) / 3 = 66.67%. If COUNT(DISTINCT DAILY_AVG): (0.5 + 1.0)/2 = 75.0% or 2.0/2 = 100%.
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (1, 201, '2020-04-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (1, 201, '2020-04-01', 'view', NULL);
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (2, 202, '2020-04-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (3, 203, '2020-04-02', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (4, 204, '2020-04-02', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (5, 205, '2020-04-03', 'report', 'spam');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (201, '2020-04-01');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (203, '2020-04-05');
+INSERT INTO "REMOVALS" ("POST_ID", "REMOVE_DATE") VALUES (205, '2020-04-03');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Zero removals across the entire dataset (Boundary condition: 0.0%).
+-- 2. Distinguishes COALESCE / NULL handling if inner query returns 0 vs NULL.
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (1, 301, '2020-05-01', 'report', 'spam');
+INSERT INTO "ACTIONS" ("USER_ID", "POST_ID", "ACTION_DATE", "ACTION", "EXTRA") VALUES (2, 302, '2020-05-02', 'report', 'spam');
+```

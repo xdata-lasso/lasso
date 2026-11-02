@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN: A 'Tillman Ernser' customer with no contact channels (produces a NULL channel_code).
+-- 2. DISTINCT: Duplicate channel_code ('Email') and duplicate NULLs for 'Tillman Ernser'.
+-- 3. ORDER BY & NULLS LAST: Out-of-order channel_codes ('SMS', 'Email') alongside NULLs.
+-- 4. WHERE filter & Join condition: Another customer ('Jane Doe') with a different channel_code ('Fax') to catch missing WHERE filters or broken join predicates.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Credit Card', 'Tillman Ernser', '2020-01-15 10:00:00', 'Active VIP');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'PayPal', 'Tillman Ernser', '2021-03-20 14:30:00', 'No channels attached');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Cash', 'Jane Doe', '2019-11-05 08:15:00', 'Regular');
+
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, 'SMS', '2020-01-16 00:00:00', '2023-01-16 00:00:00', '555-0101');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, 'Email', '2020-01-16 00:00:00', '2023-01-16 00:00:00', 'tillman1@example.com');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, 'Email', '2021-01-16 00:00:00', '2024-01-16 00:00:00', 'tillman2@example.com');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, NULL, '2022-01-01 00:00:00', '2023-01-01 00:00:00', '555-0000');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (3, 'Fax', '2019-11-06 00:00:00', '2022-11-06 00:00:00', '555-0999');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Pure LEFT JOIN preservation when the right table has no matching rows at all for the target customer.
+-- 2. Case sensitivity and exact string matching on 'Tillman Ernser' (e.g., 'tillman ernser', 'Tillman Ernser Jr.').
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (10, 'Debit Card', 'Tillman Ernser', '2022-05-10 09:00:00', 'Target with no channels');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (11, 'Debit Card', 'tillman ernser', '2022-05-11 09:00:00', 'Lowercase name');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (12, 'Credit Card', 'Tillman Ernser Jr.', '2022-05-12 09:00:00', 'Substring name');
+
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (11, 'Phone', '2022-05-11 10:00:00', '2025-05-11 10:00:00', '555-1111');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (12, 'Mail', '2022-05-12 10:00:00', '2025-05-12 10:00:00', '555-2222');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Mutants that mistakenly join or filter via Customer_Orders or Customer_Addresses instead of Customer_Contact_Channels.
+-- 2. Multiple 'Tillman Ernser' customers having different channel codes ('Web', 'App', 'Phone') to test ordering without NULLs and aggregation/LIMIT 1 mutants.
+-- 3. Wrong column projection mutants (e.g., projecting contact_number or payment_method instead of channel_code).
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (100, '123 Main St', 'Metropolis', '10001', 'NY', 'USA', 'Apt 4B');
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (20, 'Wire', 'Tillman Ernser', '2018-07-01 12:00:00', 'Has orders and addresses');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (21, 'Check', 'Tillman Ernser', '2019-08-15 15:45:00', 'Has channels only, no orders/addresses');
+
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (20, 100, '2018-07-01 12:00:00', 'Billing', '2025-07-01 12:00:00');
+
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status", "order_date", "order_details") VALUES (500, 20, 'Completed', '2020-02-20 11:11:11', 'First Order');
+
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (20, 'Web', '2018-07-02 00:00:00', '2024-07-02 00:00:00', 'http://example.com');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (21, 'App', '2019-08-16 00:00:00', '2024-08-16 00:00:00', 'user_21');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (21, 'Phone', '2019-08-16 00:00:00', '2020-08-16 00:00:00', '555-3333');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty result set behavior when 'Tillman Ernser' does not exist in the database, while other customers and contact channels with 'Tillman Ernser' in other columns do exist (catches mutants filtering on the wrong column).
+-- 2. Orphaned contact channels (NULL customer_id) to catch RIGHT JOIN / FULL JOIN or IS NULL join mutations.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (30, 'Tillman Ernser', 'John Smith', '2021-01-01 00:00:00', 'Tillman Ernser');
+
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (30, 'Tillman Ernser', '2021-01-01 00:00:00', '2022-01-01 00:00:00', 'Tillman Ernser');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (NULL, 'Pager', '2021-01-01 00:00:00', '2022-01-01 00:00:00', '555-9999');
+```

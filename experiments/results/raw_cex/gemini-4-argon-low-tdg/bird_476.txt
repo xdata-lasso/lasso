@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, join condition, and descending order on convertedManaCost.
+-- Catches mutants that:
+-- 1. Omit the WHERE clause or use != 'Coldsnap' (Card_WrongSet has a higher convertedManaCost).
+-- 2. Join on T1.id = T2.id instead of T2.code = T1.setCode (Card_WrongJoin has id=1 matching Coldsnap's id=1 and highest CMC, but wrong setCode).
+-- 3. Sort convertedManaCost ASC instead of DESC (Card_Coldsnap_Low has lower CMC than Card_Coldsnap_High).
+-- 4. Omit LIMIT 1 (multiple Coldsnap cards exist).
+-- 5. Select T2.name instead of T1.name.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'ICE', 'Ice Age');
+
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, faceConvertedManaCost, uuid) VALUES (1, 'Card_WrongJoin', 'ICE', 100.0, 1.0, 'uuid-1');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, faceConvertedManaCost, uuid) VALUES (2, 'Card_WrongSet', 'ICE', 50.0, 2.0, 'uuid-2');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, faceConvertedManaCost, uuid) VALUES (3, 'Card_Coldsnap_Low', 'CSP', 2.0, 99.0, 'uuid-3');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, faceConvertedManaCost, uuid) VALUES (4, 'Card_Coldsnap_High', 'CSP', 15.0, 5.0, 'uuid-4');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T1.id (ASC) when T1.convertedManaCost is identical.
+-- Catches mutants that:
+-- 1. Sort T1.id DESC instead of ASC.
+-- 2. Tie-break on T1.name instead of T1.id (Card with lower id has alphabetically larger name 'Z_Card' vs 'A_Card').
+INSERT INTO "sets" (id, code, name) VALUES (10, 'CSP', 'Coldsnap');
+
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (5, 'Z_Card_Lower_ID', 'CSP', 10.0, 'uuid-201');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (6, 'A_Card_Higher_ID', 'CSP', 10.0, 'uuid-202');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in ORDER BY T1.convertedManaCost DESC.
+-- In SQLite, NULLs are considered the smallest possible values, so in DESC order, non-NULL values come first and NULLs come last.
+-- Catches mutants that:
+-- 1. Use NULLS FIRST on convertedManaCost DESC.
+-- 2. Use COALESCE(convertedManaCost, 999) or confuse NULL ordering.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (1, 'Card_Null_CMC', 'CSP', NULL, 'uuid-301');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (2, 'Card_Zero_CMC', 'CSP', 0.0, 'uuid-302');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (3, 'Card_Positive_CMC', 'CSP', 5.0, 'uuid-303');
+```
+
+```sql
+-- DATASET 4
+-- Tests exact string matching in WHERE T2.name = 'Coldsnap' vs LIKE / case-insensitivity / substring matching, and INNER JOIN vs LEFT JOIN.
+-- Catches mutants that:
+-- 1. Use T2.name LIKE '%Coldsnap%' (matches 'Coldsnap Theme Decks').
+-- 2. Use case-insensitive comparison (matches 'coldsnap').
+-- 3. Check T2.code = 'Coldsnap' instead of T2.name = 'Coldsnap'.
+-- 4. Use RIGHT JOIN / LEFT JOIN without proper filtering.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'CST', 'Coldsnap Theme Decks');
+INSERT INTO "sets" (id, code, name) VALUES (3, 'Coldsnap', 'Not Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (4, 'CSL', 'coldsnap');
+
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (1, 'Card_Theme_Deck', 'CST', 20.0, 'uuid-401');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (2, 'Card_Code_Coldsnap', 'Coldsnap', 30.0, 'uuid-402');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (3, 'Card_Lower_Case_Set', 'CSL', 40.0, 'uuid-403');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (4, 'Card_True_Coldsnap', 'CSP', 10.0, 'uuid-404');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (5, 'Card_Orphan', NULL, 50.0, 'uuid-405');
+```
+
+```sql
+-- DATASET 5
+-- Tests floating-point precision in convertedManaCost and multiple sets named 'Coldsnap' (if sets.name is not unique).
+-- Catches mutants that:
+-- 1. Cast convertedManaCost to INTEGER before sorting (10.5 vs 10.1 would tie if cast to INT, and id=1 with 10.1 would beat id=2 with 10.5).
+-- 2. Fail to handle multiple sets with name = 'Coldsnap'.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP1', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'CSP2', 'Coldsnap');
+
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (1, 'Card_10_point_1', 'CSP2', 10.1, 'uuid-501');
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (2, 'Card_10_point_5', 'CSP1', 10.5, 'uuid-502');
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set when 'Coldsnap' set exists but has no cards, while other sets have cards, and a card named 'Coldsnap' exists in another set.
+-- Catches mutants that:
+-- 1. Filter on T1.name = 'Coldsnap' instead of T2.name = 'Coldsnap'.
+-- 2. Use LEFT JOIN from sets to cards without checking for matching cards (would return a row with NULL name instead of 0 rows).
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'DOM', 'Dominaria');
+
+INSERT INTO "cards" (id, name, setCode, convertedManaCost, uuid) VALUES (1, 'Coldsnap', 'DOM', 5.0, 'uuid-601');
+```

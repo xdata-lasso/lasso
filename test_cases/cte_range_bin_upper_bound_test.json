@@ -1,0 +1,18 @@
+{
+  "id": "cte_range_bin_upper_bound_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE \"Packets\" (\"packet_id\" INTEGER PRIMARY KEY, \"latency_ms\" INTEGER, CHECK (\"latency_ms\" > 0));",
+  "correct_query": "SELECT '[0-10>' AS bucket, COUNT(packet_id) AS cnt FROM Packets WHERE (CAST(latency_ms AS REAL) / 100) >= 0 AND (CAST(latency_ms AS REAL) / 100) < 10 UNION SELECT '10 or more' AS bucket, COUNT(packet_id) AS cnt FROM Packets WHERE (CAST(latency_ms AS REAL) / 100) >= 10",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "cte_artificial_upper_bound",
+      "description": "Replaces unbounded upper bucket with a CTE range LEFT JOIN bounded by a finite sentinel integer (2147483647), excluding valid values at or above the sentinel",
+      "query": "WITH Buckets AS (SELECT '[0-10>' AS bucket, 0 AS low_bound, 10 * 100 AS high_bound UNION SELECT '10 or more' AS bucket, 10 * 100 AS low_bound, 2147483647 AS high_bound), Assigned AS (SELECT * FROM Buckets AS b LEFT JOIN Packets AS p ON p.latency_ms >= b.low_bound AND p.latency_ms < b.high_bound ORDER BY latency_ms, p.packet_id NULLS LAST) SELECT bucket, COUNT(packet_id) AS cnt FROM Assigned GROUP BY bucket"
+    },
+    {
+      "id": "wrong_scaled_comparison_boundary",
+      "description": "Changes < 10 to <= 10 on the scaled division predicate (CAST(latency_ms AS REAL) / 100) < 10",
+      "query": "SELECT '[0-10>' AS bucket, COUNT(packet_id) AS cnt FROM Packets WHERE (CAST(latency_ms AS REAL) / 100) >= 0 AND (CAST(latency_ms AS REAL) / 100) <= 10 UNION SELECT '10 or more' AS bucket, COUNT(packet_id) AS cnt FROM Packets WHERE (CAST(latency_ms AS REAL) / 100) >= 10"
+    }
+  ]
+}

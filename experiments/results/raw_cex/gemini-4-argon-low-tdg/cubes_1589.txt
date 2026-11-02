@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests basic matching row, boundary conditions for document_id (1, 2, 3), unreferenced shipping agents, and shipping agents shared across multiple documents.
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Type 1');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Status 1');
+
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA1', 'Alpha Shipping', 'Desc Alpha');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA2', 'Beta Logistics', 'Desc Beta');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA3', 'Gamma Courier', 'Desc Gamma');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA4', 'Delta Unused', 'Desc Delta');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, 'SA1', 'DS1', 'DT1', '2023-01-01', 'R1', 'Details 1');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, 'SA2', 'DS1', 'DT1', '2023-01-02', 'R2', 'Details 2');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (3, 'SA2', 'DS1', 'DT1', '2023-01-03', 'R3', 'Details 3');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (4, 'SA3', 'DS1', 'DT1', '2023-01-04', 'R4', 'Details 4');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL shipping_agent_code on the target document (document_id = 2) to distinguish INNER JOIN from RIGHT/LEFT OUTER JOINs.
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Type 1');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Status 1');
+
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA1', 'Agent One', 'Desc 1');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, 'SA1', 'DS1', 'DT1', '2023-01-01', 'R1', 'Details 1');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, NULL, 'DS1', 'DT1', '2023-01-02', 'R2', 'Details 2');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL shipping_agent_name for the matching document (document_id = 2) and non-matching documents, catching incorrect IS NOT NULL filters or wrong column projections.
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Type 1');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Status 1');
+
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA_NULL', NULL, 'Valid Description');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA_VALID', 'Valid Name', NULL);
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, 'SA_NULL', 'DS1', 'DT1', '2023-02-02', 'R200', 'Other 200');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (5, 'SA_VALID', 'DS1', 'DT1', '2023-02-05', 'R500', 'Other 500');
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between columns (e.g., filtering on receipt_number = '2' or shipping_agent_code = '2' instead of document_id = 2, or projecting shipping_agent_code/description instead of shipping_agent_name).
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('2', 'Type 2');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('2', 'Status 2');
+
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('2', 'Agent Code Two', 'Description For Code Two');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA_TARGET', 'Target Agent Name', '2');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA_OTHER', '2', 'Other Description');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (10, '2', '2', '2', '2023-01-01', '2', '2');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (20, 'SA_OTHER', '2', '2', '2023-01-02', '2', '2');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, 'SA_TARGET', '2', '2', '2023-01-03', '999', '999');
+```
+
+```sql
+-- DATASET 5
+-- Tests absence of document_id = 2 when other documents and agents exist (verifies empty result set handling and refutes mutants with >=, <=, !=, or missing WHERE clause).
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Type 1');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Status 1');
+
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA1', 'Zeta Shipping', 'Desc Zeta');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA2', 'Alpha Shipping', 'Desc Alpha');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (-2, 'SA1', 'DS1', 'DT1', '2023-01-01', 'R_NEG2', 'Negative 2');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (0, 'SA2', 'DS1', 'DT1', '2023-01-02', 'R_ZERO', 'Zero');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, 'SA1', 'DS1', 'DT1', '2023-01-03', 'R_ONE', 'One');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (3, 'SA2', 'DS1', 'DT1', '2023-01-04', 'R_THREE', 'Three');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (22, 'SA1', 'DS1', 'DT1', '2023-01-05', 'R_TWENTYTWO', 'Twenty Two');
+```
+
+```sql
+-- DATASET 6
+-- Tests duplicate shipping_agent_name values across different shipping_agent_code rows, and tests unreferenced child tables (Document_Drafts, Documents_Mailed) to kill mutants that unnecessarily INNER JOIN other tables or apply DISTINCT when multiple rows could be returned.
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Type 1');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Status 1');
+INSERT INTO Addresses (address_id, address_details) VALUES (1, '123 Main St');
+INSERT INTO Addresses (address_id, address_details) VALUES (2, '456 Oak Ave');
+
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA_A', 'Same Agent Name', 'First Agent');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA_B', 'Same Agent Name', 'Second Agent');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, 'SA_A', 'DS1', 'DT1', NULL, NULL, NULL);
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, 'SA_B', 'DS1', 'DT1', NULL, NULL, NULL);
+
+INSERT INTO Documents_Mailed (document_id, mailed_to_address_id, mailing_date) VALUES (1, 1, '2023-05-01');
+INSERT INTO Documents_Mailed (document_id, mailed_to_address_id, mailing_date) VALUES (1, 2, '2023-05-02');
+```

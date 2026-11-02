@@ -1,0 +1,46 @@
+```sql
+-- DATASET 1
+-- Tests exact match vs partial matches, OR vs AND mutations, and NULL handling.
+-- Also tests joins with frpm and satscores (only 1 matching row in schools has no child rows in frpm/satscores).
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('100001', 'Active', 'Fresno', 'Golden Plains', 'San Joaquin', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('100002', 'Closed', 'Fresno', 'Golden Plains', 'San Joaquin', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('100003', 'Active', 'Fresno', 'Golden Plains', 'San Joaquin', 'CA', 'San Joaquin', 'NV', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('100004', 'Active', 'San Joaquin', 'Stockton Unified', 'Stockton', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('100005', 'Active', 'Fresno', 'Golden Plains', NULL, 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('100006', 'Active', 'Fresno', 'Golden Plains', 'San Joaquin', 'CA', 'San Joaquin', NULL, '54', 'Unified', '2020-01-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests column confusion (City vs County vs MailCity vs District, MailState vs State) and COUNT(column) vs COUNT(nullable_column).
+-- The valid row '200001' has State = 'NV' and MailCity = 'Fresno', ensuring queries checking State = 'CA' or MailCity = 'San Joaquin' fail.
+-- The valid row '200002' has School = NULL, ensuring COUNT(School) returns 1 instead of 2.
+-- Also populates frpm and satscores for only 1 of the 2 valid rows to kill unnecessary INNER JOINs.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('200001', 'Active', 'Fresno', 'DistA', 'San Joaquin High', 'San Joaquin', 'NV', 'Fresno', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('200002', 'Active', 'Fresno', 'DistB', NULL, 'San Joaquin', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('200003', 'Active', 'San Joaquin', 'San Joaquin', 'School C', 'Fresno', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('200004', 'Active', 'Fresno', 'DistD', 'School D', 'San Joaquin', 'CA', 'San Joaquin', 'OR', '54', 'Unified', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "District Name") VALUES ('200001', 'Fresno', 'DistA');
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr) VALUES ('200001', 'S', 100, 50);
+```
+
+```sql
+-- DATASET 3
+-- Tests string matching sensitivity (case sensitivity, LIKE '%San Joaquin%', etc.) and zero-count boundary condition.
+-- Expected result for Gold Query is 0.
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('300001', 'Active', 'Fresno', 'Dist1', 'san joaquin', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('300002', 'Active', 'Fresno', 'Dist1', 'San Joaquin', 'CA', 'San Joaquin', 'ca', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('300003', 'active', 'Fresno', 'Dist1', 'San Joaquin', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('300004', 'Active', 'Fresno', 'Dist1', 'San Joaquin Valley', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('300005', 'Active ', 'Fresno', 'Dist1', 'San Joaquin', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests COUNT(DISTINCT ...) mutations on non-unique attributes (like County, District, StatusType, City) when multiple rows match.
+-- Expected result is 3, whereas COUNT(DISTINCT District) or COUNT(DISTINCT County) would return 1.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('400001', 'Active', 'Fresno', 'Golden Plains', 'Elem 1', 'San Joaquin', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('400002', 'Active', 'Fresno', 'Golden Plains', 'Elem 1', 'San Joaquin', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, City, State, MailCity, MailState, DOC, DOCType, LastUpdate) VALUES ('400003', 'Active', 'Fresno', 'Golden Plains', 'Elem 1', 'San Joaquin', 'CA', 'San Joaquin', 'CA', '54', 'Unified', '2020-01-01');
+```

@@ -1,0 +1,18 @@
+{
+  "id": "window_sum_gap_island_compensation_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE \"Booths\" (\"booth_num\" INTEGER PRIMARY KEY, \"is_open\" INTEGER);",
+  "correct_query": "SELECT DISTINCT b1.booth_num FROM Booths AS b1 JOIN Booths AS b2 ON ABS(b1.booth_num - b2.booth_num) = 1 AND b1.is_open = 1 AND b2.is_open = 1 ORDER BY b1.booth_num",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "window_sum_minus_order_gap_island",
+      "description": "Uses SUM(is_open) OVER (ORDER BY booth_num) - booth_num as a gap-and-island grouping key, which collides for non-adjacent booths when an intermediate booth has is_open = 2",
+      "query": "WITH BoothGaps AS (SELECT booth_num, is_open, SUM(is_open) OVER (ORDER BY booth_num) - booth_num AS grp_gap FROM Booths) SELECT booth_num FROM BoothGaps WHERE grp_gap IN (SELECT grp_gap FROM BoothGaps WHERE is_open = 1 GROUP BY grp_gap HAVING COUNT(*) > 1) AND is_open = 1 ORDER BY booth_num"
+    },
+    {
+      "id": "order_minus_window_sum_gap_island",
+      "description": "Uses booth_num - SUM(is_open) OVER (ORDER BY booth_num) as a gap-and-island grouping key, which collides for non-adjacent booths when an intermediate booth has is_open = 2",
+      "query": "WITH BoothGaps AS (SELECT booth_num, is_open, booth_num - SUM(is_open) OVER (ORDER BY booth_num) AS grp_gap FROM Booths) SELECT booth_num FROM BoothGaps WHERE grp_gap IN (SELECT grp_gap FROM BoothGaps WHERE is_open = 1 GROUP BY grp_gap HAVING COUNT(*) > 1) AND is_open = 1 ORDER BY booth_num"
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(T1.bond_id) vs COUNT(DISTINCT T1.bond_id) and COUNT(DISTINCT T1.atom_id).
+-- 2. WHERE T2.element = 'cl' vs missing/inverted WHERE clause or LIKE '%cl%'.
+-- 3. Asymmetric connections: joining on T1.atom_id vs T1.atom_id2.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm1', 'cl_extra');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a3', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a3', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a4', 'a2', 'b2');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. COUNT(T1.bond_id) vs COUNT(*) when T1.bond_id is NULL.
+-- 2. INNER JOIN vs RIGHT JOIN / LEFT JOIN (atoms with element='cl' that have no rows in connected).
+-- 3. Case sensitivity ('CL' vs 'cl') and NULL elements.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'CL');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm1', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', NULL);
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a3', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a1', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a4', 'a1', 'b1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Querying connected + atom vs querying the bond table directly (via molecule_id).
+-- 2. Bonds that exist in the bond table for a molecule containing 'cl', but are not linked to 'cl' in connected.
+-- 3. Atoms with NULL molecule_id.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', NULL, 'cl');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b4', NULL, '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a3', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a4', 'a2', 'b4');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Zero-match boundary condition (returns 0 for COUNT, vs NULL or non-zero for mutants).
+-- 2. 'cl' atom only appearing in atom_id2 (never in atom_id).
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'cl');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b1');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Multiple 'cl' atoms connected to each other and to other atoms with distinct bonds.
+-- 2. Kills mutants that use GROUP BY T2.atom_id or GROUP BY T2.molecule_id instead of a global aggregation.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm2', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm2', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a1', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a4', 'b3');
+```

@@ -1,0 +1,46 @@
+-- Schema DDL
+CREATE TABLE "GYMNAST" (
+    "GYMNAST_ID" INT,
+    "FLOOR_EXERCISE_POINTS" FLOAT,
+    "POMMEL_HORSE_POINTS" FLOAT,
+    "RINGS_POINTS" FLOAT,
+    "VAULT_POINTS" FLOAT,
+    "PARALLEL_BARS_POINTS" FLOAT,
+    "HORIZONTAL_BAR_POINTS" FLOAT,
+    "TOTAL_POINTS" FLOAT,
+    PRIMARY KEY ("GYMNAST_ID"),
+    FOREIGN KEY ("GYMNAST_ID") REFERENCES "PEOPLE"("PEOPLE_ID")
+);
+CREATE TABLE "PEOPLE" (
+    "PEOPLE_ID" INT,
+    "NAME" TEXT,
+    "AGE" FLOAT,
+    "HEIGHT" FLOAT,
+    "HOMETOWN" TEXT,
+    PRIMARY KEY ("PEOPLE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO GYMNAST VALUES (0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO GYMNAST VALUES (-1, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO PEOPLE VALUES (0, 0, 9, 0, 0);
+INSERT INTO PEOPLE VALUES (-1, 0, 8, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT age FROM (SELECT * FROM (SELECT * FROM people ORDER BY name DESC, people.people_id NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+(8.0,)
+*/
+
+-- Prediction Query
+SELECT Age FROM people ORDER BY Height DESC, people.people_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+(8.0,)
+*/

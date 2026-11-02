@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Tests strict inequality boundary (remaining > 30 vs >= 30, < 30, = 30) and NULL handling in the WHERE clause.
+-- Also tests swapped numeric columns (remaining vs spent vs amount).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Event 1', '2023-01-01', 'Type_Exact30', 'Note 1', 'Loc 1', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Event 2', '2023-01-02', 'Type_Above30', 'Note 2', 'Loc 2', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'Event 3', '2023-01-03', 'Type_Below30', 'Note 3', 'Loc 3', 'Planning');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E4', 'Event 4', '2023-01-04', 'Type_NullRem', 'Note 4', 'Loc 4', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 50.0, 30.0, 80, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Venue', 10.0, 30.01, 20, 'Closed', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Music', 40.0, 29.99, 70, 'Open', 'E3');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Misc', 40.0, NULL, 40, 'Open', 'E4');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate retention (SELECT vs SELECT DISTINCT) when a single event has multiple budgets > 30,
+-- and when multiple different events share the same type.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Tech Talk', '2023-02-01', 'Workshop', 'Notes', 'Room 101', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Code Camp', '2023-02-02', 'Workshop', 'Notes', 'Room 102', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 10.0, 50.0, 60, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Drinks', 5.0, 40.0, 45, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Supplies', 20.0, 35.0, 55, 'Open', 'E2');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN, and tests accidental joins on non-key columns 
+-- (e.g. joining on event.status = budget.event_status or event.type = budget.category or event_id = budget_id).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Unmatched Event', '2023-03-01', 'Seminar', 'No budget', 'Hall A', 'Active');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Matched Event', '2023-03-02', 'Social', 'Has budget', 'Hall B', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('B1', 'Trap ID Event', '2023-03-03', 'TrapType', 'ID matches B1', 'Hall C', 'Pending');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Seminar', 10.0, 100.0, 110, 'Active', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Orphan Budget', 0.0, 200.0, 200, 'Closed', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests projection column mutations (e.g. selecting event_name, status, category, or zip_code.type instead of event.type)
+-- and ensures NULL values in event.type are properly returned if matched.
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (10001, 'ZipType_Standard', 'New York', 'New York', 'New York', 'NY');
+
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Name_A', '2023-04-01', 'Correct_Type_1', 'Note_A', 'Loc_A', 'Status_A');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Name_B', '2023-04-02', NULL, 'Note_B', 'Loc_B', 'Status_B');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Category_A', 15.0, 45.0, 60, 'EvtStatus_A', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Category_B', 25.0, 55.0, 80, 'EvtStatus_B', 'E2');
+```
+
+```sql
+-- DATASET 5
+-- Tests mutations that introduce unnecessary INNER JOINs to other tables (attendance, expense, member)
+-- or subqueries that assume related records exist in child tables.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_ALONE', 'Standalone Event', '2023-05-01', 'Isolated_Type', 'No expenses or attendance', 'Online', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E_LINKED', 'Linked Event', '2023-05-02', 'Connected_Type', 'Has expenses and attendance', 'Campus', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_ALONE', 'General', 0.0, 500.0, 500, 'Open', 'E_ALONE');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B_LINKED', 'Catering', 100.0, 10.0, 110, 'Open', 'E_LINKED');
+
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (90210, 'Standard', 'Beverly Hills', 'Los Angeles', 'California', 'CA');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'CS', 'Eng', 'Engineering');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'John', 'Doe', 'j@d.com', 'Member', 'L', '123', 90210, 'M1');
+
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E_LINKED', 'MEM1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Pizza', '2023-05-02', 100.0, 'true', 'MEM1', 'B_LINKED');
+```
+
+```sql
+-- DATASET 6
+-- Tests aggregation mutations (e.g., HAVING SUM(remaining) > 30 vs WHERE remaining > 30)
+-- E1 has two budgets that individually are <= 30, but sum to > 30.
+-- E2 has one budget > 30 and one negative budget, summing to < 30.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Split Budget Event', '2023-06-01', 'SumTrap_Type', 'Two small budgets', 'Room 1', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'Deficit Event', '2023-06-02', 'ValidSingle_Type', 'One large, one negative', 'Room 2', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Part 1', 10.0, 20.0, 30, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Part 2', 10.0, 20.0, 30, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Surplus', 10.0, 40.0, 50, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Deficit', 100.0, -50.0, 50, 'Open', 'E2');
+```

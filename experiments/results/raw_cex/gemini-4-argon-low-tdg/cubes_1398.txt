@@ -1,0 +1,118 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Grouping by BOTH grant_id AND other_details (Grant 1 has 4 total documents, but split into counts 2, 1, 1; Grant 2 has 3 total documents, all with the same other_details, so count is 3).
+--    Kills mutants that only GROUP BY grant_id (would return Grant 1 with count 4).
+-- 2. Grouping by grant_id (Details 'D1' appears 2 times in Grant 1 and 2 times in Grant 3, total 4 times).
+--    Kills mutants that only GROUP BY other_details (would return count 4).
+-- 3. ORDER BY n DESC vs ASC, and LIMIT 1.
+-- 4. Unreferenced Grants (Grant 4 has 0 documents) to kill LEFT JOIN mutants from Grants.
+-- 5. Conflicting Grants.other_details vs Documents.other_details to kill mutants joining Grants and grouping by Grants.other_details.
+-- 6. NULL values in non-grouped columns (document_type_code, sent_date, response_received_date) on the winning group to kill COUNT(col) mutants.
+
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('T1', 'Type 1');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'T1', 'Org 1');
+
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (1, 1, 1000.0, '2020-01-01', '2020-12-31', 'G_Same');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (2, 1, 2000.0, '2020-01-01', '2020-12-31', 'G_Diff_2');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (3, 1, 3000.0, '2020-01-01', '2020-12-31', 'G_Same');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (4, 1, 4000.0, '2020-01-01', '2020-12-31', 'G_Zero');
+
+INSERT INTO Document_Types (document_type_code, document_description) VALUES ('DT1', 'Doc Type 1');
+INSERT INTO Document_Types (document_type_code, document_description) VALUES ('DT2', 'Doc Type 2');
+
+-- Grant 1: 4 documents total, max group (1, 'D1') has 2
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (1, 1, 'DT1', '2020-02-01', '2020-02-05', 'D1');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (2, 1, 'DT1', '2020-02-02', '2020-02-06', 'D1');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (3, 1, 'DT1', '2020-02-03', '2020-02-07', 'D2');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (4, 1, 'DT1', '2020-02-04', '2020-02-08', 'D3');
+
+-- Grant 2: 3 documents total, all in group (2, 'D4') -> Winner with count = 3
+-- Includes NULLs in other columns to test COUNT(*) vs COUNT(column)
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (5, 2, NULL, NULL, NULL, 'D4');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (6, 2, 'DT1', NULL, NULL, 'D4');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (7, 2, 'DT2', '2020-03-01', NULL, 'D4');
+
+-- Grant 3: 2 documents in group (3, 'D1'), making 'D1' have 4 documents across Grants 1 and 3
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (8, 3, 'DT1', '2020-04-01', '2020-04-05', 'D1');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (9, 3, 'DT2', '2020-04-02', '2020-04-06', 'D1');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL handling in GROUP BY and COUNT: The winning group has other_details = NULL (count = 3).
+-- 2. Kills mutants that use COUNT(other_details) instead of COUNT(*) (which would yield 0 for the NULL group).
+-- 3. Kills mutants that filter out NULL other_details (e.g., WHERE other_details IS NOT NULL).
+-- 4. Tests grouping by document_type_code vs other_details (document_type_code 'DT1' has 4 rows across different grants/details).
+
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('T1', 'Type 1');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'T1', 'Org 1');
+
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (10, 1, 500.0, '2021-01-01', '2021-12-31', 'G10');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (20, 1, 600.0, '2021-01-01', '2021-12-31', 'G20');
+
+INSERT INTO Document_Types (document_type_code, document_description) VALUES ('DT1', 'Doc Type 1');
+INSERT INTO Document_Types (document_type_code, document_description) VALUES ('DT2', 'Doc Type 2');
+
+-- Grant 10 with other_details IS NULL: 3 documents -> Winner (grant_id = 10, count___ = 3)
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (1, 10, 'DT1', '2021-01-01', '2021-01-02', NULL);
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (2, 10, 'DT1', '2021-01-03', '2021-01-04', NULL);
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (3, 10, 'DT2', '2021-01-05', '2021-01-06', NULL);
+
+-- Grant 20 with non-NULL other_details: 2 documents
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (4, 20, 'DT1', '2021-02-01', '2021-02-02', 'NonNull');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (5, 20, 'DT1', '2021-02-03', '2021-02-04', 'NonNull');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Ordering by n DESC vs grant_id DESC: The winning group has the smallest grant_id (grant_id = 1, count = 3), while a losing group has a larger grant_id (grant_id = 100, count = 2).
+--    Kills mutants that ORDER BY grant_id DESC instead of n DESC.
+-- 2. Also tests NULL grant_id in losing group (grant_id = NULL, count = 1) to ensure COUNT(grant_id) or NULL grant_id edge cases don't break when not winning.
+
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('T1', 'Type 1');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'T1', 'Org 1');
+
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (1, 1, 100.0, '2022-01-01', '2022-12-31', 'G1');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (100, 1, 9999.0, '2022-01-01', '2022-12-31', 'G100');
+
+INSERT INTO Document_Types (document_type_code, document_description) VALUES ('DT1', 'Doc Type 1');
+
+-- Grant 1: 3 documents in group (1, 'A') -> Winner (grant_id = 1, count___ = 3)
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (10, 1, 'DT1', '2022-01-01', '2022-01-02', 'A');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (20, 1, 'DT1', '2022-01-03', '2022-01-04', 'A');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (30, 1, 'DT1', '2022-01-05', '2022-01-06', 'A');
+
+-- Grant 100: 2 documents in group (100, 'Z')
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (1, 100, 'DT1', '2022-02-01', '2022-02-02', 'Z');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (2, 100, 'DT1', '2022-02-03', '2022-02-04', 'Z');
+
+-- NULL grant_id: 1 document
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (3, NULL, 'DT1', '2022-03-01', '2022-03-02', 'Z');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Winning group has grant_id IS NULL (grant_id = NULL, other_details = 'OrphanDoc', count = 3).
+-- 2. Kills mutants that perform an INNER JOIN with Grants (which would eliminate the NULL grant_id group and return Grant 5 with count 2).
+-- 3. Kills mutants that use COUNT(grant_id) instead of COUNT(*) (which would give count 0 for the NULL grant_id group).
+
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('T1', 'Type 1');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'T1', 'Org 1');
+
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (5, 1, 500.0, '2023-01-01', '2023-12-31', 'G5');
+
+INSERT INTO Document_Types (document_type_code, document_description) VALUES ('DT1', 'Doc Type 1');
+
+-- NULL grant_id: 3 documents -> Winner (grant_id = NULL, count___ = 3)
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (1, NULL, 'DT1', '2023-01-01', '2023-01-02', 'OrphanDoc');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (2, NULL, 'DT1', '2023-01-03', '2023-01-04', 'OrphanDoc');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (3, NULL, 'DT1', '2023-01-05', '2023-01-06', 'OrphanDoc');
+
+-- Grant 5: 2 documents
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (4, 5, 'DT1', '2023-02-01', '2023-02-02', 'OrphanDoc');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (5, 5, 'DT1', '2023-02-03', '2023-02-04', 'OrphanDoc');
+```

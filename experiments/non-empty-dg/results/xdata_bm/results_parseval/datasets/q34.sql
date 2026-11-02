@@ -1,0 +1,13 @@
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('stu_20dcc3', 'dep_f0958c', 0.01);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('stu_6de5de', 'dep_f0958c', 0.02);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('stu_e52937', 'dep_f0958c', 0.03);
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('stu_098f7e', 'dep_f0958c', 0.04);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('stu_f4024e', 'stu_f53f54', 'stu_20dcc3', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('stu_869689', 'stu_a4760d', 'stu_6de5de', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('stu_487c55', 'stu_c803cd', 'stu_e52937', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('stu_496733', 'stu_546743', 'stu_098f7e', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('A', 'stu_f53f54', 'stu_20dcc3', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('Q', 'stu_f53f54', 'stu_20dcc3', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('_', 'stu_f53f54', 'stu_20dcc3', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('tak_d037b5', 'stu_f53f54', 'stu_20dcc3', 0.0);
+INSERT INTO "student" ("ID", "name", "dept_name", "tot_cred") VALUES ('tak_c357d2', 'stu_a4760d', 'stu_6de5de', 0.0);

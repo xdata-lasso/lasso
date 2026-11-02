@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN (useracct u_id 3 has no reviews)
+-- 2. AVG(rating) vs SUM/COUNT/MIN/MAX and AVG(DISTINCT rating) (u_id 1 has duplicate ratings: 4, 4, 1 -> AVG=3.0, AVG(DISTINCT)=2.5)
+-- 3. Column confusion: rating vs rank vs i_id vs a_id
+-- 4. Unrelated table interference (trust table populated differently)
+INSERT INTO item (i_id, title) VALUES (10, 'Item A');
+INSERT INTO item (i_id, title) VALUES (20, 'Item B');
+
+INSERT INTO useracct (u_id, name) VALUES (1, 'Alice');
+INSERT INTO useracct (u_id, name) VALUES (2, 'Bob');
+INSERT INTO useracct (u_id, name) VALUES (3, 'Charlie');
+
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (100, 10, 1, 4, 1);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (101, 20, 1, 4, 2);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (102, 10, 1, 1, 3);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (103, 20, 2, 5, 10);
+
+INSERT INTO trust (target_u_id, source_u_id, trust) VALUES (1, 2, 1);
+INSERT INTO trust (target_u_id, source_u_id, trust) VALUES (3, 1, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. GROUP BY u_id vs GROUP BY name (two users with identical name 'SameName' having different averages)
+-- 2. SELECT DISTINCT mutants (two users with identical name 'DupUser' AND identical average rating)
+-- 3. Tie-breaking in ORDER BY name, avg_t2_rating_ (inserted out of order for both name and average rating)
+INSERT INTO item (i_id, title) VALUES (1, 'Book');
+
+INSERT INTO useracct (u_id, name) VALUES (1, 'SameName');
+INSERT INTO useracct (u_id, name) VALUES (2, 'SameName');
+INSERT INTO useracct (u_id, name) VALUES (3, 'DupUser');
+INSERT INTO useracct (u_id, name) VALUES (4, 'DupUser');
+INSERT INTO useracct (u_id, name) VALUES (5, 'Aaron');
+
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (1, 1, 1, 10, 1);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (2, 1, 1, 8, 2);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (3, 1, 2, 2, 1);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (4, 1, 3, 5, 1);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (5, 1, 4, 5, 2);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (6, 1, 5, 1, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. NULL handling in AVG(rating) and NULLS LAST in ORDER BY
+-- 2. User with exclusively NULL ratings (produces meanrating = NULL, must still appear in INNER JOIN and sort last among same-name users)
+-- 3. User with mixed NULL and non-NULL ratings (NULLs ignored in AVG denominator: (6 + NULL)/1 = 6.0, not 3.0)
+-- 4. Review with NULL u_id (must be excluded by INNER JOIN on u_id)
+-- 5. User with NULL name
+INSERT INTO item (i_id, title) VALUES (1, 'Gadget');
+
+INSERT INTO useracct (u_id, name) VALUES (1, 'Alpha');
+INSERT INTO useracct (u_id, name) VALUES (2, 'Alpha');
+INSERT INTO useracct (u_id, name) VALUES (3, 'Alpha');
+INSERT INTO useracct (u_id, name) VALUES (4, NULL);
+
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (1, 1, 1, NULL, 1);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (2, 1, 2, 6, 1);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (3, 1, 2, NULL, 2);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (4, 1, 3, 2, 1);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (5, 1, NULL, 10, 1);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (6, 1, 4, 4, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Floating-point division in AVG vs integer division (ratings 1 and 2 -> 1.5, not 1)
+-- 2. Negative and zero ratings (tests ABS, >0 filters, or coalesce-to-zero mistakes)
+-- 3. Join condition mutants (e.g., joining useracct.u_id = review.a_id or review.i_id)
+-- 4. Reverse ordering check (u_id order is opposite to alphabetical name order)
+INSERT INTO item (i_id, title) VALUES (1, 'Tool');
+INSERT INTO item (i_id, title) VALUES (2, 'Widget');
+
+INSERT INTO useracct (u_id, name) VALUES (1, 'Zack');
+INSERT INTO useracct (u_id, name) VALUES (2, 'Yara');
+INSERT INTO useracct (u_id, name) VALUES (3, 'Xena');
+
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (2, 2, 1, 1, 5);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (3, 1, 1, 2, 5);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (1, 1, 2, 0, 5);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (4, 2, 3, -5, 5);
+INSERT INTO review (a_id, i_id, u_id, rating, rank) VALUES (5, 1, 3, 2, 5);
+```

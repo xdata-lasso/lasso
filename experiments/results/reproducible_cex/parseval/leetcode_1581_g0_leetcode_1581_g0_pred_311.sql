@@ -1,0 +1,103 @@
+-- Schema DDL
+CREATE TABLE "Visits" ("visit_id" INTEGER, "customer_id" INTEGER, UNIQUE ("visit_id"));
+
+CREATE TABLE "Transactions" ("transaction_id" INTEGER, "visit_id" INTEGER, "amount" INTEGER, FOREIGN KEY ("visit_id") REFERENCES "Visits" ("visit_id"), UNIQUE ("transaction_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: visits --
+INSERT INTO "visits" ("visit_id", "customer_id") VALUES (1, 1);
+
+INSERT INTO "visits" ("visit_id", "customer_id") VALUES (2, 1);
+
+INSERT INTO "visits" ("visit_id", "customer_id") VALUES (3, 1);
+
+INSERT INTO "visits" ("visit_id", "customer_id") VALUES (4, 1465859724);
+
+-- Inserting into table: transactions --
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483648, 1, -55602865);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483647, 1, -55602865);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483646, 1, -55602865);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483645, 2, -59984348);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483644, 2, -59984348);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483643, 2, -59984348);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483642, 3, -664303813);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483641, 3, -664303813);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483640, 3, -664303813);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483639, 3, -1022641847);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483638, 3, -1022641847);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483637, 3, -1022641847);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483636, 3, -1726781632);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483635, 3, -1726781632);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483634, 3, -1726781632);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483633, 3, 247012447);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483632, 3, 247012447);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483631, 3, 247012447);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (2, 1, -1980249628);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (3, 1, -1980249628);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483630, 1, -1980249628);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483627, 1, -734455130);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483626, 1, 1744686505);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483625, 1, -1633151678);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483624, 1, -252690330);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483623, 1, -252690330);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483622, 1, -252690330);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483621, 1, 1115440883);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483620, 1, 1115440883);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483619, 1, 1115440883);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483618, 1, 1644814318);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483617, 1, 1644814318);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483616, 1, 1644814318);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (-2147483615, 1, NULL);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (4, 4, -1349201381);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CUSTOMER_ID, COUNT(*) AS COUNT_NO_TRANS FROM VISITS WHERE NOT VISIT_ID IN (SELECT DISTINCT VISIT_ID FROM TRANSACTIONS) GROUP BY CUSTOMER_ID;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT CUSTOMER_ID, COUNT(*) AS COUNT_NO_TRANS FROM VISITS LEFT JOIN TRANSACTIONS ON VISITS.VISIT_ID = TRANSACTIONS.VISIT_ID GROUP BY VISITS.CUSTOMER_ID, TRANSACTIONS.AMOUNT HAVING TRANSACTIONS.AMOUNT IS NULL;
+
+/*
+Prediction Result:
+(1, 1)
+*/

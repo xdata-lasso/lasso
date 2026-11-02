@@ -1,0 +1,42 @@
+```sql
+-- DATASET 1
+-- Tests asymmetric join condition (LHS.customer_id = RHS.card_id), LHS vs RHS column projection, and GROUP BY (card_type_code, date_valid_to) vs DISTINCT card_type_code.
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (10, 99, 'RHS_TYPE_1', '1000', '2020-01-01', '2024-01-01', 'RHS row');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (1, 10, 'VISA', '1001', '2020-01-01', '2025-01-01', 'LHS row 1');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 10, 'VISA', '1002', '2020-01-01', '2025-01-01', 'LHS row 2 - collapses into group with row 1');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (3, 10, 'VISA', '1003', '2020-01-01', '2026-01-01', 'LHS row 3 - distinct date_valid_to creates second VISA row');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (4, 10, 'AMEX', '1004', '2020-01-01', '2025-01-01', 'LHS row 4 - tests ORDER BY');
+```
+
+```sql
+-- DATASET 2
+-- Tests date_valid_from equality condition, unmatched foreign/join keys (INNER vs LEFT/RIGHT JOIN), and NULL handling in join and GROUP BY columns.
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (10, 50, 'MASTER', '2001', '2021-06-01', '2025-06-01', 'RHS match');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (1, 10, 'DEBIT', '2002', '2021-06-01', NULL, 'LHS match with NULL date_valid_to 1');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 10, 'DEBIT', '2003', '2021-06-01', NULL, 'LHS match with NULL date_valid_to 2 - should group with card 1');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (3, 10, 'CREDIT', '2004', '2099-12-31', '2025-06-01', 'Mismatched date_valid_from');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (4, 888, 'ORPHAN', '2005', '2021-06-01', '2025-06-01', 'Non-existent RHS card_id');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (20, 20, 'NULL_FROM', '2006', NULL, '2025-06-01', 'NULL date_valid_from must not self-join');
+```
+
+```sql
+-- DATASET 3
+-- Tests self-referential rows (card_id = customer_id) vs multi-hop chains, and grouping when date_valid_from differs but (card_type_code, date_valid_to) are identical.
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (5, 5, 'SELF_CARD', '3001', '2022-01-01', '2030-01-01', 'Self-joining row');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (10, 99, 'RHS_A', '3002', '2022-03-01', '2028-01-01', 'RHS 1');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (20, 99, 'RHS_B', '3003', '2022-04-01', '2029-01-01', 'RHS 2');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (1, 10, 'GOLD', '3004', '2022-03-01', '2027-01-01', 'LHS 1 joining RHS 1');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 20, 'GOLD', '3005', '2022-04-01', '2027-01-01', 'LHS 2 joining RHS 2 - different customer_id and date_valid_from, same group');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (3, 10, NULL, '3006', '2022-03-01', '2027-01-01', 'NULL card_type_code');
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion with other tables (Customers, Accounts, Financial_Transactions) and reverse join direction (LHS.card_id = RHS.customer_id vs LHS.customer_id = RHS.card_id).
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name, customer_address, customer_phone, customer_email, other_customer_details) VALUES (1, 'Alice', 'Smith', '123 St', '555-0101', 'alice@example.com', 'cust 1');
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name, customer_address, customer_phone, customer_email, other_customer_details) VALUES (2, 'Bob', 'Jones', '456 Ave', '555-0102', 'bob@example.com', 'cust 2');
+INSERT INTO Accounts (account_id, customer_id, account_name, other_account_details) VALUES (100, 1, 'Checking', 'acc 1');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (1, 2, 'TYPE_Z', '4001', '2023-01-01', '2025-01-01', 'LHS candidate: customer_id=2 matches card_id=2');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 99, 'TYPE_A', '4002', '2023-01-01', '2026-01-01', 'RHS candidate: customer_id=99 has no matching card_id');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, previous_transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (100, 1, 1000, NULL, 'PURCHASE', '2023-05-01', 50.0, 'comment', 'details');
+```

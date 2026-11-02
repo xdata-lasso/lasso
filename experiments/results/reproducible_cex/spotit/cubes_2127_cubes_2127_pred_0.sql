@@ -1,0 +1,58 @@
+-- Schema DDL
+CREATE TABLE "ITEM" (
+    "I_ID" INT,
+    "TITLE" TEXT,
+    PRIMARY KEY ("I_ID")
+);
+CREATE TABLE "REVIEW" (
+    "A_ID" INT,
+    "I_ID" INT,
+    "U_ID" INT,
+    "RATING" INT,
+    "RANK" INT,
+    PRIMARY KEY ("A_ID"),
+    FOREIGN KEY ("I_ID") REFERENCES "ITEM"("I_ID"),
+    FOREIGN KEY ("U_ID") REFERENCES "USERACCT"("U_ID")
+);
+CREATE TABLE "USERACCT" (
+    "U_ID" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("U_ID")
+);
+CREATE TABLE "TRUST" (
+    "TARGET_U_ID" INT,
+    "SOURCE_U_ID" INT,
+    "TRUST" INT,
+    FOREIGN KEY ("TARGET_U_ID") REFERENCES "USERACCT"("U_ID"),
+    FOREIGN KEY ("SOURCE_U_ID") REFERENCES "USERACCT"("U_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ITEM VALUES (-2147483648, 0);
+INSERT INTO ITEM VALUES (-2147483647, 0);
+INSERT INTO REVIEW VALUES (-2147483648, -2147483647, -2147483647, -2147483648, -2147483648);
+INSERT INTO REVIEW VALUES (-2147483647, -2147483647, -2147483647, -2147483648, -2147483648);
+INSERT INTO USERACCT VALUES (-2147483647, 0);
+INSERT INTO USERACCT VALUES (-2147483648, 0);
+INSERT INTO TRUST VALUES (-2147483647, -2147483648, 2);
+INSERT INTO TRUST VALUES (-2147483648, -2147483648, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name, meantrust AS avg_trust_ FROM (SELECT name, AVG(trust) AS meantrust FROM (SELECT u_id, name, source_u_id, trust, u_id AS target_u_id FROM (SELECT LHS.u_id AS u_id, LHS.name AS name, RHS.source_u_id AS source_u_id, RHS.trust AS trust FROM useracct AS LHS INNER JOIN trust AS RHS ON (LHS.u_id = RHS.target_u_id))) GROUP BY name) ORDER BY name, avg_trust_ NULLS LAST;
+
+/*
+Gold Result:
+('0', 2.0)
+*/
+
+-- Prediction Query
+SELECT T1.name, AVG(trust) FROM useracct AS T1 JOIN trust AS T2 ON T1.u_id = T2.target_u_id GROUP BY T2.target_u_id;
+
+/*
+Prediction Result:
+('0', None)
+('0', 2.0)
+*/

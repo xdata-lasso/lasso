@@ -1,0 +1,24 @@
+-- Schema DDL
+CREATE TABLE "Views" ("article_id" INTEGER, "author_id" INTEGER, "viewer_id" INTEGER, "view_date" DATE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (18, 22, 24, NULL);
+INSERT INTO "Views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (19, 23, 24, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT V1.VIEWER_ID AS ID FROM VIEWS AS V1 JOIN VIEWS AS V2 ON (V1.VIEW_DATE = V2.VIEW_DATE OR (V1.VIEW_DATE IS NULL AND V2.VIEW_DATE IS NULL)) AND V1.VIEWER_ID = V2.VIEWER_ID AND V1.ARTICLE_ID <> V2.ARTICLE_ID ORDER BY 1, ID NULLS LAST;
+
+/*
+Gold Result:
+(24,)
+*/
+
+-- Prediction Query
+SELECT DISTINCT G.VIEWER_ID AS ID FROM (SELECT DISTINCT V.VIEWER_ID, V.ARTICLE_ID, V.VIEW_DATE FROM VIEWS AS V) AS G CROSS JOIN (SELECT DISTINCT V.VIEWER_ID, V.ARTICLE_ID, V.VIEW_DATE FROM VIEWS AS V) AS P WHERE P.ARTICLE_ID <> G.ARTICLE_ID AND P.VIEW_DATE = G.VIEW_DATE AND P.VIEWER_ID = G.VIEWER_ID ORDER BY G.VIEWER_ID ASC, ID NULLS LAST;
+
+/*
+Prediction Result:
+*/

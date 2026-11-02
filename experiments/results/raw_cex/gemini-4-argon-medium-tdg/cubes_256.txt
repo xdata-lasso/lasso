@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests standard counts (0, 1, 2, 3), ORDER BY (insertion order is non-ascending), 
+-- and templates without documents (to kill LEFT JOIN + COUNT(*) = 0 mutants).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (30, 'T1', 1, '2020-01-01', '2025-01-01', 'Count 2');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'T1', 1, '2020-01-01', '2025-01-01', 'Count 3');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (20, 'T1', 1, '2020-01-01', '2025-01-01', 'Count 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (40, 'T1', 1, '2020-01-01', '2025-01-01', 'Count 0');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 30, 'Doc A', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 30, 'Doc B', 'Desc', 'Other');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 10, 'Doc C', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 10, 'Doc D', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 10, 'Doc E', 'Desc', 'Other');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (6, 20, 'Doc F', 'Desc', 'Other');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Template_ID (COUNT(*) vs COUNT(Template_ID))
+-- and NULLs/Duplicates in Document_Name (COUNT(*) vs COUNT(Document_Name) vs COUNT(DISTINCT Document_Name)).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2020-01-01', '2025-01-01', 'Two docs with NULL and duplicate names');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'T1', 1, '2020-01-01', '2025-01-01', 'Two docs with same name');
+
+-- Template 1 has 2 documents: one with NULL name, one with 'SameName' (Tests COUNT(Document_Name) which would be 1)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (101, 1, NULL, NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (102, 1, 'SameName', NULL, NULL);
+
+-- Template 2 has 2 documents with identical names (Tests COUNT(DISTINCT Document_Name) which would be 1)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (103, 2, 'DupName', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (104, 2, 'DupName', 'Desc', 'Other');
+
+-- Two documents with NULL Template_ID (Tests GROUP BY NULL with COUNT(*) = 2 vs COUNT(Template_ID) = 0)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (105, NULL, 'NullTemp1', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (106, NULL, 'NullTemp2', 'Desc', 'Other');
+```
+
+```sql
+-- DATASET 3
+-- Tests single NULL Template_ID (to ensure n=1 for NULL is excluded, killing COUNT(Template_ID) <> 1 where 0 <> 1 is true)
+-- and tests joining with Paragraphs (kills mutants that unnecessarily join Paragraphs and inflate document counts).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (100, 'T1', 1, '2020-01-01', '2025-01-01', '1 Doc but 2 Paragraphs');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (200, 'T1', 1, '2020-01-01', '2025-01-01', '2 Docs but 0 Paragraphs');
+
+-- 1 Document with NULL Template_ID (n = 1, should NOT be in output)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (1, NULL, 'SingleNullTemplate', 'Desc', 'Other');
+
+-- Template 100 has 1 Document (n = 1), but that Document has 2 Paragraphs
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 100, 'DocWithParas', 'Desc', 'Other');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (10, 2, 'Para 1', 'Other');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (11, 2, 'Para 2', 'Other');
+
+-- Template 200 has 2 Documents (n = 2), but 0 Paragraphs (kills INNER JOIN Paragraphs mutants)
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 200, 'DocNoPara1', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 200, 'DocNoPara2', 'Desc', 'Other');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set boundary (all present templates have exactly 1 document)
+-- and tests SUM(Template_ID) or SUM(Document_ID) vs COUNT(*) confusion.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2020-01-01', '2025-01-01', 'ID 1, 1 Doc');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (5, 'T1', 1, '2020-01-01', '2025-01-01', 'ID 5, 1 Doc');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (10, 1, 'Doc 1', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (20, 5, 'Doc 2', 'Desc', 'Other');
+```

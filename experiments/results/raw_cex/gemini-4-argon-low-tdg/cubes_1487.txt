@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- Tests anti-join (NOT EXISTS), ORDER BY DName (reverse to DNO), duplicate DName across different DNOs (tests DISTINCT vs ALL),
+-- confusion between Student.Major / Course.DNO / Member_of.DNO and Minor_in.DNO, and multiple minors per department.
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (10, 'EN', 'Zoology', '101', 'Sci', 1111);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (20, 'AS', 'Anthropology', '102', 'Arts', 2222);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (30, 'AS', 'Anthropology', '103', 'Arts', 3333);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (40, 'EN', 'Computer Sci', '104', 'Eng', 4444);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (50, 'AS', 'Biology', '105', 'Sci', 5555);
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Smith', 'John', 20, 'M', 10, 100, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Doe', 'Jane', 21, 'F', 40, 100, 'LAX');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (50, 'Roe', 'Richard', 22, 'M', 20, 100, 'CHI');
+
+INSERT INTO "Faculty" ("FacID", "Lname", "Fname", "Rank", "Sex", "Phone", "Room", "Building") VALUES (100, 'Brown', 'Bob', 'Prof', 'M', 9999, '201', 'Sci');
+
+INSERT INTO "Member_of" ("DNO", "FacID", "Appt_Type") VALUES (40, 100, 'Primary');
+INSERT INTO "Member_of" ("DNO", "FacID", "Appt_Type") VALUES (10, 100, 'Secondary');
+
+INSERT INTO "Course" ("CID", "DNO", "Instructor", "CName", "Credits", "Days", "Hours") VALUES ('CS101', 40, 100, 'Intro CS', 3, 'MWF', '10am');
+INSERT INTO "Course" ("CID", "DNO", "Instructor", "CName", "Credits", "Days", "Hours") VALUES ('ZOO101', 10, 100, 'Intro Zoo', 3, 'TTH', '2pm');
+
+INSERT INTO "Minor_in" ("DNO", "StuID") VALUES (40, 1);
+INSERT INTO "Minor_in" ("DNO", "StuID") VALUES (40, 2);
+INSERT INTO "Minor_in" ("DNO", "StuID") VALUES (50, 50);
+```
+
+```sql
+-- DATASET 2
+-- Tests NOT IN vs NOT EXISTS in the presence of NULL values in Minor_in.DNO.
+-- A query using "WHERE DNO NOT IN (SELECT DNO FROM Minor_in)" will return 0 rows because of the NULL DNO in Minor_in,
+-- whereas the reference query (NOT EXISTS) will correctly return 'Mathematics' and 'Physics'.
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (1, 'SC', 'Physics', '10', 'B1', 1234);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (2, 'SC', 'Chemistry', '20', 'B2', 2345);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (3, 'SC', 'Mathematics', '30', 'B3', 3456);
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (101, 'Adams', 'Amy', 19, 'F', 1, NULL, 'BOS');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (102, 'Baker', 'Ben', 20, 'M', 2, NULL, 'SEA');
+
+INSERT INTO "Minor_in" ("DNO", "StuID") VALUES (2, 101);
+INSERT INTO "Minor_in" ("DNO", "StuID") VALUES (NULL, 102);
+```
+
+```sql
+-- DATASET 3
+-- Tests join column confusion: Minor_in.StuID matching Department.DNO.
+-- If a mutant writes "WHERE LHS.DNO = RHS.StuID" instead of "LHS.DNO = RHS.DNO", it will fail here.
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (1, 'HU', 'History', '1A', 'Hall1', 1001);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (2, 'HU', 'Philosophy', '2B', 'Hall2', 1002);
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Clark', 'Kent', 22, 'M', 2, NULL, 'MET');
+
+INSERT INTO "Minor_in" ("DNO", "StuID") VALUES (2, 1);
+```
+
+```sql
+-- DATASET 4
+-- Boundary condition: Minor_in table is completely empty, and one Department has a NULL DName.
+-- Tests handling of empty subquery table and NULL sorting in ORDER BY DName.
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (10, 'AR', 'Music', 'M1', 'MusicHall', 5001);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (20, 'AR', 'Fine Arts', 'F1', 'ArtHall', 5002);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (30, 'AR', NULL, 'U1', 'UnkHall', 5003);
+```
+
+```sql
+-- DATASET 5
+-- Boundary condition: Every department has at least one student minoring in it.
+-- The reference query should return an empty result set.
+-- Also tests mutants that use HAVING COUNT(*) = 1 or > 1 instead of NOT EXISTS.
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (1, 'BU', 'Finance', '100', 'Biz', 8001);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (2, 'BU', 'Marketing', '200', 'Biz', 8002);
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (10, 'Wayne', 'Bruce', 21, 'M', 1, NULL, 'GOT');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (20, 'Kyle', 'Selina', 21, 'F', 2, NULL, 'GOT');
+
+INSERT INTO "Minor_in" ("DNO", "StuID") VALUES (1, 10);
+INSERT INTO "Minor_in" ("DNO", "StuID") VALUES (1, 20);
+INSERT INTO "Minor_in" ("DNO", "StuID") VALUES (2, 10);
+```
+
+```sql
+-- DATASET 6
+-- Tests duplicate DName where ONE department has a minor and ANOTHER department with the SAME DName does NOT have a minor.
+-- A mutant doing "SELECT DName FROM Department EXCEPT SELECT D.DName FROM Department D JOIN Minor_in M ON D.DNO = M.DNO"
+-- will wrongly exclude 'Engineering' completely, whereas the reference query outputs 'Engineering'.
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (100, 'EN', 'Engineering', 'E1', 'EngBldg', 7001);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (200, 'EN', 'Engineering', 'E2', 'EngBldg', 7002);
+INSERT INTO "Department" ("DNO", "Division", "DName", "Room", "Building", "DPhone") VALUES (300, 'EN', 'Architecture', 'A1', 'ArchBldg', 7003);
+
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (500, 'Stark', 'Tony', 18, 'M', 100, NULL, 'MAL');
+
+INSERT INTO "Minor_in" ("DNO", "StuID") VALUES (100, 500);
+```

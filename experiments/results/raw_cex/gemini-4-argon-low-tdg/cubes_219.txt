@@ -1,0 +1,96 @@
+```sql
+-- DATASET 1
+-- Comprehensive test covering:
+-- 1. Student with no pets (StuID 1001) -> Included
+-- 2. Student with only a 'cat' (StuID 1002) -> Excluded
+-- 3. Student with only a non-cat (StuID 1003) -> Included (kills mutants ignoring the 'cat' filter)
+-- 4. Student with both a 'cat' and a 'dog' (StuID 1004) -> Excluded (kills mutants doing INNER JOIN + WHERE PetType != 'cat')
+-- 5. Student with multiple non-cat pets (StuID 1005) -> Included once (kills mutants missing DISTINCT on JOINs)
+-- 6. Student with a pet having NULL PetType (StuID 1006) -> Included
+-- 7. Unowned 'cat' in Pets table (PetID 7) -> Kills mutants with broken join conditions (Cartesian product)
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1004, 'Smith', 'John', 20, 'M', 600, 1121, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1001, 'Doe', 'Jane', 19, 'F', 600, 1121, 'LAX');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1005, 'Brown', 'Charlie', 22, 'M', 500, 1122, 'CHI');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1002, 'Davis', 'Emily', 21, 'F', 500, 1122, 'BOS');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1006, 'Wilson', 'Alex', 23, 'M', 400, 1123, 'SEA');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1003, 'Taylor', 'Sarah', 20, 'F', 400, 1123, 'MIA');
+
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (1, 'cat', 3, 8.5);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (2, 'dog', 5, 25.0);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (3, 'cat', 2, 7.0);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (4, 'dog', 4, 30.2);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (5, 'bird', 1, 0.5);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (6, NULL, 2, 5.0);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (7, 'cat', 6, 10.0);
+
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (1002, 1);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (1003, 2);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (1004, 3);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (1004, 4);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (1005, 2);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (1005, 5);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (1006, 6);
+```
+
+```sql
+-- DATASET 2
+-- Tests three-valued logic (NULLs) in Has_Pet.
+-- In SQLite, foreign keys can be NULL.
+-- A NULL StuID linked to a 'cat' in Has_Pet will cause NOT IN (SELECT StuID ...) to return 0 rows for ALL students,
+-- whereas NOT EXISTS in the reference query properly ignores the NULL StuID and returns the valid students.
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Adams', 'Amy', 18, 'F', 100, 200, 'SFO');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Baker', 'Bob', 19, 'M', 100, 200, 'SFO');
+
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (10, 'cat', 4, 9.0);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (20, 'dog', 2, 15.0);
+
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (NULL, 10);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (1, NULL);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (2, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests string matching sensitivity, case sensitivity, and wrong column joins (e.g. joining StuID = PetID).
+-- StuID 1 owns PetID 2 ('cat') -> Excluded.
+-- StuID 2 owns PetID 1 ('dog') -> Included. (If a mutant mistakenly joins Student.StuID = Pets.PetID, StuID 1 & 2 swap fates).
+-- StuID 3 owns 'Cat' (uppercase) -> Included (SQLite '=' is case-sensitive by default; kills LIKE 'cat' or LOWER(PetType) = 'cat').
+-- StuID 4 owns 'catfish' -> Included (kills LIKE '%cat%').
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (4, 'Lee', 'Bruce', 22, 'M', 10, 1, 'HKG');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (3, 'Chan', 'Jackie', 21, 'M', 10, 1, 'HKG');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Yeoh', 'Michelle', 20, 'F', 10, 1, 'KUL');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Yen', 'Donnie', 19, 'M', 10, 1, 'BOS');
+
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (1, 'dog', 3, 12.0);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (2, 'cat', 3, 8.0);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (3, 'Cat', 2, 7.5);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (4, 'catfish', 1, 1.2);
+
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (1, 2);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (2, 1);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (3, 3);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (4, 4);
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary case where ALL students own a 'cat' (Result set should be empty)
+-- and includes a student owning multiple 'cat' pets (kills mutants using HAVING COUNT = 1).
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (10, 'King', 'Stephen', 25, 'M', 300, 400, 'POR');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (20, 'Poe', 'Edgar', 24, 'M', 300, 400, 'BAL');
+
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (101, 'cat', 5, 11.0);
+INSERT INTO "Pets" ("PetID", "PetType", "pet_age", "weight") VALUES (102, 'cat', 1, 4.5);
+
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (10, 101);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (20, 101);
+INSERT INTO "Has_Pet" ("StuID", "PetID") VALUES (20, 102);
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary case where Has_Pet and Pets are completely empty, and Student has negative/zero IDs to test sorting.
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (0, 'Zero', 'Count', 20, 'M', 1, 1, 'AAA');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (-5, 'Negative', 'Five', 21, 'F', 1, 1, 'BBB');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (5, 'Positive', 'Five', 19, 'M', 1, 1, 'CCC');
+```

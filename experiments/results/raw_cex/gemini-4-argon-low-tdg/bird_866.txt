@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT keyword (Driver 1 has multiple matching laps in race 161).
+-- 2. LIKE '1:27%' vs exact match '=' (Driver 1 has '1:27.456', Driver 2 has exact '1:27').
+-- 3. LIKE prefix vs substring '%1:27%' (Driver 3 has '11:27.000').
+-- 4. LIKE boundary condition (Driver 4 has '1:26.999' and '1:28.000').
+-- 5. NULL handling in time column (Driver 5 has NULL time).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://circuit/1');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://season/2020');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (161, 2020, 1, 1, 'Italian GP', '2020-09-06', 'http://race/161');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'ham', 'Lewis', 'Hamilton', 'http://driver/1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'bot', 'Valtteri', 'Bottas', 'http://driver/2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'ver', 'Max', 'Verstappen', 'http://driver/3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'lec', 'Charles', 'Leclerc', 'http://driver/4');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (5, 'vet', 'Sebastian', 'Vettel', 'http://driver/5');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 1, 1, 1, '1:27.111', 87111);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 1, 2, 1, '1:27.222', 87222);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 2, 1, 2, '1:27', 87000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 3, 1, 3, '11:27.000', 687000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 4, 1, 4, '1:26.999', 86999);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 4, 2, 4, '1:28.000', 88000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 5, 1, 5, NULL, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. raceId = 161 filter (Off-by-one raceId 160 and 162 with matching time '1:27%').
+-- 2. AND vs OR operator in WHERE clause (Driver 1 has raceId = 161 but non-matching time; Driver 2 has matching time but raceId = 160).
+-- 3. INNER JOIN vs LEFT/RIGHT JOIN (Driver 4 has no lapTimes at all).
+-- 4. Join condition T2.driverId = T1.driverId vs wrong column (e.g. T2.driverId = T1.lap or T1.position).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://circuit/1');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://season/2021');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (160, 2021, 1, 1, 'Race 160', '2021-05-01', 'http://race/160');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (161, 2021, 2, 1, 'Race 161', '2021-05-08', 'http://race/161');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (162, 2021, 3, 1, 'Race 162', '2021-05-15', 'http://race/162');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'alo', 'Fernando', 'Alonso', 'http://driver/10');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'rai', 'Kimi', 'Raikkonen', 'http://driver/20');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (30, 'ric', 'Daniel', 'Ricciardo', 'http://driver/30');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (40, 'nor', 'Lando', 'Norris', 'http://driver/40');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 10, 20, 20, '1:29.000', 89000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (160, 20, 10, 10, '1:27.500', 87500);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (162, 20, 10, 10, '1:27.600', 87600);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 30, 10, 20, '1:27.890', 87890);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Decoy tables: Ensures the query fetches from lapTimes and not pitStops, qualifying, or results (where raceId=161 and time/q1/fastestLapTime is '1:27%').
+-- 2. Projection columns: Distinct values for driverRef, code, nationality, forename, surname, url, and races.url to catch wrong column selections or table alias confusion.
+-- 3. Two different drivers sharing the same forename and surname (with different URLs) to test whether DISTINCT or GROUP BY is mistakenly applied only to name columns.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://circuit/1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mclaren', 'McLaren', 'http://constructor/1');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://season/2022');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (161, 2022, 1, 1, 'British GP', '2022-07-03', '1:27.000', 'http://race/161');
+
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, nationality, url) VALUES (1, 'smith1', 11, 'SM1', 'John', 'Smith', 'British', 'http://driver/smith1');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, nationality, url) VALUES (2, 'smith2', 22, 'SM2', 'John', 'Smith', 'American', 'http://driver/smith2');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, nationality, url) VALUES (3, 'decoy_ps', 33, 'DPS', 'Carlos', 'Sainz', 'Spanish', 'http://driver/sainz');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, nationality, url) VALUES (4, 'decoy_qu', 44, 'DQU', 'George', 'Russell', 'British', 'http://driver/russell');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, nationality, url) VALUES (5, 'decoy_re', 55, 'DRE', 'Pierre', 'Gasly', 'French', 'http://driver/gasly');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 1, 5, 1, '1:27.001', 87001);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 2, 6, 2, '1:27.002', 87002);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (161, 3, 1, 3, '1:30.000', 90000);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (161, 3, 1, 1, '1:27.555', '25.000', 25000);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 161, 4, 1, 44, 1, '1:27.123', '1:27.123', '1:27.123');
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (1, 161, 5, 1, 55, 1, 1, '1', 1, 25, 50, '1:27.999', 87999, 1, 1, '1:27.999', '200.0', 1);
+```

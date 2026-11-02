@@ -1,0 +1,36 @@
+-- Schema DDL
+CREATE TABLE "Salaries" ("company_id" INTEGER, "employee_id" INTEGER, "employee_name" TEXT(255), "salary" INTEGER, PRIMARY KEY ("company_id", "employee_id"), CHECK ("salary" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO salaries (company_id, employee_id, employee_name, salary) VALUES (1000, 1001, 'default1', 1000), (0, 0, NULL, 2), (10001, 2, 'default1', NULL), (1, 10001, NULL, 10000), (3, 999, 'default1', 999), (1000, 9999, 'default1', 10001), (0, 9998, NULL, 10000);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT S.COMPANY_ID, S.EMPLOYEE_ID, S.EMPLOYEE_NAME, ROUND(CASE WHEN X.MAX_SAL BETWEEN 1000 AND 10000 THEN SALARY * 0.76 WHEN X.MAX_SAL > 10000 THEN SALARY * 0.51 ELSE SALARY END, 0) AS SALARY FROM SALARIES AS S INNER JOIN (SELECT COMPANY_ID, MAX(SALARY) AS MAX_SAL FROM SALARIES GROUP BY COMPANY_ID) AS X ON S.COMPANY_ID = X.COMPANY_ID;
+
+/*
+Gold Result:
+(0, 0, None, 2.0)
+(0, 9998, None, 7600.0)
+(1, 10001, None, 7600.0)
+(3, 999, 'default1', 999.0)
+(1000, 1001, 'default1', 510.0)
+(1000, 9999, 'default1', 5101.0)
+(10001, 2, 'default1', None)
+*/
+
+-- Prediction Query
+WITH T1 AS (SELECT *, MAX(SALARY) OVER (PARTITION BY COMPANY_ID ORDER BY COMPANY_ID) AS MX FROM SALARIES) SELECT COMPANY_ID, EMPLOYEE_ID, EMPLOYEE_NAME, ROUND(CASE WHEN MX < 1000 THEN SALARY WHEN MX BETWEEN 1000 AND 9999 THEN SALARY - (SALARY * 0.24) WHEN MX > 10000 THEN SALARY - (SALARY * 0.49) END) AS SALARY FROM T1 ORDER BY 1, 2, COMPANY_ID NULLS LAST, EMPLOYEE_ID NULLS LAST, EMPLOYEE_NAME NULLS LAST, SALARY NULLS LAST;
+
+/*
+Prediction Result:
+(0, 0, None, None)
+(0, 9998, None, None)
+(1, 10001, None, None)
+(3, 999, 'default1', 999.0)
+(1000, 1001, 'default1', 510.0)
+(1000, 9999, 'default1', 5101.0)
+(10001, 2, 'default1', None)
+*/

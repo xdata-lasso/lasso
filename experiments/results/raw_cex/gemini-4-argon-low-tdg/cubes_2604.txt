@@ -1,0 +1,55 @@
+```sql
+-- DATASET 1
+-- Empty SAVINGS table, non-empty ACCOUNTS and CHECKING.
+-- Tests: AVG() over 0 rows returns 1 row with NULL; COUNT(*) OVER () returns 1, whereas COUNT(meanbalance) or flattened COUNT(*) on SAVINGS would return 0. Also catches table-swap mutants (e.g., querying CHECKING or ACCOUNTS instead of SAVINGS).
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (1, 'Alice');
+INSERT INTO "CHECKING" ("custid", "balance") VALUES (1, 100.0);
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows in SAVINGS with duplicate balances and NULLs; empty CHECKING.
+-- Tests: Subquery collapses multiple rows into 1 row (count___ = 1) vs missing aggregation/GROUP BY (returns multiple rows). Also catches mutants that select meanbalance directly or count distinct balances.
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (1, 'Alice');
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (2, 'Bob');
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (3, 'Charlie');
+INSERT INTO "SAVINGS" ("custid", "balance") VALUES (1, 250.5);
+INSERT INTO "SAVINGS" ("custid", "balance") VALUES (2, 250.5);
+INSERT INTO "SAVINGS" ("custid", "balance") VALUES (3, NULL);
+```
+
+```sql
+-- DATASET 3
+-- SAVINGS has only NULL balances.
+-- Tests: Non-empty SAVINGS where AVG(balance) still evaluates to NULL. Distinguishes COUNT(*) OVER () (returns 1) from COUNT(meanbalance) OVER () (returns 0), while a flattened COUNT(*) on SAVINGS would return 2.
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (1, 'Alice');
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (2, 'Bob');
+INSERT INTO "SAVINGS" ("custid", "balance") VALUES (1, NULL);
+INSERT INTO "SAVINGS" ("custid", "balance") VALUES (2, NULL);
+INSERT INTO "CHECKING" ("custid", "balance") VALUES (1, 50.0);
+```
+
+```sql
+-- DATASET 4
+-- Single row in SAVINGS with balance 0.0 and negative balance in CHECKING.
+-- Tests: Boundary values (0.0, negative numbers) and ensures mutants filtering on balance > 0 or joining with CHECKING are caught.
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (1, 'Alice');
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (2, 'Bob');
+INSERT INTO "SAVINGS" ("custid", "balance") VALUES (1, 0.0);
+INSERT INTO "CHECKING" ("custid", "balance") VALUES (2, -100.0);
+```
+
+```sql
+-- DATASET 5
+-- Multiple rows in all tables with partially overlapping custids.
+-- Tests: Mutants introducing INNER/LEFT JOINs between SAVINGS, CHECKING, and ACCOUNTS without proper aggregation, or grouping by custid/balance.
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (1, 'Alice');
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (2, 'Bob');
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (3, 'Charlie');
+INSERT INTO "ACCOUNTS" ("custid", "name") VALUES (4, 'Diana');
+INSERT INTO "SAVINGS" ("custid", "balance") VALUES (1, 10.0);
+INSERT INTO "SAVINGS" ("custid", "balance") VALUES (2, 20.0);
+INSERT INTO "SAVINGS" ("custid", "balance") VALUES (3, 30.0);
+INSERT INTO "CHECKING" ("custid", "balance") VALUES (2, 200.0);
+INSERT INTO "CHECKING" ("custid", "balance") VALUES (4, 400.0);
+```

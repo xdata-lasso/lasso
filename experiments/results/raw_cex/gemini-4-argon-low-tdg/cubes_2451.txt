@@ -1,0 +1,50 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by date_of_transaction (out-of-order relative to PK), secondary tie-breaker ordering by transaction_id, and ensures DISTINCT / GROUP BY mutants are caught via duplicate (date_of_transaction, share_count) pairs. Also tests missing joins (rows without corresponding Sales, Purchases, or Lots).
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BUY', 'Purchase');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'BUY', 1, '2023-05-10 10:00:00', 500.0000, '50', 'First inserted, middle date');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'BUY', 1, '2023-01-15 09:30:00', 1000.0000, '200', 'Earliest date, large share count');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (3, 'BUY', 1, '2023-05-10 10:00:00', 100.0000, '10', 'Same date as ID 1, higher ID, smaller share_count');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (4, 'BUY', 1, '2023-05-10 10:00:00', 500.0000, '50', 'Exact duplicate of ID 1 for projected columns');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in date_of_transaction, share_count, and foreign keys (investor_id, transaction_type_code). Catches mutants that add IS NOT NULL filters, INNER JOINs on nullable FKs, or mishandle NULL ordering in date_of_transaction.
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (10, NULL, NULL, NULL, 250.0000, '25', 'Null date, null FKs, higher ID');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (5, NULL, NULL, NULL, 750.0000, '75', 'Null date, null FKs, lower ID');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (8, NULL, NULL, '2022-12-01 00:00:00', NULL, NULL, 'Valid date, null share_count and amount');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, NULL, NULL, '2023-01-01 00:00:00', 0.0000, '0', 'Zero values');
+```
+
+```sql
+-- DATASET 3
+-- Tests unneeded joins with child tables (Sales, Purchases, Transactions_Lots) and multiple rows per transaction in child tables. Catches mutants that join with Sales, Purchases, or Transactions_Lots (which would cause either filtering out unmatched rows or row multiplication).
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor One');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (2, 'Investor Two');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (101, 1, 'Lot A');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (102, 1, 'Lot B');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('SALE', 'Sale Transaction');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PURCH', 'Purchase Transaction');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('OTHER', 'Other Transaction');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (100, 'SALE', 1, '2023-03-01', 1500.5000, '150', 'Linked to Sales and multiple Lots');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (90, 'PURCH', 2, '2023-03-01', 200.0000, '999', 'Linked to multiple Purchases, same date as 100 but smaller ID');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (110, 'OTHER', 1, '2023-02-01', 50.0000, '5', 'Linked to neither Sales nor Purchases nor Lots');
+INSERT INTO "Sales" ("sales_transaction_id", "sales_details") VALUES (100, 'Sale Detail 1');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (90, 'Purchase Detail 1');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (90, 'Purchase Detail 2');
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (100, 101);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (100, 102);
+```
+
+```sql
+-- DATASET 4
+-- Tests string vs numeric sorting on share_count and negative/non-sequential transaction_id values, as well as column swap mutations (e.g., selecting amount_of_transaction or other_details instead of share_count).
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (10, 'Inst Investor');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('TRD', 'Trade');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (50, 'TRD', 10, '2023-06-15 12:00:00', 10.0000, '100', 'Share count 100 vs amount 10');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (-5, 'TRD', 10, '2023-06-15 12:00:00', 100.0000, '20', 'Negative ID, same date, lexicographically 20 > 100');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (0, 'TRD', 10, '2023-06-15 12:00:00', 50.0000, '3', 'Zero ID, same date, lexicographically 3 > 20 > 100');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'TRD', 10, '2023-06-15 08:00:00', 99.9900, '1000', 'Earlier timestamp on the same day');
+```

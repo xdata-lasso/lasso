@@ -1,0 +1,33 @@
+-- Schema DDL
+CREATE TABLE "Users" ("account" INTEGER PRIMARY KEY, "name" TEXT(255), UNIQUE ("name"));
+
+CREATE TABLE "Transactions" ("trans_id" INTEGER PRIMARY KEY, "account" INTEGER, "amount" INTEGER, "transacted_on" DATE, FOREIGN KEY ("account") REFERENCES "Users" ("account"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO Users (account, name) VALUES (1, 'B');
+INSERT INTO Users (account, name) VALUES (2, 'A');
+INSERT INTO Transactions (trans_id, account, amount, transacted_on) VALUES (1, 1, 20000, '2020-01-01');
+INSERT INTO Transactions (trans_id, account, amount, transacted_on) VALUES (2, 2, 20000, '2020-01-01');
+INSERT INTO Transactions (trans_id, account, amount, transacted_on) VALUES (3, NULL, 20000, '2020-01-01');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT u.name, SUM(t.amount) AS balance FROM Users AS u CROSS JOIN Transactions AS t WHERE u.account = t.account GROUP BY t.account HAVING SUM(t.amount) > 10000;
+
+/*
+Gold Result:
+('B', 20000)
+('A', 20000)
+*/
+
+-- Prediction Query
+SELECT NAME, BALANCE FROM (SELECT NAME, T.ACCOUNT, SUM(AMOUNT) AS BALANCE FROM TRANSACTIONS AS T LEFT JOIN USERS AS U ON T.ACCOUNT = U.ACCOUNT GROUP BY T.ACCOUNT) AS B WHERE BALANCE > 10000 ORDER BY NAME, BALANCE NULLS LAST;
+
+/*
+Prediction Result:
+(None, 20000)
+('A', 20000)
+('B', 20000)
+*/

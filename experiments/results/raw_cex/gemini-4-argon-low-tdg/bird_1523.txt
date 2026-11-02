@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, non-matching CardID, wrong column filters (CustomerID, GasStationID, ProductID, Amount, TransactionID = 667467), and unreferenced gasstations (kills RIGHT/FULL OUTER JOIN).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 1, 'CZE', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 2, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (30, 3, 'DEU', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (667467, 4, 'AUT', 'Noname');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-24', '09:00:00', 100, 667467, 10, 1, 10, 200.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-24', '10:00:00', 667467, 111111, 20, 1, 15, 300.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-24', '11:00:00', 101, 222222, 667467, 1, 20, 400.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-24', '12:00:00', 102, 333333, 20, 667467, 25, 500.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (667467, '2012-08-24', '13:00:00', 103, 444444, 20, 2, 667467, 667467.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate outputs vs DISTINCT/GROUP BY, and multiple transactions for the target CardID across both identical and distinct gasstations.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (101, 10, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (102, 10, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (103, 20, 'SVK', 'Value for money');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-24', '08:00:00', 1, 667467, 101, 1, 5, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-24', '09:00:00', 1, 667467, 101, 2, 10, 200.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-24', '10:00:00', 1, 667467, 102, 1, 15, 300.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-24', '11:00:00', 1, 667467, 103, 3, 20, 400.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN (dangling GasStationID and NULL GasStationID in transactions_1k for target CardID), and NULL Country in gasstations.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (50, 5, 'POL', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (51, 5, NULL, 'Discount');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-25', '10:00:00', 10, 667467, 50, 1, 10, 150.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-25', '11:00:00', 10, 667467, 999, 1, 10, 150.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-25', '12:00:00', 10, 667467, NULL, 1, 10, 150.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-25', '13:00:00', 10, 667467, 51, 1, 10, 150.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong JOIN conditions (e.g. joining on ChainID = GasStationID, ProductID = GasStationID, CustomerID = GasStationID, or cross join).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 20, 'CZE', 'SegmentA');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 10, 'SVK', 'SegmentB');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (30, 30, 'HUN', 'SegmentC');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (30, '2012-08-26', '14:00:00', 20, 667467, 10, 20, 30, 50.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary values for CardID (off-by-one: 667466, 667468, NULL, prefix/suffix matches for LIKE mutants) and extra joins with customers/products/yearmonth (where foreign keys are missing in parent tables).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (999, 'SME', 'EUR');
+INSERT INTO products (ProductID, Description) VALUES (888, 'Diesel');
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (999, '201208', 500.0);
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'SME');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 2, 'SVK', 'LAM');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 3, 'DEU', 'KAM');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 4, 'AUT', 'SME');
+
+-- Note: CustomerID 555 and ProductID 444 do NOT exist in customers or products tables; this kills mutants that unnecessarily INNER JOIN customers, products, or yearmonth.
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-27', '08:00:00', 555, 667467, 1, 444, 10, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-27', '09:00:00', 999, 667466, 2, 888, 10, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2012-08-27', '10:00:00', 999, 667468, 3, 888, 10, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (4, '2012-08-27', '11:00:00', 999, 1667467, 4, 888, 10, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (5, '2012-08-27', '12:00:00', 999, 6674670, 4, 888, 10, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (6, '2012-08-27', '13:00:00', 999, NULL, 2, 888, 10, 100.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set when CardID = 667467 is absent, killing mutants with OR conditions, !=, NOT IN, or missing WHERE clauses.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 1, 'CZE', 'Premium');
+
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-08-28', '10:00:00', 1, 123456, 10, 1, 10, 100.0);
+INSERT INTO transactions_1k (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2012-08-28', '11:00:00', 2, 654321, 10, 2, 20, 200.0);
+```

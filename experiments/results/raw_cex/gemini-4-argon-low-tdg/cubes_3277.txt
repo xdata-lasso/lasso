@@ -1,0 +1,86 @@
+```sql
+-- DATASET 1
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name") VALUES (1, 'SUP', 'Acme Corp');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id") VALUES (1, 1);
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender") VALUES (1, 'Alice', 1);
+
+-- Asset 1: Model 'Model_Alpha' has NO faults, and duplicate model name 'Model_Alpha' on Asset 2 ALSO has NO faults (tests DISTINCT vs ALL)
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (1, 1, 1, 'Make_Z', 'Model_Alpha');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (2, 1, 1, 'Make_A', 'Model_Alpha');
+
+-- Asset 3 & 4: Both have model 'Model_Shared'. Asset 3 has NO faults, Asset 4 HAS a fault (tests EXCEPT on asset_model vs anti-join on asset_id)
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (3, 1, 1, 'Make_M', 'Model_Shared');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (4, 1, 1, 'Make_B', 'Model_Shared');
+
+-- Asset 5: Has multiple faults (tests EXISTS vs NOT EXISTS, and JOIN multiplicity)
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (5, 1, 1, 'Make_C', 'Model_Faulty');
+
+-- Asset 6: Unfaulted asset inserted out of alphabetical order to test ORDER BY asset_model ASC vs DESC / insertion order / asset_id order
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (6, 1, 1, 'Make_D', 'Model_001');
+
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_description") VALUES (10, 1, 4, 'Minor scratch');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_description") VALUES (11, 1, 5, 'Broken screen');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_description") VALUES (12, 1, 5, 'Power failure');
+```
+
+```sql
+-- DATASET 2
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name") VALUES (1, 'SUP', 'Beta Corp');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id") VALUES (1, 1);
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender") VALUES (1, 'Bob', 0);
+
+-- Assets with clean models
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (1, 1, 1, 'Make_1', 'Zebra_Model');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (2, 1, 1, 'Make_2', 'Apple_Model');
+
+-- Asset with a fault
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (3, 1, 1, 'Make_3', 'Mango_Model');
+
+-- Fault_Log contains a row with a valid asset_id AND a row with NULL asset_id (kills NOT IN (SELECT asset_id FROM Fault_Log) mutants due to three-valued logic with NULL)
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_description") VALUES (1, 1, 3, 'Overheating');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_description") VALUES (2, 1, NULL, 'Unassigned general fault');
+```
+
+```sql
+-- DATASET 3
+-- Tests wrong join column mutations (e.g., LHS.asset_id = RHS.fault_log_entry_id, or LHS.supplier_company_id = RHS.recorded_by_staff_id)
+-- Also tests nullable foreign keys in Assets (supplier_company_id, maintenance_contract_id) and NULL asset_model
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender") VALUES (10, 'Charlie', 1);
+
+-- Asset 10: Has NO fault, but its asset_id (10) matches fault_log_entry_id (10) and recorded_by_staff_id (10) in Fault_Log
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (10, NULL, NULL, 'Make_X', 'Model_Ten');
+
+-- Asset 20: Has NO fault, and asset_model is NULL
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (20, NULL, NULL, 'Make_Y', NULL);
+
+-- Asset 30: Actually has the fault (fault_log_entry_id = 10, recorded_by_staff_id = 10, asset_id = 30)
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (30, NULL, NULL, 'Make_Z', 'Model_Thirty');
+
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_description") VALUES (10, 10, 30, 'Sensor failure');
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between Fault_Log and Asset_Parts / Part_Faults, and boundary case where Fault_Log is completely empty
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount") VALUES (1, 'Motor', 1, 500);
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description") VALUES (1, 1, 'BURN', 'Burned motor');
+
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model") VALUES (1, NULL, NULL, 'Detail_C', 'Make_C', 'Model_C');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model") VALUES (2, NULL, NULL, 'Detail_A', 'Make_A', 'Model_A');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model") VALUES (3, NULL, NULL, 'Detail_B', 'Make_B', 'Model_B');
+
+-- Asset 1 has parts associated with part faults, but no entry in Fault_Log
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (1, 1);
+```
+
+```sql
+-- DATASET 5
+-- Boundary condition: Every asset in Assets has at least one entry in Fault_Log (Result should be empty)
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender") VALUES (1, 'Dana', 1);
+
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (1, NULL, NULL, 'Make_1', 'Model_1');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_make", "asset_model") VALUES (2, NULL, NULL, 'Make_2', 'Model_2');
+
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_description") VALUES (100, 1, 1, 'Fault A');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_description") VALUES (200, 1, 2, 'Fault B');
+```

@@ -1,0 +1,133 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT event_id) > 1 vs COUNT(event_id) > 1 or COUNT(budget_id) > 1, and SUM(cost) vs MAX/AVG(cost) or budget.spent
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event 1');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event 2');
+INSERT INTO event (event_id, event_name) VALUES ('E3', 'Event 3');
+
+INSERT INTO member (member_id, first_name) VALUES ('M1', 'Alice');
+INSERT INTO member (member_id, first_name) VALUES ('M2', 'Bob');
+INSERT INTO member (member_id, first_name) VALUES ('M3', 'Charlie');
+
+INSERT INTO budget (budget_id, spent, amount, link_to_event) VALUES ('B1', 10.0, 50, 'E1');
+INSERT INTO budget (budget_id, spent, amount, link_to_event) VALUES ('B2', 10.0, 50, 'E1');
+INSERT INTO budget (budget_id, spent, amount, link_to_event) VALUES ('B3', 500.0, 1000, 'E2');
+INSERT INTO budget (budget_id, spent, amount, link_to_event) VALUES ('B4', 500.0, 1000, 'E3');
+
+-- M1: 2 expenses, 2 budgets, but ONLY 1 distinct event (E1). Highest total cost (1000). Should be filtered out by HAVING.
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX1', 500.0, 'M1', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX2', 500.0, 'M1', 'B2');
+
+-- M2: 3 expenses across 2 distinct events (E1, E2). Total cost = 350. Max cost = 150, Avg = 116.67. (Winner for SUM)
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX3', 100.0, 'M2', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX4', 100.0, 'M2', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX5', 150.0, 'M2', 'B3');
+
+-- M3: 2 expenses across 2 distinct events (E2, E3). Total cost = 300. Max cost = 250, Avg = 150. (Loser for SUM, Winner for MAX/AVG/budget.spent)
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX6', 250.0, 'M3', 'B3');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX7', 50.0, 'M3', 'B4');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition HAVING COUNT(DISTINCT event_id) > 1 vs >= 2 vs > 2, and tie-breaking on member_id ASC
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event 1');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event 2');
+INSERT INTO event (event_id, event_name) VALUES ('E3', 'Event 3');
+
+INSERT INTO member (member_id, first_name) VALUES ('M1', 'Alice');
+INSERT INTO member (member_id, first_name) VALUES ('M2', 'Bob');
+INSERT INTO member (member_id, first_name) VALUES ('M3', 'Charlie');
+
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B1', 'E1');
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B2', 'E2');
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B3', 'E3');
+
+-- M1: Exactly 2 distinct events, total cost = 500. Tie-breaker winner (M1 < M2).
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX1', 250.0, 'M1', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX2', 250.0, 'M1', 'B2');
+
+-- M2: Exactly 2 distinct events, total cost = 500. Tie-breaker loser.
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX3', 300.0, 'M2', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX4', 200.0, 'M2', 'B2');
+
+-- M3: 3 distinct events, total cost = 100. (Would win if HAVING was > 2).
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX5', 30.0, 'M3', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX6', 30.0, 'M3', 'B2');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX7', 40.0, 'M3', 'B3');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN (NULL foreign keys in expense and budget) and SUM(DISTINCT cost) vs SUM(cost)
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event 1');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event 2');
+
+INSERT INTO member (member_id, first_name) VALUES ('M1', 'Alice');
+INSERT INTO member (member_id, first_name) VALUES ('M2', 'Bob');
+INSERT INTO member (member_id, first_name) VALUES ('M3', 'Charlie');
+
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B1', 'E1');
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B2', 'E2');
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B_NULL', NULL);
+
+-- M1: 2 valid events, plus unlinked budget and unlinked event expenses.
+-- Valid cost = 40 + 40 = 80 (SUM(DISTINCT cost) would be 40). If NULLs included via LEFT JOIN, cost = 1080.
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX1', 40.0, 'M1', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX2', 40.0, 'M1', 'B2');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX3', 500.0, 'M1', 'B_NULL');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX4', 500.0, 'M1', NULL);
+
+-- M2: 2 valid events. Valid cost = 35 + 40 = 75 (SUM(DISTINCT cost) is 75, beating M1's 40 if DISTINCT is wrongly used).
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX5', 35.0, 'M2', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX6', 40.0, 'M2', 'B2');
+
+-- M3: Only 1 valid event, but high cost on B_NULL.
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX7', 100.0, 'M3', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX8', 900.0, 'M3', 'B_NULL');
+
+-- Expense with NULL member across 2 events with huge cost (tests grouping by T1.link_to_member with LEFT JOIN)
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX9', 5000.0, NULL, 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX10', 5000.0, NULL, 'B2');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong table join path (e.g., using attendance table instead of expense->budget->event, or filtering by approved='true')
+INSERT INTO event (event_id, event_name, status) VALUES ('E1', 'Event 1', 'Closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E2', 'Event 2', 'Closed');
+
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M1', 'SameName', 'SameLast');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M2', 'SameName', 'SameLast');
+
+-- M2 attends E1 and E2, M1 attends nothing.
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E1', 'M2');
+INSERT INTO attendance (link_to_event, link_to_member) VALUES ('E2', 'M2');
+
+INSERT INTO budget (budget_id, event_status, link_to_event) VALUES ('B1', 'Closed', 'E1');
+INSERT INTO budget (budget_id, event_status, link_to_event) VALUES ('B2', 'Closed', 'E2');
+
+-- M1 has expenses in 2 events, approved='false', total cost = 200. (Winner)
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('EX1', 100.0, 'false', 'M1', 'B1');
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('EX2', 100.0, 'false', 'M1', 'B2');
+
+-- M2 has expenses in only 1 event (E1), approved='true', total cost = 500. (Would win if joined via attendance or filtered by approved)
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('EX3', 250.0, 'true', 'M2', 'B1');
+INSERT INTO expense (expense_id, cost, approved, link_to_member, link_to_budget) VALUES ('EX4', 250.0, 'true', 'M2', 'B1');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when no member has > 1 distinct event (kills mutants without HAVING or with HAVING >= 1)
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event 1');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event 2');
+
+INSERT INTO member (member_id, first_name) VALUES ('M1', 'Alice');
+INSERT INTO member (member_id, first_name) VALUES ('M2', 'Bob');
+
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B1', 'E1');
+INSERT INTO budget (budget_id, link_to_event) VALUES ('B2', 'E2');
+
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX1', 100.0, 'M1', 'B1');
+INSERT INTO expense (expense_id, cost, link_to_member, link_to_budget) VALUES ('EX2', 200.0, 'M2', 'B2');
+```

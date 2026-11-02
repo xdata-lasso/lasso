@@ -1,0 +1,31 @@
+-- Schema DDL
+CREATE TABLE "atom" ("atom_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "element" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "bond" ("bond_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "bond_type" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "connected" ("atom_id" TEXT NOT NULL, "atom_id2" TEXT NOT NULL, "bond_id" TEXT DEFAULT NULL, PRIMARY KEY ("atom_id", "atom_id2"), FOREIGN KEY ("atom_id") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("atom_id2") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("bond_id") REFERENCES "bond" ("bond_id") ON DELETE CASCADE ON UPDATE CASCADE);
+
+CREATE TABLE "molecule" ("molecule_id" TEXT NOT NULL PRIMARY KEY, "label" TEXT DEFAULT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO molecule (molecule_id, label) VALUES ('=', '='), ('default1', ' = '), ('TR008', ' = '), ('default2', 'default2'), (' = ', '='), ('unique_5', ' = '), ('unique_6', 'TR008'), ('unique_7', '='), ('unique_8', ' = '), ('unique_9', 'default2'), ('unique_10', 'default2');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('default2', 'unique_8', 'TR008'), ('=', 'unique_6', 'default1'), (' = ', 'unique_10', 'TR008'), ('TR008', 'unique_6', 'default2'), ('default1', NULL, ' = '), ('unique_5', 'default2', NULL), ('unique_6', 'unique_9', ' = '), ('unique_7', 'default1', 'default1'), ('unique_8', 'unique_7', ' = '), ('unique_9', 'default2', 'TR008'), ('unique_10', 'TR008', ' = ');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CAST(COUNT(CASE WHEN T.bond_type = '=' THEN T.bond_id ELSE NULL END) AS REAL) * 100 / COUNT(T.bond_id) FROM bond AS T WHERE T.molecule_id = 'TR008';
+
+/*
+Gold Result:
+(0.0,)
+*/
+
+-- Prediction Query
+SELECT CAST(COUNT(CASE WHEN bond.bond_type = ' = ' THEN 1 ELSE NULL END) AS REAL) * 100.0 / COUNT(*) AS percentage FROM bond WHERE bond.molecule_id = 'TR008';
+
+/*
+Prediction Result:
+(100.0,)
+*/

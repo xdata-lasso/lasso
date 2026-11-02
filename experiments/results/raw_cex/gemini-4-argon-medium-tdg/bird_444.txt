@@ -1,0 +1,126 @@
+```sql
+-- DATASET 1
+-- Tests basic INNER JOIN vs LEFT JOIN, DISTINCT necessity (multiple foreign_data per card),
+-- WHERE clause filtering ('boros' vs other vs NULL), and column source disambiguation (cards vs foreign_data).
+INSERT INTO cards (id, uuid, name, type, watermark, asciiName, faceName, flavorName, originalType, types, subtypes, supertypes) 
+VALUES (1, 'uuid-1', 'BorosSwiftblade', 'Creature — Human Soldier', 'boros', 'ASCII_Swiftblade', 'Face_Swiftblade', 'Flavor_Swiftblade', 'Orig_Creature', 'Creature', 'Human Soldier', 'Basic');
+
+INSERT INTO cards (id, uuid, name, type, watermark, asciiName, faceName, flavorName, originalType, types, subtypes, supertypes) 
+VALUES (2, 'uuid-2', 'BorosGuildgate', 'Land — Gate', 'boros', 'ASCII_Gate', 'Face_Gate', 'Flavor_Gate', 'Orig_Land', 'Land', 'Gate', 'Snow');
+
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (3, 'uuid-3', 'DimirCutpurse', 'Creature — Spirit', 'dimir');
+
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (4, 'uuid-4', 'LightningBolt', 'Instant', NULL);
+
+-- Multiple foreign_data rows for uuid-1 to test DISTINCT and T1 vs T2 column selection
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (1, 'uuid-1', 'Lamepreste de Boros', 'Créature : humain et soldat', 'French');
+
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (2, 'uuid-1', 'Boros-Schnellklinge', 'Kreatur — Mensch, Soldat', 'German');
+
+-- No foreign_data for uuid-2 to test INNER JOIN vs LEFT JOIN (uuid-2 has watermark='boros' but must be excluded)
+
+-- Foreign_data for non-boros cards to test WHERE filter
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (3, 'uuid-3', 'Bourse-coupe de Dimir', 'Créature : esprit', 'French');
+
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (4, 'uuid-4', 'Foudre', 'Éphémère', 'French');
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT across different cards (reprints with identical name and type, but different uuids),
+-- and tests incorrect join conditions (e.g., joining on id = id instead of uuid = uuid).
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (10, 'uuid-10', 'Lightning Helix', 'Instant', 'boros');
+
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (20, 'uuid-20', 'Lightning Helix', 'Instant', 'boros');
+
+-- Different type for the same card name to ensure DISTINCT is on both (name, type) and not just (name)
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (30, 'uuid-30', 'Lightning Helix', 'Sorcery', 'boros');
+
+-- Card with id=1 (matches foreign_data.id=1 if joined on id=id by mistake)
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (1, 'uuid-wrong-id-join', 'Fake Boros', 'Artifact', 'boros');
+
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (1, 'uuid-10', 'Hélice d''éclairs', 'Éphémère', 'French');
+
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (2, 'uuid-20', 'Blitzspirale', 'Spontanzauber', 'German');
+
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (3, 'uuid-30', 'Helice', 'Conjuro', 'Spanish');
+```
+
+```sql
+-- DATASET 3
+-- Tests case sensitivity and substring matching on watermark ('boros' vs 'Boros' vs 'boros_legion'),
+-- NULL handling in SELECT columns, and orphan/NULL foreign keys in foreign_data.
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (1, 'uuid-exact', 'Exact Match', NULL, 'boros');
+
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (2, 'uuid-null-name', NULL, 'Enchantment', 'boros');
+
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (3, 'uuid-case', 'Case Match', 'Artifact', 'Boros');
+
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (4, 'uuid-sub', 'Substring Match', 'Land', 'boros legion');
+
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (1, 'uuid-exact', 'Nom Etranger 1', 'Type Etranger 1', 'French');
+
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (2, 'uuid-null-name', 'Nom Etranger 2', 'Type Etranger 2', 'French');
+
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (3, 'uuid-case', 'Nom Etranger 3', 'Type Etranger 3', 'French');
+
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (4, 'uuid-sub', 'Nom Etranger 4', 'Type Etranger 4', 'French');
+
+-- Foreign data with NULL uuid (tests RIGHT JOIN / FULL JOIN or improper NULL join handling)
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (5, NULL, 'Orphan Foreign Data', 'Orphan Type', 'Spanish');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong table joins (e.g. joining legalities or rulings instead of foreign_data)
+-- and accidental joins on name = name or type = type.
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (1, 'uuid-only-legalities', 'Boros Recruit', 'Creature — Goblin Soldier', 'boros');
+
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (2, 'uuid-valid', 'Ordruun Commando', 'Creature — Minotaur Soldier', 'boros');
+
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (3, 'uuid-name-trap', 'TrapName', 'TrapType', 'boros');
+
+INSERT INTO cards (id, uuid, name, type, watermark) 
+VALUES (4, 'uuid-non-boros', 'OtherCard', 'OtherType', 'izzet');
+
+-- uuid-only-legalities has legalities and rulings, but NO foreign_data
+INSERT INTO legalities (id, uuid, format, status) 
+VALUES (1, 'uuid-only-legalities', 'Modern', 'Legal');
+
+INSERT INTO rulings (id, uuid, date, text) 
+VALUES (1, 'uuid-only-legalities', '2005-10-01', 'Some ruling text');
+
+-- uuid-valid has foreign_data
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (1, 'uuid-valid', 'Kommandant von Ordruun', 'Kreatur', 'German');
+
+-- Trap: foreign_data linked to non-boros card (uuid-non-boros), but its foreign name/type matches uuid-name-trap's English name/type!
+-- Kills mutants that join ON T1.name = T2.name or T1.type = T2.type
+INSERT INTO foreign_data (id, uuid, name, type, language) 
+VALUES (2, 'uuid-non-boros', 'TrapName', 'TrapType', 'English');
+```

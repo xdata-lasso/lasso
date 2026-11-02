@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Tests basic join conditions (current_address_id vs permanent_address_id), state_province_county filter, and enrolment exclusion (NOT EXISTS vs EXISTS).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "state_province_county", "country") VALUES (1, '100 Main St', 'Raleigh', 'NorthCarolina', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "state_province_county", "country") VALUES (2, '200 Broad St', 'Columbia', 'SouthCarolina', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "state_province_county", "country") VALUES (3, '300 NorthCarolina Ave', 'NorthCarolina', 'Virginia', 'USA');
+
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'Computer Science');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BS CS');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall 2023');
+
+-- Valid match: current_address is NC, permanent is SC, not enrolled.
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "middle_name", "last_name") VALUES (1, 2, 1, 'Alice', 'M', 'Wonder');
+
+-- Invalid (wrong address column): permanent_address is NC, current is SC, not enrolled.
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "middle_name", "last_name") VALUES (2, 1, 2, 'Bob', 'N', 'Builder');
+
+-- Invalid (enrolled): current_address is NC, but has enrolment record.
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "middle_name", "last_name") VALUES (3, 1, 1, 'Charlie', 'O', 'Brown');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 3, 1, 1);
+
+-- Invalid (wrong address column filter): city and line_1 have 'NorthCarolina', but state is 'Virginia'.
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "middle_name", "last_name") VALUES (4, 3, 3, 'David', 'P', 'Copperfield');
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY direction (ASC vs DESC), NULLS LAST vs NULLS FIRST, and duplicate preservation (SELECT vs SELECT DISTINCT).
+INSERT INTO "Addresses" ("address_id", "state_province_county") VALUES (1, 'NorthCarolina');
+
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (1, 1, 1, 'John', 'Zeta');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (2, 1, 1, 'Jane', 'Alpha');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (3, 1, 1, 'Jack', 'Alpha');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (4, 1, 1, 'NoLastName', NULL);
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (5, 1, 1, 'Jim', 'Beta');
+```
+
+```sql
+-- DATASET 3
+-- Tests NOT IN vs NOT EXISTS semantics when Student_Enrolment contains a NULL student_id, and tests NULL foreign keys on Students.
+INSERT INTO "Addresses" ("address_id", "state_province_county") VALUES (1, 'NorthCarolina');
+
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'Math');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BS Math');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Spring 2024');
+
+-- Valid match: current_address is NC, not enrolled.
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (1, NULL, 1, 'Eve', 'Adams');
+
+-- Invalid: current_address_id is NULL (tests INNER JOIN vs LEFT JOIN).
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (2, 1, NULL, 'Frank', 'Miller');
+
+-- Enrolment with NULL student_id: breaks NOT IN (SELECT student_id FROM Student_Enrolment), but NOT EXISTS handles it properly.
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, NULL, 1, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests exact string matching on 'NorthCarolina' (case sensitivity, spaces, partial match) and column projection (first_name/middle_name vs last_name).
+INSERT INTO "Addresses" ("address_id", "state_province_county") VALUES (1, 'NorthCarolina');
+INSERT INTO "Addresses" ("address_id", "state_province_county") VALUES (2, 'North Carolina');
+INSERT INTO "Addresses" ("address_id", "state_province_county") VALUES (3, 'northcarolina');
+INSERT INTO "Addresses" ("address_id", "state_province_county") VALUES (4, NULL);
+
+-- Valid match with distinct first, middle, and last names.
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "middle_name", "last_name") VALUES (1, 1, 1, 'FirstA', 'MiddleA', 'LastA');
+
+-- Invalid matches due to string variations / NULL in state_province_county.
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "middle_name", "last_name") VALUES (2, 2, 2, 'FirstB', 'MiddleB', 'LastB');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "middle_name", "last_name") VALUES (3, 3, 3, 'FirstC', 'MiddleC', 'LastC');
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "middle_name", "last_name") VALUES (4, 4, 4, 'FirstD', 'MiddleD', 'LastD');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple enrolments for one student, and ensures student_id isn't confused with student_enrolment_id or address_id in joins.
+INSERT INTO "Addresses" ("address_id", "state_province_county") VALUES (10, 'NorthCarolina');
+INSERT INTO "Addresses" ("address_id", "state_province_county") VALUES (20, 'NorthCarolina');
+
+INSERT INTO "Departments" ("department_id", "department_name") VALUES (1, 'History');
+INSERT INTO "Degree_Programs" ("degree_program_id", "department_id", "degree_summary_name") VALUES (1, 1, 'BA History');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (1, 'Fall');
+INSERT INTO "Semesters" ("semester_id", "semester_name") VALUES (2, 'Spring');
+
+-- Student 10: ID matches address_id 10, enrolled in multiple semesters (student_enrolment_id 1 and 2).
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (10, 10, 10, 'Grace', 'Hopper');
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (1, 10, 1, 1);
+INSERT INTO "Student_Enrolment" ("student_enrolment_id", "student_id", "semester_id", "degree_program_id") VALUES (2, 10, 2, 1);
+
+-- Student 1: student_id 1 matches student_enrolment_id 1 (which belongs to student 10), but Student 1 is NOT enrolled.
+-- Kills mutants joining LHS.student_id = RHS.student_enrolment_id or LHS.student_id = RHS.semester_id.
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (1, 20, 20, 'Alan', 'Turing');
+
+-- Student 20: current_address_id is 10 (differs from student_id 20), not enrolled.
+-- Kills mutants joining LHS.student_id = RHS.address_id.
+INSERT INTO "Students" ("student_id", "permanent_address_id", "current_address_id", "first_name", "last_name") VALUES (20, 10, 10, 'Ada', 'Lovelace');
+```

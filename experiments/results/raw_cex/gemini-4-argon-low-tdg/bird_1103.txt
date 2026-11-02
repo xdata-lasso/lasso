@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Target: Basic match, exact date string vs date with timestamp, wrong player name, wrong date.
+-- Kills mutants changing '=', 'AND' to 'OR', omitting WHERE clauses, or requiring exact date equality without SUBSTRING.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 1001, 'Aaron Mooy', 2001, '1990-09-15', 175, 68);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 1002, 'Lionel Messi', 2002, '1987-06-24', 170, 72);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (10, 2001, 1001, '2016-02-04 00:00:00', 77, 80);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (11, 2001, 1001, '2016-02-05 00:00:00', 78, 81);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (12, 2002, 1002, '2016-02-04 00:00:00', 94, 95);
+```
+
+```sql
+-- DATASET 2
+-- Target: Join condition mutations (id vs player_api_id vs player_fifa_api_id).
+-- Kills mutants joining on t1.id = t2.id, t1.player_fifa_api_id = t2.player_fifa_api_id, or cross-matching id columns.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 101, 'Aaron Mooy', 501, '1990-09-15', 175, 68);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 102, 'Wrong Player', 502, '1990-01-01', 180, 75);
+
+-- Correct join on player_api_id = 101 (note: player_fifa_api_id is 502, which belongs to Wrong Player to respect FK while breaking fifa_id join)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (99, 502, 101, '2016-02-04 12:30:00', 75, 79);
+-- Wrong join on player_fifa_api_id = 501, but player_api_id = 999
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (98, 501, 999, '2016-02-04 12:30:00', 60, 65);
+-- Wrong join on id = 1
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (1, 502, 998, '2016-02-04 12:30:00', 50, 55);
+```
+
+```sql
+-- DATASET 3
+-- Target: Duplicate ratings, multiple records on the same date, aggregation/DISTINCT mutants.
+-- Kills mutants that add DISTINCT, LIMIT 1, MIN, MAX, AVG, COUNT, or GROUP BY.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 300, 'Aaron Mooy', 400, '1990-09-15', 175, 68);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (1, 400, 300, '2016-02-04 08:00:00', 76, 80);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (2, 400, 300, '2016-02-04 18:00:00', 76, 82);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (3, 400, 300, '2016-02-04', 79, 85);
+```
+
+```sql
+-- DATASET 4
+-- Target: SUBSTRING boundary and string matching mutations (LIKE '%2016-02-04%', SUBSTRING offset/length errors) and player_name partial matches.
+-- Kills mutants using SUBSTRING(date, 2, 10), SUBSTRING(date, 1, 9), LIKE '%Aaron Mooy%', or date comparisons (<, >, <=, >=).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 10, 'Aaron Mooy', 20, '2016-02-04', 175, 68);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 11, 'Aaron Mooy Jr', 21, '1990-09-15', 175, 68);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (3, 12, 'aaron mooy', 22, '1990-09-15', 175, 68);
+
+-- Valid match (exact 10 chars)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (1, 20, 10, '2016-02-04', 74, 78);
+-- Shifted date (kills LIKE '%2016-02-04%' or SUBSTRING(date, 2, 10))
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (2, 20, 10, 'X2016-02-04', 81, 85);
+-- Prefix date (kills SUBSTRING(date, 1, 9) or '2016-02-0%')
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (3, 20, 10, '2016-02-049', 74, 78);
+-- Boundary dates (kills <= and >= mutants)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (4, 20, 10, '2016-02-03 23:59:59', 70, 75);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (5, 20, 10, '2016-02-05 00:00:00', 82, 85);
+-- Wrong player name variations
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (6, 21, 11, '2016-02-04 00:00:00', 65, 70);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (7, 22, 12, '2016-02-04 00:00:00', 66, 71);
+```
+
+```sql
+-- DATASET 5
+-- Target: Outer join (LEFT JOIN) and NULL handling mutants.
+-- Kills mutants replacing INNER JOIN with LEFT JOIN (when date check is moved to ON clause or mishandled) or selecting wrong rating column (e.g., potential, crossing, etc.).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 500, 'Aaron Mooy', 600, '1990-09-15', 175, 68);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 501, 'Aaron Mooy', 601, '1990-09-15', 175, 68);
+
+-- Player 500 has attributes on the target date, with distinct values for every integer column to kill column-swap mutants.
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential, crossing, finishing, short_passing, stamina) VALUES (1, 600, 500, '2016-02-04 00:00:00', 77, 83, 71, 68, 79, 88);
+-- Player 501 has no attributes at all (tests LEFT JOIN vs INNER JOIN).
+-- Also include a row with NULL player_api_id or NULL overall_rating on target date.
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (2, 600, 500, '2016-02-04 01:00:00', NULL, 80);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, "date", overall_rating, potential) VALUES (3, 600, NULL, '2016-02-04 00:00:00', 99, 99);
+```

@@ -1,0 +1,91 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by budget_type_code ASC vs DESC, insertion order vs alphabetical order, and ordering by COUNT(*) vs budget_type_code.
+-- Also includes orphan rows in Ref_Budget_Codes and Documents to kill mutants that incorrectly use INNER/LEFT/RIGHT JOINs without filtering to Documents_with_Expenses.
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('DT1', 'Invoice', 'Standard Invoice');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (1, 'Project Alpha');
+
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('AAA', 'Unused Lowest Code');
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('B_LOW', 'Used Lower Code (Count 1)');
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('Z_HIGH', 'Used Higher Code (Count 3)');
+
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, 1, 'DT1', '2023-01-01', 'Doc 1', 'Desc 1', 'Other 1');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, 1, 'DT1', '2023-01-02', 'Doc 2', 'Desc 2', 'Other 2');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (3, 1, 'DT1', '2023-01-03', 'Doc 3', 'Desc 3', 'Other 3');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (4, 1, 'DT1', '2023-01-04', 'Doc 4', 'Desc 4', 'Other 4');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (5, 1, 'DT1', '2023-01-05', 'Orphan Doc', 'Not in expenses', 'Other 5');
+
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (1, 'Z_HIGH', 'Expense 1');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (2, 'Z_HIGH', 'Expense 2');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (3, 'Z_HIGH', 'Expense 3');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (4, 'B_LOW', 'Expense 4');
+```
+
+```sql
+-- DATASET 2
+-- Tests reverse frequency and ordering: the lexicographically smallest budget_type_code ('A_CODE') has the highest total count (3), while 'B_CODE' has count 1.
+-- Kills mutants that order by COUNT(*) ASC (least frequent budget_type_code) instead of ordering by budget_type_code ASC.
+-- Also sets Document_ID order inverse to Budget_Type_Code order to catch mutants ordering by Document_ID ASC.
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('DT1', 'Receipt', 'Standard Receipt');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (10, 'Project Beta');
+
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('A_CODE', 'First Alphabetically, Most Frequent');
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('B_CODE', 'Second Alphabetically, Least Frequent');
+
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (10, 10, 'DT1', '2023-02-01', 'Doc 10', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (20, 10, 'DT1', '2023-02-02', 'Doc 20', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (30, 10, 'DT1', '2023-02-03', 'Doc 30', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (40, 10, 'DT1', '2023-02-04', 'Doc 40', 'Desc', 'Other');
+
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (10, 'B_CODE', 'Smallest Doc ID has B_CODE');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (20, 'A_CODE', 'Larger Doc ID has A_CODE');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (30, 'A_CODE', 'Larger Doc ID has A_CODE');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (40, 'A_CODE', 'Largest Doc ID has A_CODE');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Budget_Type_Code and missing parent foreign keys in Documents.
+-- In SQLite, NULLs sort first in ASC order. The Gold Query returns NULL here, whereas mutants with INNER JOIN Ref_Budget_Codes or WHERE Budget_Type_Code IS NOT NULL or MIN(Budget_Type_Code) will return 'A_VALID'.
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('A_VALID', 'Valid Budget Code');
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('B_VALID', 'Second Valid Budget Code');
+
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (100, NULL, NULL, '2023-03-01', 'Doc 100', NULL, NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (200, NULL, NULL, '2023-03-02', 'Doc 200', NULL, NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (300, NULL, NULL, '2023-03-03', 'Doc 300', NULL, NULL);
+
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (100, 'B_VALID', 'Details 100');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (200, 'A_VALID', 'Details 200');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (300, NULL, 'Details 300 with NULL budget code');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong column projection (e.g., selecting Document_Details or Budget_Type_Description or Document_Type_Code instead of Budget_Type_Code) and improper joins with Statements/Accounts.
+-- Only Document 2 is in Statements/Accounts (with 'Z_STMT'), while Document 1 (not a Statement) has the lexicographically smallest Budget_Type_Code ('M_EXP').
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('DOC_TYPE_1', 'Type 1', 'Desc 1');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (5, 'Project X');
+
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('M_EXP', 'Desc_A');
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('Z_STMT', 'Desc_B');
+
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, 5, 'DOC_TYPE_1', '2023-05-01', 'Expense Only Doc', 'Desc', 'Other');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, 5, 'DOC_TYPE_1', '2023-05-02', 'Statement & Expense Doc', 'Desc', 'Other');
+
+INSERT INTO Statements (Statement_ID, Statement_Details) VALUES (2, 'Stmt Details');
+INSERT INTO Accounts (Account_ID, Statement_ID, Account_Details) VALUES (1, 2, 'Acct Details');
+
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (1, 'M_EXP', 'A_Detail_First');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (2, 'Z_STMT', 'Z_Detail_Second');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty Documents_with_Expenses table while other tables are populated.
+-- Kills mutants that query Ref_Budget_Codes directly without checking Documents_with_Expenses or use COUNT(*) without proper empty-set handling.
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('DT_EMPTY', 'Empty Test', 'Desc');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (99, 'Project Empty');
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('ONLY_IN_REF', 'Should not be returned');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (99, 99, 'DT_EMPTY', '2023-06-01', 'Doc 99', 'Desc', 'Other');
+INSERT INTO Statements (Statement_ID, Statement_Details) VALUES (99, 'Statement 99');
+```

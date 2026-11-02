@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests COUNT vs SUM when all filtered rows evaluate to 0 in the CASE statement.
+-- Also tests boundary conditions for convertedManaCost (> 5 vs >= 5, = 5, < 5, NULL) and setCode join/filter.
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'ICE', 'Ice Age');
+
+-- Matches WHERE, but CASE evaluates to 0 (Ref SUM = 0, Mutant COUNT = 1)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (1, 'u1', 'CSP', 6.0, '4');
+
+-- Fails WHERE on boundary convertedManaCost = 5, but CASE is 1
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (2, 'u2', 'CSP', 5.0, '*');
+-- Fails WHERE on convertedManaCost < 5, CASE is 1
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (3, 'u3', 'CSP', 4.0, NULL);
+-- Fails WHERE on convertedManaCost IS NULL, CASE is 1
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (4, 'u4', 'CSP', NULL, '1+*');
+-- Fails WHERE on set name, CASE is 1
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (5, 'u5', 'ICE', 7.0, '*');
+-- Fails JOIN (unmatched setCode), CASE is 1
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (6, 'u6', 'NONE', 8.0, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set after WHERE filtering (Ref SUM = NULL, Mutant COUNT = 0).
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (1, 'u1', 'CSP', 5.0, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (2, 'u2', 'CSP', 3.0, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests partial matches in CASE (OR vs AND, LIKE '%*%' vs '=', NULL handling, fractional > 5).
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+
+-- 1. Power has '*' embedded and fractional CMC > 5 (tests LIKE '%*%' vs '=' and > 5.0)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (1, 'u1', 'CSP', 5.5, '1+*');
+-- 2. Power is exact '*'
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (2, 'u2', 'CSP', 6.0, '*');
+-- 3. Power is NULL (tests OR T1.power IS NULL vs only LIKE)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (3, 'u3', 'CSP', 7.0, NULL);
+-- 4. Power is normal number (tests filtering inside CASE vs filtering in WHERE)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (4, 'u4', 'CSP', 8.0, '5');
+-- 5. Power is empty string (tests NULL vs '')
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (5, 'u5', 'CSP', 9.0, '');
+```
+
+```sql
+-- DATASET 4
+-- Tests join key mistakes (e.g. joining on id instead of code/setCode, or missing join condition) and case sensitivity of 'Coldsnap'.
+INSERT INTO sets (id, code, name) VALUES (1, 'OTHER', 'Not Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'CSP', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (3, 'CSP_LOWER', 'coldsnap');
+
+-- Card 1 has id=1 (matches sets.id=1 'Not Coldsnap' if joined on id), but setCode='CSP' (matches sets.id=2 'Coldsnap')
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (1, 'u1', 'CSP', 6.0, '*');
+-- Card 2 has id=2 (matches sets.id=2 'Coldsnap' if joined on id), but setCode='OTHER'
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (2, 'u2', 'OTHER', 6.0, NULL);
+-- Card 3 belongs to lowercase 'coldsnap' set
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power) VALUES (3, 'u3', 'CSP_LOWER', 6.0, '*');
+```
+
+```sql
+-- DATASET 5
+-- Tests SUM(DISTINCT ...) vs SUM(...) and faceConvertedManaCost vs convertedManaCost confusion.
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+
+-- Multiple cards yielding 1 in CASE (if SUM(DISTINCT ...) is used, result would be 1 instead of 2)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, faceConvertedManaCost, power) VALUES (1, 'u1', 'CSP', 6.0, 2.0, '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, faceConvertedManaCost, power) VALUES (2, 'u2', 'CSP', 7.0, 3.0, '*');
+
+-- Card where faceConvertedManaCost > 5 but convertedManaCost <= 5
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, faceConvertedManaCost, power) VALUES (3, 'u3', 'CSP', 4.0, 6.0, NULL);
+
+-- Card where toughness has '*' and is NULL, while power is normal (tests column confusion power vs toughness)
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power, toughness) VALUES (4, 'u4', 'CSP', 6.0, '4', '*');
+INSERT INTO cards (id, uuid, setCode, convertedManaCost, power, toughness) VALUES (5, 'u5', 'CSP', 6.0, '4', NULL);
+
+-- Card where card name is 'Coldsnap' in another set (tests T2.name vs T1.name confusion)
+INSERT INTO sets (id, code, name) VALUES (2, 'INV', 'Invasion');
+INSERT INTO cards (id, uuid, name, setCode, convertedManaCost, power) VALUES (6, 'u6', 'Coldsnap', 'INV', 6.0, '*');
+```

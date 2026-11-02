@@ -1,0 +1,45 @@
+-- Schema DDL
+CREATE TABLE "ELECTION" (
+    "ELECTION_ID" INT,
+    "REPRESENTATIVE_ID" INT,
+    "DATE" TEXT,
+    "VOTES" FLOAT,
+    "VOTE_PERCENT" FLOAT,
+    "SEATS" FLOAT,
+    "PLACE" FLOAT,
+    PRIMARY KEY ("ELECTION_ID"),
+    FOREIGN KEY ("REPRESENTATIVE_ID") REFERENCES "REPRESENTATIVE"("REPRESENTATIVE_ID")
+);
+CREATE TABLE "REPRESENTATIVE" (
+    "REPRESENTATIVE_ID" INT,
+    "NAME" TEXT,
+    "STATE" TEXT,
+    "PARTY" TEXT,
+    "LIFESPAN" TEXT,
+    PRIMARY KEY ("REPRESENTATIVE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ELECTION VALUES (-1, 0, 0, 0, 0, 0, 0);
+INSERT INTO ELECTION VALUES (0, 0, 0, 0, 0, 0, 0);
+INSERT INTO REPRESENTATIVE VALUES (0, 9, 12, -1, 13);
+INSERT INTO REPRESENTATIVE VALUES (1, 6, 7, 0, 8);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT party FROM (SELECT name, party, COUNT(*) AS n FROM representative GROUP BY name, party) WHERE (n < 3) ORDER BY party;
+
+/*
+Gold Result:
+('-1',)
+('0',)
+*/
+
+-- Prediction Query
+SELECT Party FROM representative GROUP BY Party HAVING COUNT(*) >= 3;
+
+/*
+Prediction Result:
+*/

@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, DISTINCT deduplication, and filtering out non-'sn' elements (including case sensitivity and NULLs).
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'sn');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'SN');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M1', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'M1', '#');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A3', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A4', 'B4');
+```
+
+```sql
+-- DATASET 2
+-- Tests asymmetric join condition on 'connected' (T1.atom_id = T2.atom_id vs T1.atom_id = T2.atom_id2).
+-- 'sn' atom is only in atom_id2 for bond B1, and in atom_id for bond B2.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'sn');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A1', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B2');
+```
+
+```sql
+-- DATASET 3
+-- Tests join path through 'connected' vs joining 'atom' and 'bond' via 'molecule_id'.
+-- Also tests molecules with NULL molecule_id in atom and bond.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'sn');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', NULL, 'sn');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', NULL, 'h');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M2', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', NULL, '#');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A4', 'A5', 'B3');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN semantics, and NULL bond_type handling.
+-- Includes an 'sn' atom not in 'connected', an 'sn' atom in 'connected' with a NULL bond_id,
+-- an 'sn' atom connected to a bond with a NULL bond_type, and an unconnected bond.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'sn');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'sn');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'sn');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M1', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M1', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A4', NULL);
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A4', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A1', 'B3');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when 'sn' atom exists only in atom_id2 or is completely absent from 'connected'.
+-- Kills mutants that use OR instead of AND, or join on atom_id2, or omit the WHERE clause.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'sn');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'n');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A1', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B2');
+```
+
+```sql
+-- DATASET 6
+-- Tests multiple distinct bond_types for a single 'sn' atom, and ensures no arbitrary LIMIT 1 or aggregation bug.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'sn');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M1', 'n');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M1', '#');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A3', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A4', 'B3');
+```

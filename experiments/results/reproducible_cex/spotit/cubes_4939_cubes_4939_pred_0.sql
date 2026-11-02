@@ -1,0 +1,92 @@
+-- Schema DDL
+CREATE TABLE "ADDRESSES" (
+    "ADDRESS_ID" INT,
+    "ADDRESS_CONTENT" TEXT,
+    "CITY" TEXT,
+    "ZIP_POSTCODE" TEXT,
+    "STATE_PROVINCE_COUNTY" TEXT,
+    "COUNTRY" TEXT,
+    "OTHER_ADDRESS_DETAILS" TEXT,
+    PRIMARY KEY ("ADDRESS_ID")
+);
+CREATE TABLE "PRODUCTS" (
+    "PRODUCT_ID" INT,
+    "PRODUCT_DETAILS" TEXT,
+    PRIMARY KEY ("PRODUCT_ID")
+);
+CREATE TABLE "CUSTOMERS" (
+    "CUSTOMER_ID" INT,
+    "PAYMENT_METHOD" TEXT,
+    "CUSTOMER_NAME" TEXT,
+    "DATE_BECAME_CUSTOMER" DATETIME,
+    "OTHER_CUSTOMER_DETAILS" TEXT,
+    PRIMARY KEY ("CUSTOMER_ID")
+);
+CREATE TABLE "CUSTOMER_ADDRESSES" (
+    "CUSTOMER_ID" INT,
+    "ADDRESS_ID" INT,
+    "DATE_ADDRESS_FROM" DATETIME,
+    "ADDRESS_TYPE" TEXT,
+    "DATE_ADDRESS_TO" DATETIME,
+    FOREIGN KEY ("CUSTOMER_ID") REFERENCES "CUSTOMERS"("CUSTOMER_ID"),
+    FOREIGN KEY ("ADDRESS_ID") REFERENCES "ADDRESSES"("ADDRESS_ID")
+);
+CREATE TABLE "CUSTOMER_CONTACT_CHANNELS" (
+    "CUSTOMER_ID" INT,
+    "CHANNEL_CODE" TEXT,
+    "ACTIVE_FROM_DATE" DATETIME,
+    "ACTIVE_TO_DATE" DATETIME,
+    "CONTACT_NUMBER" TEXT,
+    FOREIGN KEY ("CUSTOMER_ID") REFERENCES "CUSTOMERS"("CUSTOMER_ID")
+);
+CREATE TABLE "CUSTOMER_ORDERS" (
+    "ORDER_ID" INT,
+    "CUSTOMER_ID" INT,
+    "ORDER_STATUS" TEXT,
+    "ORDER_DATE" DATETIME,
+    "ORDER_DETAILS" TEXT,
+    PRIMARY KEY ("ORDER_ID"),
+    FOREIGN KEY ("CUSTOMER_ID") REFERENCES "CUSTOMERS"("CUSTOMER_ID")
+);
+CREATE TABLE "ORDER_ITEMS" (
+    "ORDER_ID" INT,
+    "PRODUCT_ID" INT,
+    "ORDER_QUANTITY" TEXT,
+    FOREIGN KEY ("ORDER_ID") REFERENCES "CUSTOMER_ORDERS"("ORDER_ID"),
+    FOREIGN KEY ("PRODUCT_ID") REFERENCES "PRODUCTS"("PRODUCT_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ADDRESSES VALUES (-1, 0, 0, 0, 0, 0, 0);
+INSERT INTO ADDRESSES VALUES (0, 0, 0, 0, 0, 0, 0);
+INSERT INTO PRODUCTS VALUES (-1, 0);
+INSERT INTO PRODUCTS VALUES (0, 0);
+INSERT INTO CUSTOMERS VALUES (0, 0, 0, 0, 0);
+INSERT INTO CUSTOMERS VALUES (-1, 0, 0, 0, 0);
+INSERT INTO CUSTOMER_ADDRESSES VALUES (0, -1, 0, 0, 0);
+INSERT INTO CUSTOMER_ADDRESSES VALUES (0, 0, 0, 0, 0);
+INSERT INTO CUSTOMER_CONTACT_CHANNELS VALUES (0, -1, NULL, -2, 0);
+INSERT INTO CUSTOMER_CONTACT_CHANNELS VALUES (-1, 0, 0, NULL, 0);
+INSERT INTO CUSTOMER_ORDERS VALUES (1, 0, 0, 0, 0);
+INSERT INTO CUSTOMER_ORDERS VALUES (0, 0, 0, 0, 0);
+INSERT INTO ORDER_ITEMS VALUES (1, 0, 0);
+INSERT INTO ORDER_ITEMS VALUES (1, -1, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT channel_code, contact_number FROM (SELECT * FROM (SELECT * FROM customer_contact_channels ORDER BY active_from_date, customer_contact_channels.customer_id NULLS LAST, customer_contact_channels.channel_code NULLS LAST, customer_contact_channels.active_to_date NULLS LAST, customer_contact_channels.contact_number NULLS LAST) LIMIT 17);
+
+/*
+Gold Result:
+('-1', '0')
+('0', '0')
+*/
+
+-- Prediction Query
+SELECT channel_code, contact_number FROM customer_contact_channels WHERE active_to_date - active_from_date = (SELECT active_to_date - active_from_date FROM customer_contact_channels ORDER BY (active_to_date - active_from_date) DESC, customer_contact_channels.customer_id NULLS LAST, customer_contact_channels.channel_code NULLS LAST, customer_contact_channels.active_from_date NULLS LAST, customer_contact_channels.active_to_date NULLS LAST, customer_contact_channels.contact_number NULLS LAST LIMIT 1);
+
+/*
+Prediction Result:
+*/

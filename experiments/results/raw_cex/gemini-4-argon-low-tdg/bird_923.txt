@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(T2.circuitId) vs COUNT(DISTINCT T2.circuitId) / COUNT(T1.circuitId) without join (1 circuit in Italy with 2 races).
+-- 2. INNER JOIN vs LEFT JOIN + COUNT(*) (1 circuit in Italy with 0 races).
+-- 3. WHERE T1.country = 'Italy' vs no WHERE or != 'Italy' (1 circuit in UK with 1 race, 1 circuit with NULL country and 1 race).
+-- 4. Wrong join condition e.g., T1.circuitId = T2.raceId (raceId 10, 11, 12 do not match circuitId 1, 2, 3, 4).
+INSERT INTO seasons (year, url) VALUES (2020, 'http://en.wikipedia.org/wiki/2020_Formula_One_World_Championship');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://en.wikipedia.org/wiki/2021_Formula_One_World_Championship');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'monza', 'Autodromo Nazionale di Monza', 'Monza', 'Italy', 'http://en.wikipedia.org/wiki/Autodromo_Nazionale_Monza');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'imola', 'Autodromo Enzo e Dino Ferrari', 'Imola', 'Italy', 'http://en.wikipedia.org/wiki/Autodromo_Enzo_e_Dino_Ferrari');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (3, 'silverstone', 'Silverstone Circuit', 'Silverstone', 'UK', 'http://en.wikipedia.org/wiki/Silverstone_Circuit');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (4, 'unknown', 'Unknown Circuit', 'Nowhere', NULL, 'http://en.wikipedia.org/wiki/Unknown_Circuit');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2020, 1, 1, 'Italian Grand Prix 2020', '2020-09-06', 'http://en.wikipedia.org/wiki/2020_Italian_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (11, 2021, 1, 1, 'Italian Grand Prix 2021', '2021-09-12', 'http://en.wikipedia.org/wiki/2021_Italian_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (12, 2020, 2, 3, 'British Grand Prix 2020', '2020-08-02', 'http://en.wikipedia.org/wiki/2020_British_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (13, 2020, 3, 4, 'Mystery Grand Prix', '2020-10-01', 'http://en.wikipedia.org/wiki/2020_Mystery_Grand_Prix');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Multiple distinct circuits in Italy, each with multiple races (kills COUNT(DISTINCT T1.country), COUNT(DISTINCT T1.circuitId), GROUP BY country without aggregation).
+-- 2. String matching mutations: 'Italy' in circuit name or location, but country is NOT 'Italy' (kills WHERE T1.location = 'Italy' or T1.name LIKE '%Italy%').
+-- 3. Case sensitivity & exact match: country = 'italy' or 'ITALY' (kills case-insensitive or substring mutants if applicable).
+INSERT INTO seasons (year, url) VALUES (2022, 'http://en.wikipedia.org/wiki/2022_Formula_One_World_Championship');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (10, 'monza', 'Monza Circuit', 'Monza', 'Italy', 'http://example.com/c10');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (20, 'mugello', 'Mugello Circuit', 'Mugello', 'Italy', 'http://example.com/c20');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (30, 'fake_italy_loc', 'Some Track', 'Italy', 'USA', 'http://example.com/c30');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (40, 'fake_italy_name', 'Italy International Raceway', 'Austin', 'USA', 'http://example.com/c40');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (50, 'lowercase_italy', 'Lower Track', 'Rome', 'italy', 'http://example.com/c50');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2022, 1, 10, 'Race 1', '2022-05-01', 'http://example.com/r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2022, 2, 10, 'Race 2', '2022-05-08', 'http://example.com/r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2022, 3, 20, 'Race 3', '2022-05-15', 'http://example.com/r3');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 2022, 4, 30, 'Italian GP', '2022-05-22', 'http://example.com/r4');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (5, 2022, 5, 40, 'Italy GP', '2022-05-29', 'http://example.com/r5');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (6, 2022, 6, 50, 'Rome GP', '2022-06-05', 'http://example.com/r6');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Zero matching rows (output should be 0).
+-- 2. Kills mutants that use HAVING COUNT(*) > 0 or return empty set instead of 0, or count non-Italian races.
+-- 3. Tests when T2.time and T2.url are NULL in races (in case a mutant does COUNT(T2.time) or COUNT(T2.url) when Italian races exist in other contexts, so we also include 1 Italian race with NULL time and NULL url here to specifically kill COUNT(nullable_col)).
+INSERT INTO seasons (year, url) VALUES (2023, 'http://example.com/s2023');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (1, 'imola', 'Imola', NULL, 'Italy', NULL, NULL, NULL, 'http://example.com/imola');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, lat, lng, alt, url) VALUES (2, 'spa', 'Spa', 'Spa', 'Belgium', 50.4, 5.9, 400, 'http://example.com/spa');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (100, 2023, 1, 1, 'Imola GP', '2023-05-01', NULL, NULL);
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (101, 2023, 2, 2, 'Belgian GP', '2023-07-01', '14:00:00', 'http://example.com/belgian');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Pure empty result for 'Italy' (0 rows match WHERE clause, while other countries have races, and Italy has a circuit with 0 races).
+-- 2. Kills LEFT JOIN mutants, kills GROUP BY T1.country mutants (which would return empty set instead of 1 row with 0).
+INSERT INTO seasons (year, url) VALUES (2024, 'http://example.com/s2024');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (1, 'monza', 'Monza', 'Monza', 'Italy', 'http://example.com/monza');
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (2, 'suzuka', 'Suzuka', 'Suzuka', 'Japan', 'http://example.com/suzuka');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2024, 1, 2, 'Japanese GP', '2024-04-07', 'http://example.com/jp1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2024, 2, 2, 'Japanese GP 2', '2024-10-07', 'http://example.com/jp2');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Kills mutants that accidentally join with other tables (e.g., results, qualifying, constructorResults) where a race has 0 or multiple results.
+-- 2. Kills mutants that confuse SUM(T2.circuitId) or SUM(T2.round) with COUNT(T2.circuitId) by using circuitId = 5 and round = 5 for a single race.
+INSERT INTO seasons (year, url) VALUES (2025, 'http://example.com/s2025');
+
+INSERT INTO circuits (circuitId, circuitRef, name, location, country, url) VALUES (5, 'pescara', 'Pescara Circuit', 'Pescara', 'Italy', 'http://example.com/pescara');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (50, 2025, 5, 5, 'Pescara GP', '2025-08-18', 'http://example.com/pescara_gp');
+```

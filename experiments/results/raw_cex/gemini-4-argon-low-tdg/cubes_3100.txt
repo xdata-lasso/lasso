@@ -1,0 +1,78 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, duplicates (SELECT vs SELECT DISTINCT), ordering by attribute_name and attribute_id, and LEFT JOIN unmatched NULL filtering.
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (1, 'Main Catalog', 'Publisher A', '2020-01-01', '2020-06-01');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (10, 1, 'Level 1');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (100, 10, NULL, NULL, NULL, 'Item 1', 'STK1', 10.0, 9.0, 8.0, '10L', '10cm', '10cm', '10cm');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (101, 10, NULL, NULL, NULL, 'Item 2', 'STK2', 20.0, 18.0, 16.0, '20L', '20cm', '20cm', '20cm');
+
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (1, 'Weight', 'Numeric');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (2, 'Color', 'Text');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (3, 'Color', 'Text');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (4, 'Unmatched_Attr', 'Boolean');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (5, 'NonZero_Attr', 'Numeric');
+
+-- Duplicate matches for attribute_id = 1 (tests ALL vs DISTINCT)
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (10, 100, 1, '0');
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (10, 101, 1, '0');
+
+-- Tie-breaking on attribute_name ('Color'), reverse order of attribute_id (3 vs 2)
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (10, 100, 3, '0');
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (10, 100, 2, '0');
+
+-- Non-zero attribute value (tests WHERE filter)
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (10, 100, 5, '1');
+```
+
+```sql
+-- DATASET 2
+-- Tests SQLite type affinity and edge cases for (attribute_value = 0) vs (attribute_value = '0'), plus NULL attribute_name sorting and orphan RHS rows.
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (1, 'Cat 1', 'Pub 1', '2021-01-01', '2021-01-02');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (1, 1, 'Root');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (1, 1, NULL, NULL, NULL, 'Entry 1', 'S1', 5.0, 4.0, 3.0, '1', '1', '1', '1');
+
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (10, 'Alpha', 'Text');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (20, NULL, 'Text');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (30, 'Beta', 'Text');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (40, 'Gamma', 'Text');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (50, 'Delta', 'Text');
+
+-- Exact '0'
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (1, 1, 10, '0');
+-- NULL attribute_name with '0'
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (1, 1, 20, '0');
+-- '00' and '0.0' (in SQLite, TEXT column compared to integer 0 converts 0 to '0' because of column TEXT affinity, so '00' = '0' is FALSE! Mutants using CAST(attribute_value AS INT) = 0 will fail)
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (1, 1, 30, '00');
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (1, 1, 40, '0.0');
+-- Non-numeric text (if a mutant forces numeric conversion, 'abc' == 0 would evaluate to TRUE in SQLite!)
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (1, 1, 50, 'abc');
+-- Orphan row in RHS (no FK constraint on attribute_id in DDL) to kill RIGHT JOIN / FULL JOIN / wrong table selection mutants
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (1, 1, 999, '0');
+```
+
+```sql
+-- DATASET 3
+-- Tests mistaken join conditions (e.g. joining attribute_id with catalog_entry_id or catalog_level_number) and negative/boundary values.
+INSERT INTO Catalogs (catalog_id, catalog_name, catalog_publisher, date_of_publication, date_of_latest_revision) VALUES (1, 'Cat', 'Pub', '2022-01-01', '2022-01-01');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (0, 1, 'Level Zero');
+INSERT INTO Catalog_Structure (catalog_level_number, catalog_id, catalog_level_name) VALUES (2, 1, 'Level Two');
+
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (0, 2, NULL, NULL, NULL, 'Entry Zero', 'S0', 1.0, 1.0, 1.0, '1', '1', '1', '1');
+INSERT INTO Catalog_Contents (catalog_entry_id, catalog_level_number, parent_entry_id, previous_entry_id, next_entry_id, catalog_entry_name, product_stock_number, price_in_dollars, price_in_euros, price_in_pounds, capacity, length, height, width) VALUES (3, 0, NULL, NULL, NULL, 'Entry Three', 'S3', 1.0, 1.0, 1.0, '1', '1', '1', '1');
+
+-- Attribute IDs that overlap with catalog_level_number and catalog_entry_id
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (0, 'Attr_Zero', 'Int');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (2, 'Attr_Two', 'Int');
+INSERT INTO Attribute_Definitions (attribute_id, attribute_name, attribute_data_type) VALUES (3, 'Attr_Three', 'Int');
+
+-- Row 1: catalog_level_number=0, catalog_entry_id=3, attribute_id=2, attribute_value='0'
+-- Correct join matches attribute_id=2 ('Attr_Two'). Wrong join on level_number matches 0; wrong join on entry_id matches 3.
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (0, 3, 2, '0');
+
+-- Row 2: catalog_level_number=2, catalog_entry_id=0, attribute_id=3, attribute_value='-1'
+-- If mutant filters on catalog_entry_id = 0 instead of attribute_value = 0, this row will be wrongly included.
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (2, 0, 3, '-1');
+
+-- Row 3: explicit NULL in attribute_value
+INSERT INTO Catalog_Contents_Additional_Attributes (catalog_level_number, catalog_entry_id, attribute_id, attribute_value) VALUES (2, 0, 0, NULL);
+```

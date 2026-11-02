@@ -1,0 +1,106 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- Tests a mix of:
+-- 1. A Person who is NOT a Student (Person 4) -> Catches mutants querying People instead of Students.
+-- 2. A Student with NO course registration and NO attendance (Student 30, 10) -> Should be returned.
+-- 3. A Student with a course registration, but NO attendance (Student 20) -> Catches mutants checking Student_Course_Registrations instead of Student_Course_Attendance.
+-- 4. A Student with both registration and attendance (Student 40) -> Should be excluded (catches EXISTS vs NOT EXISTS).
+-- 5. Inserted out of numerical order -> Catches missing or DESC ORDER BY.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (30, 'Charlie', 'C', 'Chaplin', '333-3333', 'c@example.com', 'charlie', 'pass3');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (10, 'Alice', 'A', 'Adams', '111-1111', 'a@example.com', 'alice', 'pass1');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (20, 'Bob', 'B', 'Baker', '222-2222', 'b@example.com', 'bob', 'pass2');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (40, 'David', 'D', 'Davis', '444-4444', 'd@example.com', 'david', 'pass4');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (5, 'Eve', 'E', 'Evans', '555-5555', 'e@example.com', 'eve', 'pass5');
+
+INSERT INTO Candidates (candidate_id, candidate_details) VALUES (5, 'Candidate only, not a student');
+
+INSERT INTO Students (student_id, student_details) VALUES (30, 'Unregistered Student 30');
+INSERT INTO Students (student_id, student_details) VALUES (10, 'Unregistered Student 10');
+INSERT INTO Students (student_id, student_details) VALUES (20, 'Registered but never attended');
+INSERT INTO Students (student_id, student_details) VALUES (40, 'Registered and attended');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('101', 'CS101', 'Intro to CS', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('102', 'CS102', 'Data Structures', 'None');
+
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (20, 101, '2023-01-10 09:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (40, 102, '2023-01-10 10:00:00');
+
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (40, 102, '2023-01-15 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in NOT IN vs NOT EXISTS, and multiple attendance records per student:
+-- 1. A row in Student_Course_Attendance with a NULL student_id -> A mutant using `WHERE student_id NOT IN (SELECT student_id FROM Student_Course_Attendance)` will evaluate to UNKNOWN and return 0 rows, whereas the Reference Query (NOT EXISTS) will still return Student 2.
+-- 2. Student 1 has multiple attendance records -> Catches mutants that use RIGHT/FULL/INNER JOIN without DISTINCT.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (1, 'John', 'M', 'Doe', '123-4567', 'john@example.com', 'jdoe', 'pwd1');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (2, 'Jane', 'A', 'Smith', '234-5678', 'jane@example.com', 'jsmith', 'pwd2');
+
+INSERT INTO Students (student_id, student_details) VALUES (1, 'Attended multiple courses');
+INSERT INTO Students (student_id, student_details) VALUES (2, 'Attended no courses');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('10', 'Math', 'Algebra', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('20', 'Science', 'Physics', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('30', 'History', 'World History', 'None');
+
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (1, 10, '2023-02-01 08:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (NULL, 20, '2023-02-01 09:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (2, 30, '2023-02-01 10:00:00');
+
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (1, 10, '2023-02-05 08:00:00');
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (1, 20, '2023-02-06 09:00:00');
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (NULL, 30, '2023-02-07 10:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests wrong join column / attribute confusion (e.g., matching LHS.student_id = RHS.course_id):
+-- Student 100 attends Course 200.
+-- Student 200 has NOT attended any course, but their student_id (200) matches the course_id (200) present in Student_Course_Attendance.
+-- A mutant joining on `LHS.student_id = RHS.course_id` will falsely exclude Student 200 and falsely include Student 100.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (100, 'Sam', 'S', 'Stone', '999-0100', 'sam@example.com', 'sam', 'pass');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (200, 'Tina', 'T', 'Turner', '999-0200', 'tina@example.com', 'tina', 'pass');
+
+INSERT INTO Students (student_id, student_details) VALUES (100, 'Student ID 100, attends Course 200');
+INSERT INTO Students (student_id, student_details) VALUES (200, 'Student ID 200, attends nothing');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('200', 'Art', 'Painting', 'None');
+
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (100, 200, '2023-03-01 12:00:00');
+
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (100, 200, '2023-03-02 12:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty Student_Course_Attendance table and negative/zero/boundary student_ids:
+-- Catches mutants that use INNER JOIN or fail when the subquery table is completely empty, or mutants with hardcoded > 0 filters.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (0, 'Zero', 'Z', 'Zed', '000-0000', 'z@example.com', 'zero', 'p0');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (-5, 'Neg', 'N', 'Minus', '000-0005', 'n@example.com', 'neg', 'p5');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (7, 'Pos', 'P', 'Plus', '000-0007', 'p@example.com', 'pos', 'p7');
+
+INSERT INTO Students (student_id, student_details) VALUES (7, 'Positive ID');
+INSERT INTO Students (student_id, student_details) VALUES (0, 'Zero ID');
+INSERT INTO Students (student_id, student_details) VALUES (-5, 'Negative ID');
+```
+
+```sql
+-- DATASET 5
+-- Tests scenario where ALL students have attendance (Result set of Reference Query should be empty):
+-- Catches mutants that lack the WHERE clause, use OR instead of AND, or fail to filter when all rows match the subquery.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (11, 'Kim', 'K', 'Klein', '111-2222', 'kim@example.com', 'kim', 'pk');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (22, 'Leo', 'L', 'Lopez', '222-3333', 'leo@example.com', 'leo', 'pl');
+
+INSERT INTO Students (student_id, student_details) VALUES (11, 'Attended');
+INSERT INTO Students (student_id, student_details) VALUES (22, 'Also Attended');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('1', 'Bio', 'Biology', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('2', 'Chem', 'Chemistry', 'None');
+
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (11, 1, '2023-04-01 09:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (22, 2, '2023-04-01 10:00:00');
+
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (11, 1, '2023-04-02 09:00:00');
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (22, 2, '2023-04-02 10:00:00');
+```

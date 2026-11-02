@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests standard window aggregation, DISTINCT elimination of duplicate window results,
+-- duplicate ticket counts (testing AVG vs AVG(DISTINCT)), fractional averages,
+-- and orphan parent rows (testing extraneous JOINs with museum/visitor).
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (1, 'Louvre', 500, '1793');
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (2, 'Met', 400, '1870');
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (3, 'Unvisited Museum', 50, '2020');
+
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (1, 'Alice', 1, 30);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (2, 'Bob', 2, 25);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (3, 'Charlie', 1, 40);
+
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (1, '1', 2, 100.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (1, '2', 2, 50.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (2, '1', 5, 20.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (2, '2', 8, 10.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in window functions (AVG and MAX ignoring NULLs vs counting NULLs as 0)
+-- combined with valid numerical ticket values, zero values, and negative values.
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (10, 'Modern Art', 120, '1950');
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (20, 'Natural History', 200, '1880');
+
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (10, 'Diana', 3, 35);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (20, 'Evan', 1, 22);
+
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (10, '10', NULL, 0.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (10, '20', 0, 15.5);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (20, '10', 10, 120.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (20, '20', -3, 0.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests behavior when all rows in the target table have NULL in the aggregated column
+-- (should return a single row of (NULL, NULL), whereas aggregate without OVER on empty/filtered might differ).
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (1, 'Science Center', 80, '2001');
+
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (1, 'Frank', 2, 45);
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (2, 'Grace', 3, 50);
+
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (1, '1', NULL, 25.0);
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (1, '2', NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty 'visit' table (Window functions with OVER() on an empty table must return 0 rows,
+-- whereas standard aggregate queries SELECT AVG(...), MAX(...) FROM visit without GROUP BY return 1 row of (NULL, NULL)).
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (1, 'Empty Visit Museum', 10, '1999');
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (1, 'Henry', 1, 60);
+```
+
+```sql
+-- DATASET 5
+-- Tests single-row table boundary case and verifies column confusion (Num_of_Ticket vs Total_spent vs IDs).
+INSERT INTO "museum" ("Museum_ID", "Name", "Num_of_Staff", "Open_Year") VALUES (100, 'Solo Museum', 300, '1900');
+INSERT INTO "visitor" ("ID", "Name", "Level_of_membership", "Age") VALUES (200, 'Ivy', 5, 28);
+
+INSERT INTO "visit" ("Museum_ID", "visitor_ID", "Num_of_Ticket", "Total_spent") VALUES (100, '200', 7, 350.75);
+```

@@ -1,0 +1,47 @@
+```sql
+-- DATASET 1
+-- Tests basic window function behavior, duplicate values, NULL handling, and column selection vs other tables.
+-- Catches: missing DISTINCT (without OVER or with OVER), SUM(DISTINCT ...), AVG/COUNT/MIN/MAX instead of SUM,
+-- wrong column (City_Area, District_ID), PARTITION BY instead of OVER (), ORDER BY inside OVER (),
+-- and inner joins with store_district (Row 4 is unreferenced in store_district).
+INSERT INTO "product" ("product_id", "product", "dimensions", "dpi", "pages_per_minute_color", "max_page_size", "interface") VALUES (1, 'Scanner A', '10x10', 300.0, 10.0, 'A4', 'USB');
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (1, 'Main Store', 'Retail', 500.0, 5.0, 1);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (1, 'North', 'Alpha', 100.0, 50.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (2, 'North', 'Beta', 100.0, 60.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (3, 'South', 'Alpha', 250.5, 70.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (4, 'East', 'Gamma', NULL, 80.0);
+INSERT INTO "store_product" ("Store_ID", "Product_ID") VALUES (1, 1);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (1, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty 'district' table while other tables are populated.
+-- Catches: Regular aggregate `SELECT SUM(city_population) FROM district` (which returns 1 row with NULL)
+-- vs Window function `SELECT DISTINCT SUM(...) OVER () FROM district` (which returns 0 rows on an empty table).
+INSERT INTO "product" ("product_id", "product", "dimensions", "dpi", "pages_per_minute_color", "max_page_size", "interface") VALUES (1, 'Printer X', '20x20', 600.0, 20.0, 'A3', 'WiFi');
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (1, 'Super Store', 'Wholesale', 1200.0, 15.0, 2);
+INSERT INTO "store_product" ("Store_ID", "Product_ID") VALUES (1, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests single row with NULL City_Population.
+-- Catches: `WHERE city_population IS NOT NULL` mutations (returns 0 rows instead of 1 row with NULL),
+-- and `COALESCE(SUM(...), 0)` mutations (returns 0 instead of NULL).
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (1, 'Isolated', 'GhostTown', NULL, 15.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests zero and negative values, and 1-to-many relationships in store_district.
+-- Catches: `WHERE city_population > 0` filters, ABS() mutations, and unguarded JOINs with store_district
+-- that would multiply the row count and corrupt the SUM.
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (1, 'Branch 1', 'Retail', 100.0, 2.0, 1);
+INSERT INTO "store" ("Store_ID", "Store_Name", "Type", "Area_size", "Number_of_product_category", "Ranking") VALUES (2, 'Branch 2', 'Retail', 200.0, 3.0, 2);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (1, 'Central', 'Metro', 500.0, 100.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (2, 'ZeroPop', 'EmptyCity', 0.0, 50.0);
+INSERT INTO "district" ("District_ID", "District_name", "Headquartered_City", "City_Population", "City_Area") VALUES (3, 'Declining', 'OldTown', -50.0, 25.0);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (1, 1);
+INSERT INTO "store_district" ("Store_ID", "District_ID") VALUES (2, 1);
+```

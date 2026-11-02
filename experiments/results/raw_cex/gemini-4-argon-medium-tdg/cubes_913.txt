@@ -1,0 +1,99 @@
+```sql
+-- DATASET 1
+-- Tests basic join, outer vs inner join, string matching, and standard anti-join logic.
+-- Includes an aircraft certified by John Williams, one certified by another employee, and an uncertified aircraft.
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (1, 'Boeing 747', 8000);
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (2, 'Airbus A320', 3000);
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (3, 'Cessna 172', 800);
+
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (101, 'John Williams', 120000.00);
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (102, 'Jane Doe', 110000.00);
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (103, 'john williams', 95000.00);
+
+INSERT INTO "certificate" ("eid", "aid") VALUES (101, 1);
+INSERT INTO "certificate" ("eid", "aid") VALUES (102, 2);
+INSERT INTO "certificate" ("eid", "aid") VALUES (103, 2);
+```
+
+```sql
+-- DATASET 2
+-- Tests bag semantics (multiplicity/duplicates) and distinctness vs non-distinctness.
+-- Two different employees named 'John Williams' certify the same aircraft (must output the aircraft name twice).
+-- Also tests an aircraft certified by BOTH 'John Williams' and someone else (to kill mutants that anti-join on aid instead of eid).
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (10, 'Concorde', 4000);
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (20, 'Lockheed L-1011', 5000);
+
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (201, 'John Williams', 150000.00);
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (202, 'John Williams', 160000.00);
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (203, 'Robert Smith', 130000.00);
+
+INSERT INTO "certificate" ("eid", "aid") VALUES (201, 10);
+INSERT INTO "certificate" ("eid", "aid") VALUES (202, 10);
+INSERT INTO "certificate" ("eid", "aid") VALUES (201, 20);
+INSERT INTO "certificate" ("eid", "aid") VALUES (203, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests three-valued logic (NULL handling) in the anti-join predicate (name <> 'John Williams') and ORDER BY NULLS LAST.
+-- In SQL, if employee.name is NULL, (name <> 'John Williams') evaluates to UNKNOWN, so the row is excluded from the subquery,
+-- meaning NOT EXISTS evaluates to TRUE! A mutant rewriting NOT EXISTS to an inner join with (name = 'John Williams') will fail here.
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (1, 'Embraer E190', 2400);
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (2, NULL, 1500);
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (3, 'Bombardier CRJ', 1800);
+
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (301, NULL, 80000.00);
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (302, 'John Williams', 105000.00);
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (303, 'Alice', 90000.00);
+
+INSERT INTO "certificate" ("eid", "aid") VALUES (301, 1);
+INSERT INTO "certificate" ("eid", "aid") VALUES (302, 2);
+INSERT INTO "certificate" ("eid", "aid") VALUES (302, 3);
+INSERT INTO "certificate" ("eid", "aid") VALUES (303, 3);
+```
+
+```sql
+-- DATASET 4
+-- Tests sorting order (ASC vs DESC), duplicate aircraft names across different aircraft IDs, and presence of flight records.
+-- Ensures mutants that erroneously join with the flight table or sort incorrectly are killed.
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (100, 'Zeta Jet', 6000);
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (200, 'Alpha Jet', 5000);
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (300, 'Alpha Jet', 5500);
+
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (401, 'John Williams', 140000.00);
+
+INSERT INTO "certificate" ("eid", "aid") VALUES (401, 100);
+INSERT INTO "certificate" ("eid", "aid") VALUES (401, 200);
+INSERT INTO "certificate" ("eid", "aid") VALUES (401, 300);
+
+INSERT INTO "flight" ("flno", "aid", "origin", "destination", "distance", "departure_date", "arrival_date", "price") VALUES (1, 100, 'NYC', 'LON', 3500, '2023-01-01', '2023-01-02', 500.00);
+INSERT INTO "flight" ("flno", "aid", "origin", "destination", "distance", "departure_date", "arrival_date", "price") VALUES (2, 100, 'LON', 'NYC', 3500, '2023-01-03', '2023-01-04', 550.00);
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion mutants (e.g., selecting employee.name instead of aircraft.name, or joining on eid = aid).
+-- We set eid and aid to overlapping numerical values (1, 2) to expose wrong join keys (e.g., LHS.aid = RHS.eid).
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (1, ' Gulfstream G650', 7000);
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (2, 'Learjet 75', 2000);
+
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (1, 'Not John', 70000.00);
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (2, 'John Williams', 125000.00);
+
+INSERT INTO "certificate" ("eid", "aid") VALUES (2, 1);
+INSERT INTO "certificate" ("eid", "aid") VALUES (1, 2);
+```
+
+```sql
+-- DATASET 6
+-- Edge case: All certificates belong to employees other than 'John Williams', resulting in an empty result set.
+-- Kills mutants that invert NOT EXISTS to EXISTS or <> to =.
+INSERT INTO "aircraft" ("aid", "name", "distance") VALUES (50, 'Boeing 777', 9000);
+
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (501, 'John Williams ', 100000.00);
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (502, 'John William', 100000.00);
+INSERT INTO "employee" ("eid", "name", "salary") VALUES (503, 'John Williams', 100000.00);
+
+INSERT INTO "certificate" ("eid", "aid") VALUES (501, 50);
+INSERT INTO "certificate" ("eid", "aid") VALUES (502, 50);
+```

@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+-- Tests the composite INNER JOIN condition (LHS.fault_log_entry_id = RHS.fault_log_entry_id AND LHS.part_fault_id = RHS.recorded_by_staff_id),
+-- distinguishing full matches from partial matches on either column, and verifying that Part_Faults.fault_description is not confused with Fault_Log.fault_description.
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'SUP', 'TechCorp', '123 Tech St', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2023-01-01 00:00:00', '2024-01-01 00:00:00', 'Standard');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Main Server', 'Dell', 'PowerEdge', '2022-01-01 00:00:00', '2025-01-01 00:00:00', 'None');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (10, 'Alice', 1, 'Admin');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (20, 'Bob', 0, 'Tech');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Power Supply', 1, 100, 'None');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (10, 1, 'PSU_FAIL', 'Part Fault Desc 10', 'None');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (20, 1, 'PSU_SURGE', 'Part Fault Desc 20', 'None');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (100, 10, 1, '2023-05-01 10:00:00', 'Log Fault Alpha', 'Details A');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (200, 20, 1, '2023-05-02 11:00:00', 'Log Fault Beta', 'Details B');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (300, 10, 1, '2023-05-03 12:00:00', 'Log Fault Gamma', 'Details C');
+-- Matches both fault_log_entry_id (100) and part_fault_id = recorded_by_staff_id (10)
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (100, 10, 'Open');
+-- Matches fault_log_entry_id (100), but part_fault_id (20) != recorded_by_staff_id (10)
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (100, 20, 'Closed');
+-- Matches part_fault_id = recorded_by_staff_id (20) for entry 200, and also tests multiple matching rows in Fault_Log_Parts for the same Fault_Log
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (200, 20, 'Open');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (200, 20, 'Pending');
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY (fault_description, fault_log_entry_datetime) and COUNT(*) vs COUNT(DISTINCT ...).
+-- Includes multiple distinct fault_log entries sharing the exact same fault_description and fault_log_entry_datetime,
+-- as well as entries sharing only fault_description or only fault_log_entry_datetime, and tests ORDER BY n.
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'SUP', 'CorpA', 'Addr1', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2023-01-01 00:00:00', '2024-01-01 00:00:00', 'None');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Asset1', 'Make1', 'Model1', '2022-01-01 00:00:00', '2025-01-01 00:00:00', 'None');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (2, 1, 1, 'Asset2', 'Make2', 'Model2', '2022-01-01 00:00:00', '2025-01-01 00:00:00', 'None');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Staff1', 1, 'None');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (2, 'Staff2', 0, 'None');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Part1', 0, 0, 'None');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (1, 1, 'PF1', 'DiffPF1', 'None');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (2, 1, 'PF2', 'DiffPF2', 'None');
+
+-- Group 1: Two different fault_log_entry_id (10, 11) with the SAME (fault_description, fault_log_entry_datetime) -> total count = 3
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (10, 1, 1, '2023-06-01 08:00:00', 'Overheating', 'D1');
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (11, 2, 2, '2023-06-01 08:00:00', 'Overheating', 'D2');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (10, 1, 'Open');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (10, 1, 'Closed');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (11, 2, 'Open');
+
+-- Group 2: Same fault_description ('Overheating'), DIFFERENT fault_log_entry_datetime -> total count = 1
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (12, 1, 1, '2023-06-02 09:00:00', 'Overheating', 'D3');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (12, 1, 'Open');
+
+-- Group 3: DIFFERENT fault_description ('Network Loss'), Same fault_log_entry_datetime ('2023-06-01 08:00:00') -> total count = 2
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (13, 2, 1, '2023-06-01 08:00:00', 'Network Loss', 'D4');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (13, 2, 'Open');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (13, 2, 'Open');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in grouping columns, non-grouped columns (e.g. fault_status, asset_id, other_fault_details),
+-- and ordering where n (aliased as fault_log_entry_id) is inversely ordered compared to actual Fault_Log.fault_log_entry_id.
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (5, 'Staff5', 1, NULL);
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (5, 'Part5', 1, 50, NULL);
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (5, 5, 'PF5', 'PFDesc', NULL);
+
+-- Entry with high ID (999) has 1 matching part row (so n = 1)
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (999, 5, NULL, '2023-12-31 23:59:59', 'Z_Fault_High_ID_Low_Count', NULL);
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (999, 5, NULL);
+
+-- Entry with low ID (1) has 4 matching part rows (so n = 4)
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (1, 5, NULL, '2023-01-01 00:00:00', 'A_Fault_Low_ID_High_Count', NULL);
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (1, 5, NULL);
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (1, 5, 'Fixed');
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (1, 5, NULL);
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (1, 5, 'Open');
+
+-- Entries with NULL fault_description and/or NULL fault_log_entry_datetime to test NULL grouping and COUNT(*) vs COUNT(column)
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (50, 5, NULL, NULL, NULL, NULL);
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (50, 5, NULL);
+INSERT INTO "Fault_Log_Parts" ("fault_log_entry_id", "part_fault_id", "fault_status") VALUES (50, 5, NULL);
+```

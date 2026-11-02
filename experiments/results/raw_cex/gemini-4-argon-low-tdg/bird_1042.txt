@@ -1,0 +1,139 @@
+```sql
+-- DATASET 1
+-- Tests basicHAVING boundary conditions (> 0 vs >= 0, < 0, = 0) and floating-point vs integer division (CAST AS REAL)
+INSERT INTO Country (id, name) VALUES (1, 'England');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 100, 1000, 'Team A', 'TMA');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 200, 2000, 'Team B', 'TMB');
+
+-- League 1: Avg Home = 1/2 = 0.5, Avg Away = 0/2 = 0.0 -> Diff = 0.5 > 0.
+-- Note: If CAST AS REAL is omitted, integer division yields 1/2 = 0 and 0/2 = 0 -> Diff = 0 (Fails > 0).
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'Premier League');
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, 1, 1, '2009/2010', 100, 200, 1, 0);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (2, 1, 1, '2009/2010', 200, 100, 0, 0);
+
+-- League 2: Avg Home = 2/2 = 1.0, Avg Away = 2/2 = 1.0 -> Diff = 0.0 (Tests > 0 vs >= 0).
+INSERT INTO League (id, country_id, name) VALUES (2, 1, 'Championship');
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (3, 1, 2, '2009/2010', 100, 200, 1, 1);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (4, 1, 2, '2009/2010', 200, 100, 1, 1);
+
+-- League 3: Avg Home = 1/2 = 0.5, Avg Away = 3/2 = 1.5 -> Diff = -1.0 (Tests > 0 vs < 0 or != 0).
+INSERT INTO League (id, country_id, name) VALUES (3, 1, 'League One');
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (5, 1, 3, '2009/2010', 100, 200, 1, 2);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (6, 1, 3, '2009/2010', 200, 100, 0, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests WHERE clause filtering on season = '2009/2010' and INNER JOIN vs LEFT JOIN
+INSERT INTO Country (id, name) VALUES (1, 'Spain');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 101, 1001, 'Real', 'RMA');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 102, 1002, 'Barca', 'BAR');
+
+-- League 1: Has negative diff in 2009/2010 (-1), but huge positive diff in 2010/2011 (+10).
+-- Should NOT be returned. Kills mutants that omit or corrupt the season filter.
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'La Liga');
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, 1, 1, '2009/2010', 101, 102, 1, 2);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (2, 1, 1, '2010/2011', 101, 102, 10, 0);
+
+-- League 2: Has positive diff in 2009/2010 (+2), but huge negative diff in 2008/2009 (-10).
+-- SHOULD be returned. Kills mutants that aggregate across all seasons.
+INSERT INTO League (id, country_id, name) VALUES (2, 1, 'Segunda Division');
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (3, 1, 2, '2009/2010', 101, 102, 3, 1);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (4, 1, 2, '2008/2009', 101, 102, 0, 10);
+
+-- League 3: Only has matches in '2010/2011' with positive diff.
+INSERT INTO League (id, country_id, name) VALUES (3, 1, 'Copa del Rey');
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (5, 1, 3, '2010/2011', 101, 102, 5, 0);
+
+-- League 4: Has no matches at all (tests INNER JOIN vs LEFT JOIN).
+INSERT INTO League (id, country_id, name) VALUES (4, 1, 'Supercopa');
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY t1.name vs GROUP BY t1.id (Two leagues with different IDs sharing the same name)
+INSERT INTO Country (id, name) VALUES (1, 'Country1');
+INSERT INTO Country (id, name) VALUES (2, 'Country2');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 101, 1001, 'Team 1', 'TM1');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 102, 1002, 'Team 2', 'TM2');
+
+-- Both League 1 and League 2 are named 'Premier League'.
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'Premier League');
+INSERT INTO League (id, country_id, name) VALUES (2, 2, 'Premier League');
+
+-- League 1 has Home=2, Away=1 (Diff = +1, positive on its own)
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, 1, 1, '2009/2010', 101, 102, 2, 1);
+-- League 2 has Home=0, Away=5 (Diff = -5, negative on its own)
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (2, 2, 2, '2009/2010', 101, 102, 0, 5);
+-- Combined by t1.name: Home=2, Away=6 (Diff = -4/2 = -2.0, NOT > 0).
+-- If grouped by t1.id, 'Premier League' (from id=1) is returned. If grouped by t1.name, nothing is returned from these two.
+
+-- League 3 & 4: Both named 'Division 1', both have positive diffs.
+-- If grouped by t1.id without DISTINCT, 'Division 1' is returned twice. Grouped by t1.name, returned once.
+INSERT INTO League (id, country_id, name) VALUES (3, 1, 'Division 1');
+INSERT INTO League (id, country_id, name) VALUES (4, 2, 'Division 1');
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (3, 1, 3, '2009/2010', 101, 102, 3, 1);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (4, 2, 4, '2009/2010', 101, 102, 4, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests SUM(home_team_goal) vs COUNT(home_team_goal), MAX, MIN, and DISTINCT inside SUM
+INSERT INTO Country (id, name) VALUES (1, 'Italy');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 301, 3001, 'Milan', 'MIL');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 302, 3002, 'Inter', 'INT');
+
+-- League 1: Tests SUM vs SUM(DISTINCT) and SUM vs MAX/MIN.
+-- Matches: (2, 3), (2, 3), (2, 1).
+-- SUM(home) = 6, SUM(away) = 7 -> Diff = -1/3 < 0 (Should NOT be returned).
+-- If SUM(DISTINCT home) is used: home = 2, away = 3+1 = 4 -> Diff < 0.
+-- Let's flip for League 1 to test SUM(DISTINCT):
+-- Matches: (2, 1), (2, 4).
+-- Actual SUM: home = 4, away = 5 -> Diff = -0.5 < 0 (NOT returned).
+-- If MIN is used: MIN(home)=2, MIN(away)=1 -> Diff > 0 (Mutant returns it).
+INSERT INTO League (id, country_id, name) VALUES (1, 1, 'Serie A');
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, 1, 1, '2009/2010', 301, 302, 2, 1);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (2, 1, 1, '2009/2010', 302, 301, 2, 4);
+
+-- League 2: Tests SUM vs SUM(DISTINCT) and MAX.
+-- Matches: (3, 4), (3, 1).
+-- Actual SUM: home = 6, away = 5 -> Diff = +0.5 > 0 (SHOULD be returned).
+-- If SUM(DISTINCT) is used: home = 3, away = 5 -> Diff = -1.0 < 0 (Mutant fails to return).
+-- If MAX is used: MAX(home) = 3, MAX(away) = 4 -> Diff < 0 (Mutant fails to return).
+INSERT INTO League (id, country_id, name) VALUES (2, 1, 'Serie B');
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (3, 1, 2, '2009/2010', 301, 302, 3, 4);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (4, 1, 2, '2009/2010', 302, 301, 3, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests JOIN condition (t1.id = t2.league_id vs t1.country_id = t2.country_id or t1.id = t2.country_id)
+-- and tests NULL values in home_team_goal / away_team_goal (AVG vs SUM / COUNT(DISTINCT id))
+INSERT INTO Country (id, name) VALUES (10, 'Germany');
+INSERT INTO Country (id, name) VALUES (20, 'France');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (1, 401, 4001, 'Bayern', 'BAY');
+INSERT INTO Team (id, team_api_id, team_fifa_api_id, team_long_name, team_short_name) VALUES (2, 402, 4002, 'Dortmund', 'BVB');
+
+-- League 10 has id=10, country_id=20. League 20 has id=20, country_id=10.
+INSERT INTO League (id, country_id, name) VALUES (10, 20, 'Bundesliga');
+INSERT INTO League (id, country_id, name) VALUES (20, 10, 'Ligue 1');
+
+-- Match 1 belongs to league_id=10, country_id=20 (Home=5, Away=1 -> Positive diff for League 10)
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (1, 20, 10, '2009/2010', 401, 402, 5, 1);
+-- Match 2 belongs to league_id=20, country_id=10 (Home=0, Away=4 -> Negative diff for League 20)
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (2, 10, 20, '2009/2010', 401, 402, 0, 4);
+
+-- League 30: Tests AVG(home_team_goal) - AVG(away_team_goal) vs (SUM(home)/COUNT(id)) - (SUM(away)/COUNT(id)) in presence of NULLs.
+-- Match 3: home=4, away=NULL. Match 4: home=0, away=3. Match 5: home=0, away=3.
+-- Total COUNT(DISTINCT id) = 3.
+-- Gold Query: SUM(home)/3 = 4/3 = 1.333. SUM(away)/3 = 6/3 = 2.0. Diff = 1.333 - 2.0 = -0.667 (NOT > 0).
+-- Mutant with AVG(home) - AVG(away): AVG(home) = 4/3 = 1.333. AVG(away) = 6/2 = 3.0.
+-- Let's construct the reverse where AVG gives > 0 and Gold gives < 0:
+-- Match 3: home=5, away=0. Match 4: home=NULL, away=3. Match 5: home=NULL, away=3.
+-- Gold Query: SUM(home)/3 = 5/3 = 1.667. SUM(away)/3 = 6/3 = 2.0. Diff = -0.333 (NOT > 0).
+-- Mutant with AVG: AVG(home) = 5/1 = 5.0. AVG(away) = 6/3 = 2.0. Diff = +3.0 (> 0, Mutant falsely returns League 30).
+INSERT INTO League (id, country_id, name) VALUES (30, 10, 'Null Test League');
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (3, 10, 30, '2009/2010', 401, 402, 5, 0);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (4, 10, 30, '2009/2010', 401, 402, NULL, 3);
+INSERT INTO Match (id, country_id, league_id, season, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal) VALUES (5, 10, 30, '2009/2010', 401, 402, NULL, 3);
+```

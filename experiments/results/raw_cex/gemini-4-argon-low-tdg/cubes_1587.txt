@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions around document_id = 7 (6, 7, 8).
+-- 2. Wrong column predicate mutants (e.g., mailed_to_address_id = 7 when document_id != 7).
+-- 3. Wrong table/column projection mutants (Documents.receipt_date vs Documents_Mailed.mailing_date).
+-- 4. Duplicate mailing_date values for document_id = 7 (catches DISTINCT, GROUP BY, or LIMIT 1 mutants).
+-- 5. Ordering mutants (DESC vs ASC, missing ORDER BY).
+-- 6. Unnecessary INNER JOIN mutants with child tables (Document_Drafts is empty for doc 7).
+
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('TYPE1', 'Standard');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('STAT1', 'Active');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('AG1', 'Agent One', 'Desc');
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, '100 First St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (2, '200 Second St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (3, '300 Third St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (7, '700 Seventh St');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (6, 'AG1', 'STAT1', 'TYPE1', '2020-01-06 00:00:00', 'R6', 'Doc 6');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (7, 'AG1', 'STAT1', 'TYPE1', '1999-12-31 23:59:59', 'R7', 'Doc 7');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (8, 'AG1', 'STAT1', 'TYPE1', '2020-01-08 00:00:00', 'R8', 'Doc 8');
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (6, 7, '2023-01-01 10:00:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (8, 1, '2023-01-02 10:00:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 1, '2023-05-10 12:00:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 2, '2023-02-15 08:30:00');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 3, '2023-05-10 12:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL handling in mailing_date (catches WHERE mailing_date IS NOT NULL, COUNT(mailing_date) vs COUNT(*), or NULLS LAST vs NULLS FIRST on mailing_date).
+-- 2. Join fan-out / cartesian product mutants if query unnecessarily joins Documents_Mailed with Document_Drafts / Draft_Copies / Circulation_History or other tables.
+-- 3. False positive condition where document_id = 7 exists in Documents, Document_Drafts, etc., alongside other documents.
+
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T_A', 'Type A');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S_A', 'Status A');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A_A', 'Agent A', 'Desc A');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('R_1', 'Role 1');
+
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (1, 'R_1', 'Emp 1', 'Details');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (7, 'R_1', 'Emp 7', 'Details');
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (10, 'Addr 10');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (20, 'Addr 20');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (7, NULL, NULL, NULL, '2021-07-07 07:00:00', '7', '7');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (7, 7, 'Draft 7');
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (7, 7, 7);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (7, 7, 7, 1);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (7, 7, 7, 7);
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 10, NULL);
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (7, 20, '2021-01-01 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty result set for document_id = 7 in Documents_Mailed when document_id = 7 DOES exist in Documents (catches LEFT JOIN mutants from Documents to Documents_Mailed, or querying Documents instead).
+-- 2. Other rows present in Documents_Mailed (catches missing WHERE clause or wrong constant in WHERE clause).
+
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (7, 'Address 7');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (15, 'Address 15');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (1, NULL, NULL, NULL, '2022-01-01', 'R1', 'D1');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (7, NULL, NULL, NULL, '2022-07-07', 'R7', 'D7');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (70, NULL, NULL, NULL, '2022-10-10', 'R70', 'D70');
+
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (1, 7, '2022-03-01');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (70, 15, '2022-04-01');
+```

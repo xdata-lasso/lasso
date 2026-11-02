@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests standard evaluation with all 4 truth combinations of the CASE condition, 
+-- fractional floating-point division (1/3 = 33.3333...), 
+-- and OUTER JOIN vs INNER JOIN differentiation via unmatched parent sets.
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "name") VALUES (1, 'SET_A', 1, 'Online Set');
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "name") VALUES (2, 'SET_B', 0, 'Offline Set');
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "name") VALUES (3, 'SET_C', 1, 'Unmatched Online Set');
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "name") VALUES (4, 'SET_D', 0, 'Unmatched Offline Set');
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Chinese Simplified', 'SET_A', 'Trans A1');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'French', 'SET_A', 'Trans A2');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'Chinese Simplified', 'SET_B', 'Trans B1');
+```
+
+```sql
+-- DATASET 2
+-- Tests 1-to-many join multiplicity (multiple matching translations for the same set),
+-- NULL values in nullable columns (language, setCode, translation),
+-- and catches DISTINCT mutations on COUNT or SUM.
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "name") VALUES (1, 'SET_1', 1, 'Multi Trans Online Set');
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "name") VALUES (2, 'SET_2', 0, 'Other Set');
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Chinese Simplified', 'SET_1', 'CS Variant 1');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Chinese Simplified', 'SET_1', 'CS Variant 2');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, NULL, 'SET_1', NULL);
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (4, 'Chinese Traditional', 'SET_1', 'CT Variant');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (5, 'Chinese Simplified', NULL, 'Unlinked Translation');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (6, 'German', 'SET_2', 'DE Variant');
+```
+
+```sql
+-- DATASET 3
+-- Tests zero numerator boundary condition (0.0 result) when joined rows exist 
+-- but none satisfy both conditions simultaneously (catches AND -> OR mutations and ELSE 0 -> ELSE NULL).
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "name") VALUES (1, 'S1', 1, 'Online Only Non-CS');
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "name") VALUES (2, 'S2', 0, 'Offline CS');
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Japanese', 'S1', 'JP Trans');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Chinese Simplified', 'S2', 'CS Trans');
+```
+
+```sql
+-- DATASET 4
+-- Tests 100% boundary condition where every joined row satisfies the condition,
+-- plus tests integer boundary values for isOnlineOnly (e.g., 2 or -1 vs 1) 
+-- to catch mutations like isOnlineOnly != 0 or isOnlineOnly >= 1.
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "name") VALUES (1, 'S_ONE', 1, 'Strictly 1');
+INSERT INTO "sets" ("id", "code", "isOnlineOnly", "name") VALUES (2, 'S_TWO', 2, 'Value 2');
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Chinese Simplified', 'S_ONE', 'Match');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Chinese Simplified', 'S_TWO', 'Non-Match if strict = 1');
+```
+
+```sql
+-- DATASET 5
+-- Tests confusion with other boolean-like flags in the "sets" table (isFoilOnly, isForeignOnly, etc.)
+-- and confusion between "sets.isOnlineOnly" and "cards.isOnlineOnly" or "foreign_data.language".
+INSERT INTO "sets" ("id", "code", "isFoilOnly", "isForeignOnly", "isNonFoilOnly", "isOnlineOnly", "isPartialPreview", "name") 
+VALUES (1, 'TRAP_SET', 1, 1, 1, 0, 1, 'All Flags Except OnlineOnly');
+
+INSERT INTO "sets" ("id", "code", "isFoilOnly", "isForeignOnly", "isNonFoilOnly", "isOnlineOnly", "isPartialPreview", "name") 
+VALUES (2, 'REAL_SET', 0, 0, 0, 1, 0, 'Only OnlineOnly Flag');
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Chinese Simplified', 'TRAP_SET', 'Trap Trans 1');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Chinese Simplified', 'TRAP_SET', 'Trap Trans 2');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'Chinese Simplified', 'REAL_SET', 'Real Trans');
+
+INSERT INTO "cards" ("id", "uuid", "setCode", "isOnlineOnly", "name") VALUES (1, 'uuid-1', 'TRAP_SET', 1, 'Online Card in Offline Set');
+INSERT INTO "foreign_data" ("id", "uuid", "language", "name") VALUES (1, 'uuid-1', 'Chinese Simplified', 'Foreign Card Name');
+```
+
+```sql
+-- DATASET 6
+-- Tests string matching precision on language (case sensitivity, substring/LIKE mutations, trailing spaces)
+-- and join key confusion (e.g., joining on parentCode or mtgoCode instead of code).
+INSERT INTO "sets" ("id", "code", "mtgoCode", "parentCode", "isOnlineOnly", "name") 
+VALUES (1, 'MAIN', 'ALT_CODE', 'ALT_CODE', 1, 'Main Online Set');
+
+INSERT INTO "sets" ("id", "code", "mtgoCode", "parentCode", "isOnlineOnly", "name") 
+VALUES (2, 'ALT_CODE', 'MAIN', 'MAIN', 0, 'Alt Offline Set');
+
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'Chinese Simplified', 'MAIN', 'Exact Match');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'chinese simplified', 'MAIN', 'Lowercase');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'Chinese', 'MAIN', 'Prefix Only');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (4, 'Chinese Simplified', 'ALT_CODE', 'Joined to Offline Set');
+```

@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- General test: Mix of enrolled and non-enrolled semesters, out-of-order insertion, duplicate semester_names in non-enrolled semesters (kills DISTINCT mutants), and multiple enrolments in the same semester.
+INSERT INTO Addresses (address_id, line_1, city) VALUES (1, '123 Main St', 'Metropolis');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'Computer Science');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (1, 1, 'BSc CS');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (10, 1, 1, 'Alice', 'Smith');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (20, 1, 1, 'Bob', 'Jones');
+
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (1, 'Spring 2023', 'Desc Z', 'Detail 1');
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (2, 'Fall 2022', 'Desc A', 'Detail 2');
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (3, 'Winter 2023', 'Desc M', 'Detail 3');
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (4, 'Fall 2022', 'Desc B', 'Detail 4');
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (5, 'Summer 2023', 'Desc C', 'Detail 5');
+
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (100, 10, 1, 1);
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (101, 20, 1, 1);
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (102, 10, 5, 1);
+```
+
+```sql
+-- DATASET 2
+-- NULL handling test: Student_Enrolment contains a row with a NULL semester_id.
+-- Kills mutants that rewrite NOT EXISTS into NOT IN (SELECT semester_id FROM student_enrolment), which evaluates to UNKNOWN/empty when NULL is present.
+INSERT INTO Addresses (address_id, line_1, city) VALUES (1, '456 Oak St', 'Gotham');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'Mathematics');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (1, 1, 'BSc Math');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (1, 1, 1, 'Charlie', 'Brown');
+
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (10, 'Autumn 2024', 'First');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (20, 'Spring 2024', 'Second');
+
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (1, 1, 10, 1);
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (2, 1, NULL, 1);
+```
+
+```sql
+-- DATASET 3
+-- Foreign Key / Join Column confusion test:
+-- Student_Enrolment has student_enrolment_id, student_id, and degree_program_id values that overlap with Semesters.semester_id, while the actual semester_id is different.
+-- Kills mutants joining on LHS.semester_id = RHS.student_enrolment_id, RHS.student_id, or RHS.degree_program_id.
+INSERT INTO Addresses (address_id, line_1, city) VALUES (1, '789 Pine St', 'Star City');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'Physics');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (2, 1, 'BSc Physics');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (3, 1, 1, 'David', 'Clark');
+
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (1, 'Sem_Matches_EnrolmentID', 'D1');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (2, 'Sem_Matches_DegreeID', 'D2');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (3, 'Sem_Matches_StudentID', 'D3');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (4, 'Sem_Actually_Enrolled', 'D4');
+
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (1, 3, 4, 2);
+```
+
+```sql
+-- DATASET 4
+-- Boundary condition: Student_Enrolment is completely empty.
+-- Kills mutants using INNER JOIN, or faulty aggregation/HAVING clauses that drop rows when the right table is empty.
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (1, 'Zeta Semester', 'Desc 1');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (2, 'Alpha Semester', 'Desc 2');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (3, 'Beta Semester', 'Desc 3');
+```
+
+```sql
+-- DATASET 5
+-- Boundary condition: Every semester has at least one student enrolment (result set should be empty), plus a semester with a NULL semester_name.
+-- Kills mutants that fail to filter out all rows, or mishandle NULLs in the SELECT/ORDER BY when another semester is not enrolled.
+INSERT INTO Addresses (address_id, line_1, city) VALUES (1, '101 Maple St', 'Central City');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'History');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (1, 1, 'BA History');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (1, 1, 1, 'Eve', 'Adams');
+
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (1, 'Fall 2020', 'Desc 1');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (2, 'Spring 2021', 'Desc 2');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (3, NULL, 'Null Name Sem');
+
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (1, 1, 1, 1);
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (2, 1, 2, 1);
+```

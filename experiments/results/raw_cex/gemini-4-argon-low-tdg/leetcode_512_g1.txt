@@ -1,0 +1,54 @@
+```sql
+-- DATASET 1
+-- Tests basic anti-mutations:
+-- 1. Inverted correlation between event_date and device_id (catches MIN(device_id) or MAX(device_id) with GROUP BY player_id).
+-- 2. Reverse insertion order (catches bare SELECT player_id, device_id GROUP BY player_id which picks arbitrary/first-inserted row in SQLite).
+-- 3. Shared login dates across different players (catches missing A1.player_id = A2.player_id join condition or IN (SELECT MIN(event_date)...)).
+-- 4. Different global minimum dates per player (catches missing GROUP BY player_id in subquery).
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, '2023-05-10', 10, 5);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, '2023-05-01', 50, 2);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, '2023-05-20', 5, 8);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (2, '2023-05-01', 99, 1);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (2, '2023-04-15', 20, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests middle-value device_id on the earliest date and games_played edge cases:
+-- 1. First login has a device_id (25) that is neither the MIN (10) nor MAX (40) for that player.
+-- 2. First login has games_played = 0 (catches mutants filtering WHERE games_played > 0) and is neither MIN nor MAX games_played for other players.
+-- 3. Multiple players sharing the same device_id on different dates (catches GROUP BY device_id mistakes).
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (10, '2022-12-31', 10, 15);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (10, '2022-01-01', 25, 0);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (10, '2022-06-15', 40, 5);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (20, '2022-03-10', 25, 10);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (20, '2022-03-09', 30, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests single-record players, global vs local date boundaries, and year/month boundary sorting:
+-- 1. Player with only a single login record.
+-- 2. Player whose first login is the exact same date as another player's non-first login.
+-- 3. Dates spanning across year boundaries to ensure proper chronological comparison.
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (100, '2021-12-31', 7, 3);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (200, '2021-01-01', 1, 1);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (200, '2020-12-31', 2, 4);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (300, '2021-01-01', 9, 0);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (300, '2021-01-02', 8, 2);
+```
+
+```sql
+-- DATASET 4
+-- Tests duplicate device_ids for the same player across multiple dates and global LIMIT traps:
+-- 1. Same player logs in with device A, then device B, then device A again.
+-- 2. Four distinct players to refute hardcoded LIMIT 1, LIMIT 2, or LIMIT 3 clauses.
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, '2023-01-03', 101, 1);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, '2023-01-01', 101, 2);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (1, '2023-01-02', 102, 3);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (2, '2023-02-02', 202, 4);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (2, '2023-02-01', 201, 5);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (3, '2023-03-01', 301, 6);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (4, '2023-04-02', 402, 7);
+INSERT INTO Activity (player_id, event_date, device_id, games_played) VALUES (4, '2023-04-01', 401, 8);
+```

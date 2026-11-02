@@ -1,0 +1,44 @@
+```sql
+-- DATASET 1
+-- Empty Invoices table, populated other tables.
+-- Catches mutants that use standard aggregate COUNT(*) instead of window function COUNT(*) OVER () (standard COUNT(*) returns 1 row with 0 on empty table, whereas COUNT(*) OVER () returns 0 rows).
+-- Also catches mutants that count the wrong table (e.g., Orders, Customers).
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Alice', 'Smith');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (10, 1, '2023-01-01 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Multiple Invoices with duplicate order_id, duplicate invoice_date, NULL values, and differing counts across related tables (Invoice_Line_Items, Financial_Transactions).
+-- Catches mutants missing DISTINCT, using COUNT(order_id), COUNT(invoice_date), COUNT(DISTINCT ...), PARTITION BY, or joining without deduplication.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Bob', 'Jones');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (2, 'Charlie', 'Brown');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (100, 1, '2023-02-01 08:00:00');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (101, 2, '2023-02-02 09:00:00');
+
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (1001, 100, '2023-02-05 12:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (1002, 100, '2023-02-05 12:00:00');
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (1003, NULL, NULL);
+
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('ELEC', 'Electronics', 0.20);
+INSERT INTO "Products" ("product_id", "production_type_code", "unit_price", "product_name") VALUES (50, 'ELEC', 199.99, 'Smartphone');
+
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity") VALUES (500, 100, 50, '2');
+
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price") VALUES (50, 1001, 500, 'Smartphone', '1', 199.99);
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price") VALUES (50, 1001, 500, 'Smartphone', '1', 199.99);
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (900, 1, 'Main Account');
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (900, 1001, 1, 100.00);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (900, 1001, 2, 99.99);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (900, 1002, 3, 199.99);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (900, 1002, 4, 50.00);
+```
+
+```sql
+-- DATASET 3
+-- Single Invoice with NULL attributes, where invoice_number is not 1.
+-- Catches mutants that select invoice_number instead of COUNT(*), or filter out NULLs via INNER JOIN to Orders.
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (42, NULL, NULL);
+```

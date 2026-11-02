@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Querying Document_Locations vs Ref_Locations (LOC_UNUSED is in Ref_Locations but not Document_Locations).
+-- 2. DISTINCT requirement (LOC_B appears multiple times in Document_Locations).
+-- 3. ORDER BY requirement (Inserted in non-alphabetical order: LOC_C, LOC_A, LOC_B).
+-- 4. Nullability in non-PK columns of Document_Locations (Date_in_Locaton_To is NULL, which would fail if a mutant inner-joins Ref_Calendar on Date_in_Locaton_To).
+
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('DOC_T1', 'Contract', 'Legal Contract');
+
+INSERT INTO Ref_Calendar (Calendar_Date, Day_Number) VALUES ('2023-01-01', 1);
+INSERT INTO Ref_Calendar (Calendar_Date, Day_Number) VALUES ('2023-01-02', 2);
+INSERT INTO Ref_Calendar (Calendar_Date, Day_Number) VALUES ('2023-01-03', 3);
+
+INSERT INTO Ref_Locations (Location_Code, Location_Name, Location_Description) VALUES ('LOC_C', 'Location C', 'Third Location');
+INSERT INTO Ref_Locations (Location_Code, Location_Name, Location_Description) VALUES ('LOC_A', 'Location A', 'First Location');
+INSERT INTO Ref_Locations (Location_Code, Location_Name, Location_Description) VALUES ('LOC_B', 'Location B', 'Second Location');
+INSERT INTO Ref_Locations (Location_Code, Location_Name, Location_Description) VALUES ('LOC_UNUSED', 'Unused Location', 'Location with no documents');
+
+INSERT INTO All_Documents (Document_ID, Date_Stored, Document_Type_Code, Document_Name, Document_Description, Other_Details) VALUES (1, '2023-01-01', 'DOC_T1', 'Doc 1', 'Desc 1', NULL);
+INSERT INTO All_Documents (Document_ID, Date_Stored, Document_Type_Code, Document_Name, Document_Description, Other_Details) VALUES (2, '2023-01-02', 'DOC_T1', 'Doc 2', 'Desc 2', NULL);
+
+INSERT INTO Document_Locations (Document_ID, Location_Code, Date_in_Location_From, Date_in_Locaton_To) VALUES (1, 'LOC_C', '2023-01-01', '2023-01-02');
+INSERT INTO Document_Locations (Document_ID, Location_Code, Date_in_Location_From, Date_in_Locaton_To) VALUES (1, 'LOC_B', '2023-01-02', NULL);
+INSERT INTO Document_Locations (Document_ID, Location_Code, Date_in_Location_From, Date_in_Locaton_To) VALUES (2, 'LOC_B', '2023-01-01', '2023-01-03');
+INSERT INTO Document_Locations (Document_ID, Location_Code, Date_in_Location_From, Date_in_Locaton_To) VALUES (2, 'LOC_A', '2023-01-03', '2023-01-03');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Unnecessary joins with Documents_to_be_Destroyed (only Doc 10 is in Documents_to_be_Destroyed, Doc 20 is not).
+-- 2. Nullability in All_Documents foreign keys (Doc 20 has NULL Date_Stored and NULL Document_Type_Code, killing mutants that inner-join All_Documents with Ref_Calendar or Ref_Document_Types).
+-- 3. Same document visiting the same location at different dates (testing DISTINCT across identical Document_ID and Location_Code).
+
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('TYPE_1', 'Invoice', 'Billing Invoice');
+
+INSERT INTO Ref_Calendar (Calendar_Date, Day_Number) VALUES ('2022-05-01', 1);
+INSERT INTO Ref_Calendar (Calendar_Date, Day_Number) VALUES ('2022-06-01', 2);
+INSERT INTO Ref_Calendar (Calendar_Date, Day_Number) VALUES ('2022-07-01', 3);
+
+INSERT INTO Ref_Locations (Location_Code, Location_Name, Location_Description) VALUES ('Z_LOC', 'Zone Z', 'Desc A');
+INSERT INTO Ref_Locations (Location_Code, Location_Name, Location_Description) VALUES ('A_LOC', 'Zone A', 'Desc Z');
+
+INSERT INTO Roles (Role_Code, Role_Name, Role_Description) VALUES ('MGR', 'Manager', 'Management Role');
+
+INSERT INTO Employees (Employee_ID, Role_Code, Employee_Name, Gender_MFU, Date_of_Birth, Other_Details) VALUES (100, 'MGR', 'Alice', 'F', '1980-01-01', NULL);
+
+INSERT INTO All_Documents (Document_ID, Date_Stored, Document_Type_Code, Document_Name, Document_Description, Other_Details) VALUES (10, '2022-05-01', 'TYPE_1', 'Doc 10', 'To be destroyed', 'Details');
+INSERT INTO All_Documents (Document_ID, Date_Stored, Document_Type_Code, Document_Name, Document_Description, Other_Details) VALUES (20, NULL, NULL, 'Doc 20', 'Keep', NULL);
+
+INSERT INTO Document_Locations (Document_ID, Location_Code, Date_in_Location_From, Date_in_Locaton_To) VALUES (10, 'Z_LOC', '2022-05-01', '2022-06-01');
+INSERT INTO Document_Locations (Document_ID, Location_Code, Date_in_Location_From, Date_in_Locaton_To) VALUES (10, 'Z_LOC', '2022-06-01', '2022-07-01');
+INSERT INTO Document_Locations (Document_ID, Location_Code, Date_in_Location_From, Date_in_Locaton_To) VALUES (20, 'A_LOC', '2022-05-01', '2022-07-01');
+
+INSERT INTO Documents_to_be_Destroyed (Document_ID, Actual_Destruction_Date, Planned_Destruction_Date, Destruction_Authorised_by_Employee_ID, Destroyed_by_Employee_ID, Other_Details) VALUES (10, '2022-07-01', '2022-07-01', 100, 100, 'Destroyed');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty Document_Locations table while Ref_Locations and All_Documents are populated.
+-- 2. Kills mutants that query Ref_Locations directly or use LEFT JOIN from Ref_Locations / All_Documents.
+
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T1', 'Report', 'Annual Report');
+
+INSERT INTO Ref_Calendar (Calendar_Date, Day_Number) VALUES ('2023-10-10', 10);
+
+INSERT INTO Ref_Locations (Location_Code, Location_Name, Location_Description) VALUES ('LOC_ONLY_IN_REF', 'Vault', 'Main Vault');
+
+INSERT INTO All_Documents (Document_ID, Date_Stored, Document_Type_Code, Document_Name, Document_Description, Other_Details) VALUES (99, '2023-10-10', 'T1', 'Orphan Doc', 'No Location Assigned', NULL);
+```

@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests asymmetric join condition (T1.atom_id = T2.atom_id vs T2.atom_id2), duplicate element preservation (lack of DISTINCT), and filtering out non-matching bond_ids.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR005', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_16', 'TR005', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_26', 'TR005', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_99', 'TR005', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_88', 'TR005', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR005_16_26', 'TR005', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR005_16_88', 'TR005', '2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR005_16', 'TR005_26', 'TR005_16_26');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR005_99', 'TR005_26', 'TR005_16_26');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR005_88', 'TR005_16', 'TR005_16_88');
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple distinct elements returned for the same bond_id (symmetric representation in connected table) and ensures unreferenced atoms or NULL bond_ids are excluded.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR005', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_16', 'TR005', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_26', 'TR005', 'cl');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_30', 'TR005', 'br');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR005_16_26', 'TR005', '1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR005_16', 'TR005_26', 'TR005_16_26');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR005_26', 'TR005_16', 'TR005_16_26');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR005_30', 'TR005_16', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests a single atom connected to multiple other atoms via the target bond_id (producing duplicate outputs from the same atom row), and tests NULLs in optional columns (molecule_id) so unnecessary joins to molecule or bond with non-null filters fail.
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', NULL, 's');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', NULL, 'p');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', NULL, 'f');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR005_16_26', NULL, NULL);
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'TR005_16_26');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A3', 'TR005_16_26');
+```
+
+```sql
+-- DATASET 4
+-- Tests exact string matching on bond_id (case sensitivity, substrings, prefixes) where the target bond_id has no connected records, expecting an empty result set.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR005', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_16', 'TR005', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR005_26', 'TR005', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR005_16_26', 'TR005', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('tr005_16_26', 'TR005', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR005_16_26_1', 'TR005', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR005_16', 'TR005', '1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR005_16', 'TR005_26', 'tr005_16_26');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR005_26', 'TR005_16', 'TR005_16_26_1');
+```
+
+```sql
+-- DATASET 5
+-- Tests handling of NULL values in the projected column (element) and decoupled molecule_ids between atom and bond to kill mutants that unnecessarily join on molecule_id.
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'na');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR005_16_26', 'M2', '1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'TR005_16_26');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A1', 'TR005_16_26');
+```

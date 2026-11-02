@@ -1,0 +1,60 @@
+```sql
+-- DATASET 1
+-- Tests boundary values for version_number (< 5, = 5, = 6, > 6, NULL)
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('PP', 'Paper');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('BK', 'Book');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'PP', 4, '2020-01-01', '2021-01-01', 'Less than 5');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'BK', 5, '2020-01-01', '2021-01-01', 'Equal to 5');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (3, 'PP', 6, '2020-01-01', '2021-01-01', 'Greater than 5 (boundary)');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (4, 'BK', 10, '2020-01-01', '2021-01-01', 'Greater than 5');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (5, 'PP', NULL, '2020-01-01', '2021-01-01', 'Null version');
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY version_number, template_id and SELECT DISTINCT mutations
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('AD', 'Advertisement');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('CV', 'CV');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('PR', 'Presentation');
+-- Duplicate (version_number, template_type_code) to kill DISTINCT mutants
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (30, 'AD', 7, '2020-01-01', '2021-01-01', 'Dup 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'AD', 7, '2020-01-01', '2021-01-01', 'Dup 2');
+-- Same version_number, different template_type_code where template_id order conflicts with template_type_code alphabetical order
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (20, 'PR', 8, '2020-01-01', '2021-01-01', 'Tie breaker 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (40, 'CV', 8, '2020-01-01', '2021-01-01', 'Tie breaker 2');
+-- Out of order version_number to test primary sort
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (5, 'CV', 6, '2020-01-01', '2021-01-01', 'Smallest valid version');
+```
+
+```sql
+-- DATASET 3
+-- Tests extraneous JOINs with Ref_Template_Types, Documents, or Paragraphs, and NULL foreign keys
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T2', 'Type 2 (Unused)');
+-- Template with NULL Template_Type_Code (kills INNER JOIN with Ref_Template_Types)
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, NULL, 9, '2020-01-01', '2021-01-01', 'Null FK');
+-- Template with no Documents (kills INNER JOIN with Documents)
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'T1', 6, '2020-01-01', '2021-01-01', 'No docs');
+-- Template with multiple Documents (kills ungrouped JOIN with Documents due to row multiplication)
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (3, 'T1', 7, '2020-01-01', '2021-01-01', 'Multiple docs');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (101, 3, 'Doc A', 'Desc A', 'Details A');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (102, 3, 'Doc B', 'Desc B', 'Details B');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (1001, 101, 'Para 1', 'Other 1');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when all rows fail the WHERE condition (including negative and zero values)
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('EMPTY', 'Empty Test');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'EMPTY', -10, '2020-01-01', '2021-01-01', 'Negative version');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'EMPTY', 0, '2020-01-01', '2021-01-01', 'Zero version');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (3, 'EMPTY', 5, '2020-01-01', '2021-01-01', 'Boundary 5');
+```
+
+```sql
+-- DATASET 5
+-- Tests NULLS LAST / NULLS FIRST in ORDER BY template_id (SQLite allows NULL in INTEGER PRIMARY KEY, unlike ROWID)
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('NL', 'Null PK Test');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'NL', 6, '2020-01-01', '2021-01-01', 'ID 10');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (5, 'NL', 6, '2020-01-01', '2021-01-01', 'ID 5');
+```

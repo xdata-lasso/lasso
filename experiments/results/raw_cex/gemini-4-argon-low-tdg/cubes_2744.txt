@@ -1,0 +1,95 @@
+```sql
+-- DATASET 1
+-- Tests basic threshold boundaries (n = 1, 2, 3), ORDER BY, and exact (Fname, LName) exclusion vs partial name matches.
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (10, 'Smith', 'John', 'Prof', 'M', 1111, '101', 'Main');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (20, 'Doe', 'Jane', 'Assoc', 'F', 2222, '102', 'Main');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (30, 'Brown', 'Charlie', 'Asst', 'M', 3333, '103', 'Sci');
+
+-- Advisor 30: 2 valid students (n = 2, boundary included)
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (1, 'Adams', 'Amy', 20, 'F', 100, 30, 'NYC');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (2, 'Baker', 'Bob', 21, 'M', 100, 30, 'LAX');
+
+-- Advisor 10: 3 valid students (n = 3, >2 included), testing partial name matches with Faculty ('Smith', 'John')
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (3, 'Smith', 'Alice', 22, 'F', 200, 10, 'CHI');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (4, 'Jones', 'John', 19, 'M', 200, 10, 'BOS');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (5, 'John', 'Smith', 20, 'M', 200, 10, 'SEA');
+
+-- Advisor 20: 2 students total, but 1 matches Faculty ('Doe', 'Jane') -> n = 1 (boundary excluded)
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (6, 'Doe', 'Jane', 23, 'F', 300, 20, 'NYC');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (7, 'Clark', 'Kent', 21, 'M', 300, 20, 'MET');
+
+-- Advisor 40: 1 valid student -> n = 1 (excluded)
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (8, 'Davis', 'Dan', 20, 'M', 100, 40, 'MIA');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate (Fname, LName) in Student (set vs bag semantics in EXCEPT/COUNT(DISTINCT)) and duplicate (Fname, Lname) in Faculty (LEFT JOIN fan-out vs NOT EXISTS).
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (100, 'DupFac', 'One', 'Prof', 'M', 1234, '201', 'West');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (101, 'DupFac', 'One', 'Asst', 'M', 5678, '202', 'West');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (200, 'Unique', 'Fac', 'Prof', 'F', 9999, '203', 'East');
+
+-- Advisor 500: Two distinct students with the exact same Fname and LName (not in Faculty). Should count as 2.
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (1, 'Twin', 'Tom', 18, 'M', 10, 500, 'DAL');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (2, 'Twin', 'Tom', 19, 'M', 10, 500, 'DAL');
+
+-- Advisor 600: One student matching the duplicated Faculty name, plus one valid student. Should count as 1 (excluded).
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (3, 'DupFac', 'One', 20, 'M', 20, 600, 'SFO');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (4, 'Valid', 'Stu', 21, 'F', 20, 600, 'SFO');
+
+-- Advisor 700: Two students with identical age/sex/major/city to test COUNT(DISTINCT col) mutants.
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (5, 'Alpha', 'Ann', 20, 'F', 30, 700, 'DEN');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (6, 'Beta', 'Bob', 20, 'F', 30, 700, 'DEN');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Student.Advisor, Student names, and Faculty names (kills NOT IN vs NOT EXISTS and COUNT(advisor) vs COUNT(*)).
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (1, NULL, 'NullLast', 'Prof', 'M', 111, '1A', 'B1');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (2, 'NullFirst', NULL, 'Prof', 'F', 222, '2B', 'B1');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (3, NULL, NULL, 'Prof', 'M', 333, '3C', 'B1');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (4, 'Normal', 'Fac', 'Prof', 'F', 444, '4D', 'B1');
+
+-- Advisor NULL: Two students with NULL advisor. COUNT(*) is 2, whereas COUNT(advisor) would be 0.
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (10, 'NoAdv', 'One', 20, 'M', 1, NULL, 'ATL');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (11, 'NoAdv', 'Two', 21, 'F', 1, NULL, 'ATL');
+
+-- Advisor 1: Students with NULL in Fname or LName. In SQL, NULL = NULL is unknown, so NOT EXISTS is TRUE (they are included).
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (12, NULL, 'NullLast', 22, 'M', 2, 1, 'PHX');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (13, 'NullFirst', NULL, 23, 'F', 2, 1, 'PHX');
+```
+
+```sql
+-- DATASET 4
+-- Tests whether Advisor must exist in Faculty table (Student.Advisor has no FK constraint in DDL) and tests activity participation joins.
+INSERT INTO Activity (actid, activity_name) VALUES (1, 'Chess');
+
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (10, 'Existing', 'Fac', 'Prof', 'M', 555, '10', 'Hall');
+
+-- Advisor 999 does NOT exist in Faculty table, but advises 2 valid students.
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (1, 'GhostAdv', 'StuA', 19, 'F', 5, 999, 'HOU');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (2, 'GhostAdv', 'StuB', 20, 'M', 5, 999, 'HOU');
+
+-- Advisor 10 exists in Faculty, advises 2 valid students, participates in activities.
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (3, 'RealAdv', 'StuC', 21, 'F', 5, 10, 'HOU');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (4, 'RealAdv', 'StuD', 22, 'M', 5, 10, 'HOU');
+
+INSERT INTO Participates_in (actid, stuid) VALUES (1, 1);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (1, 10);
+```
+
+```sql
+-- DATASET 5
+-- Tests correlated vs uncorrelated NOT EXISTS and self-matching advisor name vs other faculty name.
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (50, 'AdvisorFifty', 'ProfA', 'Prof', 'M', 100, '1', 'A');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (60, 'AdvisorSixty', 'ProfB', 'Prof', 'F', 200, '2', 'B');
+
+-- Advisor 50 advises 2 students: one has the same name as Advisor 60 (must be excluded even though their advisor is 50!).
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (1, 'AdvisorSixty', 'ProfB', 20, 'F', 1, 50, 'NYC');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (2, 'Regular', 'StudentOne', 20, 'M', 1, 50, 'NYC');
+
+-- Advisor 60 advises 3 students: one has the same name as Advisor 60 (excluded), two are regular (included -> n = 2).
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (3, 'AdvisorSixty', 'ProfB', 21, 'F', 2, 60, 'LAX');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (4, 'Regular', 'StudentTwo', 21, 'M', 2, 60, 'LAX');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (5, 'Regular', 'StudentThree', 22, 'F', 2, 60, 'LAX');
+```

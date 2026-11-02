@@ -1,0 +1,78 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Filtering on billing_country = 'USA' vs 'Canada' vs 'usa' (case sensitivity) vs NULL.
+-- 2. Grouping by both billing_country and billing_state (overlapping state 'CA' in USA and Canada).
+-- 3. COUNT(*) vs COUNT(billing_state) when billing_state is NULL in USA.
+-- 4. ORDER BY billing_state ASC (with NULLS FIRST default in first sort key vs NULLS LAST).
+-- 5. Conflicting customer country/state vs invoice billing_country/billing_state (catches joins to customers using wrong columns).
+-- 6. Invoices with 0 vs multiple invoice_lines (catches INNER JOIN invoice_lines without DISTINCT).
+INSERT INTO "employees" ("id", "last_name", "first_name") VALUES (1, 'Adams', 'Andrew');
+
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "state", "country") VALUES (1, 1, 'John', 'Doe', 'TX', 'Canada');
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "state", "country") VALUES (2, 1, 'Jane', 'Smith', 'WA', 'USA');
+
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (1, 1, 'CA', 'USA', 10.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (2, 1, 'CA', 'USA', 15.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (3, 1, 'NY', 'USA', 20.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (4, 1, NULL, 'USA', 25.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (5, 2, 'CA', 'Canada', 30.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (6, 2, 'ON', 'Canada', 35.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (7, 2, 'TX', 'usa', 40.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (8, 2, 'NV', NULL, 45.00);
+
+INSERT INTO "artists" ("id", "name") VALUES (1, 'Artist A');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 1, 'Album A');
+INSERT INTO "media_types" ("id", "name") VALUES (1, 'MPEG audio file');
+INSERT INTO "genres" ("id", "name") VALUES (1, 'Rock');
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "milliseconds", "bytes", "unit_price") VALUES (1, 1, 1, 1, 'Track 1', 200000, 5000000, 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "milliseconds", "bytes", "unit_price") VALUES (2, 1, 1, 1, 'Track 2', 250000, 6000000, 0.99);
+
+INSERT INTO "invoice_lines" ("id", "track_id", "invoice_id", "unit_price", "quantity") VALUES (1, 1, 1, 0.99, 1);
+INSERT INTO "invoice_lines" ("id", "track_id", "invoice_id", "unit_price", "quantity") VALUES (2, 2, 1, 0.99, 2);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Inverted correlation between billing_state alphabetical order and count___ order ('AZ' has 3, 'MA' has 1, 'WA' has 2).
+-- 2. Catches mutants that sort by count___ first, sort DESC, or omit ORDER BY.
+-- 3. Multiple NULL billing_state rows in USA (count = 2) to test grouping of NULLs.
+-- 4. Duplicate totals and customer_ids within the same state to catch COUNT(DISTINCT customer_id) or COUNT(DISTINCT total) or SUM(total).
+INSERT INTO "customers" ("id", "first_name", "last_name", "state", "country") VALUES (1, 'Alice', 'Brown', 'AZ', 'USA');
+
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (1, 1, 'WA', 'USA', 5.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (2, 1, 'WA', 'USA', 5.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (3, 1, 'AZ', 'USA', 5.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (4, 1, 'AZ', 'USA', 5.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (5, 1, 'AZ', 'USA', 5.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (6, 1, 'MA', 'USA', 5.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (7, 1, NULL, 'USA', 5.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (8, 1, NULL, 'USA', 5.00);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty result set when no invoices match billing_country = 'USA' (catches queries without WHERE filter or using wrong filter).
+-- 2. String matching edge cases ('USA ', 'United States', 'US') to catch LIKE '%USA%' or TRIM bugs.
+-- 3. State named 'USA' in another country to catch swapped column predicates (WHERE billing_state = 'USA').
+INSERT INTO "customers" ("id", "first_name", "last_name", "state", "country") VALUES (1, 'Bob', 'Green', 'NY', 'USA');
+
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (1, 1, 'USA', 'Canada', 10.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (2, 1, 'NY', 'United States', 10.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (3, 1, 'CA', 'US', 10.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_state", "billing_country", "total") VALUES (4, 1, 'FL', 'USA ', 10.00);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Invoices with NULL customer_id (valid in SQLite since customer_id is nullable) to catch INNER JOIN with customers.
+-- 2. Nullable columns in invoices (billing_address, billing_city, billing_postal_code, invoice_date, total) set to NULL to catch COUNT(col) mutations.
+INSERT INTO "customers" ("id", "first_name", "last_name", "state", "country") VALUES (1, 'Charlie', 'Black', 'IL', 'USA');
+
+INSERT INTO "invoices" ("id", "customer_id", "invoice_date", "billing_address", "billing_city", "billing_state", "billing_country", "billing_postal_code", "total") VALUES (1, NULL, NULL, NULL, NULL, 'IL', 'USA', NULL, NULL);
+INSERT INTO "invoices" ("id", "customer_id", "invoice_date", "billing_address", "billing_city", "billing_state", "billing_country", "billing_postal_code", "total") VALUES (2, 1, '2023-01-01 00:00:00', '123 Main St', 'Chicago', 'IL', 'USA', '60601', 1.00);
+INSERT INTO "invoices" ("id", "customer_id", "invoice_date", "billing_address", "billing_city", "billing_state", "billing_country", "billing_postal_code", "total") VALUES (3, NULL, NULL, NULL, NULL, 'FL', 'USA', NULL, NULL);
+```

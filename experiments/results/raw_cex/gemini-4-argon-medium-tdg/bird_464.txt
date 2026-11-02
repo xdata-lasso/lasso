@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests DISTINCT behavior (duplicate card names within the same set and across multiple translations), 
+-- WHERE clause filtering (exact match vs partial match vs wrong translation), 
+-- and INNER JOIN vs OUTER JOIN (cards with no set_translations or NULL setCode).
+INSERT INTO sets (id, code, name) VALUES (1, '10E', 'Tenth Edition');
+INSERT INTO sets (id, code, name) VALUES (2, '9ED', 'Ninth Edition');
+INSERT INTO sets (id, code, name) VALUES (3, '8ED', 'Eighth Edition');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'German', '10E', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Custom', '10E', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'French', '10E', 'Dixième édition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, 'German', '9ED', 'Hauptset Zehnte Edition Extra');
+
+INSERT INTO cards (id, name, asciiName, faceName, setCode, uuid) VALUES (1, 'Grizzly Bears', 'Grizzly Bears_ascii', 'Grizzly Bears_face', '10E', 'uuid-1');
+INSERT INTO cards (id, name, asciiName, faceName, setCode, uuid) VALUES (2, 'Grizzly Bears', 'Grizzly Bears_ascii', 'Grizzly Bears_face', '10E', 'uuid-2');
+INSERT INTO cards (id, name, asciiName, faceName, setCode, uuid) VALUES (3, 'Shock', 'Shock_ascii', 'Shock_face', '9ED', 'uuid-3');
+INSERT INTO cards (id, name, asciiName, faceName, setCode, uuid) VALUES (4, 'Pacifism', 'Pacifism_ascii', 'Pacifism_face', '8ED', 'uuid-4');
+INSERT INTO cards (id, name, asciiName, faceName, setCode, uuid) VALUES (5, 'Orphan Card', 'Orphan_ascii', 'Orphan_face', NULL, 'uuid-5');
+```
+
+```sql
+-- DATASET 2
+-- Tests incorrect JOIN conditions (e.g., joining on id = id instead of setCode = setCode, or joining via foreign_data instead of set_translations)
+-- and ensures the name comes from cards.name rather than sets.name or foreign_data.name.
+INSERT INTO sets (id, code, name) VALUES (10, 'S1', 'Hauptset Zehnte Edition');
+INSERT INTO sets (id, code, name) VALUES (20, 'S2', 'Set Two');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'German', 'S2', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'German', 'S1', 'Other Translation');
+
+INSERT INTO cards (id, name, setCode, uuid) VALUES (1, 'Wrong Card By ID Join', 'S1', 'uuid-c1');
+INSERT INTO cards (id, name, setCode, uuid) VALUES (2, 'Wrong Card By Set Name', 'S1', 'uuid-c2');
+INSERT INTO cards (id, name, setCode, uuid) VALUES (99, 'Correct Card', 'S2', 'uuid-c99');
+
+INSERT INTO foreign_data (id, language, name, text, uuid) VALUES (1, 'German', 'Hauptset Zehnte Edition', 'Hauptset Zehnte Edition', 'uuid-c1');
+INSERT INTO foreign_data (id, language, name, text, uuid) VALUES (2, 'German', 'Foreign Card Name', 'Some text', 'uuid-c99');
+```
+
+```sql
+-- DATASET 3
+-- Tests handling of NULL values in cards.name, case sensitivity of the translation string, 
+-- and multiple distinct cards matching the criteria.
+INSERT INTO sets (id, code, name) VALUES (1, 'SET_A', 'Set A');
+INSERT INTO sets (id, code, name) VALUES (2, 'SET_B', 'Set B');
+INSERT INTO sets (id, code, name) VALUES (3, 'SET_C', 'Set C');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (10, 'German', 'SET_A', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (20, 'German', 'SET_B', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (30, 'German', 'SET_C', 'hauptset zehnte edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (40, 'German', NULL, 'Hauptset Zehnte Edition');
+
+INSERT INTO cards (id, name, setCode, uuid) VALUES (100, 'Alpha Card', 'SET_A', 'uuid-100');
+INSERT INTO cards (id, name, setCode, uuid) VALUES (101, 'Beta Card', 'SET_A', 'uuid-101');
+INSERT INTO cards (id, name, setCode, uuid) VALUES (102, 'Alpha Card', 'SET_B', 'uuid-102');
+INSERT INTO cards (id, name, setCode, uuid) VALUES (103, NULL, 'SET_A', 'uuid-103');
+INSERT INTO cards (id, name, setCode, uuid) VALUES (104, 'Case Mismatch Card', 'SET_C', 'uuid-104');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set scenario when translations and cards exist, 
+-- but the join between matching translation and cards yields no rows (dangling translation set vs populated non-matching set).
+INSERT INTO sets (id, code, name) VALUES (1, 'EMPTY_SET', 'Empty Set');
+INSERT INTO sets (id, code, name) VALUES (2, 'FULL_SET', 'Full Set');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'German', 'EMPTY_SET', 'Hauptset Zehnte Edition');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'German', 'FULL_SET', 'Zehnte Edition');
+
+INSERT INTO cards (id, name, setCode, uuid) VALUES (1, 'Card In Non-Matching Set', 'FULL_SET', 'uuid-f1');
+INSERT INTO cards (id, name, setCode, uuid) VALUES (2, 'Hauptset Zehnte Edition', 'FULL_SET', 'uuid-f2');
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion within the same table (e.g., T1.setCode vs T1.name, T2.translation vs T2.language vs T2.setCode).
+INSERT INTO sets (id, code, name) VALUES (1, 'Hauptset Zehnte Edition', 'Weird Code Set');
+INSERT INTO sets (id, code, name) VALUES (2, 'REAL', 'Real Set');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Hauptset Zehnte Edition', 'Hauptset Zehnte Edition', 'Wrong Translation');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'DE', 'REAL', 'Hauptset Zehnte Edition');
+
+INSERT INTO cards (id, name, setCode, type, text, flavorName, uuid) VALUES (1, 'Decoy Card', 'Hauptset Zehnte Edition', 'Hauptset Zehnte Edition', 'Hauptset Zehnte Edition', 'Hauptset Zehnte Edition', 'uuid-d1');
+INSERT INTO cards (id, name, setCode, type, text, flavorName, uuid) VALUES (2, 'True Target Card', 'REAL', 'Creature', 'Normal text', 'Normal flavor', 'uuid-t1');
+```

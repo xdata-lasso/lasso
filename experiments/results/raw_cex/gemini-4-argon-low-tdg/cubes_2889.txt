@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Join condition LHS.id = RHS.id vs LHS.artist_id = RHS.id (Album 1 has id=1, artist_id=2; Artist 1 has id=1).
+-- 2. Outer SELECT DISTINCT vs SELECT ALL (Multiple matches yielding count___ = 1).
+-- 3. GROUP BY id, name vs GROUP BY name (Artists 2 and 3 share the same name 'Duplicate Name').
+-- 4. Unmatched LHS and RHS rows to kill LEFT/RIGHT/FULL OUTER JOIN mutations.
+INSERT INTO "artists" ("id", "name") VALUES (1, 'Artist One');
+INSERT INTO "artists" ("id", "name") VALUES (2, 'Duplicate Name');
+INSERT INTO "artists" ("id", "name") VALUES (3, 'Duplicate Name');
+INSERT INTO "artists" ("id", "name") VALUES (4, 'Unmatched Artist');
+
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 2, 'Album One');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (2, 2, 'Album Two');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (3, 3, 'Album Three');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (5, 1, 'Unmatched Album ID');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Predicate boundary: name <> 'Billy Cobham' (kills =, >=, <=, LIKE, and missing WHERE clause).
+-- 2. Case sensitivity and lexicographical comparison ('Billy A' < 'Billy Cobham' < 'Billy Z').
+-- 3. Joins where LHS.id = RHS.id holds ONLY for 'Billy Cobham', so the reference query returns an empty set, whereas a mutant without the filter or with '=' returns 1.
+INSERT INTO "artists" ("id", "name") VALUES (1, 'Billy Cobham');
+INSERT INTO "artists" ("id", "name") VALUES (2, 'Billy A');
+INSERT INTO "artists" ("id", "name") VALUES (3, 'Billy Z');
+
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 1, 'Spectrum');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (10, 2, 'Album A');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (20, 3, 'Album Z');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. NULL handling in artists.name: In SQL, NULL <> 'Billy Cobham' evaluates to UNKNOWN (falsy).
+-- 2. Kills mutants that rewrite the filter as (name IS NULL OR name <> 'Billy Cobham') or drop the filter, which would produce count___ = 0 (since COUNT(DISTINCT NULL) is 0).
+-- 3. Also includes a valid row with id=2 to test ordering (0, 1) vs (1, 0) if the NULL row leaks through, or if a LEFT JOIN produces NULL.
+INSERT INTO "artists" ("id", "name") VALUES (1, NULL);
+INSERT INTO "artists" ("id", "name") VALUES (2, 'Valid Artist');
+INSERT INTO "artists" ("id", "name") VALUES (3, 'Billy Cobham');
+
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 1, 'Null Artist Album');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (2, 3, 'Valid Join Album');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (3, 2, 'Billy Join Album');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Strict separation of LHS.id = RHS.id vs LHS.artist_id = RHS.id.
+-- 2. Here, LHS.id never equals RHS.id, so the Reference Query returns 0 rows.
+-- 3. Any mutant that joins on the foreign key (LHS.artist_id = RHS.id) will return a row with count___ = 1.
+INSERT INTO "artists" ("id", "name") VALUES (10, 'Ten Artist');
+INSERT INTO "artists" ("id", "name") VALUES (20, 'Twenty Artist');
+
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 10, 'Album ID 1');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (2, 20, 'Album ID 2');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Lowercase/whitespace variations of 'Billy Cobham' ('billy cobham', 'Billy Cobham ') to kill case-insensitive or trimmed predicate mutants.
+-- 2. NULL in albums.artist_id and albums.title to ensure queries adding unnecessary NOT NULL filters on LHS columns are caught.
+-- 3. Multiple artists with different names to kill mutants that drop the GROUP BY clause entirely (which would compute COUNT(DISTINCT name) across the whole table > 1).
+INSERT INTO "artists" ("id", "name") VALUES (1, 'billy cobham');
+INSERT INTO "artists" ("id", "name") VALUES (2, 'Billy Cobham ');
+INSERT INTO "artists" ("id", "name") VALUES (3, 'Billy Cobham');
+
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, NULL, NULL);
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (2, 3, 'Album Two');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (3, 1, 'Album Three');
+```

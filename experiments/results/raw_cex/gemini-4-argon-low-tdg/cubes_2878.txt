@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests standard matching rows, DISTINCT over window function (multiple matching rows collapse to 1), 
+-- SUM vs AVG/MAX/MIN/COUNT, duplicate 'total' values (SUM vs SUM(DISTINCT)), 
+-- AND vs OR in WHERE clause, and NULL handling in predicates and SUM.
+INSERT INTO "employees" ("id", "first_name", "last_name", "city", "state") VALUES (1, 'Alice', 'Smith', 'Chicago', 'IL');
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (1, 1, 'Bob', 'Jones', 'Chicago', 'IL');
+INSERT INTO "customers" ("id", "support_rep_id", "first_name", "last_name", "city", "state") VALUES (2, 1, 'Charlie', 'Brown', 'New York', 'NY');
+
+-- Matching rows: two identical totals (10.50) to catch SUM(DISTINCT), one distinct total (25.00), and one NULL total.
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (1, 1, 'Chicago', 'IL', 10.50);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (2, 2, 'Chicago', 'IL', 10.50);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (3, 2, 'Chicago', 'IL', 25.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (4, 1, 'Chicago', 'IL', NULL);
+
+-- Non-matching boundary rows:
+-- City matches, State does not
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (5, 1, 'Chicago', 'IN', 100.00);
+-- State matches, City does not
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (6, 1, 'Springfield', 'IL', 200.00);
+-- Neither matches (even though customer 1 is in Chicago, IL - catches queries joining customers and filtering on customer address)
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (7, 1, 'Boston', 'MA', 400.00);
+-- NULLs in filter columns
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (8, 1, 'Chicago', NULL, 800.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (9, 1, NULL, 'IL', 1600.00);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set when NO rows match the WHERE condition.
+-- Crucial for catching Regular Aggregate `SELECT SUM(total)` (which returns 1 row with NULL) 
+-- vs Window Aggregate `SELECT DISTINCT SUM(total) OVER ()` (which returns 0 rows when WHERE filters out everything).
+INSERT INTO "customers" ("id", "first_name", "last_name", "city", "state") VALUES (1, 'John', 'Doe', 'Chicago', 'IL');
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (1, 1, 'Chicago', 'IN', 15.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (2, 1, 'Rockford', 'IL', 25.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (3, 1, 'Seattle', 'WA', 35.00);
+```
+
+```sql
+-- DATASET 3
+-- Tests when rows match the WHERE condition, but all matching rows have NULL 'total'.
+-- Reference query returns 1 row with NULL (distinguishing from COALESCE(SUM, 0) or COUNT).
+INSERT INTO "customers" ("id", "first_name", "last_name") VALUES (1, 'Jane', 'Doe');
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (1, 1, 'Chicago', 'IL', NULL);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (2, 1, 'Chicago', 'IL', NULL);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (3, 1, 'Austin', 'TX', 50.00);
+```
+
+```sql
+-- DATASET 4
+-- Tests string comparison edge cases (case sensitivity, substring matching, leading/trailing spaces)
+-- and negative/zero numerical values.
+INSERT INTO "customers" ("id", "first_name", "last_name") VALUES (1, 'Alice', 'Waters');
+-- Exact match with negative and positive values
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (1, 1, 'Chicago', 'IL', -15.50);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (2, 1, 'Chicago', 'IL', 40.25);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (3, 1, 'Chicago', 'IL', 0.00);
+
+-- Case sensitivity & LIKE/substring mutants
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (4, 1, 'chicago', 'IL', 100.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (5, 1, 'Chicago', 'il', 200.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (6, 1, 'North Chicago', 'IL', 400.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (7, 1, 'Chicago ', 'IL', 800.00);
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (8, 1, 'Chicago', 'ILL', 1600.00);
+```
+
+```sql
+-- DATASET 5
+-- Tests inner join traps with child tables (invoice_lines) or parent tables (customers).
+-- Here, customer_id is NULL on a valid invoice, and invoice_lines has 0 rows for one valid invoice and 2 rows for another.
+-- Mutants that needlessly INNER JOIN customers or invoice_lines will drop rows or multiply totals.
+INSERT INTO "customers" ("id", "first_name", "last_name") VALUES (1, 'Mark', 'Twain');
+INSERT INTO "artists" ("id", "name") VALUES (1, 'Artist A');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 1, 'Album A');
+INSERT INTO "media_types" ("id", "name") VALUES (1, 'MPEG');
+INSERT INTO "genres" ("id", "name") VALUES (1, 'Rock');
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "milliseconds", "bytes", "unit_price") VALUES (1, 1, 1, 1, 'Track 1', 1000, 1000, 0.99);
+
+-- Invoice 1 has customer_id = NULL and no invoice_lines
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (1, NULL, 'Chicago', 'IL', 12.34);
+-- Invoice 2 has customer_id = 1 and two invoice_lines (which don't sum to 'total' to catch mutants summing unit_price * quantity)
+INSERT INTO "invoices" ("id", "customer_id", "billing_city", "billing_state", "total") VALUES (2, 1, 'Chicago', 'IL', 56.78);
+INSERT INTO "invoice_lines" ("id", "track_id", "invoice_id", "unit_price", "quantity") VALUES (1, 1, 2, 10.00, 1);
+INSERT INTO "invoice_lines" ("id", "track_id", "invoice_id", "unit_price", "quantity") VALUES (2, 1, 2, 20.00, 2);
+```

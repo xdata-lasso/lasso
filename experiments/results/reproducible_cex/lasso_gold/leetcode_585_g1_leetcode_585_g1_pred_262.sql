@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE "insurance" ("PID" INTEGER PRIMARY KEY, "TIV_2015" REAL, "TIV_2016" REAL, "LAT" REAL, "LON" REAL, CHECK ("tiv_2015" >= 0), CHECK ("tiv_2016" >= 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1191, 1193.5, 1194.5, 1196.5, 1198.5);
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1192, 1193.5, 1201.5, 1196.51, 198.5);
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1200, 1193.5, 1202.5, 1196.51, 198.5);
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (1201, 1193.5, 1209.5, 1196.51, 198.5);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ROUND(SUM(tiv_2016), 2) AS tiv_2016 FROM Insurance WHERE tiv_2015 IN (SELECT tiv_2015 FROM Insurance GROUP BY tiv_2015 HAVING COUNT(*) > 1) AND (lat, lon) IN (SELECT lat, lon FROM Insurance WHERE NOT lat IS NULL AND NOT lon IS NULL GROUP BY lat, lon HAVING COUNT(*) = 1);
+
+/*
+Gold Result:
+(1194.5,)
+*/
+
+-- Prediction Query
+WITH CONDITION_CTE1 AS (SELECT I1.PID FROM INSURANCE AS I1 JOIN INSURANCE AS I2 ON I1.TIV_2015 = I2.TIV_2015 WHERE I1.PID <> I2.PID), CONDITION_CTE2 AS (SELECT PID FROM INSURANCE GROUP BY LAT || LON HAVING COUNT(LAT || LON) = 1) SELECT ROUND(SUM(TIV_2016), 2) AS TIV_2016 FROM INSURANCE WHERE PID IN (SELECT * FROM CONDITION_CTE1) AND PID IN (SELECT * FROM CONDITION_CTE2);
+
+/*
+Prediction Result:
+(None,)
+*/

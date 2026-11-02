@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests basic counting boundary conditions (n=1, n=2, n=3) and reverse insertion order to verify ORDER BY LOCATION.
+-- Also tests whether extraneous joins to child tables (train, railway_manage) are erroneously included by keeping Railway 1, 2, 3 unreferenced.
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (1, 'R1', 'B1', '1900', '4-4-0', 'Loc_C', 'O1');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (2, 'R2', 'B2', '1901', '4-4-0', 'Loc_C', 'O2');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (3, 'R3', 'B3', '1902', '4-4-0', 'Loc_B', 'O3');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (4, 'R4', 'B4', '1903', '4-4-0', 'Loc_A', 'O4');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (5, 'R5', 'B5', '1904', '4-4-0', 'Loc_A', 'O5');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (6, 'R6', 'B6', '1905', '4-4-0', 'Loc_A', 'O6');
+
+INSERT INTO "train" ("Train_ID", "Railway_ID", "Train_Num", "Name", "From", "Arrival") VALUES (1, 3, 'T1', 'Train1', 'StationA', '10:00');
+INSERT INTO "train" ("Train_ID", "Railway_ID", "Train_Num", "Name", "From", "Arrival") VALUES (2, 3, 'T2', 'Train2', 'StationB', '11:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Location and other columns.
+-- Location 'Alpha' has 2 rows, one of which has NULLs in all other attributes (catches COUNT(col) vs COUNT(*)).
+-- Location NULL has 2 rows (tests grouping and sorting of NULLs).
+-- Location 'Beta' has 2 identical rows across non-PK columns (catches erroneous DISTINCT in subquery).
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (1, 'R1', 'B1', '1920', '2-6-0', 'Alpha', 'OBJ1');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (2, NULL, NULL, NULL, NULL, 'Alpha', NULL);
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (3, 'R2', 'B2', '1930', '2-8-0', NULL, 'OBJ2');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (4, 'R3', 'B3', '1940', '4-6-2', NULL, 'OBJ3');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (5, 'SameR', 'SameB', '1950', '0-6-0', 'Beta', 'SameO');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (6, 'SameR', 'SameB', '1950', '0-6-0', 'Beta', 'SameO');
+```
+
+```sql
+-- DATASET 3
+-- Tests when NO locations satisfy the condition (n > 1), ensuring an empty result set is returned rather than rows with n = 1.
+-- Also includes multiple managers and railway_manage records for a single railway to catch mutants that join with railway_manage and inflate the count.
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (1, 'RailA', 'BuildA', '1980', '4-4-2', 'SingleLoc1', '101');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (2, 'RailB', 'BuildB', '1985', '4-6-0', 'SingleLoc2', '102');
+
+INSERT INTO "manager" ("Manager_ID", "Name", "Country", "Working_year_starts", "Age", "Level") VALUES (1, 'Mgr1', 'UK', '2000', 45, 1);
+INSERT INTO "manager" ("Manager_ID", "Name", "Country", "Working_year_starts", "Age", "Level") VALUES (2, 'Mgr2', 'USA', '2005', 50, 2);
+
+INSERT INTO "railway_manage" ("Railway_ID", "Manager_ID", "From_Year") VALUES (1, 1, '2010');
+INSERT INTO "railway_manage" ("Railway_ID", "Manager_ID", "From_Year") VALUES (1, 2, '2012');
+```
+
+```sql
+-- DATASET 4
+-- Tests Tie-Breaking and Ordering:
+-- 'Z_Loc' has count 2, 'M_Loc' has count 3, 'A_Loc' has count 4.
+-- Catches mutants that ORDER BY COUNT(*) ASC/DESC instead of ORDER BY LOCATION ASC.
+-- Also tests grouping by columns other than Location (e.g., Builder or Railway) by having 'B_Common' shared across different singleton locations.
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (1, 'R_Common', 'B_Common', '1900', 'W1', 'Singleton1', 'O1');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (2, 'R_Common', 'B_Common', '1900', 'W1', 'Singleton2', 'O2');
+
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (3, 'R1', 'B1', '1901', 'W2', 'Z_Loc', 'O3');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (4, 'R2', 'B2', '1902', 'W3', 'Z_Loc', 'O4');
+
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (5, 'R3', 'B3', '1903', 'W4', 'M_Loc', 'O5');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (6, 'R4', 'B4', '1904', 'W5', 'M_Loc', 'O6');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (7, 'R5', 'B5', '1905', 'W6', 'M_Loc', 'O7');
+
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (8, 'R6', 'B6', '1906', 'W7', 'A_Loc', 'O8');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (9, 'R7', 'B7', '1907', 'W8', 'A_Loc', 'O9');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (10, 'R8', 'B8', '1908', 'W9', 'A_Loc', 'O10');
+INSERT INTO "railway" ("Railway_ID", "Railway", "Builder", "Built", "Wheels", "Location", "ObjectNumber") VALUES (11, 'R9', 'B9', '1909', 'W10', 'A_Loc', 'O11');
+```

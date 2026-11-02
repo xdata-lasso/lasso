@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. LIMIT 5 boundary (7 matching rows, plus 2 unmatched rows in schools).
+-- 2. INNER JOIN vs LEFT JOIN (unmatched schools must be excluded).
+-- 3. Wrong column references (NCESSchool != NCESDist != CDSCode != School; Enrollment (Ages 5-17) != Enrollment (K-12) != Free Meal Count != FRPM Count).
+-- 4. Duplicate NCESSchool values to kill SELECT DISTINCT mutations.
+-- 5. Secondary sort order on T1.CDSCode ASC when Enrollment (Ages 5-17) is tied.
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('CDS001', 'ND001', 'NS_DUP', 'Active', 'C1', 'D1', 'S1', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('CDS002', 'ND002', 'NS_DUP', 'Active', 'C1', 'D1', 'S2', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('CDS003', 'ND003', 'NS_TIE_A', 'Active', 'C1', 'D1', 'S3', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('CDS004', 'ND004', 'NS_TIE_B', 'Active', 'C1', 'D1', 'S4', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('CDS005', 'ND005', 'NS_FIFTH', 'Active', 'C1', 'D1', 'S5', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('CDS006', 'ND006', 'NS_SIXTH', 'Active', 'C1', 'D1', 'S6', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('CDS007', 'ND007', 'NS_SEVENTH', 'Active', 'C1', 'D1', 'S7', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('CDS000', 'ND000', 'NS_UNMATCHED_1', 'Active', 'C1', 'D1', 'S0', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('CDS999', 'ND999', 'NS_UNMATCHED_2', 'Active', 'C1', 'D1', 'S9', '01', 'DT1', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS001', 1000.0, 100.0, 10.0, 20.0, 0.1);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS002', 900.0, 200.0, 20.0, 30.0, 0.2);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS004', 800.0, 300.0, 30.0, 40.0, 0.3);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS003', 800.0, 950.0, 40.0, 50.0, 0.4);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS005', 700.0, 1200.0, 500.0, 600.0, 0.9);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS006', 600.0, 1500.0, 600.0, 700.0, 0.95);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS007', 500.0, 2000.0, 700.0, 800.0, 0.99);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL handling in ORDER BY T2."Enrollment (Ages 5-17)" DESC (in SQLite, NULLs are considered smallest, so DESC puts NULLs at the bottom; mutations adding NULLS FIRST or COALESCE/IS NOT NULL filters will be caught when total rows <= 5 or around the limit boundary).
+-- 2. NULL values in T1.NCESSchool (mutations filtering WHERE NCESSchool IS NOT NULL will be killed).
+-- 3. Unnecessary JOIN with satscores (some rows have satscores, some do not; mutations joining satscores will drop rows without satscores).
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('S_A', 'D_A', 'NCES_1', 'Active', 'C1', 'D1', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('S_B', 'D_B', NULL, 'Active', 'C1', 'D1', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('S_C', 'D_C', 'NCES_3', 'Active', 'C1', 'D1', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('S_D', 'D_D', 'NCES_4', 'Active', 'C1', 'D1', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('S_E', 'D_E', 'NCES_5', 'Active', 'C1', 'D1', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('S_F', 'D_F', 'NCES_6', 'Active', 'C1', 'D1', '01', 'DT1', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)") VALUES ('S_A', 500.0, 500.0);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)") VALUES ('S_B', 400.0, 400.0);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)") VALUES ('S_C', 300.0, 300.0);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)") VALUES ('S_D', NULL, 900.0);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)") VALUES ('S_E', NULL, 800.0);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)") VALUES ('S_F', NULL, 700.0);
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr) VALUES ('S_A', 'S', 100, 50);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Tie-breaker across the 5th/6th boundary: 4 rows have the exact same Enrollment (Ages 5-17), spanning positions 3, 4, 5, and 6.
+-- 2. Kills mutations that omit secondary sort T1.cdscode, or sort T1.cdscode DESC instead of ASC.
+-- 3. Also tests string vs numeric sorting on CDSCode and fractional REAL values in Enrollment (Ages 5-17).
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('100', 'D1', 'SCH_TOP1', 'Closed', 'C1', 'D1', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('200', 'D2', 'SCH_TOP2', 'Pending', 'C2', 'D2', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('300_D', 'D3', 'SCH_TIE_4', 'Active', 'C3', 'D3', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('300_B', 'D4', 'SCH_TIE_2', 'Active', 'C4', 'D4', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('300_A', 'D5', 'SCH_TIE_1', 'Active', 'C5', 'D5', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('300_C', 'D6', 'SCH_TIE_3', 'Active', 'C6', 'D6', '01', 'DT1', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Charter School (Y/N)") VALUES ('100', 250.75, 250.0, 0);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Charter School (Y/N)") VALUES ('200', 250.25, 250.0, 1);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Charter School (Y/N)") VALUES ('300_D', 150.5, 300.0, 1);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Charter School (Y/N)") VALUES ('300_B', 150.5, 200.0, 0);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Charter School (Y/N)") VALUES ('300_A', 150.5, 100.0, 0);
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Enrollment (K-12)", "Charter School (Y/N)") VALUES ('300_C', 150.5, 400.0, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Alternative join condition mutations (e.g. joining on School = "School Name" or District = "District Name" or NCESSchool = "School Code" instead of CDSCode = CDSCode).
+-- 2. Fewer than 5 matching rows when some rows have NULL Enrollment (Ages 5-17), testing that NULL Enrollment rows ARE included in the top 5 when fewer than 5 non-null rows exist.
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('C_1', 'ND1', 'SC_1', 'Active', 'CountyA', 'DistA', 'NameA', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('C_2', 'ND2', 'SC_2', 'Active', 'CountyB', 'DistB', 'NameB', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('C_3', 'ND3', 'SC_3', 'Active', 'CountyC', 'DistC', 'NameC', '01', 'DT1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('C_4', 'ND4', 'SC_4', 'Active', 'CountyD', 'DistD', 'NameD', '01', 'DT1', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "School Code", "County Name", "District Name", "School Name", "Enrollment (Ages 5-17)") VALUES ('C_1', 'SC_2', 'CountyB', 'DistB', 'NameB', 50.0);
+INSERT INTO frpm (CDSCode, "School Code", "County Name", "District Name", "School Name", "Enrollment (Ages 5-17)") VALUES ('C_2', 'SC_3', 'CountyC', 'DistC', 'NameC', 0.0);
+INSERT INTO frpm (CDSCode, "School Code", "County Name", "District Name", "School Name", "Enrollment (Ages 5-17)") VALUES ('C_3', 'SC_1', 'CountyA', 'DistA', 'NameA', NULL);
+```

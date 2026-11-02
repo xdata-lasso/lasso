@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (set name 'Coldsnap', language 'Italian'), DESC ordering on convertedManaCost, LIMIT 1, and selecting T2.name vs T1.name/T3.name.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'ICE', 'Ice Age');
+
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost) VALUES (1, 'uuid-1', 'Card Low CMC', 'CSP', 2.0, 20.0);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost) VALUES (2, 'uuid-2', 'Card High CMC', 'CSP', 8.0, 1.0);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost) VALUES (3, 'uuid-3', 'Card Wrong Set', 'ICE', 15.0, 15.0);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost) VALUES (4, 'uuid-4', 'Card Wrong Lang', 'CSP', 12.0, 12.0);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost, faceConvertedManaCost) VALUES (5, 'uuid-5', 'Card No Foreign', 'CSP', 20.0, 20.0);
+
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (1, 'uuid-1', 'Italian Low CMC', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (2, 'uuid-2', 'Italian High CMC', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (3, 'uuid-3', 'Italian Wrong Set', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (4, 'uuid-4', 'French High CMC', 'French');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T1.id ASC when T2.convertedManaCost is tied, and tests INNER JOIN vs LEFT JOIN when high CMC cards lack matching sets or foreign_data.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (10, 'uuid-10', 'Card Tie First T2_id', 'CSP', 5.0);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (20, 'uuid-20', 'Card Tie Second T2_id', 'CSP', 5.0);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (30, 'uuid-30', 'Card Null Set', NULL, 99.0);
+
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (100, 'uuid-10', 'Foreign Later ID', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (50, 'uuid-20', 'Foreign Earlier ID', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (10, 'uuid-30', 'Foreign Null Set', 'Italian');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in convertedManaCost (in SQLite, NULLs are considered smaller than any value, so in DESC order they appear last, whereas NULLS FIRST or COALESCE mutants might mishandle them) and fractional REAL values.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (1, 'uuid-null', 'Card Null CMC', 'CSP', NULL);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (2, 'uuid-frac1', 'Card 3.5 CMC', 'CSP', 3.5);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (3, 'uuid-frac2', 'Card 3.2 CMC', 'CSP', 3.2);
+
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (1, 'uuid-null', 'IT Null', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (2, 'uuid-frac1', 'IT 3.5', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (3, 'uuid-frac2', 'IT 3.2', 'Italian');
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between foreign_data.language and set_translations.language or other columns, and tests case/substring sensitivity on 'Coldsnap' and 'Italian'.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP1', 'Coldsnap');
+INSERT INTO "sets" (id, code, name) VALUES (2, 'CSP2', 'Coldsnap Theme Decks');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Italian', 'CSP1', 'Ondata Glaciale');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'Italian', 'CSP2', 'Mazzi Tematici Ondata Glaciale');
+
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (1, 'uuid-c1', 'Target Card', 'CSP1', 4.0);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (2, 'uuid-c2', 'Theme Deck Card', 'CSP2', 10.0);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (3, 'uuid-c3', 'Spanish Card in Italian Translated Set', 'CSP1', 15.0);
+
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (1, 'uuid-c1', 'Carta Bersaglio', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (2, 'uuid-c2', 'Carta Mazzo', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (3, 'uuid-c3', 'Carta Spagnola', 'Spanish');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple foreign_data entries for the same card, and tests when the only matching card has convertedManaCost = 0.0 vs negative or NULL.
+INSERT INTO "sets" (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (1, 'uuid-zero', 'Zero Cost Card', 'CSP', 0.0);
+INSERT INTO "cards" (id, uuid, name, setCode, convertedManaCost) VALUES (2, 'uuid-null', 'Null Cost Card', 'CSP', NULL);
+
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (1, 'uuid-null', 'Null IT', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (2, 'uuid-zero', 'Zero IT 1', 'Italian');
+INSERT INTO "foreign_data" (id, uuid, name, language) VALUES (3, 'uuid-zero', 'Zero IT 2', 'Italian');
+```

@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests SUM vs MAX/AVG/COUNT, ORDER BY DESC vs ASC, and WHERE filters (Currency = 'CZK', Date boundaries).
+-- Customer 1 wins because 60 + 60 = 120 > 100 (Customer 2).
+-- Customer 3 has higher consumption (500) but wrong currency ('EUR').
+-- Customer 4 has higher consumption (500) just outside the date range (201012 and 201201).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'LAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201101', 60.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201112', 60.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201106', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201106', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201012', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201201', 500.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201105', 10.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests exact boundary exclusion (> 201101 or < 201112 vs BETWEEN 201101 AND 201112).
+-- Customer 1 relies on exact boundary dates '201101' and '201112' to beat Customer 2.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201101', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201112', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201106', 150.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on CustomerID (ASC vs DESC) and SUM(DISTINCT Consumption) vs SUM(Consumption).
+-- Customer 10 has identical values (50 + 50 = 100). If DISTINCT is used, sum is 50.
+-- Customer 20 has 40 + 60 = 100.
+-- Tie at 100 must be broken by CustomerID ASC (Customer 10 wins).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (10, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (20, 'SME', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201102', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (10, '201103', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201102', 40.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (20, '201103', 60.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in Consumption (NULLS LAST in ORDER BY, and LEFT JOIN vs INNER JOIN).
+-- Customer 1 has no yearmonth rows (tests LEFT JOIN).
+-- Customer 2 has only NULL consumption in 2011 (SUM is NULL; in SQLite DESC, NULL is smallest, so NULLS LAST is critical if compared against negative or if NULL ordering is mutated).
+-- Customer 3 has negative consumption (-10.0), which should still beat NULL consumption.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201105', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201105', -10.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests GROUP BY T1.CustomerID vs GROUP BY T1.Segment or missing GROUP BY.
+-- Customers 1 and 2 share Segment 'SME' and each have 60.0 (combined 120.0).
+-- Customer 3 is in 'KAM' with 100.0 (should win when grouped by CustomerID).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'SME', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201104', 60.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201104', 60.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201104', 100.0);
+```

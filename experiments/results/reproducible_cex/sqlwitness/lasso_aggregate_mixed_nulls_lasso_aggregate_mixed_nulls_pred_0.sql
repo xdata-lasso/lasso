@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE USERS (USER_ID INTEGER PRIMARY KEY, NAME TEXT(50));
+
+CREATE TABLE LOGINS (USER_ID INTEGER, LOGIN_DATE DATE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO logins (user_id, login_date) VALUES (NULL, '2023-01-02'), (-1, NULL), (NULL, '2022-01-01'), (NULL, '2023-01-02'), (2, '2022-12-30'), (2, NULL), (2, '2022-01-02'), (-1, '2023-01-02'), (-1, NULL), (-1, '2023-01-01'), (1, '2022-01-01'), (0, '2022-12-30'), (-1, '2022-12-30'), (NULL, '2022-01-02'), (1, '2023-01-02'), (0, '2021-12-31'), (1, '2022-01-02'), (0, '2023-01-01'), (1, NULL), (0, '2022-01-01');
+INSERT INTO users (user_id, name) VALUES (1, '2022-01-01'), (0, NULL), (-1, 'default1'), (2, NULL), (3, NULL), (4, '2022-01-01'), (5, '2022-01-01'), (6, '2022-12-31'), (7, NULL), (8, '2022-01-01'), (9, '2022-12-31'), (10, NULL), (11, 'default2'), (12, '2022-12-31'), (13, NULL), (14, '2022-12-31'), (15, '2022-01-01');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT U.USER_ID, U.NAME FROM USERS AS U INNER JOIN (SELECT USER_ID FROM LOGINS GROUP BY USER_ID HAVING MIN(LOGIN_DATE) >= '2022-01-01' AND MAX(LOGIN_DATE) <= '2022-12-31') AS L ON U.USER_ID = L.USER_ID;
+
+/*
+Gold Result:
+(2, None)
+*/
+
+-- Prediction Query
+SELECT U.USER_ID, U.NAME FROM USERS AS U JOIN LOGINS AS L ON U.USER_ID = L.USER_ID GROUP BY U.USER_ID HAVING SUM(IIF(LOGIN_DATE BETWEEN '2022-01-01' AND '2022-12-31', 0, 1)) = 0;
+
+/*
+Prediction Result:
+*/

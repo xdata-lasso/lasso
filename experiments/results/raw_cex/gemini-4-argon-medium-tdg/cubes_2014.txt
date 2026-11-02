@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Core behavior: Multiple "Ray" customers, distinct lesson_status_code groups, non-Ray customer exclusion, and ORDER BY verification.
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (1, 'Ray', 'Charles');
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (2, 'Ray', 'Romano');
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (3, 'Alice', 'Smith');
+
+-- Customer 1 ('Ray') has 3 'Completed' and 1 'Cancelled' (produces counts 3 and 1)
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (101, 1, 'Completed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (102, 1, 'Completed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (103, 1, 'Completed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (104, 1, 'Cancelled');
+
+-- Customer 2 ('Ray') has 2 'Completed' (produces count 2; tests grouping by customer_id AND lesson_status_code)
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (105, 2, 'Completed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (106, 2, 'Completed');
+
+-- Customer 3 ('Alice') has 4 'Completed' (should be excluded by NOT EXISTS)
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (107, 3, 'Completed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (108, 3, 'Completed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (109, 3, 'Completed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (110, 3, 'Completed');
+```
+
+```sql
+-- DATASET 2
+-- Edge case: Duplicate counts across different groups to kill mutants that add DISTINCT to SELECT.
+-- Also tests 'Ray' with no lessons (kills LEFT JOIN mutants from Customers to Lessons).
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (1, 'Ray', ' Bradbury');
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (2, 'Ray', 'Liotta');
+
+-- Customer 1 ('Ray') has two different status codes, both with count 2.
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (201, 1, 'Completed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (202, 1, 'Completed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (203, 1, 'Scheduled');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (204, 1, 'Scheduled');
+```
+
+```sql
+-- DATASET 3
+-- Edge case: NULL handling in Customers.first_name, Lessons.lesson_status_code, and Lessons.customer_id.
+-- In SQL, NULL <> 'Ray' is UNKNOWN, so a customer with first_name IS NULL is NOT returned by RHS, meaning NOT EXISTS is TRUE.
+-- Kills mutants rewriting NOT EXISTS as INNER JOIN ... WHERE first_name = 'Ray'.
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (1, NULL, 'Mystery');
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (2, 'Ray', 'Ban');
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (3, 'Bob', 'Builder');
+
+-- Customer 1 (first_name IS NULL) has 2 lessons
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (301, 1, 'Completed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (302, 1, 'Completed');
+
+-- Customer 2 ('Ray') has lessons with NULL lesson_status_code (tests COUNT(*) vs COUNT(lesson_status_code))
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (303, 2, NULL);
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (304, 2, NULL);
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (305, 2, NULL);
+
+-- Lesson with NULL customer_id (LHS.customer_id = RHS.customer_id is UNKNOWN, so NOT EXISTS is TRUE)
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (306, NULL, 'Pending');
+
+-- Customer 3 ('Bob') has lessons with NULL status code (should be excluded)
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (307, 3, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Edge case: String boundary conditions, case sensitivity, substring matching, and column confusion (last_name = 'Ray').
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (1, 'ray', 'Charles');
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (2, 'Raymond', 'Holt');
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (3, 'Billy', 'Ray');
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (4, 'Ray', 'Manzarek');
+
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (401, 1, 'Passed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (402, 2, 'Passed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (403, 2, 'Passed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (404, 3, 'Passed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (405, 3, 'Passed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (406, 3, 'Passed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (407, 4, 'Passed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (408, 4, 'Passed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (409, 4, 'Passed');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (410, 4, 'Passed');
+```
+
+```sql
+-- DATASET 5
+-- Edge case: Empty result set when lessons exist only for non-'Ray' customers.
+-- Kills mutants that drop the WHERE NOT EXISTS clause or invert it to EXISTS.
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (1, 'John', 'Doe');
+INSERT INTO Customers (customer_id, first_name, last_name) VALUES (2, 'Jane', 'Doe');
+
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (501, 1, 'Active');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (502, 2, 'Active');
+INSERT INTO Lessons (lesson_id, customer_id, lesson_status_code) VALUES (503, 2, 'Active');
+```

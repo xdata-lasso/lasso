@@ -1,0 +1,51 @@
+-- Schema DDL
+CREATE TABLE "STORM" (
+    "STORM_ID" INT,
+    "NAME" TEXT,
+    "DATES_ACTIVE" TEXT,
+    "MAX_SPEED" INT,
+    "DAMAGE_MILLIONS_USD" FLOAT,
+    "NUMBER_DEATHS" INT,
+    PRIMARY KEY ("STORM_ID")
+);
+CREATE TABLE "REGION" (
+    "REGION_ID" INT,
+    "REGION_CODE" TEXT,
+    "REGION_NAME" TEXT,
+    PRIMARY KEY ("REGION_ID")
+);
+CREATE TABLE "AFFECTED_REGION" (
+    "REGION_ID" INT,
+    "STORM_ID" INT,
+    "NUMBER_CITY_AFFECTED" FLOAT,
+    PRIMARY KEY ("REGION_ID", "STORM_ID"),
+    FOREIGN KEY ("STORM_ID") REFERENCES "STORM"("STORM_ID"),
+    FOREIGN KEY ("REGION_ID") REFERENCES "REGION"("REGION_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO STORM VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO STORM VALUES (1, 0, 0, 0, 0, 0);
+INSERT INTO REGION VALUES (-1, 0, 0);
+INSERT INTO REGION VALUES (0, 0, -1);
+INSERT INTO AFFECTED_REGION VALUES (0, 1, 0);
+INSERT INTO AFFECTED_REGION VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT region_name FROM (SELECT * FROM region AS LHS WHERE NOT EXISTS(SELECT 1 FROM affected_region AS RHS WHERE (LHS.region_id = RHS.region_id))) ORDER BY region_name;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT region_name FROM region WHERE NOT region_id IN (SELECT region_id FROM affected_region);
+
+/*
+Prediction Result:
+('0',)
+*/

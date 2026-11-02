@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests basic integer division truncation (5 / 2 = 2, whereas float division is 2.5),
+-- filtering on Diagnosis = 'SLE' vs other values/NULL/substrings,
+-- and handling of Admission values other than '+' and '-' (including NULL).
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (1, 'F', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (2, 'M', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (3, 'F', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (4, 'F', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (5, 'M', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (6, 'F', '-', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (7, 'M', '-', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (8, 'F', NULL, 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (9, 'F', '?', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (10, 'M', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (11, 'F', '-', 'SLE, RA');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (12, 'M', '-', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests join multiplication mutants (e.g., unnecessary INNER/LEFT JOIN with Examination or Laboratory)
+-- and table confusion (Diagnosis in Examination vs Diagnosis in Patient).
+-- Gold query: 4 '+' and 2 '-' in Patient -> 4 / 2 = 2.
+-- If joined with Examination or Laboratory without deduplication, '-' count gets multiplied or '+' rows get dropped.
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (1, 'F', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (2, 'F', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (3, 'M', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (4, 'M', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (5, 'F', '-', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (6, 'M', '-', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (7, 'F', '-', 'APS');
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (5, '2020-01-01', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (5, '2020-01-02', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (5, '2020-01-03', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (6, '2020-01-01', 'RA');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (7, '2020-01-01', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (5, '2020-01-01', 20);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (5, '2020-01-02', 25);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (5, '2020-01-03', 30);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (6, '2020-01-01', 15);
+```
+
+```sql
+-- DATASET 3
+-- Tests numerator = 0 when '+' is absent for 'SLE' (0 / 2 = 0),
+-- while '+' exists for non-SLE patients.
+-- Kills mutants that omit WHERE Diagnosis = 'SLE' or use COUNT(Admission) instead of conditional SUM.
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (1, 'F', '-', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (2, 'M', '-', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (3, 'F', '+', 'RA');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (4, 'M', '+', 'RA');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (5, 'F', '+', 'RA');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (6, 'M', '+', 'RA');
+```
+
+```sql
+-- DATASET 4
+-- Tests division by zero handling when '-' is absent for 'SLE' (2 / 0 = NULL in SQLite),
+-- while '-' exists for non-SLE patients.
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (1, 'F', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (2, 'M', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (3, 'F', '-', 'APS');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set for 'SLE' (SUM returns NULL, NULL / NULL = NULL).
+-- Kills mutants using COUNT() without NULLIF (which would evaluate 0 / 0 = NULL vs other aggregations).
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (1, 'F', '+', 'APS');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (2, 'M', '-', 'APS');
+```
+
+```sql
+-- DATASET 6
+-- Tests case sensitivity and exact matching on Admission and Diagnosis,
+-- as well as a larger ratio where '+' is 6 and '-' is 1 (6 / 1 = 6).
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (1, 'F', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (2, 'F', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (3, 'M', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (4, 'F', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (5, 'M', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (6, 'F', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (7, 'M', '-', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (8, 'F', '-', 'sle');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (9, 'M', '+-', 'SLE');
+INSERT INTO Patient (ID, SEX, Admission, Diagnosis) VALUES (10, 'F', '-+', 'SLE');
+```

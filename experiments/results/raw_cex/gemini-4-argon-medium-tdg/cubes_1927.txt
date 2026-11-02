@@ -1,0 +1,58 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, duplicate projection elimination (SELECT DISTINCT), ORDER BY employee_id vs other columns, and extraneous INNER JOINs with Roles or Documents_to_be_Destroyed.
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('R1', 'Admin', 'Administrator');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('R2', 'User', 'Regular User');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('Armani', 'Manager', 'Role named Armani');
+
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (10, 'R2', 'Armani', 'M', '1990-01-01 00:00:00', 'First inserted, higher ID');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (5, 'R1', 'Armani', 'F', '1995-05-05 00:00:00', 'Second inserted, lower ID');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (6, 'R1', 'Armani', 'F', '1995-05-05 00:00:00', 'Identical projected columns to ID 5 to kill SELECT DISTINCT');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (20, NULL, 'Armani', 'U', NULL, 'NULL role_code and DOB to kill INNER JOIN Roles or NOT NULL filters');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (1, 'R1', 'armani', 'M', '1980-01-01 00:00:00', 'Lowercase name to kill case-insensitive matching');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (2, 'R1', 'Armani ', 'M', '1982-01-01 00:00:00', 'Trailing space');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (3, 'R1', 'Armani Smith', 'F', '1985-01-01 00:00:00', 'Prefix match to kill LIKE Armani%');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (4, 'Armani', 'Bambi', 'F', '1988-01-01 00:00:00', 'Role_Code is Armani, Employee_Name is not');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (7, 'R2', 'Aaron', 'M', '1970-01-01 00:00:00', 'Lexicographically < Armani');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (8, 'R2', 'Zack', 'M', '2000-01-01 00:00:00', 'Lexicographically > Armani');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (9, 'R1', NULL, 'M', '1992-01-01 00:00:00', 'NULL Employee_Name');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULLS LAST in ORDER BY employee_id, and kills mutants that erroneously JOIN with Documents_to_be_Destroyed (which could either filter out rows or duplicate rows).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Report', 'Annual Report');
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-01-01 00:00:00', 1);
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('R1', 'Auditor', 'Internal Auditor');
+
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (NULL, 'R1', 'Armani', 'M', '1980-01-01 00:00:00', 'NULL Employee_ID to test NULLS LAST vs NULLS FIRST');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (100, 'R1', 'Armani', 'F', '1990-01-01 00:00:00', 'Referenced multiple times in Documents_to_be_Destroyed');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (-5, 'R1', 'Armani', 'M', '2000-01-01 00:00:00', 'Negative ID, not referenced in Documents_to_be_Destroyed');
+
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (1, '2023-01-01 00:00:00', 'DT1', 'Doc 1', 'Desc 1', 'Details 1');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (2, '2023-01-01 00:00:00', 'DT1', 'Doc 2', 'Desc 2', 'Details 2');
+
+INSERT INTO "Documents_to_be_Destroyed" ("Document_ID", "Actual_Destruction_Date", "Planned_Destruction_Date", "Destruction_Authorised_by_Employee_ID", "Destroyed_by_Employee_ID", "Other_Details") VALUES (1, '2023-01-01 00:00:00', '2023-01-01 00:00:00', 100, 100, 'Destroy 1');
+INSERT INTO "Documents_to_be_Destroyed" ("Document_ID", "Actual_Destruction_Date", "Planned_Destruction_Date", "Destruction_Authorised_by_Employee_ID", "Destroyed_by_Employee_ID", "Other_Details") VALUES (2, '2023-01-01 00:00:00', '2023-01-01 00:00:00', 100, 100, 'Destroy 2');
+```
+
+```sql
+-- DATASET 3
+-- Tests empty result set when no employee is named 'Armani', while 'Armani' appears in other columns/tables.
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('Armani', 'Armani', 'Armani');
+
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (1, 'Armani', 'NotArmani', 'M', '1990-01-01 00:00:00', 'Armani');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (2, 'Armani', 'ARMANI', 'F', '1991-01-01 00:00:00', 'Armani');
+```
+
+```sql
+-- DATASET 4
+-- Tests single matching row and LIMIT 1 / aggregation mutants vs multiple rows when IDs and dates are inversely ordered.
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('A', 'Role A', 'Desc A');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('B', 'Role B', 'Desc B');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('C', 'Role C', 'Desc C');
+
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (30, 'A', 'Armani', 'M', '1970-01-01 00:00:00', 'Oldest DOB, lowest Role_Code, highest Employee_ID');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (20, 'C', 'Armani', 'F', '1980-01-01 00:00:00', 'Middle DOB, highest Role_Code, middle Employee_ID');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (10, 'B', 'Armani', 'M', '1990-01-01 00:00:00', 'Youngest DOB, middle Role_Code, lowest Employee_ID');
+```

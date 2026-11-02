@@ -1,0 +1,53 @@
+-- Schema DDL
+CREATE TABLE "STATION" (
+    "STATION_ID" INT,
+    "NAME" TEXT,
+    "ANNUAL_ENTRY_EXIT" FLOAT,
+    "ANNUAL_INTERCHANGES" FLOAT,
+    "TOTAL_PASSENGERS" FLOAT,
+    "LOCATION" TEXT,
+    "MAIN_SERVICES" TEXT,
+    "NUMBER_OF_PLATFORMS" INT,
+    PRIMARY KEY ("STATION_ID")
+);
+CREATE TABLE "TRAIN" (
+    "TRAIN_ID" INT,
+    "NAME" TEXT,
+    "TIME" TEXT,
+    "SERVICE" TEXT,
+    PRIMARY KEY ("TRAIN_ID")
+);
+CREATE TABLE "TRAIN_STATION" (
+    "TRAIN_ID" INT,
+    "STATION_ID" INT,
+    PRIMARY KEY ("TRAIN_ID", "STATION_ID"),
+    FOREIGN KEY ("STATION_ID") REFERENCES "STATION"("STATION_ID"),
+    FOREIGN KEY ("TRAIN_ID") REFERENCES "TRAIN"("TRAIN_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO STATION VALUES (1, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO STATION VALUES (0, -1, 0, 0, 0, 0, 0, 0);
+INSERT INTO TRAIN VALUES (-1, 0, 0, 0);
+INSERT INTO TRAIN VALUES (0, 0, 0, 0);
+INSERT INTO TRAIN_STATION VALUES (-1, 0);
+INSERT INTO TRAIN_STATION VALUES (0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT * FROM station AS LHS WHERE NOT EXISTS(SELECT 1 FROM train_station AS RHS WHERE (LHS.station_id = RHS.station_id))) ORDER BY name;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT name FROM station WHERE NOT station_id IN (SELECT station_id FROM train_station);
+
+/*
+Prediction Result:
+('0',)
+*/

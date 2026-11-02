@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, non-matching bond_ids, NULL bond_ids, and duplicate atom_id projection (kills SELECT DISTINCT, SELECT atom_id2, SELECT bond_id, and broken WHERE clauses)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR000', '+');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_2', 'TR000', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_5', 'TR000', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_6', 'TR000', 'o');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_2_5', 'TR000', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_2_6', 'TR000', '2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_2', 'TR000_5', 'TR000_2_5');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_2', 'TR000_6', 'TR000_2_5');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_5', 'TR000_6', 'TR000_2_6');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_6', 'TR000_2', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests string comparison edge cases: case sensitivity, substrings/LIKE patterns, and column confusion (where atom_id or atom_id2 has the value 'TR000_2_5')
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_2_5', NULL, 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', NULL, 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', NULL, 'o');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_2_5', NULL, '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('tr000_2_5', NULL, '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_2_50', NULL, '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_2', NULL, '1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'A2', 'TR000_2_5');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_2_5', 'A1', 'TR000_2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'TR000_2_5', 'TR000_2');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A1', 'TR000_2_5', 'tr000_2_5');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'A1', 'TR000_2_50');
+```
+
+```sql
+-- DATASET 3
+-- Tests unnecessary JOINs with atom/molecule tables where foreign keys on atom or bond are NULL, and bidirectional connection entries
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_2', NULL, NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_5', NULL, NULL);
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_2_5', NULL, NULL);
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_2', 'TR000_5', 'TR000_2_5');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_5', 'TR000_2', 'TR000_2_5');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when the target bond exists in 'bond' table, and atoms exist in 'atom' table, but 'connected' has no matching rows (kills mutants querying 'bond' or 'atom' directly)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('TR000', '-');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_2', 'TR000', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('TR000_5', 'TR000', 'n');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_2_5', 'TR000', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_9_9', 'TR000', '1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('TR000_2', 'TR000_5', 'TR000_9_9');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple distinct atoms connected via the target bond_id to kill LIMIT 1, MIN(atom_id), MAX(atom_id), or COUNT() mutations
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('Z_ATOM', NULL, 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A_ATOM', NULL, 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('M_ATOM', NULL, 'c');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('TR000_2_5', NULL, '1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('Z_ATOM', 'A_ATOM', 'TR000_2_5');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('M_ATOM', 'Z_ATOM', 'TR000_2_5');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A_ATOM', 'M_ATOM', 'TR000_2_5');
+```

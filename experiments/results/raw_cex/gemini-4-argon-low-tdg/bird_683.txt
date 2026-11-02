@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+-- Comprehensive mutant-killing dataset:
+-- 1. Tests boundary condition T1.Reputation = 1000 vs > 1000
+-- 2. Tests date condition: T2.CreaionDate in 2011 vs not 2011, and T1.CreationDate vs T2.CreaionDate
+-- 3. Tests T2.LasActivityDate / T2.LastEditDate vs T2.CreaionDate
+-- 4. Tests T2.OwnerUserId vs T2.LastEditorUserId vs T1.Id = T2.Id
+-- 5. Tests COUNT(T1.Id) vs COUNT(DISTINCT T1.Id) (1 user having multiple posts)
+-- 6. Tests INNER JOIN vs LEFT/RIGHT JOIN (unmatched users and unmatched posts with NULL OwnerUserId)
+-- 7. Tests floating point division (CAST AS REAL) by ensuring 100 * numerator is not divisible by denominator (e.g., denominator = 7)
+-- 8. Tests WHERE clause filtering vs conditional aggregation (IIF/CASE inside SUM)
+
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 1001, '2010-01-01 10:00:00', 'User_Match_MultiPosts');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (2, 1000, '2011-05-05 10:00:00', 'User_Boundary_Rep_1000');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (3, 2000, '2011-06-06 10:00:00', 'User_HighRep_WrongPostYear');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (4, 500, '2011-07-07 10:00:00', 'User_LowRep_RightPostYear');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (5, NULL, '2011-08-08 10:00:00', 'User_NullRep');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (6, 5000, '2011-09-09 10:00:00', 'User_NoPosts');
+
+-- Post 10: Matches both (Year=2011, Rep=1001)
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CreaionDate, LasActivityDate) VALUES (10, 1, 2, '2011-01-01 00:00:00', '2012-01-01 00:00:00');
+-- Post 11: Same User 1, Matches both (Year=2011, Rep=1001) - tests DISTINCT user count & multiple matching rows
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CreaionDate, LasActivityDate) VALUES (11, 1, 2, '2011-12-31 23:59:59', '2012-01-01 00:00:00');
+-- Post 12: Same User 1, Wrong Year (Year=2010, Rep=1001)
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CreaionDate, LasActivityDate) VALUES (12, 1, 1, '2010-12-31 23:59:59', '2011-05-05 00:00:00');
+-- Post 13: Boundary Reputation = 1000, Right Year (Year=2011, Rep=1000) -> Should be 0
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CreaionDate, LasActivityDate) VALUES (13, 2, 1, '2011-06-15 12:00:00', '2011-06-15 12:00:00');
+-- Post 14: High Rep (2000), Wrong Post Year (2012), but User CreationDate is 2011 and LasActivityDate is 2011 -> Should be 0
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CreaionDate, LasActivityDate) VALUES (14, 3, 1, '2012-01-01 00:00:00', '2011-06-06 10:00:00');
+-- Post 15: Low Rep (500), Right Post Year (2011), LastEditorUserId has Rep > 1000 -> Should be 0
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CreaionDate, LasActivityDate) VALUES (15, 4, 1, '2011-03-03 00:00:00', '2011-03-03 00:00:00');
+-- Post 16: Null Rep, Right Post Year (2011) -> Should be 0
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CreaionDate, LasActivityDate) VALUES (16, 5, 1, '2011-04-04 00:00:00', '2011-04-04 00:00:00');
+-- Post 1: Id=1 (matches User 1 if joined on T1.Id = T2.Id), but OwnerUserId is NULL -> Excluded from INNER JOIN
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, CreaionDate, LasActivityDate) VALUES (1, NULL, 1, '2011-08-08 00:00:00', '2011-08-08 00:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests zero numerator case (no posts match both conditions, but joined rows exist).
+-- Kills mutants that filter in WHERE (which would result in 0 rows -> division by 0 -> NULL instead of 0.0).
+-- Also tests OR vs AND mutant (one row has Year=2011 & Rep=500, another has Year=2010 & Rep=2000).
+
+INSERT INTO users (Id, Reputation, CreationDate) VALUES (1, 500, '2011-01-01 00:00:00');
+INSERT INTO users (Id, Reputation, CreationDate) VALUES (2, 2000, '2011-01-01 00:00:00');
+INSERT INTO users (Id, Reputation, CreationDate) VALUES (3, 1000, '2011-01-01 00:00:00');
+
+INSERT INTO posts (Id, OwnerUserId, CreaionDate) VALUES (101, 1, '2011-05-05 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, CreaionDate) VALUES (102, 2, '2010-05-05 00:00:00');
+INSERT INTO posts (Id, OwnerUserId, CreaionDate) VALUES (103, 3, '2011-07-07 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL dates and NULL reputations, and exact 1/3 ratio (33.333333333333336 vs 33).
+-- Also tests string prefix/substring bugs on date (e.g., Body or Title containing '2011' or year '2011' in wrong position).
+
+INSERT INTO users (Id, Reputation, CreationDate) VALUES (10, 1001, '2009-01-01 00:00:00');
+INSERT INTO users (Id, Reputation, CreationDate) VALUES (20, 1500, '2011-01-01 00:00:00');
+INSERT INTO users (Id, Reputation, CreationDate) VALUES (30, 999, '2011-01-01 00:00:00');
+
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, Score) VALUES (1, 10, '2011-11-11 11:11:11', 1001);
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, Score) VALUES (2, 20, NULL, 2000);
+INSERT INTO posts (Id, OwnerUserId, CreaionDate, Score) VALUES (3, 30, '2011-02-02 02:02:02', 2000);
+```
+
+```sql
+-- DATASET 4
+-- Tests 100% match rate vs partial match rate when orphan users and orphan posts exist.
+-- Every joined row satisfies the condition (100.0), while unjoined users and unjoined posts do not.
+-- Kills LEFT JOIN / FULL JOIN mutants and COUNT(*) vs COUNT(T2.OwnerUserId) on outer joins.
+
+INSERT INTO users (Id, Reputation, CreationDate) VALUES (1, 5000, '2008-01-01 00:00:00');
+INSERT INTO users (Id, Reputation, CreationDate) VALUES (2, 10, '2011-01-01 00:00:00');
+INSERT INTO users (Id, Reputation, CreationDate) VALUES (3, 8000, '2011-01-01 00:00:00');
+
+INSERT INTO posts (Id, OwnerUserId, CreaionDate) VALUES (10, 1, '2011-03-15 08:30:00');
+INSERT INTO posts (Id, OwnerUserId, CreaionDate) VALUES (20, NULL, '2009-03-15 08:30:00');
+INSERT INTO posts (Id, OwnerUserId, CreaionDate) VALUES (30, NULL, '2011-03-15 08:30:00');
+```

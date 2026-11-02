@@ -1,0 +1,58 @@
+```sql
+-- DATASET 1
+-- Tests standard multi-row grouping, duplicate vs distinct COMM values, 
+-- SUM(DISTINCT SAL) vs SUM(SAL), and ensures other tables do not interfere.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+
+-- Group 1: SAL = 1000, duplicate COMM values (tests SUM(COMM) vs SUM(DISTINCT COMM) and SUM(DISTINCT SAL) vs SUM(SAL))
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'ALICE', 'CLERK', NULL, '2020-01-01', 1000, 100, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 10, 'BOB', 'CLERK', 1, '2020-01-02', 1000, 100, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 20, 'CHARLIE', 'ANALYST', 1, '2020-01-03', 1000, 250, 0);
+
+-- Group 2: SAL = 2000, distinct COMM values (tests MIN(COMM) vs MAX(COMM) vs AVG(COMM))
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 20, 'DAVID', 'MANAGER', NULL, '2020-01-04', 2000, 50, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 10, 'EVE', 'SALESMAN', 4, '2020-01-05', 2000, 300, 1);
+
+-- Group 3: SAL = 3000, single row group
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (6, 10, 'FRANK', 'PRESIDENT', NULL, '2020-01-06', 3000, 500, 0);
+
+-- Populate sibling tables to kill mutants querying wrong tables (e.g., BONUS, EMPNULLABLES, EMP_B)
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('ZACK', 'CEO', 9999, 999);
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (99, 10, 'YASMINE', 'CLERK', NULL, '2020-01-01', 8888, 888, 0);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (98, 10, 'XAVIER', 'CLERK', NULL, '2020-01-01', 7777, 777, 0, '1990-01-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary values: zero and negative numbers for SAL and COMM, 
+-- plus decoupling group keys from DEPTNO/JOB/MGR to kill wrong GROUP BY column mutants.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'SALES');
+
+-- Group 1: SAL = 0, negative and zero COMM
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (101, 10, 'EMP1', 'SALES', 103, '2021-05-01', 0, -50, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (102, 10, 'EMP2', 'SALES', 103, '2021-05-01', 0, 0, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (103, 10, 'EMP3', 'SALES', NULL, '2021-05-01', 0, 20, 0);
+
+-- Group 2: SAL = -500, negative COMM
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (104, 10, 'EMP4', 'SALES', 103, '2021-05-01', -500, -10, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (105, 10, 'EMP5', 'SALES', 103, '2021-05-01', -500, -10, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty EMP table (kills mutants using COUNT(*) or failing on empty aggregation).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'EMPTY_DEPT');
+```
+
+```sql
+-- DATASET 4
+-- Tests cases where COMM values match SAL values or where Grouping by COMM vs SAL would produce different shapes.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'HQ');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'BRANCH');
+
+-- Same COMM (500) across different SAL (1500, 2500) to kill GROUP BY COMM mutants
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'A', 'J1', NULL, '2022-01-01', 1500, 500, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 20, 'B', 'J2', 1, '2022-01-02', 2500, 500, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 10, 'C', 'J1', 1, '2022-01-03', 2500, 1500, 0);
+```

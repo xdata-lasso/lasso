@@ -1,0 +1,33 @@
+-- Schema DDL
+CREATE TABLE "DEPARTMENT" (
+    "ID" INT,
+    "DEPT_CODE" TEXT,
+    "DEPT_NAME" TEXT,
+    PRIMARY KEY ("ID"),
+    UNIQUE ("DEPT_CODE")
+);
+CREATE TABLE "EMPLOYEE" (
+    "ID" INT,
+    "EMP_NAME" TEXT,
+    "DEPT_CODE" TEXT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("DEPT_CODE") REFERENCES "DEPARTMENT"("DEPT_CODE")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO DEPARTMENT VALUES (-1, 5, 0);
+INSERT INTO DEPARTMENT VALUES (0, 5, 0);
+INSERT INTO EMPLOYEE VALUES (-1, 7, 5);
+INSERT INTO EMPLOYEE VALUES (0, 8, 5);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT emp_name FROM Employee ORDER BY id DESC LIMIT 1;
+
+-- Prediction Query
+SELECT emp_name FROM Employee LIMIT 1;
+
+-- Execution Error:
+-- DATASET_ERROR: UNIQUE constraint failed: DEPARTMENT.DEPT_CODE

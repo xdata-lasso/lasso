@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Tests column selection, MAX vs MIN/SUM/AVG/COUNT, WHERE filter (> 0.3 vs < 0.3), and floating point vs integer division in WHERE.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('101', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('102', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('103', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+
+-- Row 101: Passing WHERE (40/100 = 0.4 > 0.3). Target ratio = 20/100 = 0.2.
+-- Other FRPM columns have higher ratios (0.9, 0.8, 0.7) to kill column-swap mutants.
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible Free (K-12)", "Percent (%) Eligible FRPM (K-12)") VALUES ('101', 100.0, 20.0, 90.0, 0.9, 0.9, 100.0, 80.0, 85.0, 0.8, 0.85);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('101', 'S', 120, 100, 40);
+
+-- Row 102: Passing WHERE (50/100 = 0.5 > 0.3). Target ratio = 50/100 = 0.5 (Expected MAX).
+-- Other FRPM columns have lower ratios (0.1) to kill column-swap mutants.
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible Free (K-12)", "Percent (%) Eligible FRPM (K-12)") VALUES ('102', 100.0, 50.0, 10.0, 0.1, 0.1, 100.0, 10.0, 15.0, 0.1, 0.15);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('102', 'S', 120, 100, 50);
+
+-- Row 103: Failing WHERE (20/100 = 0.2 <= 0.3). Target ratio = 95/100 = 0.95 (Trap if WHERE is omitted or reversed).
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "FRPM Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)", "Enrollment (K-12)", "Free Meal Count (K-12)", "FRPM Count (K-12)", "Percent (%) Eligible Free (K-12)", "Percent (%) Eligible FRPM (K-12)") VALUES ('103', 100.0, 95.0, 95.0, 0.95, 0.95, 100.0, 95.0, 95.0, 0.95, 0.95);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('103', 'S', 120, 100, 20);
+```
+
+```sql
+-- DATASET 2
+-- Tests exact boundary condition (> 0.3 vs >= 0.3) and percentage scaling (0.3 vs 30).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('201', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('202', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+
+-- Row 201: Exact boundary 30/100 = 0.3. Should NOT be included by > 0.3. Target ratio = 0.99 (Trap for >= 0.3).
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)") VALUES ('201', 100.0, 99.0);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('201', 'S', 100, 100, 30);
+
+-- Row 202: Strictly > 0.3 (31/100 = 0.31). Target ratio = 0.40 (Expected MAX).
+-- Also enroll12 is 200 so 31/200 = 0.155 <= 0.3 (kills mutants using enroll12 instead of NumTstTakr).
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)") VALUES ('202', 100.0, 40.0);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('202', 'S', 200, 100, 31);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN, disconnected rows, and MAX(a)/MAX(b) vs MAX(a/b).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('301', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('302', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('303', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('304', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+
+-- Row 301: Unmatched in satscores, very high ratio 0.99 (Trap for LEFT JOIN without proper filtering or cross-join mutants).
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)") VALUES ('301', 100.0, 99.0);
+
+-- Row 302: Unmatched in frpm, passes satscores filter (80/100 = 0.8 > 0.3).
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('302', 'S', 100, 100, 80);
+
+-- Row 303: Matched, passes filter. Small counts, high ratio: 8 / 10 = 0.8 (Expected MAX).
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)") VALUES ('303', 10.0, 8.0);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('303', 'S', 50, 20, 10);
+
+-- Row 304: Matched, passes filter. Large counts, lower ratio: 100 / 1000 = 0.1.
+-- Kills MAX(Free Meal)/MAX(Enrollment) which would compute 100 / 1000 = 0.1 instead of 0.8.
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)") VALUES ('304', 1000.0, 100.0);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('304', 'S', 500, 200, 100);
+```
+
+```sql
+-- DATASET 4
+-- Tests missing CAST in SELECT (if stored/computed as integer values) and NULL handling.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('401', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('402', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('403', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+
+-- Row 401: NULL values in FRPM target columns, passing SAT filter. Should be ignored by MAX.
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)") VALUES ('401', NULL, NULL);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('401', 'S', 100, 100, 50);
+
+-- Row 402: Passing SAT filter (4/10 = 0.4 > 0.3), NULL in NumGE1500 for row 403.
+-- Ratio is 3 / 4 = 0.75 (Expected MAX).
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)") VALUES ('402', 4.0, 3.0, 75.0);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('402', 'S', 10, 10, 4);
+
+-- Row 403: NULL in NumGE1500, high FRPM ratio 0.99. Should be filtered out by WHERE.
+INSERT INTO frpm (CDSCode, "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)", "Percent (%) Eligible Free (Ages 5-17)") VALUES ('403', 100.0, 99.0, 99.0);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, NumGE1500) VALUES ('403', 'S', 100, 100, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests join condition mistakes (e.g., joining on District Name or School Name instead of CDSCode) and rtype filtering mutants.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('501', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('502', 'Active', 'C1', 'D1', '01', 'T1', '2020-01-01');
+
+-- Row 501: Fails SAT filter (10/100 = 0.1), but shares sname/dname with Row 502. Has high FRPM ratio (90/100 = 0.9).
+INSERT INTO frpm (CDSCode, "School Name", "District Name", "County Name", "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)") VALUES ('501', 'SharedSchool', 'SharedDist', 'SharedCounty', 100.0, 90.0);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, NumGE1500) VALUES ('501', 'S', 'SharedSchool', 'SharedDist', 'SharedCounty', 100, 100, 10);
+
+-- Row 502: Passes SAT filter (60/100 = 0.6 > 0.3), has rtype 'D' (tests if mutant illegally filters rtype='S'), FRPM ratio = 25/100 = 0.25 (Expected MAX).
+INSERT INTO frpm (CDSCode, "School Name", "District Name", "County Name", "Enrollment (Ages 5-17)", "Free Meal Count (Ages 5-17)") VALUES ('502', 'SharedSchool', 'SharedDist', 'SharedCounty', 100.0, 25.0);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, NumGE1500) VALUES ('502', 'D', 'SharedSchool', 'SharedDist', 'SharedCounty', 100, 100, 60);
+```

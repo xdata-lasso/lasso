@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests basic predicate boundaries (AND vs OR, inequality, missing WHERE clauses, wrong string literals)
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1980-01-01', 1);
+
+-- Match: both conditions true (Count = 1)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'POPLATEK TYDNE', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (100, 1, 10, 'Owner');
+
+-- Non-match: frequency matches, disp.type does not
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 1, 'POPLATEK TYDNE', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (200, 1, 20, 'Disponent');
+
+-- Non-match: disp.type matches, frequency does not
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (30, 1, 'POPLATEK MESICNE', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (300, 1, 30, 'Owner');
+
+-- Non-match: neither matches
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (40, 1, 'POPLATEK PO OBRATU', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (400, 1, 40, 'Disponent');
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(T1.account_id) vs COUNT(DISTINCT T1.account_id) and 1-to-many join multiplicity
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1985-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'M', '1990-01-01', 1);
+
+-- Single account with two 'Owner' dispositions and one 'Disponent' disposition
+-- Reference query should output 2 (if DISTINCT is wrongly used, it outputs 1; if type filter is missing, it outputs 3)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'POPLATEK TYDNE', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (101, 1, 10, 'Owner');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (102, 2, 10, 'Owner');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (103, 3, 10, 'Disponent');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN and wrong join key mutations (e.g., T1.account_id = T2.disp_id or T1.account_id = T2.client_id or T1.district_id = T2.client_id)
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (99, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+-- Client ID 500 will accidentally match account_id 500 if joined on account_id = client_id
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (500, 'M', '1980-01-01', 99);
+
+-- Account 500 has NO disp records (tests LEFT JOIN / single-table query on account)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (500, 99, 'POPLATEK TYDNE', '2000-01-01');
+
+-- Account 600 has wrong frequency, but its disp has disp_id = 500 and client_id = 500 (if joined on T1.account_id = T2.disp_id or T2.client_id, it falsely matches Account 500)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (600, 99, 'POPLATEK MESICNE', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (500, 500, 600, 'Owner');
+
+-- Valid matching pair with distinct IDs so wrong join keys fail to match it
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (700, 99, 'POPLATEK TYDNE', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (800, 500, 700, 'Owner');
+```
+
+```sql
+-- DATASET 4
+-- Tests COUNT vs SUM/AVG/MAX/MIN and tests against unnecessary joins to other tables (card, loan, order, trans)
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'F', '1975-05-05', 1);
+
+-- Two matching accounts with large IDs (50 and 100) so COUNT (2) != SUM (150) != MIN (50) != MAX (100) != AVG (75)
+-- Neither account has cards, loans, orders, or transactions (kills mutants that INNER JOIN those tables)
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (50, 1, 'POPLATEK TYDNE', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (500, 10, 50, 'Owner');
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (100, 1, 'POPLATEK TYDNE', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (600, 10, 100, 'Owner');
+
+-- Non-matching account that HAS card, loan, order, and trans with 'Owner' / 'POPLATEK TYDNE' decoys
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (200, 1, 'POPLATEK MESICNE', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (700, 10, 200, 'Disponent');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (1, 700, 'Owner', '2001-01-01');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 200, '2001-01-01', 1000, 12, 100.0, 'Owner');
+INSERT INTO "order" (order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (1, 200, 'AB', 123, 50.0, 'POPLATEK TYDNE');
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 200, '2001-01-01', 'Owner', 'POPLATEK TYDNE', 100, 1000, 'POPLATEK TYDNE', 'AB', 123);
+```
+
+```sql
+-- DATASET 5
+-- Tests zero-match behavior (COUNT returns 0 vs SUM/MAX/MIN returning NULL, or GROUP BY returning empty set) and case/substring sensitivity
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'A', 'B', 'C', 'D', 'E', 'F', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1980-01-01', 1);
+
+-- Case sensitivity / LIKE '%...%' decoys
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'poplatek tydne', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 1, 'Owner');
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'POPLATEK TYDNE', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (2, 1, 2, 'OWNER');
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 1, 'POPLATEK TYDNE EXTRA', '2000-01-01');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (3, 1, 3, 'Owner');
+```

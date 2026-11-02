@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Tests floating-point division (CAST AS REAL), exact average boundary (> vs >=), DISTINCT, and date filtering (2012 vs other years).
+-- 2012 values: 50, 50, 51, 51. Sum = 202, Count = 4. Real Avg = 50.5, Int Avg = 50.
+-- Team 1 (50) is excluded by > 50.5, would be included by >= 50 (if integer division + >=).
+-- Team 2 has two 2012 records with 51 (tests DISTINCT).
+-- Team 3 has 50 in 2012, and 100 in 2013 (tests date filter in main query and subquery).
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 101, 1001, 'Team Alpha', 'ALP');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 102, 1002, 'Team Beta', 'BET');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (3, 103, 1003, 'Team Gamma', 'GAM');
+
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (1, 1001, 101, '2012-02-22 00:00:00', 50);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (2, 1002, 102, '2012-03-15 00:00:00', 51);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (3, 1002, 102, '2012-08-10 00:00:00', 51);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (4, 1003, 103, '2012-05-01 00:00:00', 50);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (5, 1003, 103, '2013-02-22 00:00:00', 100);
+```
+
+```sql
+-- DATASET 2
+-- Tests exact equality to the average (> vs >=) when average is an exact integer.
+-- 2012 values: 40, 50, 60. Sum = 150, Count = 3, Avg = 50.0.
+-- Also tests SUBSTRING(date, 1, 4) = '2012' vs LIKE '%2012%' using a date where '2012' is not at the start.
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 201, 2001, 'Team Low', 'LOW');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 202, 2002, 'Team ExactAvg', 'AVG');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (3, 203, 2003, 'Team High', 'HIG');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (4, 204, 2004, 'Team BadDate', 'BAD');
+
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (1, 2001, 201, '2012-01-01', 40);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (2, 2002, 202, '2012-06-01', 50);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (3, 2003, 203, '2012-12-31', 60);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (4, 2004, 204, '20-01-2012', 90);
+```
+
+```sql
+-- DATASET 3
+-- Tests difference between SUM(buildUpPlayPassing)/COUNT(t1.id) and AVG(buildUpPlayPassing) in the presence of NULLs.
+-- Also tests join key confusion (team_api_id vs team_fifa_api_id vs id).
+-- Team 1: api_id=301, fifa=3001. Passing=60.
+-- Team 2: api_id=302, fifa=3002. Passing=40.
+-- Team 3: api_id=303, fifa=3003. Passing=NULL.
+-- With NULL: SUM = 100, COUNT(t1.id) = 3. 100 / 3 = 33.333. Both Team 1 (60) and Team 2 (40) are > 33.333!
+-- If mutant uses AVG(buildUpPlayPassing) or COUNT(buildUpPlayPassing): 100 / 2 = 50.0. Only Team 1 (60) would be > 50.0!
+-- Team 4: Orphaned/Mismatched team_api_id in Team_Attributes (has valid team_fifa_api_id=3001, but unmatched team_api_id=999). Tests INNER JOIN on team_api_id in subquery and outer query.
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 301, 3001, 'Team Sixty', 'SIX');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 302, 3002, 'Team Forty', 'FOR');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (3, 303, 3003, 'Team Null', 'NUL');
+
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (10, 3001, 301, '2012-02-22', 60);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (20, 3002, 302, '2012-02-22', 40);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (30, 3003, 303, '2012-02-22', NULL);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlayPassing") VALUES (40, 3001, 999, '2012-02-22', 500);
+```
+
+```sql
+-- DATASET 4
+-- Tests column confusion (buildUpPlayPassing vs buildUpPlaySpeed, buildUpPlayDribbling, chanceCreationPassing)
+-- and output column confusion (team_long_name vs team_short_name).
+-- Also tests COUNT(t1.id) vs COUNT(DISTINCT t1.id) in subquery when a team has multiple 2012 rows.
+-- Team 1 has two rows in 2012: 80, 80.
+-- Team 2 has one row in 2012: 50.
+-- Team 3 has one row in 2012: 20.
+-- Total SUM = 80 + 80 + 50 + 20 = 230.
+-- COUNT(t1.id) = 4 -> Avg = 57.5 (Team 2 with 50 is NOT > 57.5).
+-- If COUNT(DISTINCT t1.id) = 3 -> 230 / 3 = 76.67.
+-- Wait: if Team 1 has two rows of 10, Team 2 has 50, Team 3 has 60:
+-- Let's make:
+-- Team 1: two rows of 10 in 2012 (sum=20).
+-- Team 2: one row of 35 in 2012.
+-- Team 3: one row of 60 in 2012.
+-- Total SUM = 10 + 10 + 35 + 60 = 115.
+-- COUNT(t1.id) = 4 -> 115 / 4 = 28.75. (Team 2 with 35 IS > 28.75).
+-- If COUNT(DISTINCT t1.id) = 3 -> 115 / 3 = 38.33. (Team 2 with 35 is NOT > 38.33).
+-- Other columns (buildUpPlaySpeed, chanceCreationPassing) are inverted so mutants using them fail.
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 401, 4001, 'Long Name One', 'LN1');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 402, 4002, 'Long Name Two', 'LN2');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (3, 403, 4003, 'Long Name Three', 'LN3');
+
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlaySpeed", "buildUpPlayDribbling", "buildUpPlayPassing", "chanceCreationPassing") VALUES (1, 4001, 401, '2012-01-10', 90, 90, 10, 90);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlaySpeed", "buildUpPlayDribbling", "buildUpPlayPassing", "chanceCreationPassing") VALUES (2, 4001, 401, '2012-09-10', 90, 90, 10, 90);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlaySpeed", "buildUpPlayDribbling", "buildUpPlayPassing", "chanceCreationPassing") VALUES (3, 4002, 402, '2012-05-10', 50, 50, 35, 50);
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlaySpeed", "buildUpPlayDribbling", "buildUpPlayPassing", "chanceCreationPassing") VALUES (4, 4003, 403, '2012-05-10', 10, 10, 60, 10);
+```

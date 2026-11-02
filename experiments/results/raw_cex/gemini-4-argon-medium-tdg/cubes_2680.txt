@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests basic join, WHERE clause filtering ('Jeramie' vs other names, case sensitivity, partial matches),
+-- OUTER JOIN vs INNER JOIN mutations (customer with no orders, order with NULL customer_id),
+-- and ORDER BY order_id (inserted out of order, with non-correlated date_order_placed and order_status).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Jeramie', 'Target customer 1');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'jeramie', 'Lowercase match test');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (3, 'Jeramie Smith', 'Substring match test');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (4, 'Jeramie', 'Target customer with no orders (tests LEFT JOIN)');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (5, 'Alice', 'Other customer');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (30, 1, 'Pending', '2023-01-01 10:00:00', 'Order 30');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (10, 1, 'Shipped', '2023-01-03 10:00:00', 'Order 10');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (20, 1, 'Cancelled', '2023-01-02 10:00:00', 'Order 20');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (5, 2, 'Pending', '2023-01-01 08:00:00', 'Belongs to lowercase jeramie');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (15, 3, 'Shipped', '2023-01-01 09:00:00', 'Belongs to Jeramie Smith');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (25, 5, 'Pending', '2023-01-01 11:00:00', 'Belongs to Alice');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (40, NULL, 'Pending', '2023-01-04 10:00:00', 'Orphan order (tests RIGHT JOIN)');
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple customers named 'Jeramie', NULL values in order_status, 
+-- duplicate order_status values (to catch DISTINCT on order_status or wrong projection),
+-- and accidental joins with child tables (Order_Items, Shipments) that might drop or duplicate rows.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (10, 'Jeramie', 'First Jeramie');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (20, 'Jeramie', 'Second Jeramie');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (30, NULL, 'Jeramie');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (105, 20, 'Active', '2023-05-01', 'Jeramie 2 Order 105');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (101, 10, 'Active', '2023-05-05', 'Jeramie 1 Order 101');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (103, 10, NULL, '2023-05-03', 'Jeramie 1 Order with NULL status');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (102, 30, 'Active', '2023-05-02', 'Customer name is NULL, details is Jeramie');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'Laptop', 'Electronics');
+
+-- Order 101 has two items (if a mutant joins Order_Items without DISTINCT, 101 will be duplicated; Order 103 and 105 have 0 items and would be dropped)
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 1, 101, 'Delivered', 'Item 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 1, 101, 'Delivered', 'Item 2');
+
+INSERT INTO "Invoices" ("invoice_number", "invoice_date", "invoice_details") VALUES (500, '2023-05-06', 'Invoice 500');
+
+-- Order 105 has two shipments (if a mutant joins Shipments, 105 will be duplicated and 101/103 dropped)
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (1, 500, 105, 'TRK1', '2023-05-07', 'Ship 1');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (2, 500, 105, 'TRK2', '2023-05-08', 'Ship 2');
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition mutations (e.g., LHS.customer_id = RHS.order_id instead of LHS.customer_id = RHS.customer_id)
+-- and column swap mutations in SELECT or WHERE clauses.
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Jeramie', 'Details 1');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Bob', 'Details 2');
+
+-- Order 1 belongs to Customer 2 (Bob), but its order_id (1) matches Jeramie's customer_id (1).
+-- Order 2 belongs to Customer 1 (Jeramie), and its order_id (2) matches Bob's customer_id (2).
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, 2, 'WrongJoin', '2023-06-01', 'Jeramie');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, 1, 'RightJoin', '2023-06-02', 'Bob');
+```
+
+```sql
+-- DATASET 4
+-- Tests SQLite NULL primary key edge case (INTEGER PRIMARY KEY allows NULL in standard SQLite unless STRICT/NOT NULL is used, though auto-assigned if not careful;
+-- more importantly, tests negative/zero IDs, string vs integer sorting on order_id, and empty result boundaries).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (-5, 'Jeramie', 'Negative ID');
+
+-- If order_id is cast to TEXT in a mutant, '-10', '-2', '10', '2' sort differently than as INTEGER (-10, -2, 2, 10).
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (10, -5, 'StatusA', '2023-01-01', 'D1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, -5, 'StatusB', '2023-01-02', 'D2');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (-2, -5, 'StatusC', '2023-01-03', 'D3');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (-10, -5, 'StatusD', '2023-01-04', 'D4');
+```

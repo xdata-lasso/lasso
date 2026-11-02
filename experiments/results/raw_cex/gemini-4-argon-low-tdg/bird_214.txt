@@ -1,0 +1,99 @@
+```sql
+-- DATASET 1
+-- Tests basic inequality filter (element <> 'sn' vs element = 'sn' vs no WHERE clause)
+-- M1 has only 'sn' (excluded), M2 has only 'c' (included)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', '-');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', 'sn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M2', 'c');
+```
+
+```sql
+-- DATASET 2
+-- Tests mixed elements within a single molecule (kills NOT IN / NOT EXISTS anti-join mutants)
+-- M1 has both 'sn' and 'c', so '+' SHOULD be in the output
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', 'sn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M1', 'c');
+```
+
+```sql
+-- DATASET 3
+-- Tests DISTINCT keyword necessity (kills mutants omitting DISTINCT or grouping by molecule_id instead of label)
+-- Multiple atoms and multiple molecules with the same label
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', '+');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M1', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', 'M2', 'o');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN and orphaned/unmatched records
+-- M1 has no atoms; A1 has NULL molecule_id; M2 has valid atom
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', '-');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', NULL, 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M2', 'n');
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL handling in WHERE and SELECT (element IS NULL, label IS NULL)
+-- In SQL, NULL <> 'sn' evaluates to UNKNOWN (falsy), so M1 ('+') should be excluded.
+-- M2 has NULL label, which should be included in output as NULL.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M2', 'c');
+```
+
+```sql
+-- DATASET 6
+-- Tests string comparison edge cases (<, >, LIKE, case sensitivity)
+-- 'a' < 'sn' and 'z' > 'sn'. 'SN' <> 'sn' (case sensitive in SQLite). 'sn_extra' <> 'sn'.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', 'L_less');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', 'L_greater');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M3', 'L_upper');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M4', 'L_prefix');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M5', 'L_exact');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', 'a');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M2', 'z');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', 'M3', 'SN');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A4', 'M4', 'sn_extra');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A5', 'M5', 'sn');
+```
+
+```sql
+-- DATASET 7
+-- Tests incorrect join condition mutants (e.g., joining on atom_id = molecule_id or cross join)
+-- Also tests mutants that unnecessarily join 'bond' or 'connected' tables (which are empty here)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', '-');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('M1', 'M2', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('M2', 'M1', 'sn');
+```
+
+```sql
+-- DATASET 8
+-- Tests column confusion mutants (e.g., filtering on label <> 'sn' or selecting element/molecule_id instead of label)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('sn', 'sn');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', 'valid_label');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('sn', 'sn', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M2', 'sn');
+```
+
+```sql
+-- DATASET 9
+-- Populates 'bond' and 'connected' for only 'sn' atoms to kill mutants that join 'bond' or 'connected'
+-- M1 has 'c' (valid for gold query, but has no bonds/connections)
+-- M2 has 'sn' (invalid for gold query, but has bonds/connections)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('M2', '-');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A1', 'M1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A2', 'M2', 'sn');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('A3', 'M2', 'sn');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('B1', 'M2', '1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('A2', 'A3', 'B1');
+```

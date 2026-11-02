@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Unreferenced rows in Ref_Template_Types (catches mutants using LEFT/RIGHT JOIN on Ref_Template_Types).
+-- 2. Templates with multiple Documents and Documents with 0 or multiple Paragraphs (catches mutants that incorrectly JOIN Documents or Paragraphs).
+-- 3. Duplicate Version_Number and Template_Details within a group, and NULLs in other columns (catches COUNT(DISTINCT col) or COUNT(other_col) mutants).
+-- 4. Various group sizes (1, 2, 3) to catch HAVING clause mutants (e.g., HAVING COUNT(*) > 1) and ORDER BY direction mutants.
+
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('AD', 'Advertisement');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('BK', 'Book');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('CV', 'Curriculum Vitae');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('PP', 'Presentation');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'CV', 1, '2020-01-01', '2021-01-01', 'Detail A');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'CV', 1, NULL, NULL, 'Detail A');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (3, 'CV', NULL, '2022-01-01', NULL, NULL);
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (4, 'AD', 2, '2020-05-01', '2020-12-31', 'Ad Detail');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (5, 'BK', 1, NULL, NULL, NULL);
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (6, 'BK', 2, '2021-06-01', '2022-06-01', 'Book Detail');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (10, 4, 'Ad Doc 1', 'Desc 1', 'Other 1');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (11, 4, 'Ad Doc 2', 'Desc 2', 'Other 2');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (12, 1, 'CV Doc 1', 'Desc 3', 'Other 3');
+
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (100, 10, 'Para 1', NULL);
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (101, 10, 'Para 2', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL values in Template_Type_Code (catches mutants using COUNT(Template_Type_Code) instead of COUNT(*), which would return 0 instead of 2 for the NULL group).
+-- 2. Also catches mutants that INNER JOIN with Ref_Template_Types (which would drop the NULL group entirely).
+-- 3. Tests NULL ordering in ORDER BY template_type_code.
+
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T2', 'Type 2');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, NULL, 1, '2020-01-01', '2020-12-31', 'Null Type 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, NULL, 2, '2021-01-01', '2021-12-31', 'Null Type 2');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (3, 'T1', 1, '2020-01-01', '2020-12-31', 'T1 Detail');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (4, 'T2', 1, '2020-01-01', '2020-12-31', 'T2 Detail 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (5, 'T2', 2, '2021-01-01', '2021-12-31', 'T2 Detail 2');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (6, 'T2', 3, '2022-01-01', '2022-12-31', 'T2 Detail 3');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Inversely correlated alphabetical order of Template_Type_Code ('A', 'B', 'C') and group counts (3, 2, 1).
+-- 2. Catches mutants that sort by count___ first, or sort DESC instead of ASC, or omit ORDER BY when insertion order differs from alphabetical order.
+
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('C', 'Type C');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('B', 'Type B');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('A', 'Type A');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'C', 10, '2020-01-01', '2020-12-31', 'C1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (20, 'B', 10, '2020-01-01', '2020-12-31', 'B1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (30, 'B', 20, '2021-01-01', '2021-12-31', 'B2');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (40, 'A', 10, '2020-01-01', '2020-12-31', 'A1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (50, 'A', 20, '2021-01-01', '2021-12-31', 'A2');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (60, 'A', 30, '2022-01-01', '2022-12-31', 'A3');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty Templates table with non-empty Ref_Template_Types table.
+-- 2. Catches mutants without GROUP BY (which return a single row (NULL, 0) on empty table instead of 0 rows) and mutants querying Ref_Template_Types directly.
+
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('EMPTY1', 'Unused Type 1');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('EMPTY2', 'Unused Type 2');
+```

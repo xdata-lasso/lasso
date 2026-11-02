@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests standard ordering and filtering: older Dutch drivers exist, younger non-Dutch drivers exist.
+-- Kills mutants that filter WHERE nationality = 'Dutch' BEFORE applying LIMIT 3,
+-- or mutants that sort by dob ASC instead of DESC, or mutants that omit LIMIT 3.
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (1, 'd1', 'Max', 'V', '1997-09-30', 'Dutch', 'http://u1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (2, 'd2', 'Lando', 'N', '1999-11-13', 'British', 'http://u2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (3, 'd3', 'Oscar', 'P', '2001-04-06', 'Australian', 'http://u3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (4, 'd4', 'Jos', 'V', '1972-03-04', 'Dutch', 'http://u4');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (5, 'd5', 'Nyck', 'dV', '1995-02-06', 'Dutch', 'http://u5');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on identical dob using driverId ASC, and tests LIMIT boundary (3 vs 2 vs 4).
+-- Three drivers share the exact same dob ('2000-05-05') at the cutoff boundary for LIMIT 3.
+-- Kills mutants with driverId DESC tie-breaking, missing tie-breaker, or off-by-one LIMIT errors.
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (10, 'd10', 'A', 'A', '2002-01-01', 'Dutch', 'http://u10');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (20, 'd20', 'B', 'B', '2000-05-05', 'Dutch', 'http://u20');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (30, 'd30', 'C', 'C', '2000-05-05', 'British', 'http://u30');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (40, 'd40', 'D', 'D', '2000-05-05', 'Dutch', 'http://u40');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (50, 'd50', 'E', 'E', '1990-01-01', 'Dutch', 'http://u50');
+```
+
+```sql
+-- DATASET 3
+-- Tests when all top 3 youngest drivers are 'Dutch' (Result = 3).
+-- Kills mutants that use COUNT(DISTINCT nationality) instead of COUNT(*),
+-- and tests exact boundary at the 4th position.
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (1, 'd1', 'A', 'A', '2003-01-01', 'Dutch', 'http://u1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (2, 'd2', 'B', 'B', '2002-01-01', 'Dutch', 'http://u2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (3, 'd3', 'C', 'C', '2001-01-01', 'Dutch', 'http://u3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (4, 'd4', 'D', 'D', '2000-01-01', 'Dutch', 'http://u4');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (5, 'd5', 'E', 'E', '1999-01-01', 'British', 'http://u5');
+```
+
+```sql
+-- DATASET 4
+-- Tests when 0 of the top 3 youngest drivers are 'Dutch', even though older Dutch drivers exist (Result = 0).
+-- Also includes NULL dob and NULL nationality to test NULL handling in ORDER BY JULIANDAY(dob) DESC and WHERE filter.
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (1, 'd1', 'A', 'A', NULL, 'Dutch', 'http://u1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (2, 'd2', 'B', 'B', '2005-06-01', NULL, 'http://u2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (3, 'd3', 'C', 'C', '2004-06-01', 'German', 'http://u3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (4, 'd4', 'D', 'D', '2003-06-01', 'French', 'http://u4');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (5, 'd5', 'E', 'E', '2002-06-01', 'Dutch', 'http://u5');
+```
+
+```sql
+-- DATASET 5
+-- Tests JULIANDAY(dob) evaluation vs raw string sorting on dob, and case/substring sensitivity on 'Dutch'.
+-- '2000-1-2' vs '2000-01-03': string sort puts '2000-1-2' > '2000-01-03' ('1' > '0'),
+-- whereas JULIANDAY('2000-1-2') is NULL in SQLite (requires 2-digit month/day), sorting it last!
+-- Also tests 'dutch' (lowercase) and 'Dutch ' / 'Dutchman' to kill LIKE '%Dutch%' or case-insensitive mutants.
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (1, 'd1', 'A', 'A', '2000-1-2', 'Dutch', 'http://u1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (2, 'd2', 'B', 'B', '2000-01-03', 'dutch', 'http://u2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (3, 'd3', 'C', 'C', '2000-01-02', 'Dutchman', 'http://u3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (4, 'd4', 'D', 'D', '2000-01-01', 'Dutch', 'http://u4');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (5, 'd5', 'E', 'E', '1999-12-31', 'British', 'http://u5');
+```
+
+```sql
+-- DATASET 6
+-- Tests dataset with fewer than 3 rows total in the table, and checks that unreferenced/joined tables
+-- (e.g., results, driverStandings) don't falsely filter out drivers without race entries.
+-- Driver 1 has a race standing, Driver 2 does not. Both are Dutch. Result should be 2.
+INSERT INTO seasons (year, url) VALUES (2023, 'http://s2023');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2023, 1, 1, 'Race 1', '2023-03-01', 'http://r1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (1, 'd1', 'A', 'A', '1998-01-01', 'Dutch', 'http://u1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, nationality, url) VALUES (2, 'd2', 'B', 'B', '1995-01-01', 'Dutch', 'http://u2');
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (1, 1, 1, 25.0, 1);
+```

@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- General case: Mix of employees with and without circulation history, duplicates in employee_name, and ordering inverse to employee_id.
+INSERT INTO Roles (role_code, role_description) VALUES ('R1', 'Manager');
+INSERT INTO Roles (role_code, role_description) VALUES ('R2', 'Clerk');
+
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (1, 'R1', 'Zack', 'No history');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (2, 'R2', 'Alice', 'Has history');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (3, 'R1', 'Bob', 'No history 1');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (4, NULL, 'Bob', 'No history 2 - duplicate name & NULL role');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (5, 'R2', 'Charlie', 'Has multiple history entries');
+
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Contract');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Active');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA1', 'FedEx', 'Courier');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (10, 'SA1', 'DS1', 'DT1', '2023-01-01', 'R100', 'Doc 10');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (20, 'SA1', 'DS1', 'DT1', '2023-01-02', 'R200', 'Doc 20');
+
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (10, 1, 'Draft 1');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (20, 2, 'Draft 2');
+
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (10, 1, 1);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (20, 2, 2);
+
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (10, 1, 1, 2);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (10, 1, 1, 5);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (20, 2, 2, 5);
+```
+
+```sql
+-- DATASET 2
+-- Edge case: Circulation_History is completely empty, and one employee has the same name as another who would otherwise be filtered or kept, plus NULL employee_name.
+INSERT INTO Roles (role_code, role_description) VALUES ('R1', 'Admin');
+
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (1, 'R1', 'Delta', 'Detail 1');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (2, 'R1', 'Alpha', 'Detail 2');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (3, 'R1', NULL, 'Null Name');
+```
+
+```sql
+-- DATASET 3
+-- Edge case: Every employee is present in Circulation_History (Expected output: empty result set).
+-- Also tests joining on wrong columns (e.g. matching employee_id with document_id, draft_number, or copy_number).
+INSERT INTO Roles (role_code, role_description) VALUES ('R1', 'Staff');
+
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (1, 'R1', 'EmpOne', 'D1');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (2, 'R1', 'EmpTwo', 'D2');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (100, NULL, NULL, NULL, '2023-05-05', 'RN1', NULL);
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (100, 10, 'DD1');
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (100, 10, 20);
+
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (100, 10, 20, 1);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (100, 10, 20, 2);
+```
+
+```sql
+-- DATASET 4
+-- Edge case: Catching NOT IN vs NOT EXISTS with NULLs, and catching wrong join keys (employee_id vs document_id/draft_number/copy_number), and name-based filtering (EXCEPT on employee_name).
+-- Here, Employee 1 ('SameName') has circulation history, while Employee 2 ('SameName') does NOT.
+-- A query using EXCEPT on employee_name will erroneously remove 'SameName' completely.
+-- Also Employee 10 matches document_id=10, draft_number=10, copy_number=10, but is not the employee_id in Circulation_History.
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (1, NULL, 'SameName', 'In history');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (2, NULL, 'SameName', 'Not in history');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (10, NULL, 'KeyCollisionEmp', 'ID matches doc/draft/copy 10');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (10, NULL, NULL, NULL, '2023-01-01', 'R10', NULL);
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (10, 10, 'Draft 10');
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (10, 10, 10);
+
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (10, 10, 10, 1);
+```
+
+```sql
+-- DATASET 5
+-- Edge case: NULL employee_id in Circulation_History (allowed by SQLite since PK columns in SQLite can contain NULL unless strictly typed INT PRIMARY KEY or NOT NULL).
+-- Tests difference between `NOT EXISTS (...)` and `employee_id NOT IN (SELECT employee_id FROM Circulation_History)`.
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (1, NULL, 'ValidEmp', 'Should be returned by NOT EXISTS, but fails in NOT IN if NULL exists');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (2, NULL, 'ActiveEmp', 'In history');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, NULL, NULL, NULL, '2023-01-01', 'R1', NULL);
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (1, 1, 'D1');
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (1, 1, 1);
+
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 1, 1, 2);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 1, 1, NULL);
+```

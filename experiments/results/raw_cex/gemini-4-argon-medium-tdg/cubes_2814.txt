@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- General case: Multiple apartments across buildings with distinct bathroom, bedroom, and room counts, plus bookings and facilities.
+-- Catches mutants missing DISTINCT, using wrong columns (e.g., bedroom_count, room_count), using PARTITION BY building_id/apt_type_code, or adding inner joins to related tables.
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (1, 'B1', 'Building One', 'Desc 1', '123 St', 'Mgr 1', '111-1111');
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (2, 'B2', 'Building Two', 'Desc 2', '456 St', 'Mgr 2', '222-2222');
+
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (101, 1, 'Studio', '1A', 1, 10, '5');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (102, 1, 'Duplex', '1B', 2, 20, '6');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (103, 2, 'Loft', '2A', 4, 30, '8');
+
+INSERT INTO Apartment_Facilities (apt_id, facility_code) VALUES (102, 'Gym');
+
+INSERT INTO Guests (guest_id, gender_code, guest_first_name, guest_last_name, date_of_birth) VALUES (1, 'M', 'John', 'Doe', '1980-01-01');
+INSERT INTO Apartment_Bookings (apt_booking_id, guest_id, apt_id, booking_status_code, booking_start_date, booking_end_date) VALUES (1001, 1, 102, 'Confirmed', '2023-01-01', '2023-01-10');
+```
+
+```sql
+-- DATASET 2
+-- Empty Apartments table: Only parent/other tables populated.
+-- Catches mutants that replace window functions with ungrouped aggregate queries (SELECT MIN(...), MAX(...) FROM Apartments), which return 1 row of (NULL, NULL) instead of 0 rows on an empty table.
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (1, 'B1', 'Building One', 'Desc 1', '123 St', 'Mgr 1', '111-1111');
+INSERT INTO Guests (guest_id, gender_code, guest_first_name, guest_last_name, date_of_birth) VALUES (1, 'F', 'Jane', 'Smith', '1990-05-15');
+```
+
+```sql
+-- DATASET 3
+-- All NULL bathroom_count values in a non-empty Apartments table.
+-- Catches mutants that filter out NULLs via WHERE bathroom_count IS NOT NULL (which would return 0 rows instead of 1 row of (NULL, NULL)).
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (1, 'B1', 'Building One', 'Desc 1', '123 St', 'Mgr 1', '111-1111');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (101, 1, 'Studio', '1A', NULL, 1, '2');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (102, 1, 'Loft', '1B', NULL, 2, '4');
+```
+
+```sql
+-- DATASET 4
+-- Mix of NULL and non-NULL bathroom_count values, plus NULL building_id.
+-- Catches mutants using COALESCE(bathroom_count, 0), mutants doing INNER JOIN with Apartment_Buildings, or window frame ordering issues with NULLs.
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (1, 'B1', 'Building One', 'Desc 1', '123 St', 'Mgr 1', '111-1111');
+
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (101, 1, 'Studio', '1A', NULL, 1, '2');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (102, 1, 'OneBed', '1B', 2, 1, '3');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (103, NULL, 'Penthouse', 'PH1', 5, 3, '7');
+```
+
+```sql
+-- DATASET 5
+-- String vs Integer comparison and descending order in primary key vs bathroom_count.
+-- Values 2 and 10 test lexicographical ('10' < '2') vs numerical (2 < 10) min/max.
+-- Decreasing bathroom_count with increasing apt_id catches window frame mutants (e.g. OVER (ORDER BY apt_id)).
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (1, 'B1', 'Building One', 'Desc 1', '123 St', 'Mgr 1', '111-1111');
+
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (1, 1, 'Penthouse', '101', 10, 5, '12');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (2, 1, 'Double', '102', 2, 2, '4');
+```
+
+```sql
+-- DATASET 6
+-- Single row / identical bathroom_count values where MIN equals MAX, and value is 1.
+-- Catches mutants using COUNT, SUM, or AVG instead of MIN/MAX when multiple rows have identical bathroom_count > 1.
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (1, 'B1', 'Building One', 'Desc 1', '123 St', 'Mgr 1', '111-1111');
+
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (1, 1, 'Standard', '101', 3, 2, '5');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (2, 1, 'Standard', '102', 3, 2, '5');
+```
+
+```sql
+-- DATASET 7
+-- Zero and Negative / Boundary values.
+-- Catches mutants with hardcoded thresholds (e.g. bathroom_count > 0) or truthiness filters (WHERE bathroom_count).
+INSERT INTO Apartment_Buildings (building_id, building_short_name, building_full_name, building_description, building_address, building_manager, building_phone) VALUES (1, 'B1', 'Building One', 'Desc 1', '123 St', 'Mgr 1', '111-1111');
+
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (1, 1, 'Storage', 'B1', 0, 0, '1');
+INSERT INTO Apartments (apt_id, building_id, apt_type_code, apt_number, bathroom_count, bedroom_count, room_count) VALUES (2, 1, 'Suite', '201', 3, 2, '5');
+```

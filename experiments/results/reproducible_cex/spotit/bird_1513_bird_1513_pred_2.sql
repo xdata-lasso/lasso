@@ -1,0 +1,68 @@
+-- Schema DDL
+CREATE TABLE "CUSTOMERS" (
+    "CUSTOMERID" INT,
+    "SEGMENT" TEXT,
+    "CURRENCY" TEXT,
+    PRIMARY KEY ("CUSTOMERID")
+);
+CREATE TABLE "GASSTATIONS" (
+    "GASSTATIONID" INT,
+    "CHAINID" INT,
+    "COUNTRY" TEXT,
+    "SEGMENT" TEXT,
+    PRIMARY KEY ("GASSTATIONID")
+);
+CREATE TABLE "PRODUCTS" (
+    "PRODUCTID" INT,
+    "DESCRIPTION" TEXT,
+    PRIMARY KEY ("PRODUCTID")
+);
+CREATE TABLE "TRANSACTIONS_1K" (
+    "TRANSACTIONID" INT,
+    "DATE" DATE,
+    "TIME" TEXT,
+    "CUSTOMERID" INT,
+    "CARDID" INT,
+    "GASSTATIONID" INT,
+    "PRODUCTID" INT,
+    "AMOUNT" INT,
+    "PRICE" FLOAT,
+    PRIMARY KEY ("TRANSACTIONID")
+);
+CREATE TABLE "YEARMONTH" (
+    "CUSTOMERID" INT,
+    "DATE" TEXT,
+    "CONSUMPTION" FLOAT,
+    PRIMARY KEY ("CUSTOMERID", "DATE")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO CUSTOMERS VALUES (-1, 0, 0);
+INSERT INTO CUSTOMERS VALUES (0, 0, 0);
+INSERT INTO GASSTATIONS VALUES (-1, 0, NULL, 33);
+INSERT INTO GASSTATIONS VALUES (-2, 0, 35, 36);
+INSERT INTO PRODUCTS VALUES (0, 0);
+INSERT INTO PRODUCTS VALUES (1, 0);
+INSERT INTO TRANSACTIONS_1K VALUES (-1, '2012-08-25', 0, 0, 0, -1, 0, 0, 31);
+INSERT INTO TRANSACTIONS_1K VALUES (-2, '2012-08-25', -1, -1, 0, -2, 0, 0, 34);
+INSERT INTO YEARMONTH VALUES (1, 0, 0);
+INSERT INTO YEARMONTH VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T2.Country FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID WHERE T1.Date = '2012-08-25' ORDER BY T1.Time DESC, T1.transactionid NULLS LAST, T2.gasstationid NULLS LAST LIMIT 1;
+
+/*
+Gold Result:
+(None,)
+*/
+
+-- Prediction Query
+SELECT gasstations.Country FROM transactions_1k INNER JOIN gasstations ON transactions_1k.GasStationID = gasstations.GasStationID WHERE transactions_1k.Date = '2012-08-25' ORDER BY transactions_1k.CustomerID ASC, transactions_1k.transactionid NULLS LAST, gasstations.gasstationid NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('35',)
+*/

@@ -1,0 +1,68 @@
+```sql
+-- DATASET 1
+-- Tests basic join on count, GROUP BY both columns vs single column, DISTINCT on gender, and ORDER BY gender.
+-- Groups: ('DetA', 'Alice') -> count 2; ('DetB', 'Alice') -> count 1; ('DetA', 'Bob') -> count 1.
+-- RHS.n values are {1, 2}.
+-- Staff with staff_id 1 (gender 20) and staff_id 2 (gender 10) match.
+-- Staff with staff_id 3 (gender 30) and 4 (gender 40) do not match.
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (1, 'Alice', 20, 'DetA');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (2, 'Alice', 10, 'DetA');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (3, 'Alice', 30, 'DetB');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (4, 'Bob', 40, 'DetA');
+```
+
+```sql
+-- DATASET 2
+-- Tests when count > 1 is the ONLY match (no group has size 1 that matches an existing staff_id, or staff_id 1 doesn't exist).
+-- All 3 rows share ('DetA', 'Alice'), so RHS has 1 group with n = 3.
+-- Only staff_id = 3 matches. Tests mutants that drop GROUP BY or match on staff_id = 1.
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (2, 'Alice', 10, 'DetA');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (3, 'Alice', 20, 'DetA');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (4, 'Alice', 30, 'DetA');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in GROUP BY columns, NULL in gender, and COUNT(*) vs COUNT(col).
+-- Group (NULL, NULL) has 2 rows -> n = 2.
+-- Group ('DetA', NULL) has 1 row -> n = 1.
+-- Matches staff_id 1 (gender NULL) and staff_id 2 (gender 5).
+-- Staff_id 3 (gender 99) is unmatched.
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (1, NULL, NULL, NULL);
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (2, NULL, 5, NULL);
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (3, NULL, 99, 'DetA');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when RHS.n does not match any LHS.staff_id (e.g., all staff_ids are > max(n)).
+-- Kills mutants using LEFT JOIN (from RHS) or failing to filter by the join condition.
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (10, 'Charlie', 1, 'DetX');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (20, 'Charlie', 2, 'DetX');
+```
+
+```sql
+-- DATASET 5
+-- Tests distinction between GROUP BY (other_staff_details, staff_name) vs GROUP BY staff_name vs GROUP BY other_staff_details.
+-- If grouped by both: ('D1', 'N1')->2, ('D1', 'N2')->2, ('D2', 'N1')->1. n in {1, 2}.
+-- If grouped only by other_staff_details: 'D1'->4, 'D2'->1. n in {1, 4}.
+-- If grouped only by staff_name: 'N1'->3, 'N2'->2. n in {2, 3}.
+-- Each staff_id (1, 2, 3, 4, 5) has a distinct gender so any change in the set of n changes the output.
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (1, 'N1', 100, 'D1');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (2, 'N1', 200, 'D1');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (3, 'N2', 300, 'D1');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (4, 'N2', 400, 'D1');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (5, 'N1', 500, 'D2');
+```
+
+```sql
+-- DATASET 6
+-- Tests that LHS and RHS do not need to match on staff_name or other_staff_details, ONLY on LHS.staff_id = RHS.n.
+-- Group ('D_other', 'N_other') has size 2 (staff_ids 10 and 11).
+-- Group ('D_target', 'N_target') has size 1 (staff_id 2).
+-- Staff_id 2 has ('D_target', 'N_target'), which matches n=2 from ('D_other', 'N_other').
+-- Kills mutants that add `AND LHS.staff_name = RHS.staff_name` to the JOIN condition.
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (2, 'N_target', 77, 'D_target');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (10, 'N_other', 88, 'D_other');
+INSERT INTO Staff (staff_id, staff_name, gender, other_staff_details) VALUES (11, 'N_other', 88, 'D_other');
+```

@@ -1,0 +1,128 @@
+```sql
+-- DATASET 1
+-- Tests: Ties for the maximum faculty participation (kills LIMIT 1 mutants), ORDER BY direction (insertion order is reverse alphabetical), DISTINCT requirement (multiple faculty per max activity), and decoy maximums in student participation (kills wrong table joins).
+INSERT INTO Activity (actid, activity_name) VALUES (1, 'Zulu');
+INSERT INTO Activity (actid, activity_name) VALUES (2, 'Alpha');
+INSERT INTO Activity (actid, activity_name) VALUES (3, 'Beta');
+INSERT INTO Activity (actid, activity_name) VALUES (4, 'Gamma');
+
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (101, 'Smith', 'John', 'Prof', 'M', 1111, '101', 'Main');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (102, 'Doe', 'Jane', 'Assoc', 'F', 2222, '102', 'Main');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (103, 'Brown', 'Bob', 'Asst', 'M', 3333, '103', 'Main');
+
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (201, 'Adams', 'Amy', 20, 'F', 10, 101, 'NYC');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (202, 'Baker', 'Ben', 21, 'M', 10, 101, 'NYC');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (203, 'Clark', 'Carl', 22, 'M', 10, 102, 'LAX');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (204, 'Davis', 'Dan', 19, 'M', 20, 103, 'CHI');
+
+-- Activity 1 ('Zulu') has 3 faculty (Tied for Max)
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (1, 101);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (1, 102);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (1, 103);
+
+-- Activity 2 ('Alpha') has 3 faculty (Tied for Max)
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (2, 101);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (2, 102);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (2, 103);
+
+-- Activity 3 ('Beta') has 1 faculty (Min > 0)
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (3, 101);
+
+-- Activity 3 ('Beta') has 4 students (Decoy Max in Participates_in)
+INSERT INTO Participates_in (actid, stuid) VALUES (3, 201);
+INSERT INTO Participates_in (actid, stuid) VALUES (3, 202);
+INSERT INTO Participates_in (actid, stuid) VALUES (3, 203);
+INSERT INTO Participates_in (actid, stuid) VALUES (3, 204);
+```
+
+```sql
+-- DATASET 2
+-- Tests: COUNT(*) vs COUNT(FacID) vs COUNT(DISTINCT FacID) using NULLs and duplicate entries. Also tests grouping by activity_name vs actid (two activities share the same name 'Debate' with counts 2 and 2, which would sum to 4 if grouped by name, beating the true max of 3).
+INSERT INTO Activity (actid, activity_name) VALUES (1, 'Debate');
+INSERT INTO Activity (actid, activity_name) VALUES (2, 'Debate');
+INSERT INTO Activity (actid, activity_name) VALUES (3, 'Chess');
+INSERT INTO Activity (actid, activity_name) VALUES (4, 'Archery');
+
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (101, 'Smith', 'John', 'Prof', 'M', 1111, '101', 'Main');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (102, 'Doe', 'Jane', 'Assoc', 'F', 2222, '102', 'Main');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (103, 'Brown', 'Bob', 'Asst', 'M', 3333, '103', 'Main');
+
+-- Activity 1 ('Debate') has 2 faculty
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (1, 101);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (1, 102);
+
+-- Activity 2 ('Debate') has 2 faculty (If grouped by activity_name, 'Debate' gets 4)
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (2, 102);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (2, 103);
+
+-- Activity 3 ('Chess') has 3 rows, but one FacID is NULL and the others are duplicates of 101.
+-- COUNT(*) = 3 (True Max), COUNT(FacID) = 2, COUNT(DISTINCT FacID) = 1.
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (3, 101);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (3, 101);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (3, NULL);
+
+-- Activity 4 ('Archery') has 2 distinct non-null faculty.
+-- If a mutant uses COUNT(DISTINCT FacID), 'Archery' and 'Debate' tie for max (2), excluding 'Chess' (1).
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (4, 101);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (4, 102);
+```
+
+```sql
+-- DATASET 3
+-- Tests: Orphaned NULL actid rows in Faculty_Participates_in having the highest count (4 rows). The INNER JOIN with Activity must filter out the NULL actid group, leaving 'Soccer' (count 2) as the valid output, or empty if the max is strictly 4 and unjoinable. Wait: in the Reference Query, RHS (MAX(n)) computes MAX over Faculty_Participates_in without joining Activity first! So MAX(n) will be 4 (from NULL), and since NULL cannot join with Activity, the reference query returns an EMPTY set! This kills mutants that join Activity BEFORE computing the GROUP BY and MAX.
+INSERT INTO Activity (actid, activity_name) VALUES (1, 'Soccer');
+INSERT INTO Activity (actid, activity_name) VALUES (2, 'Tennis');
+
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (101, 'Smith', 'John', 'Prof', 'M', 1111, '101', 'Main');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (102, 'Doe', 'Jane', 'Assoc', 'F', 2222, '102', 'Main');
+
+-- Activity 1 ('Soccer') has 2 faculty
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (1, 101);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (1, 102);
+
+-- Activity 2 ('Tennis') has 1 faculty
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (2, 101);
+
+-- NULL actid has 3 faculty (Max count in Faculty_Participates_in is 3)
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (NULL, 101);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (NULL, 102);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (NULL, 101);
+```
+
+```sql
+-- DATASET 4
+-- Tests: Single unique winner with count = 1, while other activities have count = 0 (not present in Faculty_Participates_in). Kills mutants that use LEFT JOIN and count 0 as 1 (e.g., COUNT(*) after LEFT JOIN Activity with Faculty_Participates_in without counting a specific right-table column).
+INSERT INTO Activity (actid, activity_name) VALUES (1, 'Coding');
+INSERT INTO Activity (actid, activity_name) VALUES (2, 'Gaming');
+INSERT INTO Activity (actid, activity_name) VALUES (3, 'Reading');
+
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (101, 'Smith', 'John', 'Prof', 'M', 1111, '101', 'Main');
+
+-- Only 'Gaming' has 1 faculty; 'Coding' and 'Reading' have 0.
+-- If a mutant does LEFT JOIN Activity and COUNT(*), all three activities get count = 1 and all three are returned!
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (2, 101);
+```
+
+```sql
+-- DATASET 5
+-- Tests: Clear hierarchy of counts (3, 2, 1) with a single unique maximum. Kills mutants that use MIN instead of MAX, < instead of =, or != instead of =. Also tests when the winning activity has the smallest actid vs largest FacID.
+INSERT INTO Activity (actid, activity_name) VALUES (10, 'Music');
+INSERT INTO Activity (actid, activity_name) VALUES (20, 'Art');
+INSERT INTO Activity (actid, activity_name) VALUES (30, 'Drama');
+
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (1, 'A', 'A', 'Prof', 'M', 111, '1', 'B');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (2, 'B', 'B', 'Prof', 'F', 222, '2', 'B');
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (3, 'C', 'C', 'Prof', 'M', 333, '3', 'B');
+
+-- Activity 10 ('Music') has 3 faculty (Max)
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (10, 1);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (10, 2);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (10, 3);
+
+-- Activity 20 ('Art') has 2 faculty (Middle)
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (20, 1);
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (20, 2);
+
+-- Activity 30 ('Drama') has 1 faculty (Min)
+INSERT INTO Faculty_Participates_in (actid, FacID) VALUES (30, 3);
+```

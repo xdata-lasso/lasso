@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Basic scenario: multiple heroes, multiple attributes, ties for max Strength, and lower Strength values.
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Intelligence');
+
+INSERT INTO superhero (id, superhero_name) VALUES (1, 'Hero A');
+INSERT INTO superhero (id, superhero_name) VALUES (2, 'Hero B');
+INSERT INTO superhero (id, superhero_name) VALUES (3, 'Hero C');
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (3, 1, 80);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 2, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (3, 2, 50);
+```
+
+```sql
+-- DATASET 2
+-- Global MAX vs Scoped MAX: Another attribute ('Speed') has a strictly higher attribute_value (150) than the max value for 'Strength' (100).
+-- Refutes mutants that filter the MAX subquery by attribute_name = 'Strength' or use ORDER BY / LIMIT 1.
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Speed');
+
+INSERT INTO superhero (id, superhero_name) VALUES (1, 'Strong Hero');
+INSERT INTO superhero (id, superhero_name) VALUES (2, 'Fast Hero');
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 90);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 2, 150);
+```
+
+```sql
+-- DATASET 3
+-- Duplicate hero_id in result: A single hero has multiple 'Strength' entries matching the global max (via duplicate rows and multiple 'Strength' attribute IDs).
+-- Refutes mutants using COUNT(DISTINCT T1.hero_id) instead of COUNT(T1.hero_id).
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Strength');
+
+INSERT INTO superhero (id, superhero_name) VALUES (1, 'Duplicate Hero');
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 99);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 99);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 2, 99);
+```
+
+```sql
+-- DATASET 4
+-- NULL handling in COUNT(T1.hero_id) and global MAX in an unreferenced attribute.
+-- A row with hero_id = NULL has Strength = 100 (the global max).
+-- Refutes mutants using COUNT(*) or COUNT(T1.attribute_value) instead of COUNT(T1.hero_id).
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Power');
+
+INSERT INTO superhero (id, superhero_name) VALUES (1, 'Valid Hero');
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (NULL, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 2, 50);
+```
+
+```sql
+-- DATASET 5
+-- Global MAX comes from a row in hero_attribute where attribute_id is NULL (orphan attribute_id).
+-- Refutes mutants that INNER JOIN attribute inside the MAX subquery.
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+
+INSERT INTO superhero (id, superhero_name) VALUES (1, 'Hero One');
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 80);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, NULL, 100);
+```
+
+```sql
+-- DATASET 6
+-- Case sensitivity and substring matching on 'Strength', plus NULL attribute_value handling.
+-- Refutes mutants using LIKE '%Strength%', LOWER(), or failing on NULL attribute_value.
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Super Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (3, 'strength');
+
+INSERT INTO superhero (id, superhero_name) VALUES (1, 'Hero 1');
+INSERT INTO superhero (id, superhero_name) VALUES (2, 'Hero 2');
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 2, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 3, 100);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, NULL);
+```

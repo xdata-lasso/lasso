@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests INNER JOIN vs LEFT/RIGHT/OUTER JOIN, duplicate elimination (SELECT DISTINCT vs SELECT), and wrong table selection (Drama_Workshop_Groups vs Stores)
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('1', '100 Main St', 'Apt 1', 'Metropolis', 'NY', 'N/A');
+INSERT INTO "Marketing_Regions" ("Marketing_Region_Code", "Marketing_Region_Name", "Marketing_Region_Descriptrion", "Other_Details") VALUES ('NA', 'North America', 'North American Region', 'None');
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('ACT', NULL, 'Acting Workshop');
+
+-- Decoy table with identical column names (Store_Phone, Store_Email_Address)
+INSERT INTO "Stores" ("Store_ID", "Marketing_Region_Code", "Address_ID", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES ('1', 'NA', 1, 'Decoy Store', '000-000-0000', 'decoy@store.com', 'Decoy');
+
+-- Group 1: Matches 2 services (tests duplicate preservation in projection)
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (1, 1, 'USD', 'NA', 'Group One', '222-222-2222', 'group1@workshop.com', 'Details 1');
+
+-- Group 2: Matches 0 services (tests INNER JOIN vs LEFT JOIN)
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (2, 1, 'USD', 'NA', 'Group Two', '111-111-1111', 'group2@workshop.com', 'Details 2');
+
+-- Services: 2 linked to Group 1, 1 linked to NULL (tests INNER JOIN vs RIGHT/FULL JOIN)
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (10, 'ACT', 1, 'Desc 1', 'Service A', 50.0, 'None');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (20, 'ACT', 1, 'Desc 2', 'Service B', 75.0, 'None');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (30, 'ACT', NULL, 'Desc 3', 'Service C', 100.0, 'None');
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY store_phone (ASC vs DESC), tie-breaking on store_email_address (ASC vs DESC), and NULLS LAST vs NULLS FIRST on both columns
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('1', '200 Broadway', NULL, 'Gotham', 'NJ', NULL);
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('DIR', NULL, 'Directing');
+
+-- Group 1: Phone '555-0102', Email 'a@test.com'
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (1, 1, 'USD', 'NA', 'Alpha', '555-0102', 'a@test.com', NULL);
+
+-- Group 2: Phone '555-0101', Email 'z@test.com' (Inserted out of order to test primary sort)
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (2, 1, 'USD', 'NA', 'Beta', '555-0101', 'z@test.com', NULL);
+
+-- Group 3: Phone '555-0101', Email 'a@test.com' (Tests secondary sort tie-breaker)
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (3, 1, 'USD', 'NA', 'Gamma', '555-0101', 'a@test.com', NULL);
+
+-- Group 4: Phone '555-0101', Email NULL (Tests NULLS LAST on secondary sort column)
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (4, 1, 'USD', 'NA', 'Delta', '555-0101', NULL, NULL);
+
+-- Group 5: Phone NULL, Email 'b@test.com' (Tests NULL handling on primary sort column)
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (5, 1, 'USD', 'NA', 'Epsilon', NULL, 'b@test.com', NULL);
+
+-- Group 6: Phone NULL, Email NULL (Tests NULLS LAST when primary sort is also NULL)
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (6, 1, 'USD', 'NA', 'Zeta', NULL, NULL, NULL);
+
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (1, 'DIR', 1, 'S1', 'N1', 10.0, NULL);
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (2, 'DIR', 2, 'S2', 'N2', 20.0, NULL);
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (3, 'DIR', 3, 'S3', 'N3', 30.0, NULL);
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (4, 'DIR', 4, 'S4', 'N4', 40.0, NULL);
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (5, 'DIR', 5, 'S5', 'N5', 50.0, NULL);
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (6, 'DIR', 6, 'S6', 'N6', 60.0, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition mutations (e.g., LHS.workshop_group_id = RHS.service_id or LHS.address_id = RHS.workshop_group_id) and column swap/selection errors
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('10', '10 Downing', NULL, 'London', 'UK', NULL);
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('20', '20 Baker St', NULL, 'London', 'UK', NULL);
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Parent_Service_Type_Code", "Service_Type_Description") VALUES ('MIME', NULL, 'Mime Workshop');
+
+-- Workshop_Group_ID is 100, Address_ID is 10
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (100, 10, 'GBP', 'EU', 'Name_100', '999-100', 'email_100@uk.com', 'Other_100');
+
+-- Workshop_Group_ID is 200, Address_ID is 20
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (200, 20, 'GBP', 'EU', 'Name_200', '888-200', 'email_200@uk.com', 'Other_200');
+
+-- Workshop_Group_ID is 10, Address_ID is 20 (Traps join on LHS.address_id = RHS.workshop_group_id or LHS.workshop_group_id = RHS.service_id)
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Currency_Code", "Marketing_Region_Code", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES (10, 20, 'GBP', 'EU', 'Name_10', '777-010', 'email_10@uk.com', 'Other_10');
+
+-- Service_ID is 10, linked to Workshop_Group_ID 100 (If mutated to join on LHS.workshop_group_id = RHS.service_id, matches Group 10 instead of Group 100)
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Description", "Product_Name", "Product_Price", "Other_Product_Service_Details") VALUES (10, 'MIME', 100, 'ProdDesc_10', 'ProdName_10', 99.99, 'Details_10');
+```

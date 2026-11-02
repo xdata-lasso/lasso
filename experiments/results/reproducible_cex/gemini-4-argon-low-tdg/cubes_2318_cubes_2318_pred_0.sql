@@ -1,0 +1,47 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("Customer_ID" INTEGER PRIMARY KEY, "Customer_Details" TEXT(255));
+
+CREATE TABLE "Staff" ("Staff_ID" INTEGER PRIMARY KEY, "Staff_Details" TEXT(255));
+
+CREATE TABLE "Policies" ("Policy_ID" INTEGER PRIMARY KEY, "Customer_ID" INTEGER, "Policy_Type_Code" TEXT(15), "Start_Date" DATETIME, "End_Date" DATETIME, FOREIGN KEY ("Customer_ID") REFERENCES "Customers" ("Customer_ID"));
+
+CREATE TABLE "Claim_Headers" ("Claim_Header_ID" INTEGER PRIMARY KEY, "Policy_ID" INTEGER, "Claim_Status_Code" TEXT(15), "Claim_Type_Code" TEXT(15), "Date_of_Claim" DATETIME, "Date_of_Settlement" DATETIME, "Amount_Claimed" REAL(20, 4), "Amount_Piad" REAL(20, 4), FOREIGN KEY ("Policy_ID") REFERENCES "Policies" ("Policy_ID"));
+
+CREATE TABLE "Claims_Documents" ("Claim_ID" INTEGER, "Document_Type_Code" TEXT(15), "Created_by_Staff_ID" INTEGER, "Created_Date" INTEGER, PRIMARY KEY ("Claim_ID", "Document_Type_Code"), FOREIGN KEY ("Created_by_Staff_ID") REFERENCES "Staff" ("Staff_ID"), FOREIGN KEY ("Claim_ID") REFERENCES "Claim_Headers" ("Claim_Header_ID"));
+
+CREATE TABLE "Claims_Processing_Stages" ("Claim_Stage_ID" INTEGER PRIMARY KEY, "Next_Claim_Stage_ID" INTEGER, "Claim_Status_Name" TEXT(255), "Claim_Status_Description" TEXT(255));
+
+CREATE TABLE "Claims_Processing" ("Claim_Processing_ID" INTEGER PRIMARY KEY, "Staff_ID" INTEGER, "Claim_ID" INTEGER, "Claim_Outcome_Code" TEXT(15), "Claim_Stage_ID" INTEGER, FOREIGN KEY ("Staff_ID") REFERENCES "Staff" ("Staff_ID"), FOREIGN KEY ("Claim_ID") REFERENCES "Claim_Headers" ("Claim_Header_ID"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 3
+-- Tests duplicate Customer_Details across distinct Customer_IDs (kills DISTINCT / GROUP BY / EXCEPT mutations) and NULL sorting.
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Duplicate Name');
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (2, 'Duplicate Name');
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (3, 'Duplicate Name');
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (4, NULL);
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (5, 'Unique Name');
+INSERT INTO "Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 3, 'AUTO', '2023-01-01', '2023-12-31');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT customer_details FROM (SELECT * FROM customers AS LHS WHERE NOT EXISTS(SELECT 1 FROM policies AS RHS WHERE (LHS.customer_id = RHS.customer_id))) ORDER BY customer_details;
+
+/*
+Gold Result:
+(None,)
+('Duplicate Name',)
+('Duplicate Name',)
+('Unique Name',)
+*/
+
+-- Prediction Query
+SELECT customer_details FROM customers EXCEPT SELECT t2.customer_details FROM policies AS t1 JOIN customers AS t2 ON t1.customer_id = t2.customer_id;
+
+/*
+Prediction Result:
+(None,)
+('Unique Name',)
+*/

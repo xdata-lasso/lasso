@@ -1,0 +1,91 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT keyword (duplicate 'c' elements connected to '#' bonds)
+-- 2. WHERE clause filtering (bond_type '#' vs '-' vs '=' vs NULL)
+-- 3. JOIN condition on connected: T2.atom_id vs T2.atom_id2 (asymmetric connections where atom_id has 'c' and atom_id2 has 'n')
+-- 4. Unconnected atoms and bonds (LEFT/RIGHT JOIN mutants)
+-- 5. Incorrect join paths (e.g., joining atom and bond via molecule_id instead of connected table)
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', 'M2', 's');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A6', 'M1', 'p');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'M2', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'M2', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B6', 'M2', '#');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A3', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A4', 'A1', 'B3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A5', 'A1', 'B4');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A5', 'A2', 'B5');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A4', 'A5', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Empty result set when no bond has bond_type = '#' (kills mutants without WHERE or with wrong operator like != '#')
+-- 2. Handling of NULL values in element and bond_type
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', NULL);
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '=');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A1', 'B2');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple distinct elements returned ('n', 'o', NULL)
+-- 2. NULL molecule_id in atom and bond (kills mutants that unnecessarily inner join on molecule table or T1.molecule_id = T3.molecule_id)
+-- 3. Cross-molecule connection in `connected` table (T1.molecule_id != T3.molecule_id)
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M2', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', NULL, 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M2', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'M2', 'cl');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', NULL, '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M2', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'M2', '#');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A4', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A4', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A4', 'B3');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Single atom connected to multiple '#' bonds (kills missing DISTINCT when duplicate comes from same atom_id rather than two atoms with same element)
+-- 2. Mutants that use GROUP BY T3.atom_id instead of DISTINCT T3.element
+INSERT INTO molecule (molecule_id, label) VALUES ('M1', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'M1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'M1', 'h');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M1', '#');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'M1', '#');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A3', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A3', 'B1');
+```

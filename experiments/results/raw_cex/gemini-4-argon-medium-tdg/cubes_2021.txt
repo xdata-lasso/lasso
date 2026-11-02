@@ -1,0 +1,55 @@
+```sql
+-- DATASET 1
+-- Tests WHERE clause filtering ('Ludie' exclusion), COUNT(DISTINCT first_name) vs COUNT(first_name) or COUNT(*), outer SELECT DISTINCT, and ORDER BY ascending vs insertion order.
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '100 Main St', 'Metropolis', '10001', 'NY', 'USA');
+
+-- Group 1: ('2023-01-01', 'Ace') -> 'Ludie' excluded, 'John' duplicated, 'Jane' distinct. COUNT(DISTINCT first_name) = 2.
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (1, 1, 'Ace', 'John', 'A', 'Doe', '1980-01-01', '2020-01-01', '2023-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (2, 1, 'Ace', 'John', 'B', 'Smith', '1981-01-01', '2020-01-01', '2023-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (3, 1, 'Ace', 'Jane', 'C', 'Doe', '1982-01-01', '2020-01-01', '2023-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (4, 1, 'Ace', 'Ludie', 'D', 'Brown', '1983-01-01', '2020-01-01', '2023-01-01');
+
+-- Group 2: ('2023-02-01', 'Flash') -> COUNT(DISTINCT first_name) = 1. Inserted after Group 1 to test ORDER BY (1 before 2).
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (5, 1, 'Flash', 'Alice', 'E', 'Green', '1984-01-01', '2020-01-01', '2023-02-01');
+
+-- Group 3: ('2023-03-01', 'Doc') -> COUNT(DISTINCT first_name) = 1. Tests outer SELECT DISTINCT (deduplicating the 1s from Group 2 and Group 3).
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (6, 1, 'Doc', 'Bob', 'F', 'White', '1985-01-01', '2020-01-01', '2023-03-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests composite GROUP BY (date_left_staff, nickname). Ensures mutations dropping either grouping column produce different counts.
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '200 Oak St', 'Gotham', '20001', 'NJ', 'USA');
+
+-- Same date_left_staff ('2022-05-05'), different nicknames ('Alpha', 'Beta'). Each group has 1 distinct first_name, but combined by date only they have 2.
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (1, 1, 'Alpha', 'Tom', 'M', 'Hanks', '1970-01-01', '2015-01-01', '2022-05-05');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (2, 1, 'Beta', 'Jerry', 'N', 'Lewis', '1971-01-01', '2015-01-01', '2022-05-05');
+
+-- Different date_left_staff ('2022-06-06'), same nickname as first row ('Alpha'). Each group has 1 distinct first_name, but combined by nickname only they have 2.
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (3, 1, 'Alpha', 'Spike', 'O', 'Lee', '1972-01-01', '2015-01-01', '2022-06-06');
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary values for WHERE ("first_name" <> 'Ludie') such as '<', '>', '=', case sensitivity ('ludie'), and NULLs in first_name, nickname, and date_left_staff.
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '300 Pine St', 'Star City', '30001', 'CA', 'USA');
+
+-- Group 1: (NULL, NULL) with 3 distinct first_names ('Aaron' < 'Ludie', 'Zack' > 'Ludie', 'ludie' lowercase).
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (1, 1, NULL, 'Aaron', 'P', 'Paul', '1990-01-01', '2021-01-01', NULL);
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (2, 1, NULL, 'Zack', 'Q', 'Snyder', '1991-01-01', '2021-01-01', NULL);
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (3, 1, NULL, 'ludie', 'R', 'King', '1992-01-01', '2021-01-01', NULL);
+
+-- Excluded by WHERE: first_name is NULL (NULL <> 'Ludie' is UNKNOWN) or 'Ludie'.
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (4, 1, 'Ghost', NULL, 'S', 'Rider', '1993-01-01', '2021-01-01', '2023-09-09');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (5, 1, 'OnlyLudie', 'Ludie', 'T', 'Solo', '1994-01-01', '2021-01-01', '2023-10-10');
+```
+
+```sql
+-- DATASET 4
+-- Tests mutations that confuse columns (e.g., counting middle_name or last_name instead of first_name) or include unnecessary INNER JOINs with Lessons or Addresses.
+-- Staff here have NULL staff_address_id and no Lessons, so an INNER JOIN with Addresses or Lessons will return empty results.
+-- Also, middle_name and last_name are identical ('Same') while first_name has 3 distinct values ('F1', 'F2', 'F3').
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (1, NULL, 'Maverick', 'F1', 'Same', 'Same', '1985-05-05', '2018-01-01', '2022-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (2, NULL, 'Maverick', 'F2', 'Same', 'Same', '1986-05-05', '2018-01-01', '2022-01-01');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "nickname", "first_name", "middle_name", "last_name", "date_of_birth", "date_joined_staff", "date_left_staff") VALUES (3, NULL, 'Maverick', 'F3', 'Same', 'Same', '1987-05-05', '2018-01-01', '2022-01-01');
+```

@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Products with identical names (GROUP BY product_id, product_name vs GROUP BY product_name)
+-- 2. Secondary sorting on count___ when product_name ties
+-- 3. Multiple order_items for the same (order_id, product_id) vs across different orders (COUNT(*) vs COUNT(DISTINCT order_id))
+-- 4. Products and Orders with 0 order_items (INNER JOIN vs LEFT JOIN)
+-- 5. Unshipped items (refutes mutants joining Shipments or Shipment_Items)
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Alice', 'Regular');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Bob', 'VIP');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (10, 1, 'Shipped', '2023-01-01 10:00:00', 'First Order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (20, 2, 'Pending', '2023-01-02 11:00:00', 'Second Order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (30, 1, 'Cancelled', '2023-01-03 12:00:00', 'Empty Order');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (100, 'Widget', 'Blue Widget');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (200, 'Widget', 'Red Widget');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (300, 'Gadget', 'Green Gadget');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (400, 'Unused', 'Never Ordered');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1001, 100, 10, 'Delivered', 'Batch 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1002, 100, 10, 'Delivered', 'Batch 2');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1003, 100, 20, 'Pending', 'Batch 3');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1004, 200, 10, 'Delivered', 'Single');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1005, 300, 20, 'Pending', 'G1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1006, 300, 20, 'Pending', 'G2');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Orphaned/NULL foreign keys in Order_Items (order_id IS NULL or product_id IS NULL) to test INNER JOIN on both keys vs omitting one join condition
+-- 2. NULL values in product_name (tests COUNT(*) vs COUNT(product_name), GROUP BY NULL handling, and ORDER BY NULLS FIRST/LAST behavior)
+-- 3. NULL values in non-key columns (customer_id, product_details, order_item_details) to kill mutants using COUNT(col) instead of COUNT(*)
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Charlie', NULL);
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, NULL, NULL, NULL, NULL);
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, 1, 'OK', '2023-05-01', 'Details');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, NULL, NULL);
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (2, 'Alpha', NULL);
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (3, 'Beta', 'Has Details');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 1, 1, NULL, NULL);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 1, 2, NULL, NULL);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (3, 2, 1, 'OK', NULL);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (4, 3, NULL, 'OrphanOrd', 'No Order ID');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (5, NULL, 2, 'OrphanProd', 'No Product ID');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Accidental cross-column join mutations (e.g. order_id = product_id or order_item_id = product_id) by using overlapping integer IDs across tables
+-- 2. Multiple shipments per order_item (kills mutants that unnecessarily join Shipments/Shipment_Items and inflate COUNT(*))
+-- 3. Order of output rows (ASC vs DESC on product_name and count___)
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Cust1', 'D1');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Cust2', 'D2');
+
+INSERT INTO "Invoices" ("invoice_number", "invoice_date", "invoice_details") VALUES (1, '2023-01-10', 'Inv1');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (1, 2, 'Open', '2023-01-01', 'Ord1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (2, 1, 'Closed', '2023-01-02', 'Ord2');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'Zebra', 'P1');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (2, 'Apple', 'P2');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (3, 'Mango', 'P3');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 2, 1, 'Shipped', 'OI1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 1, 2, 'Shipped', 'OI2');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (3, 1, 1, 'Shipped', 'OI3');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (4, 1, 2, 'Shipped', 'OI4');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (5, 3, 2, 'Shipped', 'OI5');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (6, 3, 1, 'Shipped', 'OI6');
+
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (1, 1, 1, 'TRK1', '2023-01-05', 'S1');
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (2, 1, 1, 'TRK2', '2023-01-06', 'S2');
+
+INSERT INTO "Shipment_Items" ("shipment_id", "order_item_id") VALUES (1, 1);
+INSERT INTO "Shipment_Items" ("shipment_id", "order_item_id") VALUES (2, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. DISTINCT elimination mistakes in outer SELECT (two distinct products with the exact same product_name AND the exact same item count)
+-- 2. Ties in both product_name and count___
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (10, 'TestCustomer', 'Details');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (100, 10, 'Placed', '2023-06-01', 'Order 100');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'DuplicateNameSameCount', 'Version 1');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (2, 'DuplicateNameSameCount', 'Version 2');
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (3, 'UniqueProduct', 'Version 1');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1, 1, 100, 'Active', 'Item 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (2, 1, 100, 'Active', 'Item 2');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (3, 2, 100, 'Active', 'Item 3');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (4, 2, 100, 'Active', 'Item 4');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (5, 3, 100, 'Active', 'Item 5');
+```

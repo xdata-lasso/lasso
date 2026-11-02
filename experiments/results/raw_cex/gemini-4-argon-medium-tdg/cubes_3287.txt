@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests basic INNER JOIN, GROUP BY (followers, name), filtering n <> 1, and ORDER BY (name, count___).
+-- Includes users with 0 tweets (to test INNER vs LEFT JOIN), 1 tweet (to test n <> 1 boundary), and >1 tweets.
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (1, 'Alice', 'alice@example.com', 1, 10);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (2, 'Bob', 'bob@example.com', 1, 20);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (3, 'Charlie', 'charlie@example.com', 2, 30);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (4, 'Alice', 'alice2@example.com', 2, 50);
+
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (101, 1, 'Hello world', '2023-01-01 10:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (102, 2, 'Tweet 1', '2023-01-01 11:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (103, 2, 'Tweet 2', '2023-01-01 12:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (104, 4, 'Alice 2 Tweet 1', '2023-01-01 13:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (105, 4, 'Alice 2 Tweet 2', '2023-01-01 14:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (106, 4, 'Alice 2 Tweet 3', '2023-01-01 15:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests composite GROUP BY (followers, name) vs grouping by uid or name alone.
+-- Two distinct users with the exact same name and followers, each having 1 tweet.
+-- Together they group into (followers=100, name='David') with n=2, which passes (n <> 1).
+-- Also tests two users with the same name but different followers to check ORDER BY count___ tie-breaking.
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (1, 'David', 'd1@example.com', 1, 100);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (2, 'David', 'd2@example.com', 2, 100);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (3, 'David', 'd3@example.com', 3, 200);
+
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (201, 1, 'D1 tweet', '2023-02-01 10:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (202, 2, 'D2 tweet', '2023-02-01 11:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (203, 3, 'D3 tweet 1', '2023-02-01 12:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (204, 3, 'D3 tweet 2', '2023-02-01 13:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (205, 3, 'D3 tweet 3', '2023-02-01 14:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in GROUP BY, COUNT(*), and ORDER BY, as well as orphan tweets (uid IS NULL) and duplicate tweet text.
+-- Kills mutants using COUNT(name), COUNT(followers), COUNT(text), COUNT(DISTINCT text), or RIGHT/FULL JOINs.
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (1, NULL, NULL, NULL, NULL);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (2, 'Eve', NULL, 1, NULL);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (3, NULL, 'nullname@example.com', 1, 50);
+
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (301, 1, NULL, NULL);
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (302, 1, NULL, NULL);
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (303, 2, 'Same text', '2023-03-01 10:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (304, 2, 'Same text', '2023-03-01 10:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (305, 3, 'T1', '2023-03-01 11:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (306, 3, 'T2', '2023-03-01 12:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (307, 3, 'T3', '2023-03-01 13:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (308, NULL, 'Orphan 1', '2023-03-01 14:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (309, NULL, 'Orphan 2', '2023-03-01 15:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests the absence of DISTINCT in the outer SELECT, and ensures the follows table does not interfere if a mutant joins it.
+-- Two groups with the SAME name ('Frank') and SAME count (2), but DIFFERENT followers (10 vs 20).
+-- The query must output ('Frank', 2) twice. A mutant with SELECT DISTINCT would output it once.
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (1, 'Frank', 'f1@example.com', 1, 10);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (2, 'Frank', 'f2@example.com', 1, 20);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (3, 'Grace', 'g@example.com', 2, 10);
+
+INSERT INTO "follows" ("f1", "f2") VALUES (1, 2);
+INSERT INTO "follows" ("f1", "f2") VALUES (2, 3);
+INSERT INTO "follows" ("f1", "f2") VALUES (3, 1);
+
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (401, 1, 'F1_1', '2023-04-01 10:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (402, 1, 'F1_2', '2023-04-01 11:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (403, 2, 'F2_1', '2023-04-01 12:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (404, 2, 'F2_2', '2023-04-01 13:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (405, 3, 'G_1', '2023-04-01 14:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (406, 3, 'G_2', '2023-04-01 15:00:00');
+```
+
+```sql
+-- DATASET 5
+-- Tests wrong join conditions (e.g., joining on tweets.id = user_profiles.uid or tweets.uid = user_profiles.partitionid or followers).
+-- Also tests ordering with multiple names and counts.
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (10, 'Zack', 'z@example.com', 1, 100);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (20, 'Aaron', 'a@example.com', 2, 200);
+INSERT INTO "user_profiles" ("uid", "name", "email", "partitionid", "followers") VALUES (1, 'WrongJoinUser', 'w@example.com', 10, 10);
+
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (1, 10, 'Z1', '2023-05-01 10:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (2, 10, 'Z2', '2023-05-01 11:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (3, 10, 'Z3', '2023-05-01 12:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (10, 20, 'A1', '2023-05-01 13:00:00');
+INSERT INTO "tweets" ("id", "uid", "text", "createdate") VALUES (20, 20, 'A2', '2023-05-01 14:00:00');
+```

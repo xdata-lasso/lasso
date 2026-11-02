@@ -1,0 +1,45 @@
+-- Schema DDL
+CREATE TABLE "Visits" ("visit_id" INTEGER, "customer_id" INTEGER, UNIQUE ("visit_id"));
+
+CREATE TABLE "Transactions" ("transaction_id" INTEGER, "visit_id" INTEGER, "amount" INTEGER, FOREIGN KEY ("visit_id") REFERENCES "Visits" ("visit_id"), UNIQUE ("transaction_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: visits --
+INSERT INTO "visits" ("visit_id", "customer_id") VALUES (1, -55602865);
+
+INSERT INTO "visits" ("visit_id", "customer_id") VALUES (-2147483647, -1022641847);
+
+INSERT INTO "visits" ("visit_id", "customer_id") VALUES (NULL, -1726781632);
+
+INSERT INTO "visits" ("visit_id", "customer_id") VALUES (NULL, 1);
+
+INSERT INTO "visits" ("visit_id", "customer_id") VALUES (2, 1);
+
+INSERT INTO "visits" ("visit_id", "customer_id") VALUES (3, 1);
+
+-- Inserting into table: transactions --
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (2, 1, -59984348);
+
+INSERT INTO "transactions" ("transaction_id", "visit_id", "amount") VALUES (3, 1, -664303813);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CUSTOMER_ID, COUNT(*) AS COUNT_NO_TRANS FROM VISITS WHERE NOT VISIT_ID IN (SELECT DISTINCT VISIT_ID FROM TRANSACTIONS) GROUP BY CUSTOMER_ID;
+
+/*
+Gold Result:
+(-1022641847, 1)
+(1, 2)
+*/
+
+-- Prediction Query
+WITH T AS (SELECT DISTINCT VISIT_ID FROM TRANSACTIONS), T1 AS (SELECT *, CASE WHEN VISIT_ID IN (SELECT VISIT_ID FROM T) THEN 0 ELSE 1 END AS IF_NO_TRANS FROM VISITS) SELECT CUSTOMER_ID, SUM(IF_NO_TRANS) AS COUNT_NO_TRANS FROM T1 GROUP BY 1 HAVING SUM(IF_NO_TRANS) > 0;
+
+/*
+Prediction Result:
+(-1726781632, 1)
+(-1022641847, 1)
+(1, 3)
+*/

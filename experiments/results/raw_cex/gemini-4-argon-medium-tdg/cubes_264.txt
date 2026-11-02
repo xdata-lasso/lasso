@@ -1,0 +1,72 @@
+```sql
+-- DATASET 1
+-- Tests standard aggregation, varying group sizes, unused templates (kills LEFT JOIN vs direct query), and paragraph fanning (kills unnecessary JOINs with Paragraphs)
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'T1', 1, '2020-01-01', '2025-01-01', 'Template 10');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (20, 'T1', 2, '2020-01-01', '2025-01-01', 'Template 20');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (30, 'T1', 1, '2020-01-01', '2025-01-01', 'Template 30 - Unused');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 20, 'Doc A', 'Desc A', 'Other A');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 10, 'Doc B', 'Desc B', 'Other B');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 20, 'Doc C', 'Desc C', 'Other C');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 20, 'Doc D', 'Desc D', 'Other D');
+
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (101, 2, 'Para 1', 'Details');
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (102, 2, 'Para 2', 'Details');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL Template_ID handling (kills COUNT(template_id) vs COUNT(*), and INNER JOIN Templates vs direct scan on Documents)
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2020-01-01', '2025-01-01', 'Template 1');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (10, 1, 'Doc 10', NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (20, NULL, 'Doc 20', 'No Template', NULL);
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (30, NULL, 'Doc 30', 'No Template 2', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests duplicate attribute values within the same group and across groups (kills COUNT(DISTINCT Document_Name) or COUNT(Document_Description) mutations, and verifies ORDER BY template_id ASC)
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T2', 'Type 2');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (5, 'T2', 1, '2021-01-01', '2022-01-01', 'Detail');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (15, 'T2', 1, '2021-01-01', '2022-01-01', 'Detail');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (25, 'T2', 1, '2021-01-01', '2022-01-01', 'Detail');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (101, 25, 'SameName', NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (102, 5, 'SameName', 'SameDesc', 'SameOther');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (103, 5, 'SameName', 'SameDesc', 'SameOther');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (104, 15, 'SameName', NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (105, 15, 'DiffName', NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (106, 15, 'SameName', 'Desc', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty Documents table while Templates table is populated (kills queries aggregating over Templates instead of Documents, or missing GROUP BY returning a single row with 0)
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2020-01-01', '2025-01-01', 'Template 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'T1', 1, '2020-01-01', '2025-01-01', 'Template 2');
+```
+
+```sql
+-- DATASET 5
+-- Tests inverse correlation between template_id and count___ (kills mutants that ORDER BY count___ first instead of template_id, or ORDER BY template_id DESC)
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (100, 'T1', 1, '2020-01-01', '2025-01-01', 'T100');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (200, 'T1', 1, '2020-01-01', '2025-01-01', 'T200');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (300, 'T1', 1, '2020-01-01', '2025-01-01', 'T300');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 100, 'D1', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 100, 'D2', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 100, 'D3', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (4, 200, 'D4', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (5, 200, 'D5', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (6, 300, 'D6', 'Desc', 'Other');
+```

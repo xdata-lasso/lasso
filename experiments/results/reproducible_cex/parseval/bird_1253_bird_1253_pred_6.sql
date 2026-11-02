@@ -1,0 +1,70 @@
+-- Schema DDL
+CREATE TABLE Examination (ID INTEGER NULL, "Examination Date" DATE NULL, "aCL IgG" REAL NULL, "aCL IgM" REAL NULL, ANA INTEGER NULL, "ANA Pattern" TEXT NULL, "aCL IgA" INTEGER NULL, Diagnosis TEXT NULL, KCT TEXT NULL, RVVT TEXT NULL, LAC TEXT NULL, Symptoms TEXT NULL, Thrombosis INTEGER NULL, FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE Patient (ID INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, SEX TEXT NULL, Birthday DATE NULL, Description DATE NULL, "First Date" DATE NULL, Admission TEXT NULL, Diagnosis TEXT NULL);
+
+CREATE TABLE Laboratory (ID INTEGER DEFAULT 0 NOT NULL, Date DATE DEFAULT '0000-00-00' NOT NULL, GOT INTEGER NULL, GPT INTEGER NULL, LDH INTEGER NULL, ALP INTEGER NULL, TP REAL NULL, ALB REAL NULL, UA REAL NULL, UN INTEGER NULL, CRE REAL NULL, "T-BIL" REAL NULL, "T-CHO" INTEGER NULL, TG INTEGER NULL, CPK INTEGER NULL, GLU INTEGER NULL, WBC REAL NULL, RBC REAL NULL, HGB REAL NULL, HCT REAL NULL, PLT INTEGER NULL, PT REAL NULL, APTT INTEGER NULL, FG REAL NULL, PIC INTEGER NULL, TAT INTEGER NULL, TAT2 INTEGER NULL, "U-PRO" TEXT NULL, IGG INTEGER NULL, IGA INTEGER NULL, IGM INTEGER NULL, CRP TEXT NULL, RA TEXT NULL, RF TEXT NULL, C3 INTEGER NULL, C4 INTEGER NULL, RNP TEXT NULL, SM TEXT NULL, SC170 TEXT NULL, SSA TEXT NULL, SSB TEXT NULL, CENTROMEA TEXT NULL, DNA TEXT NULL, "DNA-II" INTEGER NULL, PRIMARY KEY (ID, Date), FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: patient --
+INSERT INTO "patient" ("id", "sex", "birthday", "description", "first date", "admission", "diagnosis") VALUES (1, '5k5swwqcgs', '2021-12-04', '2022-04-27', '2020-06-08', 'pgu7vfe4', 'pat_c0f4ff');
+
+INSERT INTO "patient" ("id", "sex", "birthday", "description", "first date", "admission", "diagnosis") VALUES (2, '9rljsl0b4', '2024-04-25', '2022-09-10', '2025-07-21', 'i2rkf', 'pat_c0f4ff');
+
+INSERT INTO "patient" ("id", "sex", "birthday", "description", "first date", "admission", "diagnosis") VALUES (3, 'vqx58pz0f', '2021-08-12', '2020-11-04', '2021-02-03', 'd21vy9uxj4hw', 'pat_c0f4ff');
+
+INSERT INTO "patient" ("id", "sex", "birthday", "description", "first date", "admission", "diagnosis") VALUES (2438, 'q4301jh', '2025-03-06', '2020-08-23', '2020-11-02', '8c68', 'pat_4b4589');
+
+INSERT INTO "patient" ("id", "sex", "birthday", "description", "first date", "admission", "diagnosis") VALUES (2439, 'rhizgk1yoey', '2022-07-24', '2025-10-08', '2022-02-04', 'hdt6fuq', 'pat_4b4589');
+
+INSERT INTO "patient" ("id", "sex", "birthday", "description", "first date", "admission", "diagnosis") VALUES (2437, 'xuzkb52', '2024-11-18', '2021-03-16', '2023-11-09', 'las6', 'elboeowii1');
+
+INSERT INTO "patient" ("id", "sex", "birthday", "description", "first date", "admission", "diagnosis") VALUES (-2147483642, 'u2g', '2021-06-22', '2022-12-26', '2025-02-22', 'vwq51oa', 'pat_4b4589');
+
+INSERT INTO "patient" ("id", "sex", "birthday", "description", "first date", "admission", "diagnosis") VALUES (-1, 'sb3uoi1p', '2020-02-07', '2023-09-20', '2020-06-16', 'wnyqro', 'uirlrpouit');
+
+INSERT INTO "patient" ("id", "sex", "birthday", "description", "first date", "admission", "diagnosis") VALUES (0, 'ekhllb', '2023-11-28', '2023-09-30', '2020-08-27', 'u5v0', 'pat_c0f4ff');
+
+-- Inserting into table: laboratory --
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (1, '2024-06-15', 1160656988, -992890117, 1914020640, 1268590800, 378.476082, 783.93201, 718.397869, -1670923962, 663.049759, 711.020062, 1908028688, 2122220075, 1072996612, 13244799, 320.851235, 113.643485, 855.355181, 179.378884, -841692980, 182.319045, -1257178728, 787.938887, 2087640001, 907682809, 2026480202, 'ie5', -1209887326, 80, -1399556171, 'a9000t5c4eci', 'gce376nium52', 'zbuo4nrqrof', 373262291, -472966518, 's5bbp02e', 'tliqa1', 'ryytoo3', '9hl7', 'klex14ji', '7zwau2dwyr', '13pyu', 176380444);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (2, '2024-06-15', -2050247126, -736979194, 2103044118, -1642259219, 109.083092, 802.414724, 58.749749, 1968874827, 345.35543, 250.856497, 555413010, 722884590, 580968159, -1245312912, 866.804244, 269.734861, 304.188492, 415.830002, 401805964, 154.065416, -1255130038, 89.552801, 806170397, 513454646, -688216274, 'gcb98ozk3z', 1686459626, 80, -1554531873, 'yrkn6vck6ah0', '8j', 'wwlq7', 1255343543, -541746689, '7ryfdrz16n', 'jja', '5dh', 'ogrgjd8y', 't1afgog', 'itsj3', 'y', -598313376);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (2438, '1970-01-01', -683007527, 2035306060, 1523825314, 2078438287, 313.653498, 489.044661, 650.242697, 765724008, 528.552305, 243.919919, 87529806, -1957268147, -1928431425, 1303877941, 695.452114, 200.834692, 102.360106, 501.846153, -1744557630, 935.463334, 820970595, 537.702873, 1421303999, -1488156735, -1858644047, 'o22', 2004147439, 80, -691774480, 'ptt', '6b', 'ou5z', 1691780814, 1944978593, 'bfkfoacd', '7z2zezj', '7wgx', '5', 'sxcmr0o', 'ztdgj5i3lq5l', 'pim5', -1125548818);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (2438, '2024-06-15', 1497321728, -95808609, -244633520, 418247369, 145.067008, 185.260952, 462.366429, 1919033056, 904.028668, 167.474325, -761353513, 362376128, -1311735207, -229022515, 76.823924, 572.833475, 533.30598, 173.533224, 2123471885, 870.801677, -526633767, 823.908713, 448935289, 458835042, 924693315, 'kv42q7', -2060082151, 81, -1122409769, 'u', '3auvm', 'rpd', -609553675, 989018473, 'chn9mo70', 'a9n0jxfo', 'ws', 'do2zobb', 'q0k32od', 'cl5ams', 'orlwyngc1dj', 211603887);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (2437, '1970-01-01', -457369423, 1557188093, 548968280, -1552469358, 515.131026, 501.709636, 259.245161, 1244279905, 680.281941, 174.811686, 412199481, 727608179, 456034296, -628433041, 555.75468, 743.240647, 725.010524, 19.988339, -850941333, 602.319566, -1216952047, 393.386546, -2140923099, -841516418, 152478847, '5wcgumbc3td', 1964331395, 80, -1943814113, '9603vz', 'xw1rxe9yfk7', 'k162n', -516345261, -1191116453, 'u06dza', '5rmkio18', 'i2hy0', '8ftp6ewtqx', 'njabym', 'n2mfx7h', '3p6sto1c', 170892881);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (2437, '2024-06-15', -1643065004, -1438303683, -515419519, -1884062674, 670.297308, 376.149796, 425.077908, 357443379, 194.959809, 99.467804, -1502591405, -2008781089, 1122899168, -161108900, 431.027804, 741.721165, 328.806478, 643.031153, 306260487, 771.998599, -499203870, 851.486083, 1432875972, 1032339628, 608093726, 'p', -845136979, 81, -1042976410, 'm5', 'wlic7dn2np', '90xdmsqt', -1685482179, -1391541536, 'qb9i9f', 'ccukjq1q', 'ik1yhb', '8hlst1p', 'qomiztvb6m', 'iz78aqql', 'd8ftb8', 1183069552);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (2438, '1969-12-31', -1057355067, -1004098188, 316163741, -752650834, 997.078987, 952.343165, 821.223506, 136003842, 154.006653, 537.801391, 1138926079, -609840352, 486475144, -679850352, 128.618112, 289.561925, 665.267438, 320.313177, 1205111943, 840.394555, -459075802, 157.137252, 1384307628, 1388796595, -881085433, '7', 438933248, 80, 180947503, 'dmdbdh', '6j47n', 'ar50hs', -1515201134, -2121944911, 'xdpunmw', 'wx', 'rlawk', '14r5dqt', 'mg97a', 'z2o20', 'pj6ddlysu6ip', -1664440372);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (-1, '1969-12-31', 1589523321, 586437419, -711121679, 1977502251, 245.2143, 440.050658, 945.48391, -2061050846, 940.97048, 145.282125, -364462246, 982289268, 493701528, 461842658, 463.478104, 654.86752, 604.894481, 920.272852, -270436559, 367.411929, 1498496406, 242.875231, 370054768, -1837449583, 1299933788, 'gckqwtsr54', -1042838119, 80, 1763821445, 'ktb1d2nzg3rj', 'wns', '47j2ja8dccy3', 1560573473, 472597763, 'wq49yrnxs6d', 'dxdo2v', '7t3gvplj9f', 'vuu', '7k10', 'z2my1ogyv1r', 'ez', -560601844);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (-1, '2024-06-15', 541973266, -1970162044, 324939521, -1131290294, 707.803422, 652.131381, 526.310762, 139907579, 831.213212, 133.24157, 914471233, -1813651479, -1353862813, -1839279753, 659.940979, 427.779746, 44.023651, 516.814345, -392891099, 856.003578, 1735624376, 177.152013, -1665891229, -929713613, -1239290359, 'd2', -1066046077, 81, 972991637, 'u331spxpw', '0bgwkxgi', 'nlj6idmp61', 1530380378, 1069076646, 'ak162oca', 'je', 'vx', 'xlu49ku', 'o', '8c', 'e', 1557266002);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (0, '1970-01-01', -1846517698, 2117356203, 824044840, -214587907, 437.075403, 447.62276, 562.426662, -54963162, 752.597021, 74.371479, 765955451, 1372042958, 1147974039, -220327705, 419.701122, 444.074683, 557.815176, 374.873691, 2011754567, 812.879619, 1755688363, 298.019011, 1177967285, -2001463367, -2003500453, 'perxa61sjv', -1265768652, 80, 2081562124, 'd', 'okuez', 'ctehia3cmvb', -1077762203, -1798310553, 'or1esk', 'f9q82', 'g01hu', 'j7f', '8kqhiu5gm8', 'xb', 'qjlsawsp', -99415515);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (0, '2024-06-15', -635922435, -150306637, -1480511510, -189319798, 754.156177, 525.703896, 488.0989, -2018922963, 880.544711, 454.083891, 2089151689, -561387633, -1496507520, 2062713020, 595.916196, 98.242485, 320.34146, 156.481026, 1709325128, 493.134224, -1767802623, 436.070523, 143843552, 1085074663, -1819463450, 'f', 1176294340, 81, -1429883874, 'e6', 'ltut6', 'lu2cel8mhfc', -1550947002, 858757143, 'enii0fmb', 'z5', 'qxs2', 'xh888y1k2', '53sb59ls1e', 'hn1mdaqqhy', 'zsnp64h', -1324600306);
+
+INSERT INTO "laboratory" ("id", "date", "got", "gpt", "ldh", "alp", "tp", "alb", "ua", "un", "cre", "t-bil", "t-cho", "tg", "cpk", "glu", "wbc", "rbc", "hgb", "hct", "plt", "pt", "aptt", "fg", "pic", "tat", "tat2", "u-pro", "igg", "iga", "igm", "crp", "ra", "rf", "c3", "c4", "rnp", "sm", "sc170", "ssa", "ssb", "centromea", "dna", "dna-ii") VALUES (-1, '1970-01-01', -1250452845, -1301565530, -973411766, 668449456, 16.251399, 815.243372, 162.611398, -2076821826, 117.191065, 931.120575, 1130223592, -616998913, 1022316699, -1519375860, 712.020024, 174.360047, 306.888303, 700.3372, 1297861259, 390.712513, 916632486, 388.365694, 1149956627, -993786269, -1020677670, 'na38gfxswb2d', 1823879859, 80, -1318060436, 'db7otp', '5qo1k4c6gwn', 'kd4kc3iikaxz', 1008864713, 1709290125, 'sp', 'gobb6nrn5', 'jphybn', 'a', 'vhvyx8s', 'r', 'fs3qn0b', -1500616);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT patientData.Diagnosis FROM Patient AS patientData INNER JOIN Laboratory AS labData ON patientData.ID = labData.ID WHERE labData.IGA BETWEEN 80 AND 500 ORDER BY labData.IGA DESC, patientData.id NULLS LAST, labData.id NULLS LAST, labData.date NULLS LAST LIMIT 1;
+
+/*
+Gold Result:
+('uirlrpouit',)
+*/
+
+-- Prediction Query
+SELECT Diagnosis FROM Patient WHERE ID = (SELECT ID FROM Laboratory WHERE IGA = (SELECT MAX(IGA) FROM Laboratory WHERE IGA BETWEEN 80 AND 500));
+
+/*
+Prediction Result:
+('pat_4b4589',)
+*/

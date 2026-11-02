@@ -1,0 +1,53 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Multiple rows tied for the maximum price (kills `ORDER BY Price DESC LIMIT 1` mutants).
+-- 2. Duplicate carriers at the maximum price (kills `SELECT DISTINCT` or `GROUP BY` mutants).
+-- 3. `ORDER BY carrier` sorting vs `Phone_ID`, `Name`, or `Memory_in_G` ordering.
+-- 4. Column confusion: another row has `Memory_in_G` or `Phone_ID` larger than the max `Price`, and `Carrier` / `Name` distinct values.
+-- 5. Unnecessary joins with `phone_market` (some max-price phones are not in `phone_market`, others have multiple market entries).
+-- 6. Presence of NULL in `Price`.
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (1, 'Zeta', 128, 'Verizon', 999.99);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (2, 'Alpha', 256, 'AT&T', 999.99);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (3, 'Beta', 64, 'Verizon', 999.99);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (4, 'Gamma', 2048, 'T-Mobile', 500.00);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (5, 'Delta', 512, 'Sprint', NULL);
+
+INSERT INTO "market" ("Market_ID", "District", "Num_of_employees", "Num_of_shops", "Ranking") VALUES (10, 'Central', 100, 20.0, 1);
+INSERT INTO "market" ("Market_ID", "District", "Num_of_employees", "Num_of_shops", "Ranking") VALUES (20, 'North', 50, 10.0, 2);
+
+INSERT INTO "phone_market" ("Market_ID", "Phone_ID", "Num_of_stock") VALUES (10, '1', 50);
+INSERT INTO "phone_market" ("Market_ID", "Phone_ID", "Num_of_stock") VALUES (20, '1', 30);
+INSERT INTO "phone_market" ("Market_ID", "Phone_ID", "Num_of_stock") VALUES (10, '4', 100);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Single unique maximum price (kills `MIN(price)`, `AVG(price)`, `SUM(price)`, `<`, `<=`, `!=` mutants).
+-- 2. Max price phone has a NULL `Carrier` and another max price phone has a non-NULL `Carrier` (tests NULL handling in projection and `ORDER BY`).
+-- 3. Negative and zero prices alongside positive prices.
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (10, 'PhoneA', 64, 'Sprint', 150.50);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (20, 'PhoneB', 128, NULL, 1200.00);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (30, 'PhoneC', 32, 'Boost', 1200.00);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (40, 'PhoneD', 512, 'Mint', 0.0);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (50, 'PhoneE', 16, 'Cricket', -10.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. All prices are negative (kills mutants using `price > 0` or `COALESCE(MAX(price), 0)` or `SUM(price)`).
+-- 2. Single row achieving the maximum price so that `LIMIT 1` mutants without `DISTINCT` are tested against ordering/filtering of a single result.
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (1, 'LowEnd', 8, 'Metro', -500.0);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (2, 'MidEnd', 16, 'Visible', -100.0);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (3, 'HighEnd', 32, 'USCellular', -250.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. All rows have `Price` as NULL (INNER JOIN `ON LHS.price = RHS.price` must return 0 rows, killing `IS NOT DISTINCT FROM` or `LEFT JOIN` or unfiltered `ORDER BY Price DESC LIMIT 1` mutants).
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (1, 'NullPhone1', 64, 'CarrierA', NULL);
+INSERT INTO "phone" ("Phone_ID", "Name", "Memory_in_G", "Carrier", "Price") VALUES (2, 'NullPhone2', 128, 'CarrierB', NULL);
+```

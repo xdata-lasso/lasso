@@ -1,0 +1,56 @@
+```sql
+-- DATASET 1
+-- Empty Rent_Arrears table (tests window function COUNT(*) OVER () returning 0 rows vs standard aggregate COUNT(*) returning 1 row with 0).
+-- Also populates other tables to catch wrong table reference mutants.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (1, 'Customer A');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (10, 1, 'SYS1');
+INSERT INTO "Council_Tax" ("council_tax_id", "cmi_cross_ref_id") VALUES (100, 10);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (200, 10);
+INSERT INTO "Benefits_Overpayments" ("council_tax_id", "cmi_cross_ref_id") VALUES (300, 10);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (400, 10);
+INSERT INTO "Electoral_Register" ("electoral_register_id", "cmi_cross_ref_id") VALUES (500, 10);
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows in Rent_Arrears with duplicate and NULL foreign keys (cmi_cross_ref_id).
+-- Tests:
+-- 1. Missing DISTINCT (would return multiple rows of 3 instead of a single row of 3).
+-- 2. COUNT(cmi_cross_ref_id) vs COUNT(*) (due to NULL).
+-- 3. COUNT(DISTINCT cmi_cross_ref_id) vs COUNT(*) (due to duplicates).
+-- 4. Partitioning or grouping by cmi_cross_ref_id.
+-- 5. Unnecessary INNER JOIN with CMI_Cross_References (drops the NULL row).
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (1, 'Customer A');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (10, 1, 'SYS1');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (20, 1, 'SYS2');
+INSERT INTO "Rent_Arrears" ("council_tax_id", "cmi_cross_ref_id") VALUES (1, 10);
+INSERT INTO "Rent_Arrears" ("council_tax_id", "cmi_cross_ref_id") VALUES (2, 10);
+INSERT INTO "Rent_Arrears" ("council_tax_id", "cmi_cross_ref_id") VALUES (3, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Single row in Rent_Arrears, different row counts in all other tables.
+-- Tests boundary case of 1 row and ensures no confusion with any other table in the schema.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (1, 'Customer A');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (2, 'Customer B');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (10, 1, 'SYS1');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (20, 2, 'SYS2');
+INSERT INTO "Rent_Arrears" ("council_tax_id", "cmi_cross_ref_id") VALUES (5, 10);
+INSERT INTO "Council_Tax" ("council_tax_id", "cmi_cross_ref_id") VALUES (1, 10);
+INSERT INTO "Council_Tax" ("council_tax_id", "cmi_cross_ref_id") VALUES (2, 20);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (1, 10);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (2, 10);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (3, 20);
+```
+
+```sql
+-- DATASET 4
+-- Multiple rows in Rent_Arrears with non-NULL distinct foreign keys, where parent CMI_Cross_References has NULL master_customer_id.
+-- Tests mutants that join through CMI_Cross_References to Customer_Master_Index, or aggregate over council_tax_id (SUM/AVG/MAX/MIN instead of COUNT).
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (100, 'Customer X');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (1, 100, 'SYS1');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (2, NULL, 'SYS2');
+INSERT INTO "Rent_Arrears" ("council_tax_id", "cmi_cross_ref_id") VALUES (10, 1);
+INSERT INTO "Rent_Arrears" ("council_tax_id", "cmi_cross_ref_id") VALUES (20, 2);
+```

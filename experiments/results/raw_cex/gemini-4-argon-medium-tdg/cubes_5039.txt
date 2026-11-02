@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests standard grouping with multiple products, ties for maximum count, and a lower count.
+-- Also tests confusion between Invoices and Order_Items / Invoice_Items / Products.
+-- Also tests COUNT(*) vs SUM(Order_Quantity).
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price") VALUES ('10', 'Prod A', 10.0);
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price") VALUES ('20', 'Prod B', 20.0);
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price") VALUES ('30', 'Prod C', 30.0);
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price") VALUES ('40', 'Prod D', 40.0);
+
+INSERT INTO "Customer_Orders" ("Order_ID", "Order_Date") VALUES (1, '2023-01-01');
+
+INSERT INTO "Order_Items" ("Order_Item_ID", "Product_ID", "Order_ID", "Order_Quantity") VALUES (1, 40, 1, '1');
+INSERT INTO "Order_Items" ("Order_Item_ID", "Product_ID", "Order_ID", "Order_Quantity") VALUES (2, 40, 1, '1');
+INSERT INTO "Order_Items" ("Order_Item_ID", "Product_ID", "Order_ID", "Order_Quantity") VALUES (3, 40, 1, '1');
+INSERT INTO "Order_Items" ("Order_Item_ID", "Product_ID", "Order_ID", "Order_Quantity") VALUES (4, 40, 1, '1');
+INSERT INTO "Order_Items" ("Order_Item_ID", "Product_ID", "Order_ID", "Order_Quantity") VALUES (5, 40, 1, '1');
+
+INSERT INTO "Invoices" ("Invoice_ID", "Order_ID", "Product_ID", "Order_Quantity", "Order_Item_ID") VALUES (1, 1, 10, '5', 1);
+INSERT INTO "Invoices" ("Invoice_ID", "Order_ID", "Product_ID", "Order_Quantity", "Order_Item_ID") VALUES (2, 1, 10, '5', 1);
+INSERT INTO "Invoices" ("Invoice_ID", "Order_ID", "Product_ID", "Order_Quantity", "Order_Item_ID") VALUES (3, 1, 10, '5', 2);
+
+INSERT INTO "Invoices" ("Invoice_ID", "Order_ID", "Product_ID", "Order_Quantity", "Order_Item_ID") VALUES (4, 1, 20, '2', 3);
+INSERT INTO "Invoices" ("Invoice_ID", "Order_ID", "Product_ID", "Order_Quantity", "Order_Item_ID") VALUES (5, 1, 20, '2', 4);
+INSERT INTO "Invoices" ("Invoice_ID", "Order_ID", "Product_ID", "Order_Quantity", "Order_Item_ID") VALUES (6, 1, 20, '2', 5);
+
+INSERT INTO "Invoices" ("Invoice_ID", "Order_ID", "Product_ID", "Order_Quantity", "Order_Item_ID") VALUES (7, 1, 30, '100', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Product_ID and nullable foreign keys (payment_method_code, Order_ID).
+-- NULL Product_ID has the highest row count (3 rows vs 2 rows for non-null Product_ID).
+-- Kills mutants using COUNT(Product_ID) instead of COUNT(*), WHERE Product_ID IS NOT NULL, or INNER JOIN on FKs.
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('CARD', 'Credit Card');
+INSERT INTO "Customer_Orders" ("Order_ID", "Order_Date") VALUES (100, '2023-02-01');
+
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity") VALUES (1, NULL, NULL, NULL, '1');
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity") VALUES (2, 'CARD', 100, NULL, '1');
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity") VALUES (3, NULL, 100, NULL, '1');
+
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity") VALUES (4, 'CARD', 100, 5, '10');
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity") VALUES (5, 'CARD', 100, 5, '10');
+```
+
+```sql
+-- DATASET 3
+-- Tests when NULL Product_ID is present (1 row) but is NOT the maximum group (Product 99 has 2 rows).
+-- Distinguishes COUNT(*) vs COUNT(Product_ID) when a mutant uses MIN(n) or fails to filter out the 0 count from NULL group.
+INSERT INTO "Invoices" ("Invoice_ID", "Product_ID", "Order_Quantity") VALUES (1, NULL, '1');
+INSERT INTO "Invoices" ("Invoice_ID", "Product_ID", "Order_Quantity") VALUES (2, 99, '1');
+INSERT INTO "Invoices" ("Invoice_ID", "Product_ID", "Order_Quantity") VALUES (3, 99, '1');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty Invoices table while other tables are populated.
+-- Reference query returns 0 rows (due to GROUP BY on empty table), whereas SELECT MAX(...) without GROUP BY returns 1 row with NULL.
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price") VALUES ('1', 'Solo Product', 9.99);
+INSERT INTO "Customer_Orders" ("Order_ID", "Order_Date") VALUES (1, '2023-01-01');
+INSERT INTO "Order_Items" ("Order_Item_ID", "Product_ID", "Order_ID", "Order_Quantity") VALUES (1, 1, 1, '5');
+```
+
+```sql
+-- DATASET 5
+-- Tests confusion between Invoice_Items and Invoices.
+-- Populates full hierarchy down to Invoice_Items where Invoice_Items has a higher count (4) than Invoices (1).
+INSERT INTO "Addresses" ("Address_ID", "City_Town") VALUES ('1', 'London');
+INSERT INTO "Clients" ("Client_ID", "Address_ID", "Customer_Name") VALUES (1, 1, 'Client A');
+INSERT INTO "Drama_Workshop_Groups" ("Workshop_Group_ID", "Address_ID", "Store_Name") VALUES (1, 1, 'Workshop A');
+INSERT INTO "Ref_Service_Types" ("Service_Type_Code", "Service_Type_Description") VALUES ('SVC1', 'Service 1');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code", "Workshop_Group_ID", "Product_Name") VALUES (500, 'SVC1', 1, 'Stage Service');
+INSERT INTO "Bookings" ("Booking_ID", "Workshop_Group_ID", "Customer_ID") VALUES (10, '1', 1);
+INSERT INTO "Bookings_Services" ("Order_ID", "Product_ID") VALUES (10, 500);
+
+INSERT INTO "Products" ("Product_ID", "Product_Name") VALUES ('500', 'Product 500');
+INSERT INTO "Customer_Orders" ("Order_ID", "Order_Date") VALUES (10, '2023-03-01');
+INSERT INTO "Order_Items" ("Order_Item_ID", "Product_ID", "Order_ID") VALUES (1, 500, 10);
+
+INSERT INTO "Invoices" ("Invoice_ID", "Order_ID", "Product_ID", "Order_Item_ID") VALUES (1, 10, 500, 1);
+
+INSERT INTO "Invoice_Items" ("Invoice_Item_ID", "Order_ID", "Product_ID", "Invoice_ID", "Order_Item_ID", "Order_Quantity") VALUES (1, 10, 500, 1, 1, 1);
+INSERT INTO "Invoice_Items" ("Invoice_Item_ID", "Order_ID", "Product_ID", "Invoice_ID", "Order_Item_ID", "Order_Quantity") VALUES (2, 10, 500, 1, 1, 1);
+INSERT INTO "Invoice_Items" ("Invoice_Item_ID", "Order_ID", "Product_ID", "Invoice_ID", "Order_Item_ID", "Order_Quantity") VALUES (3, 10, 500, 1, 1, 1);
+INSERT INTO "Invoice_Items" ("Invoice_Item_ID", "Order_ID", "Product_ID", "Invoice_ID", "Order_Item_ID", "Order_Quantity") VALUES (4, 10, 500, 1, 1, 1);
+```
+
+```sql
+-- DATASET 6
+-- Tests grouping key mutations (e.g., GROUP BY Order_ID, GROUP BY payment_method_code, or GROUP BY Order_Item_ID instead of Product_ID).
+-- Here, Order_ID=1 appears 4 times across different Product_IDs, while each Product_ID appears at most 2 times.
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('CASH', 'Cash');
+INSERT INTO "Customer_Orders" ("Order_ID", "Order_Date") VALUES (1, '2023-04-01');
+INSERT INTO "Customer_Orders" ("Order_ID", "Order_Date") VALUES (2, '2023-04-02');
+
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Item_ID") VALUES (1, 'CASH', 1, 101, 10);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Item_ID") VALUES (2, 'CASH', 1, 102, 10);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Item_ID") VALUES (3, 'CASH', 1, 103, 10);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Item_ID") VALUES (4, 'CASH', 1, 104, 10);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Item_ID") VALUES (5, 'CASH', 2, 101, 20);
+```

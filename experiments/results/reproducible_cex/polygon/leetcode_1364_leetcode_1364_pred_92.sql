@@ -1,0 +1,34 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "customer_name" TEXT(255), "email" TEXT(255));
+
+CREATE TABLE "Contacts" ("user_id" INTEGER, "contact_email" TEXT(255), "contact_name" TEXT(255), PRIMARY KEY ("user_id", "contact_email"), FOREIGN KEY ("user_id") REFERENCES "Customers" ("customer_id"));
+
+CREATE TABLE "Invoices" ("invoice_id" INTEGER PRIMARY KEY, "user_id" INTEGER, "price" INTEGER, FOREIGN KEY ("user_id") REFERENCES "Customers" ("customer_id"), CHECK ("price" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Customers" ("customer_id", "customer_name", "email") VALUES (34, NULL, '45');
+INSERT INTO "Customers" ("customer_id", "customer_name", "email") VALUES (33, '48', '49');
+INSERT INTO "Contacts" ("user_id", "contact_email", "contact_name") VALUES (34, '45', '46');
+INSERT INTO "Contacts" ("user_id", "contact_email", "contact_name") VALUES (33, '45', '47');
+INSERT INTO "Invoices" ("invoice_id", "user_id", "price") VALUES (36, NULL, 1);
+INSERT INTO "Invoices" ("invoice_id", "user_id", "price") VALUES (35, 33, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT invoice_id, t.customer_name, price, contacts_cnt, trusted_contacts_cnt FROM Invoices AS I LEFT JOIN (SELECT a.customer_id, customer_name, COUNT(contact_name) AS contacts_cnt, SUM(CASE WHEN contact_email IN (SELECT email FROM customers) THEN 1 ELSE 0 END) AS trusted_contacts_cnt FROM Customers AS a LEFT JOIN Contacts AS b ON a.customer_id = b.user_id GROUP BY a.customer_id, customer_name) AS t ON I.user_id = t.customer_id ORDER BY 1, I.invoice_id NULLS LAST;
+
+/*
+Gold Result:
+(35, '48', 1, 1, 1)
+(36, None, 1, None, None)
+*/
+
+-- Prediction Query
+WITH NCONTACTS AS (SELECT CUSTOMER_ID, COUNT(CONTACT_EMAIL) AS COUNTACT_CNT FROM CUSTOMERS AS CUS JOIN CONTACTS AS CON ON CUS.CUSTOMER_ID = CON.USER_ID GROUP BY CUSTOMER_ID), T AS (SELECT CUSTOMER_ID, COUNT(CONTACT_EMAIL) AS TRUSTED_CONTACTS_CNT FROM CUSTOMERS AS CUS JOIN CONTACTS AS CON ON CUS.CUSTOMER_ID = CON.USER_ID AND CONTACT_EMAIL IN (SELECT EMAIL FROM CUSTOMERS) GROUP BY CUSTOMER_ID) SELECT INVOICE_ID, CUS.CUSTOMER_NAME, PRICE, COALESCE(COUNTACT_CNT, 0) AS CONTACTS_CNT, COALESCE(TRUSTED_CONTACTS_CNT, 0) AS TRUSTED_CONTACTS_CNT FROM INVOICES AS I JOIN CUSTOMERS AS CUS ON I.USER_ID = CUS.CUSTOMER_ID LEFT JOIN NCONTACTS ON I.USER_ID = NCONTACTS.CUSTOMER_ID LEFT JOIN T ON I.USER_ID = T.CUSTOMER_ID ORDER BY INVOICE_ID, CUS.customer_id NULLS LAST;
+
+/*
+Prediction Result:
+(35, '48', 1, 1, 1)
+*/

@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests basic GROUP BY, COUNT(*), ORDER BY n DESC, and LIMIT 1.
+-- Also tests queries that mistakenly order by Model name instead of the count.
+-- Also tests queries that mistakenly join with cars_data (by omitting cars_data rows for the winning model).
+INSERT INTO continents (ContId, Continent) VALUES (1, 'America');
+INSERT INTO countries (CountryId, Continent, CountryName) VALUES (1, 1, 'USA');
+INSERT INTO car_makers (Id, Country, Maker, FullName) VALUES (1, '1', 'ford', 'Ford Motor Company');
+
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (1, 1, 'zebra');
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (2, 1, 'alpha');
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (3, 1, 'middle');
+
+-- 'alpha' has 1 entry, 'zebra' has 2 entries, 'middle' has 3 entries (Winner: 'middle').
+-- If ordered by Model ASC -> 'alpha'. If ordered by Model DESC -> 'zebra'. If ordered by Count ASC -> 'alpha'.
+INSERT INTO car_names (MakeId, Model, Make) VALUES (1, 'alpha', 'alpha one');
+
+INSERT INTO car_names (MakeId, Model, Make) VALUES (2, 'zebra', 'zebra one');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (3, 'zebra', 'zebra two');
+
+INSERT INTO car_names (MakeId, Model, Make) VALUES (4, 'middle', 'middle one');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (5, 'middle', 'middle two');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (6, 'middle', 'middle three');
+
+-- Populate cars_data ONLY for 'alpha' and 'zebra' to kill mutants that unnecessarily INNER JOIN cars_data.
+INSERT INTO cars_data (Id, MPG, Cylinders, Edispl, Horsepower, Weight, Accelerate, Year) VALUES (1, '20', 4, 100.0, '80', 2000, 15.0, 1980);
+INSERT INTO cars_data (Id, MPG, Cylinders, Edispl, Horsepower, Weight, Accelerate, Year) VALUES (2, '25', 6, 150.0, '100', 2500, 14.0, 1981);
+INSERT INTO cars_data (Id, MPG, Cylinders, Edispl, Horsepower, Weight, Accelerate, Year) VALUES (3, '30', 8, 200.0, '120', 3000, 13.0, 1982);
+```
+
+```sql
+-- DATASET 2
+-- Tests mistakes where the query counts DISTINCT Make, or counts non-null Make (COUNT(Make) vs COUNT(*)),
+-- or groups by Make instead of Model.
+INSERT INTO continents (ContId, Continent) VALUES (1, 'Europe');
+INSERT INTO countries (CountryId, Continent, CountryName) VALUES (1, 1, 'Germany');
+INSERT INTO car_makers (Id, Country, Maker, FullName) VALUES (1, '1', 'vw', 'Volkswagen');
+
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (1, 1, 'golf');
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (2, 1, 'passat');
+
+-- 'golf' has 4 rows total (Winner), but two have NULL Make and two have identical Make.
+-- COUNT(*) = 4, COUNT(Make) = 2, COUNT(DISTINCT Make) = 1.
+INSERT INTO car_names (MakeId, Model, Make) VALUES (1, 'golf', 'vw golf');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (2, 'golf', 'vw golf');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (3, 'golf', NULL);
+INSERT INTO car_names (MakeId, Model, Make) VALUES (4, 'golf', NULL);
+
+-- 'passat' has 3 rows total with distinct non-null Makes.
+-- COUNT(*) = 3, COUNT(Make) = 3, COUNT(DISTINCT Make) = 3.
+INSERT INTO car_names (MakeId, Model, Make) VALUES (5, 'passat', 'vw passat a');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (6, 'passat', 'vw passat b');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (7, 'passat', 'vw passat c');
+```
+
+```sql
+-- DATASET 3
+-- Tests mistakes where the query aggregates or selects from model_list/car_makers instead of car_names,
+-- or confuses Maker with Model.
+INSERT INTO continents (ContId, Continent) VALUES (1, 'Asia');
+INSERT INTO countries (CountryId, Continent, CountryName) VALUES (1, 1, 'Japan');
+INSERT INTO car_makers (Id, Country, Maker, FullName) VALUES (1, '1', 'toyota', 'Toyota');
+INSERT INTO car_makers (Id, Country, Maker, FullName) VALUES (2, '1', 'honda', 'Honda');
+
+-- Maker 1 ('toyota') has 3 models in model_list, but each only has 1 car_name.
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (1, 1, 'corolla');
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (2, 1, 'camry');
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (3, 1, 'avalon');
+
+-- Maker 2 ('honda') has only 1 model in model_list, but it has 2 car_names (Winner: 'civic').
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (4, 2, 'civic');
+
+INSERT INTO car_names (MakeId, Model, Make) VALUES (1, 'corolla', 'toyota corolla');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (2, 'camry', 'toyota camry');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (3, 'avalon', 'toyota avalon');
+
+INSERT INTO car_names (MakeId, Model, Make) VALUES (4, 'civic', 'honda civic dx');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (5, 'civic', 'honda civic ex');
+```
+
+```sql
+-- DATASET 4
+-- Tests mistakes where SUM(MakeId) or MAX(MakeId) is used instead of COUNT(*),
+-- or where a model in model_list has 0 entries in car_names.
+INSERT INTO continents (ContId, Continent) VALUES (1, 'America');
+INSERT INTO countries (CountryId, Continent, CountryName) VALUES (1, 1, 'USA');
+INSERT INTO car_makers (Id, Country, Maker, FullName) VALUES (1, '1', 'gm', 'General Motors');
+
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (1, 1, 'chevy');
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (2, 1, 'buick');
+INSERT INTO model_list (ModelId, Maker, Model) VALUES (3, 1, 'cadillac');
+
+-- 'chevy' has 2 rows with small MakeIds (1, 2 -> SUM=3, MAX=2, COUNT=2) -> Winner
+INSERT INTO car_names (MakeId, Model, Make) VALUES (1, 'chevy', 'chevy malibu');
+INSERT INTO car_names (MakeId, Model, Make) VALUES (2, 'chevy', 'chevy impala');
+
+-- 'buick' has 1 row with a large MakeId (100 -> SUM=100, MAX=100, COUNT=1)
+INSERT INTO car_names (MakeId, Model, Make) VALUES (100, 'buick', 'buick regal');
+
+-- 'cadillac' has 0 rows in car_names (tests LEFT JOIN from model_list + ORDER BY ASC mistakes).
+```

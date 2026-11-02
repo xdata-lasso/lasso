@@ -1,0 +1,25 @@
+-- Schema DDL
+CREATE TABLE "insurance" ("PID" INTEGER PRIMARY KEY, "TIV_2015" REAL, "TIV_2016" REAL, "LAT" REAL, "LON" REAL, CHECK ("tiv_2015" >= 0), CHECK ("tiv_2016" >= 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (9, 238, 797, 12, 14);
+INSERT INTO "insurance" ("pid", "tiv_2015", "tiv_2016", "lat", "lon") VALUES (8, 238, 0, NULL, 13);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ROUND(SUM(TIV_2016), 2) AS TIV_2016 FROM INSURANCE WHERE TIV_2015 IN (SELECT TIV_2015 FROM INSURANCE GROUP BY TIV_2015 HAVING COUNT(*) > 1) AND (LAT, LON) IN (SELECT LAT, LON FROM INSURANCE GROUP BY LAT, LON HAVING COUNT(*) = 1);
+
+/*
+Gold Result:
+(797.0,)
+*/
+
+-- Prediction Query
+SELECT SUM(TIV_2016) AS TIV_2016 FROM (SELECT TIV_2016, COUNT(TIV_2015) OVER (PARTITION BY TIV_2015) AS DR1, COUNT(TIV_2015) OVER (PARTITION BY LAT, LON) AS DR2 FROM INSURANCE) AS T WHERE DR1 >= 2 AND DR2 = 1;
+
+/*
+Prediction Result:
+(797.0,)
+*/

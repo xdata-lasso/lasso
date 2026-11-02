@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests basic join condition (LHS.part_id = RHS.n vs LHS.part_id = RHS.part_id), GROUP BY on both columns, and ORDER BY part_name.
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Zebra', 1, 100, 'Details 1');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'Alpha', 0, 200, 'Details 2');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (3, 'Beta', 1, 300, 'Details 3');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (10, 'Omega', 0, 400, 'Details 10');
+
+-- Group (DetailA, 10) -> count = 2 (matches part_id 2 'Alpha')
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (101, 10, 'F1', 'Desc1', 'DetailA');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (102, 10, 'F2', 'Desc2', 'DetailA');
+
+-- Group (DetailB, 10) -> count = 1 (matches part_id 1 'Zebra'). If grouped only by part_id, count for 10 becomes 3 ('Beta').
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (103, 10, 'F3', 'Desc3', 'DetailB');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate outputs (SELECT vs SELECT DISTINCT) when multiple groups produce the same count n, and when grouping only by other_fault_details would merge groups.
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'DuplicatePart', 1, 50, 'D1');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'MergedPart', 0, 60, 'D2');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (3, 'SourcePartA', 1, 70, 'D3');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (4, 'SourcePartB', 0, 80, 'D4');
+
+-- Group ('SameDetail', 3) -> count = 1
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (201, 3, 'F1', 'Desc', 'SameDetail');
+-- Group ('SameDetail', 4) -> count = 1
+-- Both groups have n = 1, so 'DuplicatePart' (part_id = 1) should be returned twice. 
+-- If a mutant omits part_id from GROUP BY, they merge into n = 2 ('MergedPart').
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (202, 4, 'F2', 'Desc', 'SameDetail');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in GROUP BY and COUNT(*) vs COUNT(other_fault_details) / COUNT(part_id) / COUNT(DISTINCT ...).
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'PartOne', 1, 10, 'P1');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (2, 'PartTwo', 1, 20, 'P2');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (3, 'PartThree', 0, 30, 'P3');
+
+-- Group (NULL, 3) has 2 rows -> COUNT(*) = 2 (matches PartTwo), whereas COUNT(other_fault_details) = 0.
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (301, 3, 'FN1', 'Desc', NULL);
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (302, 3, 'FN1', 'Desc', NULL);
+
+-- Group ('Det', NULL) has 3 rows -> COUNT(*) = 3 (matches PartThree), whereas COUNT(part_id) = 0.
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (303, NULL, 'FN2', 'Desc', 'Det');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (304, NULL, 'FN2', 'Desc', 'Det');
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (305, NULL, 'FN2', 'Desc', 'Det');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT JOIN when Part_Faults is empty or has no matching counts for existing Parts.
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (5, 'UnmatchedPartA', 0, 0, 'None');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (6, 'UnmatchedPartB', 1, 500, 'None');
+
+-- Group ('D', 5) -> count = 1, which does not match part_id 5 or 6. Result should be empty.
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (401, 5, 'F1', 'D1', 'D');
+```
+
+```sql
+-- DATASET 5
+-- Tests potential confusion with other tables (e.g., Asset_Parts, Fault_Log_Parts) and column values (chargeable_yn, chargeable_amount).
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'CorrectPart', 0, 99, 'O1');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (99, 'WrongAmountPart', 1, 1, 'O2');
+
+-- Group ('X', 99) -> count = 1. Joins with part_id = 1 ('CorrectPart').
+-- A mutant joining on LHS.chargeable_amount = RHS.n or LHS.chargeable_yn = RHS.n would match 'WrongAmountPart'.
+INSERT INTO "Part_Faults" ("part_fault_id", "part_id", "fault_short_name", "fault_description", "other_fault_details") VALUES (501, 99, 'FX', 'DescX', 'X');
+
+-- Populate related tables to catch mutants that erroneously join Fault_Log_Parts or Asset_Parts
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'Supp', 'CompA', 'Addr', 'Det');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2020-01-01', '2025-01-01', 'Det');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, 1, 1, 'Asset1', 'Make', 'Model', '2020-01-01', '2025-01-01', 'Det');
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (1, 99);
+```

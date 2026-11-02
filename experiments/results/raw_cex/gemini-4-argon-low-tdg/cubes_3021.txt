@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- Tests standard filtering, aggregation, NULL handling in other columns, and join Fan-out / Orphan record mutants.
+-- Reference Query returns 1 row with count = 2.
+-- Catches:
+-- 1. Unnecessary INNER JOIN with happy_hour_member (Member 1 has 2 visits, Member 2 has 0; join yields count=2 for wrong reason or count=1 if DISTINCT).
+-- 2. COUNT(Name), COUNT(Age), etc. instead of COUNT(*) (Member 1 has NULLs in non-key columns).
+-- 3. Missing WHERE clause or GROUP BY only (Silver and NULL cards present).
+-- 4. Case sensitivity / LIKE '%Black%' mutants ('black', 'BlackCard').
+-- 5. Filtering on wrong column (Name = 'Black' or Address = 'Black').
+INSERT INTO "shop" ("Shop_ID", "Address", "Num_of_staff", "Score", "Open_Year") VALUES (1, 'Main St', '10', 4.5, '2010');
+
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (1, NULL, 'Black', NULL, NULL, NULL, NULL);
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (2, 'Alice', 'Black', 30, 5, 2, '123 St');
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (3, 'Black', 'Silver', 25, 1, 1, 'Black');
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (4, 'Bob', 'black', 40, 2, 3, '456 St');
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (5, 'Charlie', 'BlackCard', 35, 3, 2, '789 St');
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (6, 'Dave', NULL, 28, 4, 1, '101 St');
+
+INSERT INTO "happy_hour" ("HH_ID", "Shop_ID", "Month", "Num_of_shaff_in_charge") VALUES (1, 1, 'Jan', 3);
+INSERT INTO "happy_hour" ("HH_ID", "Shop_ID", "Month", "Num_of_shaff_in_charge") VALUES (2, 1, 'Feb', 4);
+
+INSERT INTO "happy_hour_member" ("HH_ID", "Member_ID", "Total_amount") VALUES (1, 1, 50.0);
+INSERT INTO "happy_hour_member" ("HH_ID", "Member_ID", "Total_amount") VALUES (2, 1, 75.0);
+INSERT INTO "happy_hour_member" ("HH_ID", "Member_ID", "Total_amount") VALUES (1, 3, 20.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set vs. scalar COUNT(*) behavior when no 'Black' membership_card exists.
+-- Reference Query returns 0 rows (empty result set) because of GROUP BY on an empty filtered relation.
+-- Catches:
+-- 1. Queries that omit GROUP BY "membership_card" (i.e., SELECT COUNT(*) FROM member WHERE membership_card = 'Black'), which return 1 row with value 0 instead of 0 rows.
+-- 2. Queries that use != 'Black' or NOT IN ('Black').
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (1, 'Alice', 'Gold', 30, 5, 2, '123 St');
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (2, 'Bob', 'Silver', 22, 3, 1, '456 St');
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (3, 'Charlie', NULL, 45, 10, 4, '789 St');
+```
+
+```sql
+-- DATASET 3
+-- Tests COUNT(DISTINCT ...) vs COUNT(*), and SUM(...) vs COUNT(*).
+-- Reference Query returns 1 row with count = 3.
+-- Catches:
+-- 1. COUNT(DISTINCT Membership_card) which would return 1.
+-- 2. COUNT(DISTINCT Name/Age/Time_of_purchase/Level_of_membership/Address) where values are identical across all 'Black' card members, which would return 1.
+-- 3. SUM(Time_of_purchase) or SUM(Level_of_membership) or SUM(Age) instead of COUNT(*).
+-- 4. Unnecessary INNER JOIN with happy_hour_member when NO 'Black' members have happy_hour_member records (join would return 0 rows).
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (10, 'SameName', 'Black', 20, 10, 5, 'SameAddr');
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (20, 'SameName', 'Black', 20, 10, 5, 'SameAddr');
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (30, 'SameName', 'Black', 20, 10, 5, 'SameAddr');
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY on wrong attribute (e.g., Level_of_membership, Age, Address, or Member_ID) when multiple 'Black' rows exist with distinct values.
+-- Also tests HAVING clauses (e.g., HAVING COUNT(*) > 1) when count is 1.
+-- Reference Query returns 1 row with count = 1.
+-- Catches:
+-- 1. Mutants adding arbitrary HAVING COUNT(*) > 1.
+-- 2. Mutants selecting Member_ID, Age, Level_of_membership, or Time_of_purchase instead of COUNT(*) (since Member_ID=99, Age=50, Time=0, Level=0, none of which equal 1).
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (99, 'Zoe', 'Black', 50, 0, 0, '999 Blvd');
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (100, 'Yara', 'White', 50, 0, 0, '999 Blvd');
+INSERT INTO "member" ("Member_ID", "Name", "Membership_card", "Age", "Time_of_purchase", "Level_of_membership", "Address") VALUES (101, 'Xander', 'White', 50, 0, 0, '999 Blvd');
+```

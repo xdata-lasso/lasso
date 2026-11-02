@@ -1,0 +1,60 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT vs non-DISTINCT (multiple cards with 'Ancestor's Chosen' in the same set, and in different sets sharing the same releaseDate).
+-- 2. WHERE filter on T1.name (exact match vs LIKE/prefix/case-insensitivity/other cards).
+-- 3. Wrong column references (T1.originalReleaseDate vs T2.releaseDate, T1.asciiName/faceName vs T1.name, T2.name vs T1.name).
+-- 4. Join conditions (INNER JOIN vs LEFT/RIGHT JOIN with unmatched cards and unmatched sets, or joining on id instead of code=setCode).
+INSERT INTO sets (id, code, name, releaseDate) VALUES (1, 'JUD', 'Judgment', '2002-05-27');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (2, '10E', 'Tenth Edition', '2007-07-13');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (3, 'UMA', 'Ultimate Masters', '2007-07-13');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (4, 'UNM', 'Ancestor''s Chosen', '2020-01-01');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (5, 'OTH', 'Other Set', '1999-12-31');
+
+INSERT INTO cards (id, uuid, name, asciiName, faceName, setCode, originalReleaseDate) VALUES (10, 'uuid-1', 'Ancestor''s Chosen', 'Ancestors Chosen', 'Other Face', 'JUD', '1990-01-01');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, setCode, originalReleaseDate) VALUES (11, 'uuid-2', 'Ancestor''s Chosen', 'Ancestors Chosen', 'Other Face', '10E', '1990-01-02');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, setCode, originalReleaseDate) VALUES (12, 'uuid-3', 'Ancestor''s Chosen', 'Ancestors Chosen', 'Other Face', '10E', '1990-01-03');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, setCode, originalReleaseDate) VALUES (13, 'uuid-4', 'Ancestor''s Chosen', 'Ancestors Chosen', 'Other Face', 'UMA', '1990-01-04');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, setCode, originalReleaseDate) VALUES (14, 'uuid-5', 'Ancestor''s Chosen', 'Ancestors Chosen', 'Other Face', 'MISSING_SET', '1990-01-05');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, setCode, originalReleaseDate) VALUES (15, 'uuid-6', 'Ancestor''s Chosen', 'Ancestors Chosen', 'Other Face', NULL, '1990-01-06');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, setCode, originalReleaseDate) VALUES (1, 'uuid-7', 'Not Ancestor''s Chosen', 'Ancestor''s Chosen', 'Ancestor''s Chosen', 'OTH', '1990-01-07');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, setCode, originalReleaseDate) VALUES (16, 'uuid-8', 'ancestor''s chosen', 'Ancestor''s Chosen', 'Ancestor''s Chosen', 'OTH', '1990-01-08');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, setCode, originalReleaseDate) VALUES (17, 'uuid-9', 'Ancestor''s Chosen Extra', 'Ancestor''s Chosen', 'Ancestor''s Chosen', 'OTH', '1990-01-09');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Single result vs LIMIT 1 / MIN / MAX / ORDER BY mutations when multiple distinct releaseDates exist.
+-- 2. Handling of NULL releaseDate in matched sets.
+-- 3. Foreign tables (rulings, foreign_data, legalities, set_translations) populated to catch unnecessary joins to other tables.
+INSERT INTO sets (id, code, name, releaseDate, parentCode, mtgoCode, keyruneCode) VALUES (10, 'S1', 'Set 1', '2018-12-07', 'S2', 'S2', 'S2');
+INSERT INTO sets (id, code, name, releaseDate, parentCode, mtgoCode, keyruneCode) VALUES (20, 'S2', 'Set 2', '2005-05-05', 'S1', 'S1', 'S1');
+INSERT INTO sets (id, code, name, releaseDate, parentCode, mtgoCode, keyruneCode) VALUES (30, 'S3', 'Set 3', NULL, 'S1', 'S1', 'S1');
+INSERT INTO sets (id, code, name, releaseDate, parentCode, mtgoCode, keyruneCode) VALUES (40, 'S4', 'Set 4', '2010-10-10', 'S1', 'S1', 'S1');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (100, 'u-100', 'Ancestor''s Chosen', 'S1');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (200, 'u-200', 'Ancestor''s Chosen', 'S2');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (300, 'u-300', 'Ancestor''s Chosen', 'S3');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (400, 'u-400', 'Lightning Bolt', 'S4');
+
+INSERT INTO foreign_data (id, name, uuid, language) VALUES (1, 'Ancestor''s Chosen', 'u-400', 'German');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty result set for the target card when the database is non-empty (catches mutations that drop the WHERE clause or use OR instead of AND).
+-- 2. Card with name NULL.
+-- 3. Card matching only in foreign_data or rulings.
+INSERT INTO sets (id, code, name, releaseDate) VALUES (1, 'A', 'Set A', '2001-01-01');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (2, 'B', 'Set B', '2002-02-02');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'u-1', 'Ancestors Chosen', 'A');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (2, 'u-2', NULL, 'B');
+
+INSERT INTO foreign_data (id, name, uuid) VALUES (1, 'Ancestor''s Chosen', 'u-1');
+INSERT INTO rulings (id, date, text, uuid) VALUES (1, '2003-03-03', 'Ancestor''s Chosen', 'u-1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Legacy', 'Legal', 'u-1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'French', 'A', 'Ancestor''s Chosen');
+```

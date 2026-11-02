@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, boundary values (98, 100), string prefixes/suffixes ('990', '9', '*'), and NULLs.
+-- Also tests column confusion (power = '99', id = 99) and duplicate non-PK attributes (same name/artist) to kill COUNT(DISTINCT ...) mutants.
+INSERT INTO "cards" ("id", "uuid", "name", "artist", "power", "toughness", "convertedManaCost", "edhrecRank") VALUES (1, 'uuid-1-1', 'Alpha', 'Artist A', '1', '99', 5.0, 10);
+INSERT INTO "cards" ("id", "uuid", "name", "artist", "power", "toughness", "convertedManaCost", "edhrecRank") VALUES (2, 'uuid-1-2', 'Alpha', 'Artist A', '2', '99', 5.0, 10);
+INSERT INTO "cards" ("id", "uuid", "name", "artist", "power", "toughness", "convertedManaCost", "edhrecRank") VALUES (3, 'uuid-1-3', 'Beta', 'Artist B', '99', '98', 3.0, 99);
+INSERT INTO "cards" ("id", "uuid", "name", "artist", "power", "toughness", "convertedManaCost", "edhrecRank") VALUES (4, 'uuid-1-4', 'Gamma', 'Artist C', '99', '100', 4.0, 20);
+INSERT INTO "cards" ("id", "uuid", "name", "artist", "power", "toughness", "convertedManaCost", "edhrecRank") VALUES (5, 'uuid-1-5', 'Delta', 'Artist D', '5', '9', 99.0, 30);
+INSERT INTO "cards" ("id", "uuid", "name", "artist", "power", "toughness", "convertedManaCost", "edhrecRank") VALUES (6, 'uuid-1-6', 'Epsilon', 'Artist E', '5', '990', 2.0, 40);
+INSERT INTO "cards" ("id", "uuid", "name", "artist", "power", "toughness", "convertedManaCost", "edhrecRank") VALUES (7, 'uuid-1-7', 'Zeta', 'Artist F', '5', NULL, 1.0, 50);
+INSERT INTO "cards" ("id", "uuid", "name", "artist", "power", "toughness", "convertedManaCost", "edhrecRank") VALUES (99, 'uuid-1-8', 'Eta', 'Artist G', '5', '*', 1.0, 60);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set (0 matches) where toughness is never 99, killing mutants that drop the WHERE clause, use OR instead of AND, or use != / < / >.
+INSERT INTO "cards" ("id", "uuid", "name", "power", "toughness", "loyalty", "hand", "life") VALUES (10, 'uuid-2-1', 'Card One', '99', '1', '99', '99', '99');
+INSERT INTO "cards" ("id", "uuid", "name", "power", "toughness", "loyalty", "hand", "life") VALUES (20, 'uuid-2-2', 'Card Two', '2', '2', '3', '4', '5');
+INSERT INTO "cards" ("id", "uuid", "name", "power", "toughness", "loyalty", "hand", "life") VALUES (30, 'uuid-2-3', 'Card Three', NULL, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests joins and foreign key relationships.
+-- Card 1 has toughness = '99' but NO child records in rulings, legalities, foreign_data, or sets (kills INNER JOIN mutants).
+-- Card 2 has toughness = '99' and MULTIPLE child records in rulings, legalities, and foreign_data (kills un-grouped JOIN mutants that multiply row counts).
+-- Card 3 has toughness = '10' and child records containing '99' (kills mutants filtering on the wrong table).
+INSERT INTO "sets" ("id", "code", "name", "baseSetSize", "totalSetSize") VALUES (1, 'SET1', 'Set One', 99, 99);
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'es', 'SET1', '99');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'fr', 'SET1', 'Set Un');
+
+INSERT INTO "cards" ("id", "uuid", "name", "toughness", "setCode") VALUES (1, 'uuid-3-1', 'Lonely 99', '99', NULL);
+INSERT INTO "cards" ("id", "uuid", "name", "toughness", "setCode") VALUES (2, 'uuid-3-2', 'Popular 99', '99', 'SET1');
+INSERT INTO "cards" ("id", "uuid", "name", "toughness", "setCode") VALUES (3, 'uuid-3-3', 'Popular 10', '10', 'SET1');
+
+INSERT INTO "rulings" ("id", "date", "text", "uuid") VALUES (1, '2020-01-01', 'Ruling 1 for Card 2', 'uuid-3-2');
+INSERT INTO "rulings" ("id", "date", "text", "uuid") VALUES (2, '2020-01-02', 'Ruling 2 for Card 2', 'uuid-3-2');
+INSERT INTO "rulings" ("id", "date", "text", "uuid") VALUES (3, '2020-01-03', '99', 'uuid-3-3');
+
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (1, 'Standard', 'Legal', 'uuid-3-2');
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (2, 'Modern', 'Legal', 'uuid-3-2');
+INSERT INTO "legalities" ("id", "format", "status", "uuid") VALUES (3, '99', '99', 'uuid-3-3');
+
+INSERT INTO "foreign_data" ("id", "language", "name", "text", "type", "multiverseid", "uuid") VALUES (1, 'de', 'Beliebt 99', 'Text 1', 'Type 1', 101, 'uuid-3-2');
+INSERT INTO "foreign_data" ("id", "language", "name", "text", "type", "multiverseid", "uuid") VALUES (2, 'it', 'Popolare 99', 'Text 2', 'Type 2', 102, 'uuid-3-2');
+INSERT INTO "foreign_data" ("id", "language", "name", "text", "type", "multiverseid", "uuid") VALUES (3, 'jp', '99', '99', '99', 99, 'uuid-3-3');
+```
+
+```sql
+-- DATASET 4
+-- Tests aggregate function mutations (COUNT vs SUM, AVG, MIN, MAX) and NULLs in other columns (e.g., COUNT(artist) vs COUNT(id)).
+-- Using id = 10 and id = 20 ensures COUNT(id) = 2, whereas SUM(id) = 30, MIN(id) = 10, MAX(id) = 20, AVG(id) = 15, SUM(toughness) = 198.
+-- Also sets all nullable columns to NULL on matching rows to kill COUNT(nullable_col) mutants.
+INSERT INTO "cards" ("id", "uuid", "toughness", "name", "artist", "power", "manaCost", "text", "type", "rarity", "setCode") VALUES (10, 'uuid-4-1', '99', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "cards" ("id", "uuid", "toughness", "name", "artist", "power", "manaCost", "text", "type", "rarity", "setCode") VALUES (20, 'uuid-4-2', '99', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests boolean/integer flags on matching rows to kill mutants that inject extra predicates (e.g., WHERE toughness = 99 AND isOnlineOnly = 0).
+-- Also tests SQLite type affinity and string comparison nuances (e.g., LIKE '%99%', '99.0', '-99').
+INSERT INTO "cards" ("id", "uuid", "toughness", "hasFoil", "hasNonFoil", "isAlternative", "isFullArt", "isOnlineOnly", "isOversized", "isPromo", "isReprint", "isReserved", "isStarter", "isStorySpotlight", "isTextless", "isTimeshifted") VALUES (1, 'uuid-5-1', '99', 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1);
+INSERT INTO "cards" ("id", "uuid", "toughness", "hasFoil", "hasNonFoil", "isAlternative", "isFullArt", "isOnlineOnly", "isOversized", "isPromo", "isReprint", "isReserved", "isStarter", "isStorySpotlight", "isTextless", "isTimeshifted") VALUES (2, 'uuid-5-2', '-99', 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO "cards" ("id", "uuid", "toughness", "hasFoil", "hasNonFoil", "isAlternative", "isFullArt", "isOnlineOnly", "isOversized", "isPromo", "isReprint", "isReserved", "isStarter", "isStorySpotlight", "isTextless", "isTimeshifted") VALUES (3, 'uuid-5-3', '199', 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO "cards" ("id", "uuid", "toughness", "hasFoil", "hasNonFoil", "isAlternative", "isFullArt", "isOnlineOnly", "isOversized", "isPromo", "isReprint", "isReserved", "isStarter", "isStorySpotlight", "isTextless", "isTimeshifted") VALUES (4, 'uuid-5-4', '99a', 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+```

@@ -1,0 +1,160 @@
+```sql
+-- DATASET 1
+-- Tests basic join path, WHERE clause filtering ('Accounting' vs others, case sensitivity),
+-- GROUP BY on (dept_address, emp_num) where one varies and the other is constant,
+-- and ORDER BY count___ ASC vs DESC.
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME") VALUES (101, 'Smith', 'John');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME") VALUES (102, 'Doe', 'Jane');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME") VALUES (103, 'Brown', 'Bob');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME", "EMP_FNAME") VALUES (104, 'White', 'Alice');
+
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('ACCT1', 101, 'Accounting', 'Bldg A');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('ACCT2', 101, 'Accounting', 'Bldg B');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('ACCT3', 102, 'Accounting', 'Bldg B');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('FIN', 103, 'Finance', 'Bldg C');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('ACCT_LOW', 104, 'accounting', 'Bldg D');
+
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C1', 'ACCT1', 'Intro Acct', 3.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C2', 'ACCT2', 'Adv Acct', 3.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C3', 'ACCT3', 'Tax Acct', 3.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C4', 'FIN', 'Intro Fin', 3.0);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C5', 'ACCT_LOW', 'Low Acct', 3.0);
+
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('CL1', 104, 'C1', '01');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('CL2', 104, 'C2', '01');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('CL3', 104, 'C3', '01');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('CL4', 104, 'C4', '01');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION") VALUES ('CL5', 104, 'C5', '01');
+
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME") VALUES (1, 'FIN', 'Stu1');
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME") VALUES (2, 'FIN', 'Stu2');
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "STU_LNAME") VALUES (3, 'FIN', 'Stu3');
+
+-- Group ('Bldg A', 101) gets 3 enrollments (inserted first to break insertion-order sorting)
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (1, 'CL1', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (2, 'CL1', 'B');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (3, 'CL1', 'C');
+
+-- Group ('Bldg B', 101) gets 1 enrollment
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (1, 'CL2', 'A');
+
+-- Group ('Bldg B', 102) gets 2 enrollments
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (1, 'CL3', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (2, 'CL3', 'B');
+
+-- Filtered out departments
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (1, 'CL4', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (1, 'CL5', 'A');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOINs (dangling references at each join step),
+-- multiple departments collapsing into the exact same (dept_address, emp_num) group,
+-- and duplicate count values across different groups (testing SELECT DISTINCT mutants).
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (201, 'Emp1');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (202, 'Emp2');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (203, 'Emp3');
+
+-- Two Accounting departments sharing the exact same (dept_address, emp_num)
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('D1', 201, 'Accounting', 'Shared Addr');
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('D2', 201, 'Accounting', 'Shared Addr');
+-- Another Accounting department with different group key, but will have the same enrollment count (2) as the combined D1+D2 group
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('D3', 202, 'Accounting', 'Other Addr');
+-- Accounting department with NO courses (tests DEPARTMENT LEFT JOIN COURSE)
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('D_NOCRS', 203, 'Accounting', 'Empty Addr 1');
+-- Accounting department with course and class, but NO enrollments (tests CLASS LEFT JOIN ENROLL)
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('D_NOENR', 203, 'Accounting', 'Empty Addr 2');
+
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE") VALUES ('CRS1', 'D1');
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE") VALUES ('CRS2', 'D2');
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE") VALUES ('CRS3', 'D3');
+-- Course with NO classes (tests COURSE LEFT JOIN CLASS)
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE") VALUES ('CRS_NOCLS', 'D1');
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE") VALUES ('CRS_NOENR', 'D_NOENR');
+-- Course with NULL dept_code (tests INNER JOIN department)
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE") VALUES ('CRS_NULLDEPT', NULL);
+
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('CLS1', 201, 'CRS1');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('CLS2', 202, 'CRS2');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('CLS3', 203, 'CRS3');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('CLS_NOENR', 203, 'CRS_NOENR');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('CLS_NULLDEPT', 201, 'CRS_NULLDEPT');
+-- Class with NULL crs_code
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('CLS_NULLCRS', 201, NULL);
+
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE") VALUES (10, 'D1');
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE") VALUES (20, 'D1');
+
+-- 1 enrollment in D1 + 1 enrollment in D2 -> Group ('Shared Addr', 201) has count = 2
+-- Also tests COUNT(*) vs COUNT(DISTINCT stu_num) since student 10 is enrolled in both CLS1 and CLS2
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (10, 'CLS1', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (10, 'CLS2', 'B');
+
+-- 2 enrollments in D3 -> Group ('Other Addr', 202) also has count = 2 (tests duplicate output rows in final projection)
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (10, 'CLS3', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (20, 'CLS3', 'A');
+
+-- Enrollments in classes with NULL dept or NULL course
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (10, 'CLS_NULLDEPT', 'A');
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (10, 'CLS_NULLCRS', 'A');
+-- Enrollment with NULL class_code
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (10, NULL, 'A');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in GROUP BY columns (dept_address IS NULL, emp_num IS NULL),
+-- NULLs in non-grouped columns (COUNT(*) vs COUNT(column) mutants),
+-- and confusion between CLASS.PROF_NUM and DEPARTMENT.EMP_NUM or STUDENT.DEPT_CODE and COURSE.DEPT_CODE.
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (301, 'DeptChair');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (302, 'ProfOne');
+INSERT INTO "EMPLOYEE" ("EMP_NUM", "EMP_LNAME") VALUES (303, 'ProfTwo');
+
+-- Dept 1: NULL dept_address, valid emp_num (301)
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('ACC_NULL_ADDR', 301, 'Accounting', NULL);
+-- Dept 2: Valid dept_address, NULL emp_num
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('ACC_NULL_EMP', NULL, 'Accounting', 'Addr X');
+-- Dept 3: Both dept_address and emp_num are NULL
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('ACC_BOTH_NULL', NULL, 'Accounting', NULL);
+-- Dept 4: Non-Accounting department (used for STUDENT.DEPT_CODE to catch mutants joining STUDENT to DEPARTMENT)
+INSERT INTO "DEPARTMENT" ("DEPT_CODE", "EMP_NUM", "DEPT_NAME", "DEPT_ADDRESS") VALUES ('HIST', 301, 'History', 'Addr H');
+
+-- Courses with NULL descriptions/credits to kill COUNT(crs_description) / COUNT(crs_credit) mutants
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C_NA', 'ACC_NULL_ADDR', NULL, NULL);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C_NE', 'ACC_NULL_EMP', NULL, NULL);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C_BN', 'ACC_BOTH_NULL', NULL, NULL);
+INSERT INTO "COURSE" ("CRS_CODE", "DEPT_CODE", "CRS_DESCRIPTION", "CRS_CREDIT") VALUES ('C_HIST', 'HIST', 'History 101', 3.0);
+
+-- Classes under C_NA taught by different professors (302, 303, and NULL) while DEPARTMENT.EMP_NUM is 301.
+-- Kills mutants that group by CLASS.PROF_NUM instead of DEPARTMENT.EMP_NUM or join PROFESSOR/EMPLOYEE on PROF_NUM=EMP_NUM.
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('CL_NA1', 302, 'C_NA', NULL, NULL, NULL);
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('CL_NA2', 303, 'C_NA', NULL, NULL, NULL);
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE", "CLASS_SECTION", "CLASS_TIME", "CLASS_ROOM") VALUES ('CL_NA3', NULL, 'C_NA', NULL, NULL, NULL);
+
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('CL_NE1', 302, 'C_NE');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('CL_BN1', 302, 'C_BN');
+INSERT INTO "CLASS" ("CLASS_CODE", "PROF_NUM", "CRS_CODE") VALUES ('CL_HIST', 301, 'C_HIST');
+
+-- Students majoring in Accounting vs History
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "PROF_NUM") VALUES (100, 'HIST', 302);
+INSERT INTO "STUDENT" ("STU_NUM", "DEPT_CODE", "PROF_NUM") VALUES (101, 'ACC_NULL_ADDR', 303);
+
+-- Enrollments with NULL grades and NULL stu_num to kill COUNT(enroll_grade) and COUNT(stu_num)
+-- Group (NULL, 301) gets 4 enrollments
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (100, 'CL_NA1', NULL);
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (101, 'CL_NA2', NULL);
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (NULL, 'CL_NA3', NULL);
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (100, 'CL_NA3', 'A');
+
+-- Group ('Addr X', NULL) gets 2 enrollments
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (100, 'CL_NE1', NULL);
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (101, 'CL_NE1', 'B');
+
+-- Group (NULL, NULL) gets 1 enrollment
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (100, 'CL_BN1', NULL);
+
+-- Student majoring in Accounting ('ACC_NULL_ADDR') enrolled in a History course ('C_HIST').
+-- Kills mutants that join DEPARTMENT via STUDENT.DEPT_CODE instead of COURSE.DEPT_CODE.
+INSERT INTO "ENROLL" ("STU_NUM", "CLASS_CODE", "ENROLL_GRADE") VALUES (101, 'CL_HIST', 'A');
+```

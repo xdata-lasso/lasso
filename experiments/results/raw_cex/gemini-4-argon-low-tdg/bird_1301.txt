@@ -1,0 +1,138 @@
+```sql
+-- DATASET 1
+-- Tests DISTINCT necessity, basic predicate satisfaction, and date mismatch between Laboratory and Examination
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (1, '2020-01-01', 100);
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (1, '2020-01-02', 200);
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (2, '2020-01-01', 249);
+
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2020-05-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2020-06-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2020-01-01', 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary values for CPK (< 250 vs <= 250, > 250, NULL) and Thrombosis (= 0 vs != 0, NULL)
+INSERT INTO Patient (ID, SEX) VALUES (10, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (20, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (30, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (40, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (50, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (60, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (70, 'M');
+
+-- Exact boundary CPK = 250 (Should fail)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (10, '2021-01-01', 250);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (10, '2021-01-01', 0);
+
+-- Just below boundary CPK = 249 (Should pass)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (20, '2021-01-01', 249);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (20, '2021-01-01', 0);
+
+-- Above boundary CPK = 300 (Should fail)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (30, '2021-01-01', 300);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (30, '2021-01-01', 0);
+
+-- Thrombosis = 1 with valid CPK (Should fail)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (40, '2021-01-01', 150);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (40, '2021-01-01', 1);
+
+-- Thrombosis = -1 with valid CPK (Should fail)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (50, '2021-01-01', 150);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (50, '2021-01-01', -1);
+
+-- NULL CPK with valid Thrombosis (Should fail)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (60, '2021-01-01', NULL);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (60, '2021-01-01', 0);
+
+-- Valid CPK with NULL Thrombosis (Should fail)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (70, '2021-01-01', 100);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (70, '2021-01-01', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN and orphaned Patient records
+INSERT INTO Patient (ID, SEX) VALUES (101, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (102, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (103, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (104, 'M');
+
+-- Patient 101: Has Laboratory with valid CPK, but NO Examination record
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (101, '2022-03-01', 120);
+
+-- Patient 102: Has Examination with valid Thrombosis, but NO Laboratory record
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (102, '2022-03-01', 0);
+
+-- Patient 103: Has both, valid (Should be the only one in output)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (103, '2022-03-01', 180);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (103, '2022-03-02', 0);
+
+-- Patient 104: Exists only in Patient table
+```
+
+```sql
+-- DATASET 4
+-- Tests patients with multiple records where only a subset of rows match the criteria (kills HAVING MIN/MAX/AVG mutants or universal quantification errors)
+INSERT INTO Patient (ID, SEX) VALUES (201, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (202, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (203, 'M');
+
+-- Patient 201: One valid CPK, one invalid CPK. One valid Thrombosis, one invalid Thrombosis. (Should pass)
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (201, '2023-01-01', 500);
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (201, '2023-01-02', 100);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (201, '2023-01-01', 1);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (201, '2023-01-02', 0);
+
+-- Patient 202: Average CPK is < 250 (e.g., 250 and 250 is 250, let's use 250 and 260 -> avg 255; wait: if mutant uses MIN(CPK) vs MAX(CPK)).
+-- Here both CPK are >= 250, so should fail.
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (202, '2023-01-01', 250);
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (202, '2023-01-02', 400);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (202, '2023-01-01', 0);
+
+-- Patient 203: Valid CPK on one date, valid Thrombosis on a DIFFERENT date, invalid on matching dates (Kills mutants that join on Date = "Examination Date")
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (203, '2023-05-01', 100);
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (203, '2023-05-02', 300);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (203, '2023-05-01', 1);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (203, '2023-05-02', 0);
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion (e.g., CPK confused with GOT, GPT, LDH, ALP, T-CHO, TG, GLU, PLT, APTT, ANA, aCL IgA) and NULL ID in Examination
+INSERT INTO Patient (ID, SEX) VALUES (301, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (302, 'M');
+
+-- Patient 301: CPK is 300 (invalid), but all other integer columns in Laboratory are < 250, and ANA / aCL IgA in Examination are 0.
+INSERT INTO Laboratory (ID, Date, GOT, GPT, LDH, ALP, UN, "T-CHO", TG, CPK, GLU, PLT, APTT) 
+VALUES (301, '2020-10-10', 20, 25, 150, 100, 15, 180, 120, 300, 90, 200, 30);
+INSERT INTO Examination (ID, "Examination Date", ANA, "aCL IgA", Thrombosis) 
+VALUES (301, '2020-10-10', 0, 0, 0);
+
+-- Patient 302: CPK is 0 (valid, tests 0 < 250 and falsy checks), other columns are > 250, Thrombosis is 0, ANA is 1.
+INSERT INTO Laboratory (ID, Date, GOT, GPT, LDH, ALP, UN, "T-CHO", TG, CPK, GLU, PLT, APTT) 
+VALUES (302, '2020-10-10', 300, 300, 400, 500, 300, 300, 300, 0, 300, 300, 300);
+INSERT INTO Examination (ID, "Examination Date", ANA, "aCL IgA", Thrombosis) 
+VALUES (302, '2020-10-10', 1, 1, 0);
+
+-- Examination row with NULL ID (Valid per schema, should not join with anything)
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (NULL, '2020-10-10', 0);
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set when data exists (kills OR vs AND mutants: T2.Thrombosis = 0 OR T1.CPK < 250)
+INSERT INTO Patient (ID, SEX) VALUES (401, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (402, 'F');
+
+-- Patient 401: Thrombosis = 0 (True), CPK = 250 (False). Under OR mutant, this would be returned.
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (401, '2019-01-01', 250);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (401, '2019-01-01', 0);
+
+-- Patient 402: Thrombosis = 2 (False), CPK = 100 (True). Under OR mutant, this would be returned.
+INSERT INTO Laboratory (ID, Date, CPK) VALUES (402, '2019-01-01', 100);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (402, '2019-01-01', 2);
+```

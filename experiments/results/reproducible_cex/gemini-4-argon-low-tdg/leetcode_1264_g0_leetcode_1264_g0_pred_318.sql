@@ -1,0 +1,32 @@
+-- Schema DDL
+CREATE TABLE "Friendship" ("user1_id" INTEGER, "user2_id" INTEGER, PRIMARY KEY ("user1_id", "user2_id"), CHECK ("user1_id" <> 'Friendship.user2_id'));
+
+CREATE TABLE "Likes" ("user_id" INTEGER, "page_id" INTEGER, PRIMARY KEY ("user_id", "page_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 3
+INSERT INTO Friendship (user1_id, user2_id) VALUES (1, 2);
+INSERT INTO Friendship (user1_id, user2_id) VALUES (3, 4);
+INSERT INTO Likes (user_id, page_id) VALUES (1, NULL);
+INSERT INTO Likes (user_id, page_id) VALUES (2, 300);
+INSERT INTO Likes (user_id, page_id) VALUES (2, NULL);
+INSERT INTO Likes (user_id, page_id) VALUES (NULL, 301);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT PAGE_ID AS RECOMMENDED_PAGE FROM (SELECT CASE WHEN USER1_ID = 1 THEN USER2_ID WHEN USER2_ID = 1 THEN USER1_ID ELSE NULL END AS USER_ID FROM FRIENDSHIP) AS TB1 JOIN LIKES AS TB2 ON TB1.USER_ID = TB2.USER_ID WHERE NOT PAGE_ID IN (SELECT PAGE_ID FROM LIKES WHERE USER_ID = 1);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT DISTINCT L.PAGE_ID AS RECOMMENDED_PAGE FROM (SELECT USER2_ID AS ID FROM FRIENDSHIP WHERE USER1_ID = 1 UNION SELECT USER1_ID AS ID FROM FRIENDSHIP WHERE USER2_ID = 1) AS FRIEND_ID INNER JOIN LIKES AS L ON FRIEND_ID.ID = L.USER_ID LEFT JOIN (SELECT PAGE_ID FROM LIKES WHERE USER_ID = 1) AS T ON L.PAGE_ID = T.PAGE_ID WHERE T.PAGE_ID IS NULL;
+
+/*
+Prediction Result:
+(None,)
+(300,)
+*/

@@ -1,0 +1,43 @@
+from constants import DIALECT
+from environment import Environment
+
+def verify_sql_equivalence(sql1, sql2, schema, ROW_NUM=2, constraints=None, **kwargs):
+    with Environment(**kwargs) as env:
+        #columns_in_constraints = []
+        #for c in constraints:
+        #    for _, l in c.items():
+        #        for it in l:
+        #            columns_in_constraints.append(it["value"].split("__")[1])                                      
+        for k, v in schema.items():
+            #new_v = {}
+            #for c, t in v.items():
+            #    if c not in columns_in_constraints and c not in sql1 and c not in sql2:
+            #        continue
+            #    else:
+            #        new_v[c] = t
+            #print(f"number of columns reduced from {len(v)} to {len(new_v)}")
+            #env.create_database(attributes=new_v, bound_size=ROW_NUM, name=k)
+            env.create_database(attributes=v, bound_size=ROW_NUM, name=k)
+        env.add_constraints(constraints)
+        env.save_checkpoints()
+        if env._script_writer is not None:
+            env._script_writer.save_checkpoints()
+        
+        
+        result = env.analyze(sql1, sql2)
+        if result == True:
+            pass
+            # print("\033[1;32;40m>>> Equivalent! \033[0m")
+        else:
+            pass
+            # print("\033[1;31;40m>>> Non-Equivalent! Found a counterexample! \033[0m")
+        counterexample = env.counterexample if env.show_counterexample else None
+        time_cost = None
+        if env.traversing_time is not None:
+            if env.solving_time is not None:
+                time_cost = env.traversing_time + env.solving_time
+        return {
+            'equivalent': bool(result is True),
+            'counterexample': counterexample,
+            'time_cost': time_cost
+        }

@@ -1,0 +1,116 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match vs. confusion of eye_colour_id with hair_colour_id or skin_colour_id, and logical OR vs AND mutations.
+INSERT INTO colour (id, colour) VALUES (10, 'Blue');
+INSERT INTO colour (id, colour) VALUES (20, 'Green');
+INSERT INTO colour (id, colour) VALUES (30, 'Red');
+
+INSERT INTO superpower (id, power_name) VALUES (100, 'Agility');
+INSERT INTO superpower (id, power_name) VALUES (200, 'Flight');
+
+-- Hero 1: Matches both Blue eyes and Agility (Target match)
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (1, 'HeroTarget', 10, 20, 30);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 100);
+
+-- Hero 2: Has Blue hair and Agility, but Green eyes (Kills mutants joining colour on hair_colour_id)
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (2, 'HeroBlueHair', 20, 10, 30);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 100);
+
+-- Hero 3: Has Blue skin and Agility, but Green eyes (Kills mutants joining colour on skin_colour_id)
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (3, 'HeroBlueSkin', 20, 30, 10);
+INSERT INTO hero_power (hero_id, power_id) VALUES (3, 100);
+
+-- Hero 4: Has Blue eyes, but Flight instead of Agility (Kills mutants changing AND to OR, or omitting power filter)
+INSERT INTO superhero (id, superhero_name, eye_colour_id, hair_colour_id, skin_colour_id) VALUES (4, 'HeroBlueEyesNoAgility', 10, 20, 30);
+INSERT INTO hero_power (hero_id, power_id) VALUES (4, 200);
+```
+
+```sql
+-- DATASET 2
+-- Tests cardinality and duplicate handling: COUNT(T1.id) vs COUNT(DISTINCT T1.id), multiple powers per hero, and duplicate rows in hero_power.
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO superpower (id, power_name) VALUES (10, 'Agility');
+INSERT INTO superpower (id, power_name) VALUES (20, 'Agility');
+INSERT INTO superpower (id, power_name) VALUES (30, 'Strength');
+
+-- Hero 1: Has Blue eyes and is linked to two different 'Agility' entries and a duplicate link, plus another power.
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (101, 'MultiAgilityHero', 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (101, 10);
+INSERT INTO hero_power (hero_id, power_id) VALUES (101, 10);
+INSERT INTO hero_power (hero_id, power_id) VALUES (101, 20);
+INSERT INTO hero_power (hero_id, power_id) VALUES (101, 30);
+```
+
+```sql
+-- DATASET 3
+-- Tests OUTER JOIN mutations, NULL handling in foreign keys, and accidental ID cross-joining (e.g., T1.id = T3.id or T1.id = T4.id).
+INSERT INTO colour (id, colour) VALUES (5, 'Blue');
+INSERT INTO colour (id, colour) VALUES (6, NULL);
+
+INSERT INTO superpower (id, power_name) VALUES (5, 'Agility');
+INSERT INTO superpower (id, power_name) VALUES (6, NULL);
+
+-- Hero 5: ID is 5 (matches colour 5 and superpower 5), but actual eye_colour_id is NULL and has no powers.
+-- Kills mutants that join T1.id = T4.id or T1.id = T3.id or use LEFT/RIGHT joins improperly.
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (5, 'NullHero', NULL);
+
+-- Hero 6: Has Blue eyes (5), but no powers in hero_power.
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (6, 'PowerlessBlueEyeHero', 5);
+
+-- Hero 7: Has NULL eye colour (6) and Agility (5).
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (7, 'NullEyeAgilityHero', 6);
+INSERT INTO hero_power (hero_id, power_id) VALUES (7, 5);
+
+-- Unattached hero_power row with NULL hero_id
+INSERT INTO hero_power (hero_id, power_id) VALUES (NULL, 5);
+```
+
+```sql
+-- DATASET 4
+-- Tests string matching sensitivity (case sensitivity, substring/LIKE mutations, and swapped string literals).
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO colour (id, colour) VALUES (2, 'blue');
+INSERT INTO colour (id, colour) VALUES (3, 'Dark Blue');
+INSERT INTO colour (id, colour) VALUES (4, 'Agility');
+
+INSERT INTO superpower (id, power_name) VALUES (1, 'Agility');
+INSERT INTO superpower (id, power_name) VALUES (2, 'agility');
+INSERT INTO superpower (id, power_name) VALUES (3, 'Super Agility');
+INSERT INTO superpower (id, power_name) VALUES (4, 'Blue');
+
+-- Hero 1: Exact match ('Blue' and 'Agility')
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (1, 'ExactHero', 1);
+INSERT INTO hero_power (hero_id, power_id) VALUES (1, 1);
+
+-- Hero 2: Lowercase match ('blue' and 'agility')
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (2, 'LowerHero', 2);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 2);
+
+-- Hero 3: Substring match ('Dark Blue' and 'Super Agility')
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (3, 'SubstringHero', 3);
+INSERT INTO hero_power (hero_id, power_id) VALUES (3, 3);
+
+-- Hero 4: Swapped literals (eye colour is 'Agility', power is 'Blue')
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (4, 'SwappedHero', 4);
+INSERT INTO hero_power (hero_id, power_id) VALUES (4, 4);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple distinct heroes matching criteria vs. heroes with other attributes/tables populated to catch wrong table joins (e.g. hero_attribute instead of hero_power).
+INSERT INTO colour (id, colour) VALUES (11, 'Blue');
+INSERT INTO superpower (id, power_name) VALUES (22, 'Agility');
+INSERT INTO attribute (id, attribute_name) VALUES (22, 'Agility');
+
+-- Hero 10: Matches
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (10, 'MatchOne', 11);
+INSERT INTO hero_power (hero_id, power_id) VALUES (10, 22);
+
+-- Hero 20: Matches
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (20, 'MatchTwo', 11);
+INSERT INTO hero_power (hero_id, power_id) VALUES (20, 22);
+
+-- Hero 30: Has Blue eyes, and has 'Agility' in attribute/hero_attribute instead of superpower/hero_power.
+INSERT INTO superhero (id, superhero_name, eye_colour_id) VALUES (30, 'AttributeHero', 11);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (30, 22, 100);
+```

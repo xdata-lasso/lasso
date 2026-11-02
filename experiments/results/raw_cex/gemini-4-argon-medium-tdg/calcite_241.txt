@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. GROUP BY / DISTINCT elimination (multiple employees in the same department 10).
+-- 2. Outer Join / Unmatched DEPT elimination (department 30 has no employees).
+-- 3. Wrong join condition mutants (e.g., EMP.EMPNO = DEPT.DEPTNO, EMP.MGR = DEPT.DEPTNO, EMP.SAL = DEPT.DEPTNO).
+-- 4. Filtering mutants on EMP columns (NULL vs non-NULL MGR, 0 vs positive COMM, SLACKER 0 vs 1, varied SAL/JOB).
+-- 5. HAVING COUNT(*) > 1 vs >= 1 (dept 10 has 2 employees, dept 20 has 1 employee).
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (10, 'ACCOUNTING');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (20, 'RESEARCH');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (30, 'SALES');
+
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (7839, 10, 'KING', 'PRESIDENT', NULL, '1981-11-17', 5000, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (7782, 10, 'CLARK', 'MANAGER', 7839, '1981-06-09', 2450, 500, 1);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (7566, 20, 'JONES', 'CLERK', 7839, '1981-04-02', 800, 0, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Table substitution mutants (EMP vs EMPNULLABLES, EMPNULLABLES_20, EMP_B).
+-- 2. Non-standard DEPTNO values (0, negative values) to kill mutants with arbitrary > 0 predicates.
+-- 3. Ordering and boundary conditions when EMP is populated with a single row vs other tables having different DEPTNOs.
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (-5, 'NEGATIVE_DEPT');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (0, 'ZERO_DEPT');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (40, 'OPERATIONS');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (50, 'HR');
+
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (100, -5, 'ALICE', 'ANALYST', NULL, '2020-01-01', 3000, 100, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (101, 0, 'BOB', 'CLERK', 100, '2020-01-02', 1500, 0, 1);
+
+INSERT INTO EMPNULLABLES (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (201, 40, 'CHARLIE', 'MANAGER', NULL, '2020-02-01', 4000, 0, 0);
+INSERT INTO EMPNULLABLES_20 (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (301, 40, 'DAVID', 'SALESMAN', NULL, '2020-03-01', 2000, 200, 0);
+INSERT INTO EMP_B (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER, BIRTHDATE) VALUES (401, 50, 'EVE', 'CLERK', NULL, '2020-04-01', 1200, 0, 0, '1995-05-05');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty EMP table with non-empty DEPT table (ensures query returns empty set, killing RIGHT/FULL OUTER JOIN or SELECT DEPTNO FROM DEPT mutants).
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (10, 'ACCOUNTING');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (20, 'RESEARCH');
+
+INSERT INTO BONUS (ENAME, JOB, SAL, COMM) VALUES ('SMITH', 'CLERK', 800, 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Inequality join mutants (e.g., EMP.DEPTNO != DEPT.DEPTNO, EMP.DEPTNO < DEPT.DEPTNO, EMP.DEPTNO > DEPT.DEPTNO).
+-- With exactly one department and all employees in that department, any strict inequality join (!=, <, >) produces an empty result, whereas the reference query returns (10).
+-- 2. Group by wrong column (e.g., GROUP BY JOB, GROUP BY SAL, GROUP BY SLACKER) where multiple employees share DEPTNO=10, JOB='SALESMAN', SAL=1000, SLACKER=1 vs another employee in the same DEPTNO=10 with distinct attributes.
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (10, 'ONLY_DEPT');
+
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (1, 10, 'E1', 'SALESMAN', 2, '2021-01-01', 1000, 50, 1);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (2, 10, 'E2', 'MANAGER', NULL, '2021-01-01', 2000, 50, 1);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (3, 10, 'E3', 'SALESMAN', 2, '2021-06-01', 1000, 100, 0);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Cross-attribute accidental matches: EMPNO, MGR, SAL, COMM, SLACKER values deliberately overlap with valid DEPTNOs of OTHER departments that have no employees.
+-- Kills mutants that join DEPT.DEPTNO with EMP.EMPNO, EMP.MGR, EMP.SAL, EMP.COMM, or EMP.SLACKER, or project the wrong column from EMP.
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (1, 'DEPT_ONE');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (2, 'DEPT_TWO');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (3, 'DEPT_THREE');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (4, 'DEPT_FOUR');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (5, 'DEPT_FIVE');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (99, 'ACTUAL_EMP_DEPT');
+
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (2, 99, 'TRICK_EMP', 'CLERK', 3, '2022-03-15', 4, 5, 1);
+```

@@ -1,0 +1,59 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Missing DISTINCT (duplicate card_type_code 'Credit' and 'Debit').
+-- 2. Missing ORDER BY or DESC instead of ASC (inserted in reverse alphabetical order: 'Visa', 'MasterCard', 'Debit', 'Credit').
+-- 3. Unnecessary INNER JOIN with Customers (card 2 has customer_id 999 which is not in Customers; card 3 has NULL customer_id).
+-- 4. Unnecessary INNER JOIN with Financial_Transactions (only card 1 has a transaction).
+-- 5. Querying wrong table/column (e.g., Financial_Transactions.transaction_type 'Purchase' or Customers_Cards.other_card_details).
+-- 6. Unnecessary WHERE filtering on date validity (card 4 has expired/inverted dates).
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name) VALUES (1, 'Alice', 'Smith');
+INSERT INTO Accounts (account_id, customer_id, account_name) VALUES (10, 1, 'Checking');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (1, 1, 'Visa', '4000111122223333', '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Active');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (2, 999, 'MasterCard', '5000111122223333', '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Orphan Customer');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (3, NULL, 'Debit', '6000111122223333', '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Null Customer');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (4, 1, 'Credit', '7000111122223333', '2022-01-01 00:00:00', '2019-01-01 00:00:00', 'Expired');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (5, 1, 'Credit', '7000999988887777', '2021-01-01 00:00:00', '2026-01-01 00:00:00', 'Duplicate Type 1');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to, other_card_details) VALUES (6, 1, 'Debit', '6000999988887777', '2021-01-01 00:00:00', '2026-01-01 00:00:00', 'Duplicate Type 2');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, previous_transaction_id, transaction_type, transaction_date, transaction_amount, transaction_comment, other_transaction_details) VALUES (10, 1, 100, NULL, 'Purchase', '2023-05-01 12:00:00', 150.50, 'Groceries', 'Completed');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Handling of NULL and empty string '' in card_type_code (and deduplication of multiple NULLs).
+-- 2. Unnecessary WHERE card_type_code IS NOT NULL or WHERE card_type_code <> ''.
+-- 3. Case sensitivity and lexicographical sorting (e.g., 'amex' vs 'Amex', '123' vs 'Amex').
+-- 4. GROUP BY card_type_code HAVING COUNT(*) > 1 vs SELECT DISTINCT (some types appear once, some multiple times).
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number) VALUES (10, 1, 'amex', '30001');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number) VALUES (20, 2, 'Amex', '30002');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number) VALUES (30, 3, NULL, '30003');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number) VALUES (40, 4, NULL, '30004');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number) VALUES (50, 5, '', '30005');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number) VALUES (60, 6, '123', '30006');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number) VALUES (70, 7, 'Amex', '30007');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Sorting by card_type_code vs sorting by card_id, customer_id, or card_number.
+-- Here, card_id, customer_id, and card_number are strictly increasing (1, 2, 3), 
+-- while card_type_code is neither ascending nor descending ('Bravo', 'Charlie', 'Alpha').
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name) VALUES (1, 'John', 'Doe');
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name) VALUES (2, 'Jane', 'Doe');
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name) VALUES (3, 'Jim', 'Beam');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to) VALUES (1, 1, 'Bravo', '1111', '2020-01-01', '2025-01-01');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to) VALUES (2, 2, 'Charlie', '2222', '2021-01-01', '2026-01-01');
+INSERT INTO Customers_Cards (card_id, customer_id, card_type_code, card_number, date_valid_from, date_valid_to) VALUES (3, 3, 'Alpha', '3333', '2022-01-01', '2027-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty Customers_Cards table while other tables are populated.
+-- Catches queries that select from the wrong table or use outer joins / unions with other tables.
+INSERT INTO Customers (customer_id, customer_first_name, customer_last_name) VALUES (1, 'Solo', 'Customer');
+INSERT INTO Accounts (account_id, customer_id, account_name) VALUES (1, 1, 'Savings');
+INSERT INTO Financial_Transactions (account_id, card_id, transaction_id, transaction_type, transaction_amount) VALUES (1, NULL, 1, 'Deposit', 500.00);
+```

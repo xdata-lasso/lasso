@@ -1,0 +1,99 @@
+```sql
+-- DATASET 1
+-- General case: Multiple breeds and dogs where the earliest date_adopted is distinct from the earliest date_arrived, date_departed, date_of_birth, dog_id, and breed_code.
+-- Also includes an unreferenced breed to ensure INNER JOIN vs LEFT JOIN mutants on Breeds are caught.
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B01', 'Zebra Hound');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B02', 'Beagle');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B03', 'Pug');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('S01', 'Medium');
+
+INSERT INTO Owners (owner_id, first_name, last_name) VALUES (1, 'Alice', 'Smith');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (10, 1, 'S01', 'B02', '0', 'Buddy', '5', '2018-01-01 00:00:00', 'M', '20', '2019-01-01 00:00:00', '2022-05-01 00:00:00', '2020-01-01 00:00:00');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (20, 1, 'S01', 'B03', '1', 'Max', '3', '2020-01-01 00:00:00', 'F', '15', '2020-06-01 00:00:00', '2021-01-01 00:00:00', '2023-01-01 00:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Edge case: NULL values in breed_name. The second INNER JOIN uses `LHS.breed_name = RHS.breed_name`, which filters out NULL breed_names in standard SQL/SQLite.
+-- A mutant that simplifies the query by removing the redundant join to Breeds would fail by returning NULL instead of the non-NULL breed with a later date_adopted.
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B01', NULL);
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B02', 'Bulldog');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('S01', 'Small');
+
+INSERT INTO Owners (owner_id, first_name, last_name) VALUES (1, 'Bob', 'Jones');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (1, 1, 'S01', 'B01', '1', 'Ghost', '2', '2019-01-01 00:00:00', 'M', '10', '2020-01-01 00:00:00', '2020-02-01 00:00:00', '2020-03-01 00:00:00');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (2, 1, 'S01', 'B02', '0', 'Spike', '4', '2018-01-01 00:00:00', 'M', '25', '2021-01-01 00:00:00', '2021-02-01 00:00:00', '2021-03-01 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Edge case: NULL values in date_adopted. In SQLite, ASC ordering places NULLs first.
+-- This catches mutants that add `WHERE date_adopted IS NOT NULL`, use DESC ordering, or use NULLS LAST.
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B01', 'Chihuahua');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B02', 'Poodle');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('S01', 'Tiny');
+
+INSERT INTO Owners (owner_id, first_name, last_name) VALUES (1, 'Charlie', 'Brown');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (1, 1, 'S01', 'B01', '0', 'TinyTim', '1', '2021-01-01 00:00:00', 'M', '5', '2021-06-01 00:00:00', NULL, '2021-07-01 00:00:00');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (2, 1, 'S01', 'B02', '0', 'Fluffy', '3', '2019-01-01 00:00:00', 'F', '12', '2020-01-01 00:00:00', '2020-02-01 00:00:00', '2020-03-01 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Edge case: Dogs with NULL foreign keys (breed_code, owner_id, size_code) and no Treatments.
+-- Catches mutants that use LEFT JOIN from Dogs to Breeds (which would include the NULL breed_code dog first due to earlier date_adopted) or unnecessary INNER JOINs to Owners, Sizes, or Treatments.
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B01', 'Golden Retriever');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B02', 'Dalmatian');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (1, NULL, NULL, NULL, '1', 'Mystery', '2', '2018-01-01 00:00:00', 'M', '30', '2019-01-01 00:00:00', '2019-05-01 00:00:00', '2019-06-01 00:00:00');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (2, NULL, NULL, 'B01', '0', 'Shadow', '4', '2017-01-01 00:00:00', 'F', '55', '2020-01-01 00:00:00', '2020-05-01 00:00:00', '2020-06-01 00:00:00');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (3, NULL, NULL, 'B02', '1', 'Spot', '3', '2018-06-01 00:00:00', 'M', '45', '2021-01-01 00:00:00', '2021-05-01 00:00:00', '2021-06-01 00:00:00');
+```
+
+```sql
+-- DATASET 5
+-- Edge case: Testing Aggregation/Count mutants (e.g., ordering by popularity of breed instead of date_adopted) and Treatments join mutants.
+-- B01 has 1 dog (earliest date_adopted, no treatments). B02 has 2 dogs (later date_adopted, with treatments).
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B01', 'Terrier');
+INSERT INTO Breeds (breed_code, breed_name) VALUES ('B02', 'Labrador');
+
+INSERT INTO Sizes (size_code, size_description) VALUES ('S01', 'Large');
+
+INSERT INTO Owners (owner_id, first_name, last_name) VALUES (1, 'Dave', 'Williams');
+
+INSERT INTO Professionals (professional_id, role_code, first_name, last_name) VALUES (1, 'VET', 'Sarah', 'Connor');
+
+INSERT INTO Treatment_Types (treatment_type_code, treatment_type_description) VALUES ('T01', 'Vaccination');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (1, 1, 'S01', 'B01', '0', 'Rex', '6', '2015-01-01 00:00:00', 'M', '18', '2016-01-01 00:00:00', '2017-01-01 00:00:00', '2017-02-01 00:00:00');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (2, 1, 'S01', 'B02', '0', 'Bella', '4', '2018-01-01 00:00:00', 'F', '60', '2019-01-01 00:00:00', '2019-06-01 00:00:00', '2019-07-01 00:00:00');
+
+INSERT INTO Dogs (dog_id, owner_id, size_code, breed_code, abandoned_yn, name, age, date_of_birth, gender, weight, date_arrived, date_adopted, date_departed) 
+VALUES (3, 1, 'S01', 'B02', '1', 'Luna', '2', '2020-01-01 00:00:00', 'F', '58', '2021-01-01 00:00:00', '2021-06-01 00:00:00', '2021-07-01 00:00:00');
+
+INSERT INTO Treatments (treatment_id, dog_id, professional_id, treatment_type_code, date_of_treatment, cost_of_treatment) 
+VALUES (1, 2, 1, 'T01', '2019-03-01 00:00:00', 50.0);
+```

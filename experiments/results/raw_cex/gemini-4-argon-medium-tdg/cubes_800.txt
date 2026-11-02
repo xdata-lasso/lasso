@@ -1,0 +1,125 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT/FULL JOIN (Medication 100 has no prescriptions and should be excluded).
+-- 2. DISTINCT vs ALL (Medication 200 has prescriptions in multiple appointments and also NULL appointments, generating multiple rows in the inner subquery that must be deduplicated).
+-- 3. NULL handling in GROUP BY and HAVING/WHERE (Medication 200 and 300 have NULL appointments).
+-- 4. ORDER BY code ASC, name NULLS LAST (Codes inserted out of order; Medication 300 has NULL name).
+-- 5. Confounding columns (Medication Name differs from Brand, Description, and Procedures.Name).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Alice', 'Attending', 111111111);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (2, 'Dr. Bob', 'Resident', 222222222);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1001, 1, 'Patient Zero', '123 Main St', '555-0100', 9001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1002, 2, 'Patient One', '456 Oak St', '555-0101', 9002);
+
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (10, 'Nurse Carla', 'Head Nurse', 1, 333333333);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (501, 1, 10, 1001, '2023-01-10 09:00:00', '2023-01-10 10:00:00', 'Room A');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (502, 2, 10, 1002, '2023-01-11 11:00:00', '2023-01-11 12:00:00', 'Room B');
+
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (300, NULL, 'BrandX', 'DescX');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (100, 'UnprescribedMed', 'BrandY', 'DescY');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (200, 'Amoxicillin', 'Amoxil', 'Antibiotic');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (50, 'Zyrtec', 'CetirizineBrand', 'Allergy');
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (200, 'WrongTableProcedure', 1500.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (50, 'AnotherProcedure', 500.0);
+
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1001, 200, '2023-01-10 09:30:00', 501, '500mg');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (2, 1001, 200, '2023-01-10 09:45:00', 501, '250mg');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1002, 200, '2023-01-11 11:30:00', 502, '500mg');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1001, 200, '2023-01-12 08:00:00', NULL, '100mg');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (2, 1002, 300, '2023-01-15 14:00:00', NULL, '10mg');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1001, 50, '2023-01-10 09:50:00', 501, '5mg');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Wrong join condition mutations (e.g., joining Medication.Code with Prescribes.Appointment, Prescribes.Physician, or Prescribes.Patient).
+-- 2. Single prescription per medication vs multiple prescriptions in the same appointment (testing HAVING COUNT(*) > 1 vs >= 1 mutations).
+-- 3. Case sensitivity and string sorting edge cases vs integer sorting on Code.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (10, 'Dr. Smith', 'Surgical', 444444444);
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (20, 'Dr. Jones', 'General', 555555555);
+
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (10, 10, 'MatchingIDPatient', '789 Pine St', '555-0200', 8001);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (30, 20, 'OtherPatient', '321 Elm St', '555-0202', 8002);
+
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (5, 'Nurse Joy', 'RN', 1, 666666666);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (10, 10, 5, 10, '2023-05-01 10:00:00', '2023-05-01 11:00:00', 'Room 1');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (20, 20, 5, 30, '2023-05-02 10:00:00', '2023-05-02 11:00:00', 'Room 2');
+
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (10, 'TrapMed_MatchesApptAndPhysAndPat', 'TrapBrand1', 'NotPrescribed');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (20, 'TrapMed_MatchesApptAndPhys', 'TrapBrand2', 'NotPrescribed');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (30, 'TrapMed_MatchesPatient', 'TrapBrand3', 'NotPrescribed');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (9, 'ValidMed_Nine', 'BrandNine', 'PrescribedOnce');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (100, 'ValidMed_Hundred', 'BrandHundred', 'PrescribedTwiceSameAppt');
+
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (10, 10, 9, '2023-05-01 10:15:00', 10, '1 pill');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (10, 30, 100, '2023-05-02 10:15:00', 20, '2 pills');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (20, 30, 100, '2023-05-02 10:30:00', 20, '3 pills');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty Prescribes table with populated Medication and Appointment tables (kills LEFT JOIN, FULL JOIN, or queries ignoring Prescribes).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. House', 'Diagnostician', 999999999);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (101, 1, 'John Doe', '221B Baker St', '555-9999', 7001);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'Nurse Ratched', 'Head Nurse', 1, 888888888);
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (1, 1, 1, 101, '2023-08-01 08:00:00', '2023-08-01 09:00:00', 'Room 101');
+
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (1, 'Ibuprofen', 'Advil', 'Pain reliever');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (2, 'Acetaminophen', 'Tylenol', 'Fever reducer');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Medications sharing the exact same Name (and NULL names) but different Codes.
+-- 2. Kills mutants that do GROUP BY name or SELECT DISTINCT name without code, or swap ORDER BY columns (ORDER BY name, code vs ORDER BY code, name).
+-- 3. Prescriptions where all appointments are NULL (kills mutants that INNER JOIN Appointment table or filter WHERE appointment IS NOT NULL).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Who', 'Time Lord', 123456789);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1, 1, 'Rose Tyler', 'London', '555-0001', 1000);
+
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (1, 'GenericPainkiller', 'BrandA', 'Small dose');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (2, 'GenericPainkiller', 'BrandB', 'Large dose');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (3, 'Aspirin', 'Bayer', 'Blood thinner');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (4, NULL, 'MysteryBrand1', 'Unknown 1');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (5, NULL, 'MysteryBrand2', 'Unknown 2');
+
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1, 5, '2023-09-01 10:00:00', NULL, '10ml');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1, 3, '2023-09-02 10:00:00', NULL, '20ml');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1, 2, '2023-09-03 10:00:00', NULL, '30ml');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1, 1, '2023-09-04 10:00:00', NULL, '40ml');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1, 4, '2023-09-05 10:00:00', NULL, '50ml');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Confounding with Undergoes / Procedures / Trained_In / Stay (kills mutants that query Procedures/Undergoes instead of Medication/Prescribes).
+-- 2. Negative, zero, and positive Medication Codes to strictly verify numeric sorting and boundary conditions.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Strange', 'Surgeon', 777777777);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (1, 1, 'Stephen', 'NY', '555-7777', 777);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'Christine', 'ER Nurse', 1, 666666667);
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (100, 1, 1, 1, '2023-10-01 09:00:00', '2023-10-01 10:00:00', 'ER');
+
+INSERT INTO "Block" ("BlockFloor", "BlockCode") VALUES (1, 1);
+INSERT INTO "Room" ("RoomNumber", "BlockFloor", "BlockCode", "RoomType", "Unavailable") VALUES (101, 1, 1, 'Single', 0);
+INSERT INTO "Stay" ("StayID", "Room", "Patient", "StayStart", "StayEnd") VALUES (1, 101, 1, '2023-10-01 00:00:00', '2023-10-05 00:00:00');
+
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (-5, 'Hand Surgery', 10000.0);
+INSERT INTO "Procedures" ("Code", "Name", "Cost") VALUES (0, 'Physical Therapy', 500.0);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1, -5, 1, '2023-10-02 10:00:00', 1, 1);
+INSERT INTO "Undergoes" ("Patient", "Procedures", "Stay", "DateUndergoes", "AssistingNurse", "Physician") VALUES (1, 0, 1, '2023-10-03 10:00:00', 1, 1);
+
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (10, 'MedTen', 'Brand10', 'Desc10');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (0, 'MedZero', 'Brand0', 'Desc0');
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (-5, 'MedMinusFive', 'BrandM5', 'DescM5');
+
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1, 10, '2023-10-01 09:10:00', 100, '10mg');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1, 0, '2023-10-01 09:20:00', 100, '5mg');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 1, -5, '2023-10-01 09:30:00', 100, '1mg');
+```

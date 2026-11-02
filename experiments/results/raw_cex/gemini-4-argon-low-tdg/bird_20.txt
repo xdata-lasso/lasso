@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Core Predicate & Boundary Testing:
+-- Row 1: Exact match for all predicates.
+-- Row 2: Fails T2.County = 'Amador' (even though T1."County Name" is 'Amador' to catch table confusion).
+-- Row 3: Fails T1."Low Grade" = 9.
+-- Row 4: Fails T1."High Grade" = 12.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES ('1', 'Active', 'Amador', 'Dist1', 'Amador High', '54', 'Unified', '9-12', '9-12', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES ('2', 'Active', 'Calaveras', 'Dist2', 'Calaveras High', '54', 'Unified', '9-12', '9-12', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES ('3', 'Active', 'Amador', 'Dist1', 'Amador Jr/Sr', '54', 'Unified', '7-12', '7-12', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES ('4', 'Active', 'Amador', 'Dist1', 'Amador Continuation', '54', 'Unified', '9-11', '9-11', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('1', 'Amador', 'Amador High', '9', '12');
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('2', 'Amador', 'Calaveras High', '9', '12');
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('3', 'Amador', 'Amador Jr/Sr', '7', '12');
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('4', 'Amador', 'Amador Continuation', '9', '11');
+```
+
+```sql
+-- DATASET 2
+-- NULL Handling & Column Selection in COUNT():
+-- Row 1: Valid match.
+-- Row 2: Matches all WHERE predicates, but T1."School Name" is NULL (while T2.School is NOT NULL).
+-- Catches mutants using COUNT(*), COUNT(1), COUNT(T1.CDSCode), or COUNT(T2.School).
+-- Row 3: Matches all WHERE predicates, T1."School Name" is NOT NULL, but T2.School is NULL.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('10', 'Active', 'Amador', 'Dist1', 'School A', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('20', 'Active', 'Amador', 'Dist1', 'School B', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('30', 'Active', 'Amador', 'Dist1', NULL, '54', 'Unified', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('10', 'Amador', 'School A', '9', '12');
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('20', 'Amador', NULL, '9', '12');
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('30', 'Amador', 'School C', '9', '12');
+```
+
+```sql
+-- DATASET 3
+-- DISTINCT vs ALL in COUNT() & Table Source Confusion for County:
+-- Two distinct CDSCode rows in Amador with Low Grade 9 and High Grade 12, sharing the exact same T1."School Name".
+-- Also sets T1."County Name" to 'Other' on matching rows to kill mutants filtering on T1."County Name" = 'Amador'.
+-- Also includes an unmatched row in `schools` (no corresponding `frpm` row) to test OUTER JOIN / subquery mutants.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES ('100', 'Active', 'Amador', 'Dist1', 'Duplicate Name High', '54', 'Unified', 'K-12', 'K-12', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES ('200', 'Active', 'Amador', 'Dist2', 'Duplicate Name High', '54', 'Unified', 'K-12', 'K-12', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, GSoffered, GSserved, LastUpdate) VALUES ('300', 'Active', 'Amador', 'Dist3', 'Unjoined School', '54', 'Unified', '9-12', '9-12', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('100', 'NotAmador', 'Duplicate Name High', '9', '12');
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('200', 'NotAmador', 'Duplicate Name High', '9', '12');
+```
+
+```sql
+-- DATASET 4
+-- Join Condition Omission (Cartesian Product) & Unnecessary Table Join (`satscores`):
+-- Row 1: Matches County = 'Amador', fails grades (K to 8).
+-- Row 2: Fails County ('Butte'), matches grades (9 to 12).
+-- If the join condition `T1.CDSCode = T2.CDSCode` is omitted or mutated, Row 1 (T2) and Row 2 (T1) cross-match to produce a false count of 1 (Gold result is 0).
+-- Row 3: Matches all conditions in `schools` and `frpm`, but has NO entry in `satscores` (kills mutants that unnecessarily INNER JOIN `satscores`).
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('1001', 'Active', 'Amador', 'Dist1', 'Amador Elem', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('1002', 'Active', 'Butte', 'Dist2', 'Butte High', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('1003', 'Active', 'Amador', 'Dist1', 'Amador High No SAT', '54', 'Unified', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('1001', 'Amador', 'Amador Elem', 'K', '8');
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('1002', 'Butte', 'Butte High', '9', '12');
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('1003', 'Amador', 'Amador High No SAT', '9', '12');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr) VALUES ('1002', 'S', 'Butte High', 'Dist2', 'Butte', 100, 50);
+```
+
+```sql
+-- DATASET 5
+-- Empty Match Set / Zero Count & NULL Predicates:
+-- Tests that the query returns 0 (and not NULL or 1) when rows have NULLs in the filtered columns or swapped Low/High grades.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('5001', 'Active', 'Amador', 'Dist1', 'Null Grade School', '54', 'Unified', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, School, DOC, DOCType, LastUpdate) VALUES ('5002', 'Active', 'Amador', 'Dist1', 'Swapped Grade School', '54', 'Unified', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('5001', 'Amador', 'Null Grade School', NULL, NULL);
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "Low Grade", "High Grade") VALUES ('5002', 'Amador', 'Swapped Grade School', '12', '9');
+```

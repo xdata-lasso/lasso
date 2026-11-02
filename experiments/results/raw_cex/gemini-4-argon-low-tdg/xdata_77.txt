@@ -1,0 +1,118 @@
+```sql
+-- DATASET 1
+-- Tests basic join correctness, distinguishing Student ID from Instructor ID in TAKES, and filtering out cross-department rows.
+INSERT INTO classroom (building, room_number, capacity) VALUES ('B1', '101', 50);
+INSERT INTO department (dept_name, building, budget) VALUES ('CS', 'B1', 100000.00);
+INSERT INTO department (dept_name, building, budget) VALUES ('Math', 'B1', 80000.00);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS101', 'Intro to CS', 'CS', 4);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('CS101', '1', 'Fall', 2023, 'B1', '101', 'TS1');
+
+-- Student and Instructor in CS with distinct IDs and names
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S1', 'Alice', 'CS', 30);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('I1', 'Dr. Bob', 'CS', 85000.00);
+
+-- Student whose ID matches the CS Instructor ID 'I1', but belongs to Math (tests mutant: TAKES.ID = INSTRUCTOR.ID)
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('I1', 'Charlie', 'Math', 60);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('I2', 'Dr. Eve', 'Math', 75000.00);
+
+-- Takes records for both S1 and I1
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S1', 'CS101', '1', 'Fall', 2023, 'A');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('I1', 'CS101', '1', 'Fall', 2023, 'B');
+```
+
+```sql
+-- DATASET 2
+-- Tests OUTER JOIN mutants (LEFT/RIGHT/FULL JOIN) and NULL foreign keys.
+INSERT INTO classroom (building, room_number, capacity) VALUES ('B2', '202', 40);
+INSERT INTO department (dept_name, building, budget) VALUES ('Physics', 'B2', 90000.00);
+INSERT INTO department (dept_name, building, budget) VALUES ('History', 'B2', 50000.00);
+INSERT INTO department (dept_name, building, budget) VALUES ('Biology', 'B2', 70000.00);
+INSERT INTO department (dept_name, building, budget) VALUES ('Art', 'B2', 40000.00);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('PH101', 'Mechanics', 'Physics', 4);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('PH101', '1', 'Spring', 2022, 'B2', '202', 'TS2');
+
+-- Physics: Has Student (with Takes) and Instructor -> Should match
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S10', 'Dan', 'Physics', 15);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('I10', 'Dr. Smith', 'Physics', 95000.00);
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S10', 'PH101', '1', 'Spring', 2022, 'A');
+
+-- History: Has Student (with Takes) but NO Instructor -> Should NOT match
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S20', 'Frank', 'History', 20);
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S20', 'PH101', '1', 'Spring', 2022, 'C');
+
+-- Biology: Has Instructor and Student, but Student has NO Takes -> Should NOT match
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S30', 'Grace', 'Biology', 10);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('I30', 'Dr. Jones', 'Biology', 65000.00);
+
+-- Art: Has Instructor, NO Student -> Should NOT match
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('I40', 'Dr. White', 'Art', 55000.00);
+
+-- NULL dept_name for Student (with Takes) and Instructor -> Should NOT match even though both are NULL
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S50', 'Hank', NULL, 0);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('I50', 'Dr. Null', NULL, 45000.00);
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S50', 'PH101', '1', 'Spring', 2022, 'B');
+```
+
+```sql
+-- DATASET 3
+-- Tests cardinality, duplicate rows, and 1-to-N relationships across all joined tables (kills DISTINCT or GROUP BY mutants, or missing join conditions).
+INSERT INTO classroom (building, room_number, capacity) VALUES ('B3', '303', 100);
+INSERT INTO department (dept_name, building, budget) VALUES ('EE', 'B3', 120000.00);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('EE101', 'Circuits', 'EE', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('EE102', 'Signals', 'EE', 4);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('EE101', '1', 'Fall', 2021, 'B3', '303', 'TS1');
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('EE102', '1', 'Winter', 2021, 'B3', '303', 'TS2');
+
+-- 2 Students in EE
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S100', 'Ivy', 'EE', 40);
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S101', 'Jack', 'EE', 50);
+
+-- 2 Instructors in EE
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('I100', 'Dr. Green', 'EE', 80000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('I101', 'Dr. Black', 'EE', 90000.00);
+
+-- S100 takes 2 courses; S101 takes 1 course
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S100', 'EE101', '1', 'Fall', 2021, 'A');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S100', 'EE102', '1', 'Winter', 2021, 'B');
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S101', 'EE101', '1', 'Fall', 2021, 'A');
+```
+
+```sql
+-- DATASET 4
+-- Tests accidental NATURAL JOIN mutants or joins on non-key homonymous columns (e.g., STUDENT.name = INSTRUCTOR.name, or COURSE.dept_name = DEPARTMENT.dept_name).
+INSERT INTO classroom (building, room_number, capacity) VALUES ('B4', '404', 30);
+INSERT INTO department (dept_name, building, budget) VALUES ('Music', 'B4', 60000.00);
+INSERT INTO department (dept_name, building, budget) VALUES ('Finance', 'B4', 150000.00);
+
+-- Course is in Finance, but taken by a Music student
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('FI101', 'Banking', 'Finance', 3);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('FI101', '1', 'Summer', 2023, 'B4', '404', 'TS3');
+
+-- Student and Instructor in Music share the exact same ID and Name, and another Instructor has a different ID and Name
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('999', 'Taylor', 'Music', 12);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('999', 'Taylor', 'Music', 70000.00);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('888', 'Jordan', 'Music', 72000.00);
+
+-- Student '999' takes the Finance course
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('999', 'FI101', '1', 'Summer', 2023, 'A');
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary values on numeric/check constraints and ensures no hidden predicates exist in mutants (e.g., filtering by salary, budget, tot_cred, year, or non-null grade).
+INSERT INTO classroom (building, room_number, capacity) VALUES ('Main', '1', 10);
+INSERT INTO department (dept_name, building, budget) VALUES ('Astro', 'Main', 0.01);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('AS101', 'Stars', 'Astro', 1);
+INSERT INTO section (course_id, sec_id, semester, year, building, room_number, time_slot_id) VALUES ('AS101', '1', 'Winter', 1702, 'Main', '1', 'TS9');
+
+-- Boundary tot_cred = 0, boundary salary = 29000.01
+INSERT INTO student (ID, name, dept_name, tot_cred) VALUES ('S0', 'ZeroCred', 'Astro', 0);
+INSERT INTO instructor (ID, name, dept_name, salary) VALUES ('I0', 'MinSalary', 'Astro', 29000.01);
+
+-- Grade is NULL
+INSERT INTO takes (ID, course_id, sec_id, semester, year, grade) VALUES ('S0', 'AS101', '1', 'Winter', 1702, NULL);
+```

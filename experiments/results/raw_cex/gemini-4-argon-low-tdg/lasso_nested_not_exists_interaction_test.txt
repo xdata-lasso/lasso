@@ -1,0 +1,71 @@
+```sql
+-- DATASET 1
+-- Tests when t3 has year = 2020. The innermost NOT EXISTS is FALSE, so the outer NOT EXISTS is TRUE for all t1 rows.
+-- Also tests correlated mutant `t3.year = t2.year` (t2 has 2019, which is not in t3) and `DISTINCT` mutants (duplicate names).
+INSERT INTO t1 (id, name) VALUES (1, 'Alice');
+INSERT INTO t1 (id, name) VALUES (2, 'Bob');
+INSERT INTO t1 (id, name) VALUES (3, 'Alice');
+INSERT INTO t2 (id, t1_id, year) VALUES (10, 1, 2019);
+INSERT INTO t2 (id, t1_id, year) VALUES (11, 1, 2020);
+INSERT INTO t2 (id, t1_id, year) VALUES (12, 3, 2021);
+INSERT INTO t3 (id, year) VALUES (100, 2020);
+```
+
+```sql
+-- DATASET 2
+-- Tests when t3 does NOT have year = 2020, and has boundary values (2019, 2021) and NULL.
+-- Only t1 rows without matching t2 rows should be returned.
+-- Also catches mutants that correlate `t3.year = t2.year` (since 2019 matches between t2 and t3) or `t2.year = 2020`.
+INSERT INTO t1 (id, name) VALUES (1, 'Alice');
+INSERT INTO t1 (id, name) VALUES (2, 'Bob');
+INSERT INTO t1 (id, name) VALUES (3, 'Charlie');
+INSERT INTO t2 (id, t1_id, year) VALUES (10, 1, 2019);
+INSERT INTO t2 (id, t1_id, year) VALUES (11, 2, 2020);
+INSERT INTO t2 (id, t1_id, year) VALUES (12, NULL, 2020);
+INSERT INTO t3 (id, year) VALUES (100, 2019);
+INSERT INTO t3 (id, year) VALUES (101, 2021);
+INSERT INTO t3 (id, year) VALUES (102, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests when t3 is completely empty, and t2 has multiple rows per t1_id, no rows for some t1_id, and NULL t1_id.
+-- Catches JOIN vs EXISTS differences and NULL handling in `NOT IN` / `!=` mutants.
+INSERT INTO t1 (id, name) VALUES (1, 'Alice');
+INSERT INTO t1 (id, name) VALUES (2, 'Bob');
+INSERT INTO t1 (id, name) VALUES (3, NULL);
+INSERT INTO t2 (id, t1_id, year) VALUES (10, 1, 2020);
+INSERT INTO t2 (id, t1_id, year) VALUES (11, 1, 2020);
+INSERT INTO t2 (id, t1_id, year) VALUES (12, NULL, 2020);
+```
+
+```sql
+-- DATASET 4
+-- Tests when t2 is completely empty and t3 does not have 2020.
+-- All t1 rows should be returned. Catches mutants that move the t3 check outside the t2 subquery (e.g., `WHERE NOT EXISTS(t2) AND EXISTS(t3)`).
+INSERT INTO t1 (id, name) VALUES (1, 'Alice');
+INSERT INTO t1 (id, name) VALUES (2, 'Bob');
+INSERT INTO t3 (id, year) VALUES (100, 2018);
+```
+
+```sql
+-- DATASET 5
+-- Tests ID collision and wrong column correlation (e.g., `t2.id = t1.id` or `t3.id = t2.id` or `t3.id = 2020`).
+INSERT INTO t1 (id, name) VALUES (1, 'Alice');
+INSERT INTO t1 (id, name) VALUES (2, 'Bob');
+INSERT INTO t2 (id, t1_id, year) VALUES (1, 2, 2020);
+INSERT INTO t3 (id, year) VALUES (2020, 1999);
+```
+
+```sql
+-- DATASET 6
+-- Tests mixed t2.year values for the same t1_id when t3 has no 2020.
+-- Catches mutants where the inner condition is mutated to check `t2.year = 2020` with `NOT EXISTS` or `EXISTS`.
+INSERT INTO t1 (id, name) VALUES (1, 'Alice');
+INSERT INTO t1 (id, name) VALUES (2, 'Bob');
+INSERT INTO t1 (id, name) VALUES (3, 'Charlie');
+INSERT INTO t2 (id, t1_id, year) VALUES (10, 1, 2020);
+INSERT INTO t2 (id, t1_id, year) VALUES (11, 2, 2015);
+INSERT INTO t2 (id, t1_id, year) VALUES (12, 3, 2020);
+INSERT INTO t2 (id, t1_id, year) VALUES (13, 3, 2015);
+```

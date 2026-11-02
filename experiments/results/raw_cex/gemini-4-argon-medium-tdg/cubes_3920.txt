@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Tests multiple count tiers (1, 1, 2, 3), DISTINCT elimination (count 3 matches against both 1 and 2, and twice against the two 1s), and inverse correlation between college name and count to catch ORDER BY mistakes.
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (1, 'USA', 'Washington', 'English');
+INSERT INTO "team" ("Team_id", "Name") VALUES (1, 'Lakers');
+
+-- 'Alpha' has count 3 (highest count, alphabetically first)
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2001.0, 1, 1, 'P1', 'G', 1, '2001', 'Alpha');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2002.0, 1, 1, 'P2', 'G', 2, '2002', 'Alpha');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2003.0, 1, 1, 'P3', 'F', 3, '2003', 'Alpha');
+
+-- 'Beta' has count 2 (middle count, alphabetically second)
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2004.0, 1, 1, 'P4', 'F', 4, '2004', 'Beta');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2005.0, 1, 1, 'P5', 'C', 5, '2005', 'Beta');
+
+-- 'Gamma' and 'Delta' have count 1 (lowest count)
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2006.0, 1, 1, 'P6', 'C', 6, '2006', 'Gamma');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2007.0, 1, 1, 'P7', 'G', 7, '2007', 'Delta');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition where all colleges have the exact same count (>1).
+-- Reference query should return an empty result; mutants using <=, >=, !=, or missing WHERE will fail.
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (1, 'Canada', 'Ottawa', 'English');
+INSERT INTO "team" ("Team_id", "Name") VALUES (1, 'Raptors');
+
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2010.0, 1, 1, 'P1', 'G', 1, '2010', 'Duke');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2011.0, 1, 1, 'P2', 'F', 2, '2011', 'Duke');
+
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2012.0, 1, 1, 'P3', 'C', 3, '2012', 'UNC');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2013.0, 1, 1, 'P4', 'G', 4, '2013', 'UNC');
+```
+
+```sql
+-- DATASET 3
+-- Tests handling of NULL values in the GROUP BY column ("College"), where NULL has a higher count than a non-NULL college.
+-- Differentiates COUNT(*) vs COUNT(College) and tests SQLite's grouping of NULLs.
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (1, 'Spain', 'Madrid', 'Spanish');
+INSERT INTO "team" ("Team_id", "Name") VALUES (1, 'Real');
+
+-- NULL College has count 2
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (1990.0, 1, 1, 'P1', 'G', 1, '1990', NULL);
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (1991.0, 1, 1, 'P2', 'F', 2, '1991', NULL);
+
+-- 'UCLA' has count 1
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (1992.0, 1, 1, 'P3', 'C', 3, '1992', 'UCLA');
+
+-- 'Yale' has count 3
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (1993.0, 1, 1, 'P4', 'C', 4, '1993', 'Yale');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (1994.0, 1, 1, 'P5', 'F', 5, '1994', 'Yale');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (1995.0, 1, 1, 'P6', 'G', 6, '1995', 'Yale');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL foreign keys (Team, Country) and duplicate values in other columns (Player, Position) within a college group.
+-- Catches mutants that erroneously INNER JOIN with team/country, or use COUNT(DISTINCT Player) / COUNT(Team) instead of COUNT(*).
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (1, 'France', 'Paris', 'French');
+INSERT INTO "team" ("Team_id", "Name") VALUES (1, 'Spurs');
+
+-- 'Stanford' has 2 rows, both with the same Player 'John' and Position 'G', and NULL Team/Country
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2020.0, NULL, NULL, 'John', 'G', 10, '2020', 'Stanford');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2021.0, NULL, NULL, 'John', 'G', 10, '2020', 'Stanford');
+
+-- 'MIT' has 1 row with valid Team/Country
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2022.0, 1, 1, 'Mike', 'C', 20, '2022', 'MIT');
+
+-- Extra player in the "player" table to catch erroneous joins with "player" table
+INSERT INTO "player" ("Player_ID", "Team", "Player", "Years_Played", "Total_WL", "Singles_WL", "Doubles_WL") VALUES (1, 1, 'Mike', '2022-2023', '10-5', '5-2', '5-3');
+INSERT INTO "player" ("Player_ID", "Team", "Player", "Years_Played", "Total_WL", "Singles_WL", "Doubles_WL") VALUES (2, 1, 'Mike', '2023-2024', '12-3', '6-1', '6-2');
+```
+
+```sql
+-- DATASET 5
+-- Tests tie at the non-minimum count level (two colleges tied for highest count, one college with lowest count) and positive correlation between name and count.
+-- Catches mutants that filter for strictly the unique maximum, or use HAVING COUNT(*) > 1, where minimum count is > 1.
+INSERT INTO "country" ("Country_id", "Country_name", "Capital", "Official_native_language") VALUES (1, 'Germany', 'Berlin', 'German');
+INSERT INTO "team" ("Team_id", "Name") VALUES (1, 'Mavs');
+
+-- 'Auburn' has count 2 (minimum count here is 2, not 1! Catches hardcoded `n > 1` mutants)
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (1.0, 1, 1, 'A1', 'G', 1, '1', 'Auburn');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (2.0, 1, 1, 'A2', 'G', 2, '2', 'Auburn');
+
+-- 'Baylor' has count 3
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (3.0, 1, 1, 'B1', 'F', 3, '3', 'Baylor');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (4.0, 1, 1, 'B2', 'F', 4, '4', 'Baylor');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (5.0, 1, 1, 'B3', 'F', 5, '5', 'Baylor');
+
+-- 'Clemson' has count 3
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (6.0, 1, 1, 'C1', 'C', 6, '6', 'Clemson');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (7.0, 1, 1, 'C2', 'C', 7, '7', 'Clemson');
+INSERT INTO "match_season" ("Season", "Team", "Country", "Player", "Position", "Draft_Pick_Number", "Draft_Class", "College") VALUES (8.0, 1, 1, 'C3', 'C', 8, '8', 'Clemson');
+```

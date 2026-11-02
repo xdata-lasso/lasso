@@ -1,0 +1,102 @@
+-- Schema DDL
+CREATE TABLE "EXAMINATION" (
+    "ID" INT,
+    "EXAMINATION_DATE" DATE,
+    "ACL_IGG" FLOAT,
+    "ACL_IGM" FLOAT,
+    "ANA" INT,
+    "ANA_PATTERN" TEXT,
+    "ACL_IGA" INT,
+    "DIAGNOSIS" TEXT,
+    "KCT" TEXT,
+    "RVVT" TEXT,
+    "LAC" TEXT,
+    "SYMPTOMS" TEXT,
+    "THROMBOSIS" INT,
+    FOREIGN KEY ("ID") REFERENCES "PATIENT"("ID")
+);
+CREATE TABLE "PATIENT" (
+    "ID" INT,
+    "SEX" TEXT,
+    "BIRTHDAY" DATE,
+    "DESCRIPTION" DATE,
+    "FIRST_DATE" DATE,
+    "ADMISSION" TEXT,
+    "DIAGNOSIS" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "LABORATORY" (
+    "ID" INT,
+    "DATE" DATE,
+    "GOT" INT,
+    "GPT" INT,
+    "LDH" INT,
+    "ALP" INT,
+    "TP" FLOAT,
+    "ALB" FLOAT,
+    "UA" FLOAT,
+    "UN" INT,
+    "CRE" FLOAT,
+    "T_BIL" FLOAT,
+    "T_CHO" INT,
+    "TG" INT,
+    "CPK" INT,
+    "GLU" INT,
+    "WBC" FLOAT,
+    "RBC" FLOAT,
+    "HGB" FLOAT,
+    "HCT" FLOAT,
+    "PLT" INT,
+    "PT" FLOAT,
+    "APTT" INT,
+    "FG" FLOAT,
+    "PIC" INT,
+    "TAT" INT,
+    "TAT2" INT,
+    "U_PRO" TEXT,
+    "IGG" INT,
+    "IGA" INT,
+    "IGM" INT,
+    "CRP" TEXT,
+    "RA" TEXT,
+    "RF" TEXT,
+    "C3" INT,
+    "C4" INT,
+    "RNP" TEXT,
+    "SM" TEXT,
+    "SC170" TEXT,
+    "SSA" TEXT,
+    "SSB" TEXT,
+    "CENTROMEA" TEXT,
+    "DNA" TEXT,
+    "DNA_II" INT,
+    PRIMARY KEY ("DATE", "ID"),
+    FOREIGN KEY ("ID") REFERENCES "PATIENT"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO EXAMINATION VALUES (0, '0001-01-01', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO EXAMINATION VALUES (1, '0001-01-01', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO PATIENT VALUES (1, 79, '0001-01-01', '0001-01-01', '0001-01-02', 80, 81);
+INSERT INTO PATIENT VALUES (0, 104, '0001-01-01', '0001-01-01', '0001-01-02', 105, 106);
+INSERT INTO LABORATORY VALUES (0, '0001-01-01', 0, 0, 500, 0, 82, 83, 84, 0, 85, 86, 0, 0, 0, 0, 87, 88, 89, 90, 0, 91, 0, 92, 0, 0, 0, 93, 0, 0, 0, 94, 95, 96, 0, 0, 97, 98, 99, 100, 101, 102, 103, 0);
+INSERT INTO LABORATORY VALUES (1, '0001-01-02', 0, 0, 500, 0, 107, 108, 109, 0, 110, 111, 0, 0, 0, 0, 112, 113, 114, 115, 0, 116, 0, 117, 0, 0, 0, 118, 0, 0, 0, 119, 120, 121, 0, 0, 122, 123, 124, 125, 126, 127, 128, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1.FIRST_DATE FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.LDH >= 500 ORDER BY T1.FIRST_DATE DESC, T1.id NULLS LAST, T2.id NULLS LAST, T2.date NULLS LAST LIMIT 1;
+
+/*
+Gold Result:
+('0001-01-02',)
+*/
+
+-- Prediction Query
+SELECT MAX(L.Date) FROM Laboratory AS L WHERE L.LDH >= 500 AND L.ID = (SELECT P.ID FROM Patient AS P JOIN Laboratory AS L2 ON P.ID = L2.ID WHERE L2.LDH >= 500 ORDER BY P.FIRST_DATE DESC, P.id NULLS LAST, L2.id NULLS LAST, L2.date NULLS LAST LIMIT 1);
+
+/*
+Prediction Result:
+('0001-01-01',)
+*/

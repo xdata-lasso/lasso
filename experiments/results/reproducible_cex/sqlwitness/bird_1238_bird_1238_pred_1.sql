@@ -1,0 +1,28 @@
+-- Schema DDL
+CREATE TABLE Examination (ID INTEGER NULL, "Examination Date" DATE NULL, "aCL IgG" REAL NULL, "aCL IgM" REAL NULL, ANA INTEGER NULL, "ANA Pattern" TEXT NULL, "aCL IgA" INTEGER NULL, Diagnosis TEXT NULL, KCT TEXT NULL, RVVT TEXT NULL, LAC TEXT NULL, Symptoms TEXT NULL, Thrombosis INTEGER NULL, FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE Patient (ID INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, SEX TEXT NULL, Birthday DATE NULL, Description DATE NULL, "First Date" DATE NULL, Admission TEXT NULL, Diagnosis TEXT NULL);
+
+CREATE TABLE Laboratory (ID INTEGER DEFAULT 0 NOT NULL, Date DATE DEFAULT '0000-00-00' NOT NULL, GOT INTEGER NULL, GPT INTEGER NULL, LDH INTEGER NULL, ALP INTEGER NULL, TP REAL NULL, ALB REAL NULL, UA REAL NULL, UN INTEGER NULL, CRE REAL NULL, "T-BIL" REAL NULL, "T-CHO" INTEGER NULL, TG INTEGER NULL, CPK INTEGER NULL, GLU INTEGER NULL, WBC REAL NULL, RBC REAL NULL, HGB REAL NULL, HCT REAL NULL, PLT INTEGER NULL, PT REAL NULL, APTT INTEGER NULL, FG REAL NULL, PIC INTEGER NULL, TAT INTEGER NULL, TAT2 INTEGER NULL, "U-PRO" TEXT NULL, IGG INTEGER NULL, IGA INTEGER NULL, IGM INTEGER NULL, CRP TEXT NULL, RA TEXT NULL, RF TEXT NULL, C3 INTEGER NULL, C4 INTEGER NULL, RNP TEXT NULL, SM TEXT NULL, SC170 TEXT NULL, SSA TEXT NULL, SSB TEXT NULL, CENTROMEA TEXT NULL, DNA TEXT NULL, "DNA-II" INTEGER NULL, PRIMARY KEY (ID, Date), FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO patient (id, sex, birthday, description, "first date", admission, diagnosis) VALUES (0, 'default2', '2023-01-02', '2023-01-01', '2023-01-01', 'default1', NULL), (11, 'SLE', '2023-01-02', '2023-01-01', '2023-01-01', 'SLE', 'SLE'), (10, 'SLE', '2023-01-02', '2023-01-01', NULL, 'SLE', 'default2'), (16, NULL, NULL, NULL, NULL, 'default1', NULL), (9, NULL, '2023-01-01', '2023-01-02', '2023-01-01', 'default1', NULL), (18, 'default1', '2023-01-01', '2023-01-01', NULL, 'SLE', 'SLE'), (1, NULL, NULL, '2023-01-02', NULL, 'default1', 'SLE'), (2, 'SLE', '2023-01-02', NULL, NULL, 'SLE', 'default2'), (17, NULL, NULL, '2023-01-01', NULL, NULL, 'default1'), (3, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO laboratory (id, date, got, gpt, ldh, alp, tp, alb, ua, un, cre, "t-bil", "t-cho", tg, cpk, glu, wbc, rbc, hgb, hct, plt, pt, aptt, fg, pic, tat, tat2, "u-pro", igg, iga, igm, crp, ra, rf, c3, c4, rnp, sm, sc170, ssa, ssb, centromea, dna, "dna-ii") VALUES (0, '2023-01-02', 18, 17, 10, 18, 11.0, 1.0, 0.0, 18, 16.0, 2.0, 2, 10, NULL, 16, 11.0, 17.0, 18.0, NULL, 16, 18.0, 10, 0.0, 10, 11, 2, 'SLE', 10, NULL, 16, 'default2', 'SLE', 'default2', 1, 11, 'default2', NULL, 'default1', 'default2', 'default2', 'default2', 'default2', 0), (3, '2023-01-01', 17, 11, 16, 18, 9.0, 1.0, 17.0, 10, 2.0, 17.0, 1, 1, 10, 17, 10.0, 11.0, 0.0, 9.0, 16, 11.0, 0, 1.0, 0, 1, 9, 'SLE', 18, 11, 17, 'default1', 'default1', NULL, 0, 1, NULL, 'default2', NULL, 'default1', 'default2', NULL, 'SLE', 11), (3, '2023-01-02', 1, 2, 16, 1, 17.0, 9.0, 1.0, 18, 0.0, NULL, NULL, 9, 18, 17, 1.0, 2.0, 11.0, 1.0, 2, 11.0, 9, 16.0, 9, 1, 16, NULL, 17, 0, 11, 'default1', NULL, 'default2', 16, 0, 'default1', 'default2', 'SLE', 'default1', 'default2', 'SLE', NULL, 11), (10, '2023-01-02', NULL, 11, 9, 11, 11.0, NULL, 1.0, 16, 9.0, 9.0, 16, 17, 1, 11, 16.0, 17.0, 10.0, 11.0, 16, 17.0, 1, 10.0, 17, 10, 1, 'default1', 9, 18, 10, NULL, NULL, 'default1', 16, 10, 'default2', 'default1', 'default2', NULL, 'default1', NULL, 'default2', 16), (17, '2023-01-01', 11, 0, 16, 0, 1.0, 2.0, 18.0, 11, 2.0, 2.0, NULL, 1, 10, 17, 9.0, 9.0, 11.0, 1.0, 9, 18.0, 9, 18.0, 9, 16, 1, NULL, 1, 16, 18, 'SLE', 'SLE', 'default1', 10, 2, NULL, 'default2', 'SLE', 'default1', 'default2', 'SLE', NULL, 10), (1, '2023-01-02', 2, NULL, 1, 17, 9.0, 16.0, 16.0, 10, NULL, 11.0, 10, 18, NULL, 2, 9.0, 18.0, 10.0, 1.0, 2, 10.0, 11, 9.0, 1, 16, 11, 'SLE', 18, 11, NULL, 'default2', 'SLE', 'default2', 0, 18, 'SLE', NULL, 'default2', 'default2', 'default2', 'default1', 'SLE', 1), (9, '2023-01-01', 1, 1, 0, 0, 18.0, 17.0, 1.0, 18, 18.0, 18.0, 11, 18, 17, 10, 0.0, 11.0, 11.0, 10.0, 16, 9.0, 1, NULL, 16, 10, 11, 'SLE', 10, NULL, NULL, NULL, 'default1', 'default2', 16, NULL, NULL, 'SLE', 'SLE', NULL, 'SLE', 'default2', 'default1', 18), (0, '2023-01-01', 2, 10, 9, NULL, 18.0, 10.0, 9.0, 1, 18.0, NULL, 9, 11, 17, 2, 18.0, 0.0, NULL, 11.0, 16, 11.0, 0, 17.0, 11, NULL, 16, NULL, 1, 11, 0, NULL, 'SLE', 'SLE', 9, 17, 'SLE', 'SLE', 'default1', 'default2', 'default1', 'SLE', NULL, 0), (11, '2023-01-02', NULL, 1, 17, 16, 11.0, 17.0, 16.0, 0, 16.0, 10.0, 9, NULL, 9, 16, 10.0, NULL, 2.0, 1.0, NULL, 10.0, 16, 2.0, 16, NULL, 0, NULL, 17, 18, 16, 'SLE', NULL, 'default1', 1, NULL, 'default1', 'default1', 'SLE', 'SLE', 'SLE', 'default2', NULL, 17), (17, '2023-01-02', 10, NULL, 17, 0, 0.0, 17.0, NULL, 2, 1.0, 9.0, 10, 1, 16, 17, 18.0, 9.0, 16.0, 2.0, NULL, 10.0, 17, 0.0, NULL, 0, 1, NULL, 0, 17, 9, NULL, 'default1', 'default2', 1, 16, 'SLE', 'default1', 'SLE', 'SLE', 'default1', NULL, NULL, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1.ID, T1.SEX FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.Diagnosis = 'SLE' AND T2.HGB > 10 AND T2.HGB < 17 ORDER BY T1.Birthday ASC, T1.id NULLS LAST, T2.id NULLS LAST, T2.date NULLS LAST LIMIT 1;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT P.ID, P.SEX FROM Patient AS P INNER JOIN Laboratory AS L ON P.ID = L.ID WHERE P.Diagnosis = 'SLE' AND L.HGB BETWEEN 10 AND 17 ORDER BY P.Birthday DESC, P.id NULLS LAST, L.id NULLS LAST, L.date NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+(1, None)
+*/

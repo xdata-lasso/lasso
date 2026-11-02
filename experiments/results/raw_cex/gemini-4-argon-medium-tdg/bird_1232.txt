@@ -1,0 +1,92 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions for GLU (179, 180, 181), T-CHO (249, 250, 251), and NULL values.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'M', '1980-05-15', '2020-01-01', '2019-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'F', '1975-11-20', '2020-02-01', '2019-02-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'M', '1990-01-01', '2020-03-01', '2019-03-01', '+', 'PSS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (4, 'F', '1965-07-07', '2020-04-01', '2019-04-01', '-', 'SJS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (5, 'M', '2000-12-31', '2020-05-01', '2019-05-01', '+', 'APS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (6, 'F', '1950-03-10', '2020-06-01', '2019-06-01', '-', 'SLE');
+
+-- Patient 1: Exact boundary match (GLU = 180, T-CHO = 249) -> Should be included
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (1, '2021-01-01', 180, 249);
+-- Patient 2: GLU off-by-one low (GLU = 179, T-CHO = 200) -> Should be excluded
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (2, '2021-01-01', 179, 200);
+-- Patient 3: T-CHO off-by-one high (GLU = 180, T-CHO = 250) -> Should be excluded
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (3, '2021-01-01', 180, 250);
+-- Patient 4: Inside range (GLU = 181, T-CHO = 200) -> Should be included
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (4, '2021-01-01', 181, 200);
+-- Patient 5: NULL GLU -> Should be excluded
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (5, '2021-01-01', NULL, 200);
+-- Patient 6: NULL T-CHO -> Should be excluded
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (6, '2021-01-01', 200, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests DISTINCT keyword, multiple Laboratory records per patient, and split conditions across rows.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission) VALUES (10, 'F', '1985-08-25', '1990-01-01', '1995-01-01', '+');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission) VALUES (20, 'M', '1970-02-14', '1980-01-01', '1985-01-01', '-');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission) VALUES (30, 'F', '1995-06-30', '2000-01-01', '2005-01-01', '+');
+
+-- Patient 10: Multiple matching Laboratory records -> Must appear only ONCE due to DISTINCT
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (10, '2022-01-01', 185, 220);
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (10, '2022-02-01', 190, 210);
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (10, '2022-03-01', 250, 150);
+
+-- Patient 20: Split conditions (one row has GLU >= 180, another has T-CHO < 250, neither has both) -> Should be excluded
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (20, '2022-01-01', 190, 260);
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (20, '2022-02-01', 150, 200);
+
+-- Patient 30: No Laboratory records at all -> Tests INNER JOIN vs LEFT JOIN
+```
+
+```sql
+-- DATASET 3
+-- Tests date column confusion (Birthday vs Description vs First Date vs Laboratory.Date) and examination table distraction.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (100, 'M', '1960-12-31', '1980-06-15', '1990-03-20', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (200, 'F', '2000-01-01', '2010-05-10', '2015-08-08', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (300, NULL, NULL, '1999-09-09', '2001-01-01', '+', 'APS');
+
+-- All match the WHERE clause, testing accurate projection of SEX, ID, and Age calculation from Birthday
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO", GOT, GPT) VALUES (100, '2018-07-01', 200, 180, 180, 240);
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO", GOT, GPT) VALUES (200, '2019-11-11', 180, 249, 100, 300);
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO", GOT, GPT) VALUES (300, '2020-05-05', 300, 100, 50, 50);
+
+-- Distractor rows in Examination to kill mutants that mistakenly join Examination
+INSERT INTO Examination (ID, "Examination Date", Diagnosis, Thrombosis) VALUES (100, '2021-01-01', 'SLE', 1);
+-- Note Patient 200 and 300 have no Examination records; if a mutant joins Examination, they will be lost.
+```
+
+```sql
+-- DATASET 4
+-- Tests AND vs OR mutations in WHERE clause, and column confusion (e.g., TG or CPK instead of GLU/T-CHO).
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'M', '1992-04-10');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '1988-09-12');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'M', '1976-11-03');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (4, 'F', '2001-02-28');
+
+-- Patient 1: Only GLU >= 180 is true (T-CHO is 300). Kills AND -> OR mutant.
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO", TG, CPK) VALUES (1, '2023-01-10', 220, 300, 200, 200);
+
+-- Patient 2: Only T-CHO < 250 is true (GLU is 100). Kills AND -> OR mutant.
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO", TG, CPK) VALUES (2, '2023-01-11', 100, 150, 200, 200);
+
+-- Patient 3: GLU and T-CHO fail, but TG >= 180 and CPK < 250. Kills column swap mutants.
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO", TG, CPK) VALUES (3, '2023-01-12', 120, 280, 190, 210);
+
+-- Patient 4: Valid match, plus a second non-matching lab record.
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO", TG, CPK) VALUES (4, '2023-01-13', 180, 0, 50, 500);
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO", TG, CPK) VALUES (4, '2023-01-14', 90, 400, 50, 500);
+```
+
+```sql
+-- DATASET 5
+-- Tests DISTINCT projection nuances: two different patients with identical SEX and Birthday Year.
+-- Kills mutants that omit T1.ID from SELECT or GROUP BY only (SEX, Age).
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (11, 'F', '1980-01-15');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (12, 'F', '1980-11-20');
+
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (11, '2020-01-01', 195, 210);
+INSERT INTO Laboratory (ID, Date, GLU, "T-CHO") VALUES (12, '2020-01-01', 205, 190);
+```

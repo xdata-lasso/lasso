@@ -1,0 +1,63 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions around Score = 10 (9, 10, 11, -10, 0, NULL).
+-- 2. Aggregation mutations (COUNT vs SUM, AVG, MAX, MIN, or missing COUNT) by using large non-sequential Ids (100, 200) for matching rows.
+-- 3. COUNT(Id) vs COUNT(DISTINCT OwnerUserId), COUNT(AcceptedAnswerId), COUNT(Title) by having NULLs and duplicates in other columns of matching rows.
+-- 4. Table confusion (posts vs comments) by having Score = 10 in comments more times than in posts.
+-- 5. Unnecessary INNER JOINs with users, comments, votes, postHistory, postLinks, tags by leaving matching post 200 completely unreferenced and without an OwnerUserId.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'Alice');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 10, 'Bob');
+
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, Body, OwnerUserId, Title, AnswerCount, CommentCount, FavoriteCount) VALUES (5, 1, 6, 9, 10, 'Post with score 9', 1, 'Title 9', 1, 0, 0);
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, Body, OwnerUserId, Title, AnswerCount, CommentCount, FavoriteCount) VALUES (6, 2, NULL, 11, 20, 'Post with score 11', 1, NULL, 0, 0, 0);
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, Body, OwnerUserId, Title, AnswerCount, CommentCount, FavoriteCount) VALUES (7, 1, NULL, 0, 10, 'Post with score 0', 2, 'Title 0', 0, 0, 0);
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, Body, OwnerUserId, Title, AnswerCount, CommentCount, FavoriteCount) VALUES (8, 1, NULL, -10, 5, 'Post with score -10', 2, 'Title -10', 0, 0, 0);
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, Body, OwnerUserId, Title, AnswerCount, CommentCount, FavoriteCount) VALUES (9, 1, NULL, NULL, 10, 'Post with NULL score', 1, 'Title NULL', 0, 0, 0);
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, Body, OwnerUserId, Title, AnswerCount, CommentCount, FavoriteCount) VALUES (10, 1, NULL, 5, 50, 'Post with Id 10 but Score 5', 1, 'Title Id 10', 10, 10, 10);
+
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, Body, OwnerUserId, Title, AnswerCount, CommentCount, FavoriteCount) VALUES (100, 1, NULL, 10, 50, 'First matching post', 1, 'Matching 1', 0, 2, 1);
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, Body, OwnerUserId, Title, AnswerCount, CommentCount, FavoriteCount) VALUES (200, 2, NULL, 10, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+
+INSERT INTO comments (Id, PostId, Score, Text, UserId) VALUES (1, 5, 10, 'Comment with score 10 on non-matching post', 1);
+INSERT INTO comments (Id, PostId, Score, Text, UserId) VALUES (2, 100, 10, 'Comment 1 with score 10 on matching post', 1);
+INSERT INTO comments (Id, PostId, Score, Text, UserId) VALUES (3, 100, 10, 'Comment 2 with score 10 on matching post', 2);
+INSERT INTO comments (Id, PostId, Score, Text, UserId) VALUES (4, 6, 10, 'Comment 3 with score 10', 2);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (1, 100, 2, 1, 10);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (2, 100, 2, 2, 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Zero-count result (no posts have Score = 10), refuting mutants that return NULL (like SUM/AVG/MIN/MAX without COALESCE), or mutants with >= 9, <= 11, != 10, IS NULL.
+-- 2. Column confusion where other columns (Id, ViewCount, AnswerCount, CommentCount, FavoriteCount, OwnerUserId, PostTypeId) equal 10, while Score does not.
+INSERT INTO users (Id, Reputation, Views, UpVotes, DownVotes, Age) VALUES (10, 10, 10, 10, 10, 10);
+
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, OwnerUserId, AnswerCount, CommentCount, FavoriteCount) VALUES (10, 10, 10, 9, 10, 10, 10, 10, 10);
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, OwnerUserId, AnswerCount, CommentCount, FavoriteCount) VALUES (11, 1, NULL, 11, 10, 10, 0, 0, 0);
+INSERT INTO posts (Id, PostTypeId, AcceptedAnswerId, Score, ViewCount, OwnerUserId, AnswerCount, CommentCount, FavoriteCount) VALUES (12, 2, NULL, NULL, 10, NULL, NULL, NULL, NULL);
+
+INSERT INTO comments (Id, PostId, Score, UserId) VALUES (10, 10, 10, 10);
+INSERT INTO tags (Id, TagName, Count, ExcerptPostId) VALUES (10, 'ten', 10, 10);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Single matching row with Id = 1 and Score = 10 vs multiple matching rows with different PostTypeId, OwnerUserId, and Join fan-out.
+-- 2. Refutes mutants that do not aggregate (SELECT Id FROM posts WHERE Score = 10) when count is 1 vs when count != Id.
+-- 3. Refutes mutants that group by PostTypeId or OwnerUserId or filter by PostTypeId = 1 (Questions only) or PostTypeId = 2 (Answers only).
+INSERT INTO users (Id, Reputation) VALUES (1, 50);
+INSERT INTO users (Id, Reputation) VALUES (2, 60);
+
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId) VALUES (2, 1, 10, 1);
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId) VALUES (3, 2, 10, 1);
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId) VALUES (4, 3, 10, 2);
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (1, 1, 2, 1);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId) VALUES (2, 2, 2, 1);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (1, 2, 3, 1);
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (2, 2, 4, 1);
+```

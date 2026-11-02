@@ -1,0 +1,31 @@
+-- Schema DDL
+CREATE TABLE UNIVERSITIES (UNI_ID INTEGER PRIMARY KEY, NAME TEXT);
+
+CREATE TABLE STUDENTS (STUDENT_ID INTEGER PRIMARY KEY, UNI_ID INTEGER NOT NULL, NAME TEXT, FOREIGN KEY (UNI_ID) REFERENCES UNIVERSITIES (UNI_ID));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "UNIVERSITIES" ("uni_id", "name") VALUES (5, NULL);
+INSERT INTO "UNIVERSITIES" ("uni_id", "name") VALUES (7, '5');
+INSERT INTO "STUDENTS" ("student_id", "uni_id", "name") VALUES (8, 5, '9');
+INSERT INTO "STUDENTS" ("student_id", "uni_id", "name") VALUES (10, 5, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT NAME FROM STUDENTS WHERE UNI_ID = 5;
+
+/*
+Gold Result:
+('9',)
+(None,)
+*/
+
+-- Prediction Query
+SELECT UNIVERSITIES.NAME FROM STUDENTS JOIN UNIVERSITIES ON STUDENTS.UNI_ID = UNIVERSITIES.UNI_ID WHERE STUDENTS.UNI_ID = 5;
+
+/*
+Prediction Result:
+(None,)
+(None,)
+*/

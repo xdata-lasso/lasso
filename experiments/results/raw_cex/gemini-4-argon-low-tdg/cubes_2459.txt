@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests basic GROUP BY on BOTH other_details and transaction_type_code, AVG calculation, and ORDER BY.
+-- Kills mutants that omit either grouping column, use SUM/COUNT/MIN/MAX instead of AVG, or use AVG(DISTINCT).
+INSERT INTO Investors (investor_id, Investor_details) VALUES (1, 'Investor Alpha');
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('BUY', 'Purchase');
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('SELL', 'Sale');
+
+-- Group ('Detail_A', 'BUY') -> AVG(10, 10, 40) = 20.0 (AVG(DISTINCT) would be 25.0)
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (1, 'BUY', 1, '2023-01-01', 10.0, '10', 'Detail_A');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (2, 'BUY', 1, '2023-01-02', 10.0, '10', 'Detail_A');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (3, 'BUY', 1, '2023-01-03', 40.0, '40', 'Detail_A');
+
+-- Group ('Detail_B', 'BUY') -> AVG(100) = 100.0 (Tests multiple groups per transaction_type_code)
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (4, 'BUY', 1, '2023-01-04', 100.0, '100', 'Detail_B');
+
+-- Group ('Detail_A', 'SELL') -> AVG(50, 70) = 60.0 (Tests same other_details across different transaction_type_code)
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (5, 'SELL', 1, '2023-01-05', 50.0, '50', 'Detail_A');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (6, 'SELL', 1, '2023-01-06', 70.0, '70', 'Detail_A');
+```
+
+```sql
+-- DATASET 2
+-- Tests outer SELECT without DISTINCT vs SELECT DISTINCT.
+-- Two different 'other_details' groups under the same 'transaction_type_code' produce the exact same average.
+INSERT INTO Investors (investor_id, Investor_details) VALUES (1, 'Investor Beta');
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('BUY', 'Purchase');
+
+-- Group ('Batch1', 'BUY') -> AVG(10, 30) = 20.0
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (1, 'BUY', 1, '2023-02-01', 10.0, '5', 'Batch1');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (2, 'BUY', 1, '2023-02-02', 30.0, '15', 'Batch1');
+
+-- Group ('Batch2', 'BUY') -> AVG(20, 20) = 20.0
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (3, 'BUY', 1, '2023-02-03', 20.0, '10', 'Batch2');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (4, 'BUY', 1, '2023-02-04', 20.0, '10', 'Batch2');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling: NULLs in amount_of_transaction (partial and all-NULL groups), NULLs in other_details, NULLs in transaction_type_code, and NULLS LAST in ORDER BY.
+-- Also tests INNER JOIN vs no JOIN on Ref_Transaction_Types and Investors (via NULL foreign keys and unreferenced parent rows).
+INSERT INTO Investors (investor_id, Investor_details) VALUES (1, 'Investor Gamma');
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('T1', 'Type 1');
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('T2', 'Type 2');
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('UNUSED', 'Unused Type');
+
+-- Group ('D1', 'T1') -> All NULL amounts -> AVG is NULL (Tests NULLS LAST ordering against numeric averages for 'T1')
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (1, 'T1', 1, '2023-03-01', NULL, '10', 'D1');
+
+-- Group ('D2', 'T1') -> Partial NULL amounts -> AVG(10, NULL, 20) = 15.0 (Not 10.0 if NULL treated as 0)
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (2, 'T1', 1, '2023-03-02', 10.0, '10', 'D2');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (3, 'T1', 1, '2023-03-03', NULL, '10', 'D2');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (4, 'T1', 1, '2023-03-04', 20.0, '20', 'D2');
+
+-- Group ('D3', 'T1') -> Negative average -> AVG(-50) = -50.0 (Ensures NULL is ordered after both negative and positive numbers)
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (5, 'T1', 1, '2023-03-05', -50.0, '5', 'D3');
+
+-- Group (NULL, 'T2') -> NULL other_details -> AVG(30, 50) = 40.0
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (6, 'T2', 1, '2023-03-06', 30.0, '30', NULL);
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (7, 'T2', 1, '2023-03-07', 50.0, '50', NULL);
+
+-- Group ('D4', NULL) -> NULL transaction_type_code and NULL investor_id -> AVG(25) = 25.0 (Kills mutants doing INNER JOIN with Ref_Transaction_Types or Investors)
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (8, NULL, NULL, '2023-03-08', 25.0, '25', 'D4');
+```
+
+```sql
+-- DATASET 4
+-- Tests sorting order (ORDER BY transaction_type_code ASC, avg_amount_of_transaction_ ASC) when other_details order conflicts with avg_amount order.
+-- Also includes child table records (Sales, Purchases, Transactions_Lots) to kill mutants that unnecessarily join child tables and duplicate/filter rows.
+INSERT INTO Investors (investor_id, Investor_details) VALUES (1, 'Investor Delta');
+INSERT INTO Lots (lot_id, investor_id, lot_details) VALUES (1, 1, 'Lot 1');
+INSERT INTO Lots (lot_id, investor_id, lot_details) VALUES (2, 1, 'Lot 2');
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('A_TYPE', 'Type A');
+INSERT INTO Ref_Transaction_Types (transaction_type_code, transaction_type_description) VALUES ('B_TYPE', 'Type B');
+
+-- For 'B_TYPE', 'Z_Detail' has smaller AVG (5.0) than 'A_Detail' (500.0)
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (1, 'B_TYPE', 1, '2023-04-01', 500.0, '10', 'A_Detail');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (2, 'B_TYPE', 1, '2023-04-02', 5.0, '1', 'Z_Detail');
+
+-- For 'A_TYPE', 'M_Detail' has AVG(15.5, 20.0) = 17.75 (Tests floating point division precision)
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (3, 'A_TYPE', 1, '2023-04-03', 15.5, '2', 'M_Detail');
+INSERT INTO Transactions (transaction_id, transaction_type_code, investor_id, date_of_transaction, amount_of_transaction, share_count, other_details) VALUES (4, 'A_TYPE', 1, '2023-04-04', 20.0, '3', 'M_Detail');
+
+-- Child table links that would skew AVG or filter rows if joined
+INSERT INTO Sales (sales_transaction_id, sales_details) VALUES (1, 'Sale 1');
+INSERT INTO Purchases (purchase_transaction_id, purchase_details) VALUES (3, 'Purchase 1');
+INSERT INTO Purchases (purchase_transaction_id, purchase_details) VALUES (3, 'Purchase 1 Duplicate');
+INSERT INTO Transactions_Lots (transaction_id, lot_id) VALUES (3, 1);
+INSERT INTO Transactions_Lots (transaction_id, lot_id) VALUES (3, 2);
+```

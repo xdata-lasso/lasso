@@ -1,0 +1,100 @@
+```sql
+-- DATASET 1
+-- Tests basic counting boundary conditions (counts of 1, 2, 3, and 4) and alphabetical ordering vs insertion order vs count order.
+INSERT INTO region (Region_ID, Region_name) VALUES (1, 'North');
+INSERT INTO party (Party_ID, Region_ID, Party_name) VALUES (1, 1, 'Alpha Party');
+INSERT INTO member (Member_ID, Party_ID, Member_Name) VALUES (1, '1', 'Alice');
+
+-- Event 'Zeta' appears 3 times (inserted first, count = 3)
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (1, 1, 1, 'Zeta');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (2, 1, 1, 'Zeta');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (3, 1, 1, 'Zeta');
+
+-- Event 'Beta' appears 2 times (boundary condition: n = 2, should be excluded)
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (4, 1, 1, 'Beta');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (5, 1, 1, 'Beta');
+
+-- Event 'Alpha' appears 4 times (inserted after Zeta, count = 4, should be ordered before Zeta)
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (6, 1, 1, 'Alpha');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (7, 1, 1, 'Alpha');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (8, 1, 1, 'Alpha');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (9, 1, 1, 'Alpha');
+
+-- Event 'Gamma' appears 1 time (should be excluded)
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (10, 1, 1, 'Gamma');
+```
+
+```sql
+-- DATASET 2
+-- Tests incorrect JOINs with parent tables (party, member) and grouping by wrong columns (Party_ID, Member_in_charge_ID).
+-- Also tests NULL foreign keys in party_events which would be dropped by an unnecessary INNER JOIN.
+INSERT INTO region (Region_ID, Region_name) VALUES (1, 'South');
+INSERT INTO party (Party_ID, Region_ID, Party_name) VALUES (10, 1, 'Party Ten');
+INSERT INTO party (Party_ID, Region_ID, Party_name) VALUES (20, 1, 'Party Twenty');
+INSERT INTO member (Member_ID, Party_ID, Member_Name) VALUES (100, '10', 'Bob');
+INSERT INTO member (Member_ID, Party_ID, Member_Name) VALUES (200, '20', 'Charlie');
+
+-- 'Charity Gala' has 3 rows, but across different parties, members, and with NULL FKs.
+-- A mutant doing INNER JOIN with party or member, or GROUP BY Party_ID, Event_Name will fail to count 3.
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (1, 100, 10, 'Charity Gala');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (2, 200, 20, 'Charity Gala');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (3, NULL, NULL, 'Charity Gala');
+
+-- 'Town Hall' has 3 rows, all with the SAME Party_ID and Member_in_charge_ID.
+-- A mutant doing COUNT(DISTINCT Party_ID) or COUNT(DISTINCT Member_in_charge_ID) will get 1 instead of 3.
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (4, 100, 10, 'Town Hall');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (5, 100, 10, 'Town Hall');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (6, 100, 10, 'Town Hall');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL Event_Name handling (COUNT(*) vs COUNT(Event_Name)).
+-- In SQLite, GROUP BY treats NULLs as equal, so 3 NULLs give COUNT(*) = 3, whereas COUNT(Event_Name) = 0.
+INSERT INTO region (Region_ID, Region_name) VALUES (1, 'East');
+INSERT INTO party (Party_ID, Region_ID, Party_name) VALUES (1, 1, 'East Party');
+INSERT INTO member (Member_ID, Party_ID, Member_Name) VALUES (1, '1', 'Dave');
+
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (1, 1, 1, NULL);
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (2, 1, 1, NULL);
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (3, 1, 1, NULL);
+
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (4, 1, 1, 'Rally');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (5, 1, 1, 'Rally');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (6, 1, 1, 'Rally');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when events exist, and catches mutants using SUM(Party_ID) or SUM(Event_ID) instead of COUNT(*), or missing the WHERE n > 2 filter.
+INSERT INTO region (Region_ID, Region_name) VALUES (1, 'West');
+INSERT INTO party (Party_ID, Region_ID, Party_name) VALUES (10, 1, 'West Party');
+INSERT INTO member (Member_ID, Party_ID, Member_Name) VALUES (10, '10', 'Eve');
+
+-- Only 1 occurrence, but IDs are large (10) so SUM > 2 while COUNT = 1.
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (10, 10, 10, 'Debate');
+
+-- Only 2 occurrences, testing strict inequality (n > 2 vs n >= 2) when result should be empty.
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (20, 10, 10, 'Fundraiser');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (30, 10, 10, 'Fundraiser');
+```
+
+```sql
+-- DATASET 5
+-- Tests mutants that include LIMIT 1 or fail to return multiple qualifying rows, and tests case-sensitive sorting/grouping.
+INSERT INTO region (Region_ID, Region_name) VALUES (1, 'Central');
+INSERT INTO party (Party_ID, Region_ID, Party_name) VALUES (1, 1, 'Central Party');
+INSERT INTO member (Member_ID, Party_ID, Member_Name) VALUES (1, '1', 'Frank');
+
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (1, 1, 1, 'Conference');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (2, 1, 1, 'Conference');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (3, 1, 1, 'Conference');
+
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (4, 1, 1, 'Meeting');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (5, 1, 1, 'Meeting');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (6, 1, 1, 'Meeting');
+
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (7, 1, 1, 'Breakfast');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (8, 1, 1, 'Breakfast');
+INSERT INTO party_events (Event_ID, Member_in_charge_ID, Party_ID, Event_Name) VALUES (9, 1, 1, 'Breakfast');
+```

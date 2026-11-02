@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Distinguish song.country vs artist.country (country_other)
+-- 2. Join condition: song.genre_is = artist.preferred_genre (vs omitting it)
+-- 3. WHERE condition: gender = 'Female' AND languages = 'bangla'
+-- 4. Duplicate elimination (SELECT vs SELECT DISTINCT)
+-- 5. ORDER BY country ASC NULLS LAST
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Pop', '8', 'USA');
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Rock', '9', 'UK');
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Folk', '10', 'Bangladesh');
+
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist_A', 'Folk', 'India', 'Female');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist_B', 'Pop', 'UK', 'Female');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist_C', 'Rock', 'USA', 'Male');
+
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (1.0, 'Artist_A', '5MB', '3:00', 'mp3');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (2.0, 'Artist_B', '4MB', '2:30', 'wav');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (3.0, 'Artist_C', '6MB', '4:00', 'mp3');
+
+-- Matches everything: country is 'Bangladesh' (while artist.country is 'India')
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_1', 'Folk', 1.0, 'Artist_A', 'Bangladesh', 9.5, 'bangla', '2020-01-01', 320.0);
+-- Matches everything, duplicate country 'Bangladesh' to test SELECT vs SELECT DISTINCT
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_2', 'Folk', 1.0, 'Artist_A', 'Bangladesh', 8.0, 'bangla', '2021-01-01', 320.0);
+-- Matches everything, country is 'Canada' to test sorting ('Bangladesh' before 'Canada')
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_3', 'Pop', 2.0, 'Artist_B', 'Canada', 7.5, 'bangla', '2019-05-05', 256.0);
+-- Matches everything, country is NULL to test NULLS LAST
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_4', 'Folk', 1.0, 'Artist_A', NULL, 8.5, 'bangla', '2022-03-03', 128.0);
+-- Fails genre_is = preferred_genre ('Rock' != 'Folk')
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_5', 'Rock', 1.0, 'Artist_A', 'Australia', 6.0, 'bangla', '2020-02-02', 320.0);
+-- Fails gender = 'Female' ('Male')
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_6', 'Rock', 3.0, 'Artist_C', 'Denmark', 9.0, 'bangla', '2018-08-08', 320.0);
+-- Fails languages = 'bangla' ('english')
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_7', 'Folk', 1.0, 'Artist_A', 'Egypt', 7.0, 'english', '2017-07-07', 320.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Join condition: song.artist_name = artist.artist_name (what if omitted and only joined on genre?)
+-- 2. Outer Join mutants (LEFT JOIN / RIGHT JOIN): unmatched artist and unmatched song
+-- 3. Case sensitivity in WHERE clause ('female' vs 'Female', 'Bangla' vs 'bangla')
+-- 4. Reverse sorting check (Artist country order vs Song country order)
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Jazz', '9', 'USA');
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Classical', '10', 'Austria');
+
+-- Artist_1 and Artist_2 share the same preferred_genre ('Jazz'), but Artist_2 is Male
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist_1', 'Jazz', 'Zambia', 'Female');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist_2', 'Jazz', 'Yemen', 'Male');
+-- Artist_3 has no songs (tests RIGHT JOIN / LEFT JOIN from artist to song)
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist_3', 'Classical', 'Xenon', 'Female');
+-- Artist_4 has lowercase gender 'female'
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist_4', 'Classical', 'Wales', 'female');
+
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (10.0, 'Artist_1', '3MB', '2:00', 'mp3');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (20.0, 'Artist_2', '4MB', '3:00', 'mp3');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (40.0, 'Artist_4', '5MB', '4:00', 'mp3');
+
+-- Valid match: song.country = 'Argentina', artist.country = 'Zambia'
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Track_A', 'Jazz', 10.0, 'Artist_1', 'Argentina', 8.0, 'bangla', '2021-06-01', 256.0);
+-- Valid match: song.country = 'Brazil', artist.country = 'Zambia'
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Track_B', 'Jazz', 10.0, 'Artist_1', 'Brazil', 9.0, 'bangla', '2021-06-02', 256.0);
+-- Song by Artist_2 (Male) in genre 'Jazz'. If join omits artist_name = artist_name, this would join with Artist_1 (Female)!
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Track_C', 'Jazz', 20.0, 'Artist_2', 'Chile', 7.0, 'bangla', '2021-06-03', 256.0);
+-- Song with NULL artist_name and NULL genre_is (tests LEFT JOIN from song to artist)
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Track_D', NULL, NULL, NULL, 'Colombia', 5.0, 'bangla', '2021-06-04', 128.0);
+-- Song with capitalized 'Bangla'
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Track_E', 'Jazz', 10.0, 'Artist_1', 'Ecuador', 8.0, 'Bangla', '2021-06-05', 256.0);
+-- Song by Artist_4 ('female')
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Track_F', 'Classical', 40.0, 'Artist_4', 'Peru', 8.0, 'bangla', '2021-06-06', 256.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Confusing join keys with cross-column values (e.g., song.country = artist.country)
+-- 2. Confusing song.f_id or files.artist_name (if mutant joins via files table)
+-- 3. Ordering of multiple distinct countries + multiple NULLs
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Blues', '7', 'USA');
+
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Singer_X', 'Blues', 'France', 'Female');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Singer_Y', 'Blues', 'Germany', 'Female');
+
+-- File belongs to Singer_Y, but song is by Singer_X (tests if a mutant unnecessarily joins `files` on f_id and checks files.artist_name)
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (100.0, 'Singer_Y', '10MB', '5:00', 'flac');
+
+-- Song 1: f_id is NULL, song.country != artist.country
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Blues_1', 'Blues', NULL, 'Singer_X', 'Spain', 9.0, 'bangla', '2020-10-10', 320.0);
+-- Song 2: f_id points to Singer_Y's file, song.country == artist.country ('France')
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Blues_2', 'Blues', 100.0, 'Singer_X', 'France', 8.5, 'bangla', '2020-10-11', 320.0);
+-- Song 3: country is 'Italy'
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Blues_3', 'Blues', 100.0, 'Singer_Y', 'Italy', 7.5, 'bangla', '2020-10-12', 320.0);
+```

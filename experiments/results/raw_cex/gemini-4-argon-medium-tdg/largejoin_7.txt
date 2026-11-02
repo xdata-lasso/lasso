@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary condition where COUNT(RA.B) = 3 (kills >= 3, = 3, < 3, != 3) and tests CROSS JOIN vs INNER JOIN by having RB/RC/RD only reference a single RA row while another RA row is unreferenced.
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b2');
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d3', 'c1');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition where COUNT(RA.B) = 4 (kills > 4) and tests NULL handling in COUNT(RA.B) vs COUNT(*) or COUNT(RA.A1).
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', NULL);
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'a1');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'b2');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+```
+
+```sql
+-- DATASET 3
+-- Tests grouping by RA.B when multiple RA rows share the same B value. Each A1 gets 2 rows from the cross join (1*1*2), so grouped by B gives 2+2=4 (>3), whereas grouped by A1 gives 2 (<=3). Also tests COUNT(DISTINCT RA.B) vs COUNT(RA.B).
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b2');
+INSERT INTO RB (A2, B) VALUES ('b1', 'a3');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c1');
+```
+
+```sql
+-- DATASET 4
+-- Tests missing table in CROSS JOIN (e.g. omitting RB, RC, or RD) and tests NULLs in RB.B, RC.B, RD.B (kills mutants counting RB.B, RC.B, or RD.B instead of RA.B). Total cross join size per RA row is 2*2*1 = 4. If RB or RC is omitted, size is 2 (<=3).
+INSERT INTO RA (A1, B) VALUES ('a1', 'val1');
+INSERT INTO RB (A2, B) VALUES ('b1', NULL);
+INSERT INTO RB (A2, B) VALUES ('b2', NULL);
+INSERT INTO RC (A3, B) VALUES ('c1', NULL);
+INSERT INTO RC (A3, B) VALUES ('c2', NULL);
+INSERT INTO RD (A4, B) VALUES ('d1', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests missing RD in CROSS JOIN, and distinguishes selecting/grouping RA.B vs RB.B, RC.B, RD.B, or RA.A1. Here |RB|=1, |RC|=1, |RD|=4. Without RD, count is 1.
+INSERT INTO RA (A1, B) VALUES ('a1', 'b_ra');
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d3', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d4', 'c1');
+```
+
+```sql
+-- DATASET 6
+-- Tests empty table in the CROSS JOIN (RD is empty, while RA, RB, RC have >= 4 rows combined). Result must be empty. Kills mutants that omit RD or use LEFT JOIN.
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b1');
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'a2');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'b2');
+```
+
+```sql
+-- DATASET 7
+-- Tests mixed groups where one RA.B group has count > 3 (2 RA rows * 2 RB * 1 RC * 1 RD = 4) and another RA.B group has count <= 3 (1 RA row * 2 RB * 1 RC * 1 RD = 2). Kills mutants without HAVING or with wrong HAVING threshold.
+INSERT INTO RA (A1, B) VALUES ('a1', 'pass');
+INSERT INTO RA (A1, B) VALUES ('a2', 'pass');
+INSERT INTO RA (A1, B) VALUES ('a3', 'fail');
+INSERT INTO RB (A2, B) VALUES ('b1', 'a3');
+INSERT INTO RB (A2, B) VALUES ('b2', 'a3');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+```
+
+```sql
+-- DATASET 8
+-- Tests extra joins with RE..RJ (if a mutant erroneously includes RE in the join, since RE is empty here, it will fail). Also tests INNER JOIN vs CROSS JOIN when all FK chains exist for 'fail' (count 2) but 'pass' has 2 RA rows (count 4) with no FK children.
+INSERT INTO RA (A1, B) VALUES ('a1', 'pass');
+INSERT INTO RA (A1, B) VALUES ('a2', 'pass');
+INSERT INTO RA (A1, B) VALUES ('a3', 'fail');
+INSERT INTO RB (A2, B) VALUES ('b1', 'a3');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c1');
+```

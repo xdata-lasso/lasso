@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests basic GROUP BY, COUNT(*) vs COUNT(Competition), NULL handling, and tie-breaking ORDER BY with NULLS LAST.
+-- Also tests unintended INNER JOINs with hosting_city by only linking a subset of matches.
+INSERT INTO "city" ("City_ID", "City", "Hanzi", "Hanyu_Pinyin", "Regional_Population", "GDP") VALUES (1, 'Beijing', '北京', 'Běijīng', 21540000, 3537.0);
+
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (1, '2021-01-01', 'Stadium A', '1-0', 'Win', 'Cup');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (2, '2021-01-02', 'Stadium B', '2-2', 'Draw', 'League');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (3, '2021-01-03', 'Stadium A', '0-1', 'Loss', 'League');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (4, '2021-01-04', 'Stadium C', '3-1', 'Win', 'Friendly');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (5, '2021-01-05', 'Stadium B', '0-0', 'Draw', 'Friendly');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (6, '2021-01-06', 'Stadium C', '1-2', 'Loss', NULL);
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (7, '2021-01-07', 'Stadium A', '2-0', 'Win', NULL);
+
+INSERT INTO "hosting_city" ("Year", "Match_ID", "Host_City") VALUES (2021, 1, '1');
+```
+
+```sql
+-- DATASET 2
+-- Tests primary sorting on count___ (ASC vs DESC) with strictly distinct counts and non-alphabetical count order.
+-- Includes NULLs in other columns (Date, Venue, Score, Result) to catch mutants using COUNT(other_column).
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (1, NULL, 'Venue 1', '1-0', 'Win', 'Z_Comp');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (2, '2022-02-01', NULL, '2-1', 'Win', 'M_Comp');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (3, '2022-02-02', 'Venue 2', NULL, 'Draw', 'M_Comp');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (4, '2022-02-03', 'Venue 3', '0-0', NULL, 'A_Comp');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (5, NULL, NULL, NULL, NULL, 'A_Comp');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (6, '2022-02-05', 'Venue 1', '3-3', 'Draw', 'A_Comp');
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on the second ORDER BY column (competition ASC vs DESC) when all groups have the exact same count.
+-- Also tests if a mutant incorrectly groups by Venue or Result instead of Competition.
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (10, '2020-05-01', 'SameVenue', '1-0', 'Win', 'Gamma');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (20, '2020-05-02', 'SameVenue', '1-0', 'Win', 'Gamma');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (30, '2020-05-03', 'SameVenue', '1-0', 'Win', 'Alpha');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (40, '2020-05-04', 'SameVenue', '1-0', 'Win', 'Alpha');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (50, '2020-05-05', 'SameVenue', '1-0', 'Win', 'Beta');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (60, '2020-05-06', 'SameVenue', '1-0', 'Win', 'Beta');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty string '' vs NULL in Competition, and ensures NULLS LAST is respected even when NULL has a different count or same count.
+-- Also tests 1-to-many relationship from match to hosting_city (one match referenced multiple times in hosting_city) to kill JOIN mutants that don't use DISTINCT.
+INSERT INTO "city" ("City_ID", "City", "Hanzi", "Hanyu_Pinyin", "Regional_Population", "GDP") VALUES (1, 'Shanghai', '上海', 'Shànghǎi', 24280000, 3815.0);
+
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (1, '2019-01-01', 'V1', '1-1', 'Draw', '');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (2, '2019-01-02', 'V1', '1-2', 'Loss', NULL);
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (3, '2019-01-03', 'V1', '2-1', 'Win', 'Qualifier');
+
+INSERT INTO "hosting_city" ("Year", "Match_ID", "Host_City") VALUES (2018, 3, '1');
+INSERT INTO "hosting_city" ("Year", "Match_ID", "Host_City") VALUES (2019, 3, '1');
+INSERT INTO "hosting_city" ("Year", "Match_ID", "Host_City") VALUES (2020, 1, '1');
+INSERT INTO "hosting_city" ("Year", "Match_ID", "Host_City") VALUES (2021, 2, '1');
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary condition: Empty match table (kills mutants that use aggregate without GROUP BY which might return 1 row of (0, NULL) instead of 0 rows).
+INSERT INTO "city" ("City_ID", "City", "Hanzi", "Hanyu_Pinyin", "Regional_Population", "GDP") VALUES (1, 'Guangzhou', '广州', 'Guǎngzhōu', 15300000, 2362.0);
+INSERT INTO "temperature" ("City_ID", "Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec") VALUES (1, 13.6, 14.5, 17.9, 22.1, 27.6, 28.6, 28.4, 27.1, 24.2, 19.6, 15.3);
+```
+
+```sql
+-- DATASET 6
+-- Tests string vs integer sorting anomalies (e.g., if a mutant casts count___ to TEXT, '10' < '2') and HAVING clause mutants (e.g. HAVING COUNT(*) > 1).
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (1, '2023-01-01', 'V', '1-0', 'W', 'Comp_Ten');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (2, '2023-01-02', 'V', '1-0', 'W', 'Comp_Ten');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (3, '2023-01-03', 'V', '1-0', 'W', 'Comp_Ten');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (4, '2023-01-04', 'V', '1-0', 'W', 'Comp_Ten');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (5, '2023-01-05', 'V', '1-0', 'W', 'Comp_Ten');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (6, '2023-01-06', 'V', '1-0', 'W', 'Comp_Ten');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (7, '2023-01-07', 'V', '1-0', 'W', 'Comp_Ten');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (8, '2023-01-08', 'V', '1-0', 'W', 'Comp_Ten');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (9, '2023-01-09', 'V', '1-0', 'W', 'Comp_Ten');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (10, '2023-01-10', 'V', '1-0', 'W', 'Comp_Ten');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (11, '2023-01-11', 'V', '1-0', 'W', 'Comp_Two');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (12, '2023-01-12', 'V', '1-0', 'W', 'Comp_Two');
+INSERT INTO "match" ("Match_ID", "Date", "Venue", "Score", "Result", "Competition") VALUES (13, '2023-01-13', 'V', '1-0', 'W', 'Comp_One');
+```

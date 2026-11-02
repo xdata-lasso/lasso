@@ -1,0 +1,112 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(molecule_id) vs COUNT(DISTINCT molecule_id) and GROUP BY label vs GROUP BY molecule_id.
+-- Also tests WHERE element = 'h' filtering (ensuring non-'h' atoms are ignored).
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '-');
+
+-- Label '+' has 1 molecule ('m1') with 3 'h' atoms and 3 'c' atoms. Total 'h' atoms = 3, distinct molecules = 1.
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a6', 'm1', 'c');
+
+-- Label '-' has 2 molecules ('m2', 'm3'), each with 1 'h' atom. Total 'h' atoms = 2, distinct molecules = 2.
+-- Also includes 'o' atoms so total all-element atoms for '-' is 7 (beating '+' if element='h' is omitted).
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a7', 'm2', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a8', 'm3', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a9', 'm2', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a10', 'm2', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a11', 'm3', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a12', 'm3', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a13', 'm3', 'o');
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY label vs GROUP BY molecule_id when multiple molecules of the same label combine to win.
+-- Also tests ORDER BY DESC vs ASC.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '-');
+
+-- 'm1' (label '+') has 3 'h' atoms (highest single molecule count).
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'h');
+
+-- 'm2' and 'm3' (both label '-') have 2 'h' atoms each. Combined for label '-' = 4 'h' atoms.
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm2', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a6', 'm3', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a7', 'm3', 'h');
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T2.label (ASC vs DESC) and NULLS LAST behavior.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', 'b_label');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', 'a_label');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', NULL);
+
+-- All three labels ('b_label', 'a_label', NULL) have an exact tie of 2 'h' atoms each.
+-- Gold query orders by COUNT DESC, T2.label ASC NULLS LAST -> should pick 'a_label'.
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm2', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm3', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a6', 'm3', 'h');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT JOIN (from molecule to atom) and COUNT(T2.molecule_id) vs COUNT(T1.atom_id).
+-- Also tests molecules with NULL molecule_id in atom table.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m4', '-');
+
+-- Label '+' has 3 molecules with NO 'h' atoms (or no atoms at all).
+-- A broken LEFT JOIN (molecule LEFT JOIN atom ON ... AND element='h') with COUNT(T2.molecule_id) would count 3 for '+'.
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'c');
+
+-- Label '-' has 1 molecule with 1 'h' atom.
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm4', 'h');
+
+-- Unattached 'h' atoms (NULL molecule_id) to test INNER JOIN vs LEFT JOIN (from atom to molecule).
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', NULL, 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', NULL, 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', NULL, 'h');
+```
+
+```sql
+-- DATASET 5
+-- Tests confusion between 'bond' table and 'atom' table, or unintended joins with 'bond'/'connected'.
+-- Also tests case-sensitivity or exact match of element = 'h' (e.g., 'H', 'he').
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+
+-- 'm1' (label '+') has 2 'h' atoms, but 0 bonds/connected rows.
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'h');
+
+-- 'm2' (label '-') has 1 'h' atom, plus uppercase 'H' and 'he' atoms, and multiple bonds/connections.
+-- If a mutant joins with `bond` or `connected` without deduplication, or matches 'H'/'he', '-' will falsely win.
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm2', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm2', 'H');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm2', 'he');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm2', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm2', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm2', '1');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a4', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a4', 'a3', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a5', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a5', 'a3', 'b2');
+```

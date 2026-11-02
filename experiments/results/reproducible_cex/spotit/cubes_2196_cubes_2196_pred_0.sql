@@ -1,0 +1,50 @@
+-- Schema DDL
+CREATE TABLE "ALLERGY_TYPE" (
+    "ALLERGY" TEXT,
+    "ALLERGYTYPE" TEXT,
+    PRIMARY KEY ("ALLERGY")
+);
+CREATE TABLE "HAS_ALLERGY" (
+    "ALLERGY" TEXT,
+    "STUID" INT,
+    FOREIGN KEY ("ALLERGY") REFERENCES "ALLERGY_TYPE"("ALLERGY"),
+    FOREIGN KEY ("STUID") REFERENCES "STUDENT"("STUID")
+);
+CREATE TABLE "STUDENT" (
+    "STUID" INT,
+    "LNAME" TEXT,
+    "FNAME" TEXT,
+    "AGE" INT,
+    "SEX" TEXT,
+    "MAJOR" INT,
+    "ADVISOR" INT,
+    "CITY_CODE" TEXT,
+    PRIMARY KEY ("STUID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ALLERGY_TYPE VALUES (2, 0);
+INSERT INTO ALLERGY_TYPE VALUES (3, 0);
+INSERT INTO HAS_ALLERGY VALUES (2, -1);
+INSERT INTO HAS_ALLERGY VALUES (2, -1);
+INSERT INTO STUDENT VALUES (0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO STUDENT VALUES (-1, 0, 0, 0, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT stuid FROM (SELECT * FROM student AS LHS WHERE NOT EXISTS(SELECT 1 FROM has_allergy AS RHS WHERE (LHS.stuid = RHS.stuid))) ORDER BY stuid;
+
+/*
+Gold Result:
+(0,)
+*/
+
+-- Prediction Query
+SELECT StuID FROM Student EXCEPT SELECT StuID FROM Has_allergy;
+
+/*
+Prediction Result:
+(0,)
+*/

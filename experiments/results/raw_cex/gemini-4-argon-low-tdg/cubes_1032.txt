@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests basic anti-join behavior:
+-- 1. College with NO tryouts (should be included)
+-- 2. College with ONLY 'mid' tryout (should be included)
+-- 3. College with ONLY 'goalie' tryout (should be excluded)
+-- 4. College with ONLY 'striker' tryout (should be excluded: tests "pPos <> 'mid'" vs "pPos = 'goalie'")
+-- 5. College with BOTH 'mid' and 'goalie' tryouts (should be excluded: tests existential vs universal quantification)
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_NoTryout', 'CA', 1000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_OnlyMid', 'NY', 2000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_OnlyGoalie', 'TX', 3000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_OnlyStriker', 'FL', 4000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_Mixed', 'WA', 5000);
+
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (1, 'Alice', 'no', 100);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (2, 'Bob', 'yes', 200);
+
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_OnlyMid', 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_OnlyGoalie', 'goalie', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_OnlyStriker', 'striker', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_Mixed', 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (2, 'C_Mixed', 'goalie', 'no');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Tryout.pPos and College.state, duplicate states (SELECT vs SELECT DISTINCT), and ordering (ORDER BY state NULLS LAST)
+-- Note: In SQLite, NULL <> 'mid' OR NULL = 'goalie' evaluates to UNKNOWN (falsy in WHERE), so a college with a NULL pPos tryout IS returned.
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_NullPos', 'OH', 1500);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_DupState1', 'PA', 2500);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_DupState2', 'PA', 3500);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_NullState', NULL, 4500);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_EarlyAlpha', 'AZ', 5500);
+
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (1, 'Charlie', 'no', 300);
+
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_NullPos', NULL, 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_DupState1', 'mid', 'no');
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple 'mid' tryouts for a single college:
+-- Catches mutants that replace NOT EXISTS with LEFT JOIN ... WHERE pPos = 'mid' without DISTINCT/GROUP BY (which would duplicate the college's state).
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_MultiMid', 'IL', 6000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_Excluded', 'MI', 7000);
+
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (1, 'Dave', 'no', 400);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (2, 'Eve', 'yes', 500);
+
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_MultiMid', 'mid', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (2, 'C_MultiMid', 'mid', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_Excluded', 'defense', 'yes');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty Tryout table and case sensitivity in string comparisons ('Mid' vs 'mid')
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_CaseTest', 'OR', 1200);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_Untested', 'NV', 2200);
+
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (1, 'Frank', 'no', 600);
+
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_CaseTest', 'Mid', 'yes');
+```
+
+```sql
+-- DATASET 5
+-- Tests scenario where ALL colleges are excluded (empty result set) vs mutants that might still return rows
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_AllBad1', 'GA', 3000);
+INSERT INTO "College" ("cName", "state", "enr") VALUES ('C_AllBad2', 'NC', 4000);
+
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (1, 'Grace', 'yes', 700);
+INSERT INTO "Player" ("pID", "pName", "yCard", "HS") VALUES (2, 'Heidi', 'no', 800);
+
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_AllBad1', 'goalie', 'yes');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (1, 'C_AllBad2', 'mid', 'no');
+INSERT INTO "Tryout" ("pID", "cName", "pPos", "decision") VALUES (2, 'C_AllBad2', 'forward', 'yes');
+```

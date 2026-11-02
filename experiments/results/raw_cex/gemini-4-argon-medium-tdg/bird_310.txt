@@ -1,0 +1,107 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality, DISTINCT molecule counting across multiple '=' bonds,
+-- filtering out non-'=' bonds, and SUM(CASE...) with '+', '-', and NULL labels.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m4', NULL);
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m5', '+');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b4', 'm2', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b5', 'm3', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b6', 'm4', '=');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result after WHERE filtering: bonds exist, but none have bond_type = '='.
+-- Distinguishes SUM (returns NULL on empty set) vs COUNT (returns 0 on empty set).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm2', '#');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm1', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests when bond_type = '=' matches rows, but NO molecule has label = '+'.
+-- Distinguishes CASE WHEN ... ELSE 0 END (returns 0) vs CASE WHEN ... ELSE NULL END / COUNT (returns NULL or wrong type).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', NULL);
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm2', '=');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT JOIN from bond to molecule when bond.molecule_id is NULL.
+-- Also tests multiple molecules with label = '+' and multiple '=' bonds.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '+');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', NULL, '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', NULL, '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm1', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b4', 'm2', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b5', 'm2', '=');
+```
+
+```sql
+-- DATASET 5
+-- Tests mutations that unnecessarily join the "atom" or "connected" tables.
+-- Here, "atom" and "connected" are only populated for a molecule without '=' bonds.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '+');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm2', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm3', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm3', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm3', 'h');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b3');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a1', 'b3');
+```
+
+```sql
+-- DATASET 6
+-- Tests fan-out if a mutant query joins "atom" or "connected" on matching '=' bonds.
+-- Since each bond connects 2 atoms (2 rows in connected, multiple atoms per molecule), joining them would inflate the SUM.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '=');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', 'h');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a1', 'b1');
+```
+
+```sql
+-- DATASET 7
+-- Tests where COUNT(DISTINCT T2.molecule_id) differs from SUM(CASE WHEN T2.label = '+'...),
+-- and where '-' bonds outnumber '=' bonds on '+' molecules.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m4', '+');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm1', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b4', 'm2', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b5', 'm2', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b6', 'm3', '=');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b7', 'm4', '-');
+```

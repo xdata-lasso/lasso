@@ -1,0 +1,18 @@
+{
+  "id": "tuple_in_concat_collision_real_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE \"Sensors\" (\"sensor_id\" INTEGER PRIMARY KEY, \"cluster_val\" REAL, \"reading_val\" REAL, \"coord_x\" REAL, \"coord_y\" REAL, CHECK (\"cluster_val\" >= 0), CHECK (\"reading_val\" >= 0));",
+  "correct_query": "SELECT ROUND(SUM(reading_val), 2) AS total_reading FROM Sensors WHERE cluster_val IN (SELECT cluster_val FROM Sensors GROUP BY cluster_val HAVING COUNT(*) > 1) AND (coord_x, coord_y) IN (SELECT coord_x, coord_y FROM Sensors WHERE NOT coord_x IS NULL AND NOT coord_y IS NULL GROUP BY coord_x, coord_y HAVING COUNT(*) = 1)",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "tuple_in_mutated_to_concat_in",
+      "description": "Replaces tuple membership (coord_x, coord_y) IN (SELECT coord_x, coord_y ...) with string concatenation coord_x || coord_y IN (SELECT coord_x || coord_y ...)",
+      "query": "WITH SharedClusters AS (SELECT cluster_val FROM Sensors GROUP BY cluster_val HAVING COUNT(*) > 1), UniqueCoords AS (SELECT coord_x, coord_y FROM Sensors GROUP BY coord_x, coord_y HAVING COUNT(*) = 1) SELECT ROUND(SUM(reading_val), 2) AS total_reading FROM Sensors WHERE cluster_val IN (SELECT cluster_val FROM SharedClusters) AND coord_x || coord_y IN (SELECT coord_x || coord_y FROM UniqueCoords)"
+    },
+    {
+      "id": "group_by_concat_collision_cte",
+      "description": "Groups by concatenated coord_x || coord_y with HAVING COUNT(coord_x || coord_y) = 1 instead of tuple GROUP BY coord_x, coord_y",
+      "query": "WITH ClusterMatches AS (SELECT S1.sensor_id FROM Sensors AS S1 JOIN Sensors AS S2 ON S1.cluster_val = S2.cluster_val WHERE S1.sensor_id <> S2.sensor_id), UniqueCoordConcat AS (SELECT sensor_id FROM Sensors GROUP BY coord_x || coord_y HAVING COUNT(coord_x || coord_y) = 1) SELECT ROUND(SUM(reading_val), 2) AS total_reading FROM Sensors WHERE sensor_id IN (SELECT * FROM ClusterMatches) AND sensor_id IN (SELECT * FROM UniqueCoordConcat)"
+    }
+  ]
+}

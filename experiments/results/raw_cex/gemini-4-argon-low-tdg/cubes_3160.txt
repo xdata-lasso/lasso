@@ -1,0 +1,156 @@
+```sql
+-- DATASET 1
+-- Tests basic positive matching, OR condition (both 'Close a policy' and 'Upgrade a policy'), filtering out other services, customers without FNOL, and basic ascending sort order.
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (1, 'Charlie');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (2, 'Alice');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (3, 'Bob');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (4, 'David');
+
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (10, 'Close a policy');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (20, 'Upgrade a policy');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (30, 'New policy');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (40, NULL);
+
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (101, 'AUTO', '555-0101');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (102, 'HOME', '555-0102');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (103, 'LIFE', '555-0103');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (104, 'AUTO', '555-0104');
+
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (1, 101, '2020-01-01', '2021-01-01');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (2, 102, '2020-02-01', '2021-02-01');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (3, 103, '2020-03-01', '2021-03-01');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (4, 104, '2020-04-01', '2021-04-01');
+
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (1001, 1, 101, 10);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (1002, 2, 102, 20);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (1003, 3, 103, 30);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate preservation (SELECT vs SELECT DISTINCT) when a single customer has multiple matching FNOL records (same service and different valid services), and tests whether extra Claims/Settlements rows cause unwanted row multiplication.
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (1, 'Alice');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (2, 'Alice');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (3, 'Bob');
+
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (1, 'Close a policy');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (2, 'Upgrade a policy');
+
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (10, 'P1', '111');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (20, 'P2', '222');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (30, 'P3', '333');
+
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (1, 10, '2022-01-01', NULL);
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (2, 20, '2022-01-02', NULL);
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (3, 30, '2022-01-03', NULL);
+
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (100, 1, 10, 1);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (101, 1, 10, 2);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (102, 1, 10, 1);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (103, 2, 20, 2);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (104, 3, 30, 1);
+
+INSERT INTO "Claims" ("Claim_ID", "FNOL_ID", "Effective_Date") VALUES (500, 104, '2022-05-01');
+INSERT INTO "Claims" ("Claim_ID", "FNOL_ID", "Effective_Date") VALUES (501, 104, '2022-05-02');
+
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Effective_Date", "Settlement_Amount") VALUES (900, 500, '2022-06-01', 100.50);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Effective_Date", "Settlement_Amount") VALUES (901, 500, '2022-06-02', 200.75);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Customer_name (specifically targeting ORDER BY customer_name NULLS LAST), NULL foreign keys in First_Notification_of_Loss, and unused Services.
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (1, NULL);
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (2, 'Zack');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (3, 'Aaron');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (4, 'Middle');
+
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (1, 'Close a policy');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (2, 'Upgrade a policy');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (3, 'Close a policy');
+
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (1, 'A', '1');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (2, 'B', '2');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (3, 'C', '3');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (4, 'D', '4');
+
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (1, 1, '2020-01-01', '2020-01-02');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (2, 2, '2020-01-01', '2020-01-02');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (3, 3, '2020-01-01', '2020-01-02');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (4, 4, '2020-01-01', '2020-01-02');
+
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (1, 1, 1, 1);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (2, 2, 2, 2);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (3, 3, 3, 1);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (4, NULL, 4, 1);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (5, 4, 4, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests join condition specificity in First_Notification_of_Loss: Policy_ID is NULL or belongs to a different Customer_Policies row than Customer_ID. Also tests case-sensitivity and substring boundaries of Service_name.
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (10, 'MismatchPolicyCustomer');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (20, 'NullPolicyCustomer');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (30, 'WrongServiceCaseCustomer');
+
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (1, 'Close a policy');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (2, 'close a policy');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (3, 'Upgrade a policy ');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (4, 'Upgrade a policy');
+
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (100, 'T1', '000');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (200, 'T2', '000');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (300, 'T3', '000');
+
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (10, 100, '2021-01-01', '2021-12-31');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (20, 200, '2021-01-01', '2021-12-31');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (30, 300, '2021-01-01', '2021-12-31');
+
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (1, 10, 200, 1);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (2, 20, NULL, 4);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (3, 30, 300, 2);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (4, 30, 300, 3);
+```
+
+```sql
+-- DATASET 5
+-- Tests single-branch OR mutations: only 'Close a policy' is present in the database, plus customers that have policies but no FNOL, and accidental ID collisions (where Customer_ID = Service_ID or FNOL_ID).
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (1, 'OnlyClose1');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (2, 'OnlyClose2');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (99, 'UnmatchedCustomer');
+
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (1, 'Other Service');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (2, 'Close a policy');
+
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (1, 'P1', '123');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (2, 'P2', '456');
+
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (1, 2, '2020-01-01', NULL);
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (2, 1, '2020-01-01', NULL);
+
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (10, 1, 2, 2);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (20, 2, 1, 1);
+```
+
+```sql
+-- DATASET 6
+-- Tests the other single-branch OR mutation: only 'Upgrade a policy' matches, and tests ordering when Customer_ID order is strictly opposite to Customer_name alphabetical order.
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (1, 'Zeta');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (2, 'Beta');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (3, 'Alpha');
+
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (100, 'Upgrade a policy');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (200, 'Cancel a policy');
+
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (1, 'X', '999');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (2, 'Y', '888');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (3, 'Z', '777');
+
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (1, 1, '2019-01-01', '2020-01-01');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (2, 2, '2019-01-01', '2020-01-01');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (3, 3, '2019-01-01', '2020-01-01');
+
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (50, 1, 1, 100);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (60, 2, 2, 200);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (70, 3, 3, 100);
+```

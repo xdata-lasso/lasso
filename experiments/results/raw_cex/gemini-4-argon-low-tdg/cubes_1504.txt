@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (DESC vs ASC), column confusion (Owner vs Name, Share_in_percent vs Rating_in_percent),
+-- and ensures mutants that add unnecessary INNER JOINs to broadcast/broadcast_share fail (winner is unreferenced).
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (1, 'Channel Alpha', 'Owner_Win', 45.5, 10.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (2, 'Channel Beta', 'Owner_Lose_HighRating', 25.0, 99.9);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (3, 'Channel Gamma', 'Owner_Lose_MinShare', 5.5, 50.0);
+
+INSERT INTO program (Program_ID, Name, Origin, Launch, Owner) VALUES (10, 'Prog 1', 'US', 2010.0, 'Prog_Owner_Wrong');
+
+INSERT INTO broadcast (Channel_ID, Program_ID, Time_of_day) VALUES (2, 10, 'Morning');
+INSERT INTO broadcast_share (Channel_ID, Program_ID, Date, Share_in_percent) VALUES (2, 10, '2023-01-01', 99.9);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on the secondary sort column (channel_id ASC) when the maximum Share_in_percent is tied.
+-- Also tests LIMIT 1 vs no limit, and DISTINCT vs non-DISTINCT when tied rows have different owners.
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (50, 'Ch 50', 'Owner_Tie_HigherID', 80.0, 20.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (10, 'Ch 10', 'Owner_Tie_LowerID_Winner', 80.0, 30.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (30, 'Ch 30', 'Owner_LowerShare', 40.0, 90.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests SQLite NULL ordering behavior (in DESC order, NULLs are considered smallest and appear last)
+-- and negative/zero numerical handling in Share_in_percent.
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (1, 'Ch Null', 'Owner_Null_Share', NULL, 100.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (2, 'Ch Neg', 'Owner_Negative_Share', -5.5, 50.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (3, 'Ch Zero', 'Owner_Zero_Share_Winner', 0.0, 10.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests queries that mistakenly use GROUP BY Owner with SUM(Share_in_percent) or COUNT(*)
+-- instead of ordering individual channels.
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (1, 'Ch 1', 'Single_Channel_Winner', 35.0, 15.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (2, 'Ch 2', 'Multi_Channel_Loser', 20.0, 20.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (3, 'Ch 3', 'Multi_Channel_Loser', 20.0, 20.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (4, 'Ch 4', 'Multi_Channel_Loser', 20.0, 20.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests floating-point precision differences in Share_in_percent and negative Channel_ID tie-breaking.
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (5, 'Ch Precision 1', 'Owner_Close_Loser', 33.33, 10.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (2, 'Ch Precision 2', 'Owner_Exact_Tie_Loser', 33.333, 10.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (-10, 'Ch Precision 3', 'Owner_Exact_Tie_NegID_Winner', 33.333, 5.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests handling of NULL Owner for the winning channel vs non-NULL Owners for losing channels
+-- (catches mutants that mistakenly add WHERE Owner IS NOT NULL).
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (1, 'Ch Top Null Owner', NULL, 95.0, 50.0);
+INSERT INTO channel (Channel_ID, Name, Owner, Share_in_percent, Rating_in_percent) VALUES (2, 'Ch Second Valid Owner', 'Valid_Owner_Loser', 85.0, 60.0);
+```

@@ -1,0 +1,50 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, multiple sets on the target date (catches GROUP BY releaseDate without code, LIMIT 1), boundary dates (catches <, <=, >, >=, LIKE '2017-07%'), and NULL releaseDate.
+INSERT INTO "sets" (id, code, name, releaseDate, keyruneCode, mtgoCode, parentCode, block, type, baseSetSize, totalSetSize, isFoilOnly, isOnlineOnly) VALUES (1, 'HOU', 'Hour of Devastation', '2017-07-14', 'HOU', 'HOU', NULL, 'Amonkhet', 'expansion', 199, 209, 0, 0);
+INSERT INTO "sets" (id, code, name, releaseDate, keyruneCode, mtgoCode, parentCode, block, type, baseSetSize, totalSetSize, isFoilOnly, isOnlineOnly) VALUES (2, 'THOU', 'Hour of Devastation Tokens', '2017-07-14', 'HOU', NULL, 'HOU', 'Amonkhet', 'token', 15, 15, 1, 1);
+INSERT INTO "sets" (id, code, name, releaseDate, keyruneCode, mtgoCode, parentCode, block, type, baseSetSize, totalSetSize, isFoilOnly, isOnlineOnly) VALUES (3, 'AKH', 'Amonkhet', '2017-04-28', 'AKH', 'AKH', NULL, 'Amonkhet', 'expansion', 269, 287, 0, 0);
+INSERT INTO "sets" (id, code, name, releaseDate, keyruneCode, mtgoCode, parentCode, block, type, baseSetSize, totalSetSize, isFoilOnly, isOnlineOnly) VALUES (4, 'XLN', 'Ixalan', '2017-09-29', 'XLN', 'XLN', NULL, 'Ixalan', 'expansion', 279, 289, 0, 0);
+INSERT INTO "sets" (id, code, name, releaseDate, keyruneCode, mtgoCode, parentCode, block, type, baseSetSize, totalSetSize, isFoilOnly, isOnlineOnly) VALUES (5, 'B01', 'Day Before', '2017-07-13', 'B01', 'B01', NULL, NULL, 'core', 10, 10, 0, 0);
+INSERT INTO "sets" (id, code, name, releaseDate, keyruneCode, mtgoCode, parentCode, block, type, baseSetSize, totalSetSize, isFoilOnly, isOnlineOnly) VALUES (6, 'A01', 'Day After', '2017-07-15', 'A01', 'A01', NULL, NULL, 'core', 10, 10, 0, 0);
+INSERT INTO "sets" (id, code, name, releaseDate, keyruneCode, mtgoCode, parentCode, block, type, baseSetSize, totalSetSize, isFoilOnly, isOnlineOnly) VALUES (7, 'NUL', 'Null Release Date', NULL, 'NUL', 'NUL', NULL, NULL, 'promo', 0, 0, 0, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests join mutations (e.g., INNER JOIN cards or INNER JOIN set_translations without DISTINCT) and column confusion (e.g., cards.originalReleaseDate vs sets.releaseDate, or sets.code vs keyruneCode/mtgoCode/parentCode).
+-- Set 1 ('SET1') has 0 cards and 0 translations (kills unneeded INNER JOINs).
+-- Set 2 ('SET2') has 3 cards and 2 translations (kills JOINs that duplicate rows without proper GROUP BY / DISTINCT).
+-- Set 3 ('SET3') has releaseDate != '2017-07-14', but has a card with originalReleaseDate = '2017-07-14' (kills querying cards table instead of sets).
+INSERT INTO "sets" (id, code, keyruneCode, mtgoCode, parentCode, name, releaseDate) VALUES (1, 'SET1', 'KEY1', 'MTG1', 'PAR1', 'Unjoined Set', '2017-07-14');
+INSERT INTO "sets" (id, code, keyruneCode, mtgoCode, parentCode, name, releaseDate) VALUES (2, 'SET2', 'KEY2', 'MTG2', 'PAR2', 'Multi Joined Set', '2017-07-14');
+INSERT INTO "sets" (id, code, keyruneCode, mtgoCode, parentCode, name, releaseDate) VALUES (3, 'SET3', 'KEY3', 'MTG3', 'PAR3', 'Decoy Set', '2018-01-01');
+
+INSERT INTO "cards" (id, uuid, name, setCode, originalReleaseDate) VALUES (1, 'uuid-1', 'Card 1', 'SET2', '2017-07-14');
+INSERT INTO "cards" (id, uuid, name, setCode, originalReleaseDate) VALUES (2, 'uuid-2', 'Card 2', 'SET2', '2017-07-14');
+INSERT INTO "cards" (id, uuid, name, setCode, originalReleaseDate) VALUES (3, 'uuid-3', 'Card 3', 'SET2', '2016-01-01');
+INSERT INTO "cards" (id, uuid, name, setCode, originalReleaseDate) VALUES (4, 'uuid-4', 'Card 4', 'SET3', '2017-07-14');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'French', 'SET2', 'Ensemble Deux');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'German', 'SET2', 'Satz Zwei');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'Spanish', 'SET3', 'Conjunto Tres');
+
+INSERT INTO "rulings" (id, date, text, uuid) VALUES (1, '2017-07-14', 'Ruling on target date for wrong set', 'uuid-4');
+```
+
+```sql
+-- DATASET 3
+-- Tests empty result set when no sets match '2017-07-14', and catches loose string matching (LIKE '%2017-07-14%') or year/month extraction errors.
+INSERT INTO "sets" (id, code, name, releaseDate) VALUES (1, 'Y16', 'Wrong Year Past', '2016-07-14');
+INSERT INTO "sets" (id, code, name, releaseDate) VALUES (2, 'Y18', 'Wrong Year Future', '2018-07-14');
+INSERT INTO "sets" (id, code, name, releaseDate) VALUES (3, 'M06', 'Wrong Month', '2017-06-14');
+INSERT INTO "sets" (id, code, name, releaseDate) VALUES (4, '2017-07-14', 'Code Is Date', '2020-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests ordering and aggregation edge cases (e.g., MIN(code), MAX(code), ORDER BY name vs ORDER BY code) by having non-monotonic code vs id vs name on the target date.
+INSERT INTO "sets" (id, code, name, releaseDate, baseSetSize, totalSetSize) VALUES (1, 'ZZZ', 'Alpha Name', '2017-07-14', 100, 100);
+INSERT INTO "sets" (id, code, name, releaseDate, baseSetSize, totalSetSize) VALUES (2, 'AAA', 'Omega Name', '2017-07-14', 50, 50);
+INSERT INTO "sets" (id, code, name, releaseDate, baseSetSize, totalSetSize) VALUES (3, 'MMM', 'Middle Name', '2017-07-14', 0, 0);
+```

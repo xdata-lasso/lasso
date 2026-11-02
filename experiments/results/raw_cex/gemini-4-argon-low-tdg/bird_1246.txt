@@ -1,0 +1,110 @@
+```sql
+-- DATASET 1
+-- Tests DISTINCT vs non-DISTINCT counting and date-joining mutations.
+-- Patient 1 has multiple matching Laboratory and Examination records on different dates.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1980-05-15', '2020-01-01', '2020-01-01', 'A', 'SLE');
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (1, '2020-01-10', 46);
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (1, '2020-02-15', 55);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2020-03-20', 3);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2020-04-25', 3);
+```
+
+```sql
+-- DATASET 2
+-- Tests APTT boundary conditions (45 vs 46, 44, NULL) and Thrombosis exact match (3 vs 2, 4, NULL).
+-- Only Patient 1 should be counted.
+INSERT INTO Patient (ID, SEX) VALUES (1, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (4, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (5, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (6, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (7, 'M');
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (1, '2021-01-01', 46);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2021-01-01', 3);
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (2, '2021-01-01', 45);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2021-01-01', 3);
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (3, '2021-01-01', 44);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (3, '2021-01-01', 3);
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (4, '2021-01-01', NULL);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (4, '2021-01-01', 3);
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (5, '2021-01-01', 50);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (5, '2021-01-01', 2);
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (6, '2021-01-01', 50);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (6, '2021-01-01', 4);
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (7, '2021-01-01', 50);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (7, '2021-01-01', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests logical operator mutations (AND vs OR) and INNER JOIN completeness.
+-- Patient 1 matches only APTT > 45.
+-- Patient 2 matches only Thrombosis = 3.
+-- Patient 3 has matching Lab but no Examination row.
+-- Patient 4 has matching Examination but no Lab row.
+-- Expected count is 0.
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (4, 'M');
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (1, '2021-05-01', 60);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2021-05-01', 1);
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (2, '2021-05-01', 30);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2021-05-01', 3);
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (3, '2021-05-01', 60);
+
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (4, '2021-05-01', 3);
+```
+
+```sql
+-- DATASET 4
+-- Tests join condition integrity and cross-join / missing join predicate mutations.
+-- Patient 1 has APTT > 45 (and Thrombosis != 3).
+-- Patient 2 has Thrombosis = 3 (and APTT <= 45).
+-- A missing join condition between T2 and T3 would falsely pair Patient 1's Lab with Patient 2's Examination.
+-- Patient 3 is a valid match for baseline.
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (3, 'F');
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (1, '2022-01-01', 50);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2022-01-01', 0);
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (2, '2022-01-01', 40);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2022-01-01', 3);
+
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (3, '2022-01-01', 70);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (3, '2022-01-01', 3);
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion (e.g., checking PT, GOT, or PLT instead of APTT, or ANA instead of Thrombosis)
+-- and tests multiple valid patients with mixed valid/invalid historical records.
+INSERT INTO Patient (ID, SEX) VALUES (10, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (20, 'M');
+INSERT INTO Patient (ID, SEX) VALUES (30, 'F');
+
+INSERT INTO Laboratory (ID, Date, GOT, PLT, PT, APTT) VALUES (10, '2020-01-01', 50, 50, 50.0, 40);
+INSERT INTO Laboratory (ID, Date, GOT, PLT, PT, APTT) VALUES (10, '2020-01-02', 20, 20, 12.0, 48);
+INSERT INTO Examination (ID, "Examination Date", ANA, Thrombosis) VALUES (10, '2020-01-01', 3, 0);
+INSERT INTO Examination (ID, "Examination Date", ANA, Thrombosis) VALUES (10, '2020-01-03', 1, 3);
+
+INSERT INTO Laboratory (ID, Date, GOT, PLT, PT, APTT) VALUES (20, '2020-02-01', 100, 100, 60.0, 45);
+INSERT INTO Examination (ID, "Examination Date", ANA, Thrombosis) VALUES (20, '2020-02-01', 3, 2);
+
+INSERT INTO Laboratory (ID, Date, GOT, PLT, PT, APTT) VALUES (30, '2020-03-01', 10, 10, 10.0, 100);
+INSERT INTO Examination (ID, "Examination Date", ANA, Thrombosis) VALUES (30, '2020-03-01', 0, 3);
+INSERT INTO Examination (ID, "Examination Date", ANA, Thrombosis) VALUES (30, '2020-03-02', NULL, 3);
+```

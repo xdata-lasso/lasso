@@ -1,0 +1,112 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT T1.ID) vs COUNT(*) or COUNT(T1.ID) when multiple matching rows exist per ID in both Examination and Laboratory.
+INSERT INTO Patient (ID, SEX) VALUES (1, 'F');
+INSERT INTO Patient (ID, SEX) VALUES (2, 'M');
+
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2020-01-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2020-02-01', 0);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2020-01-01', 0);
+
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2020-01-01', '10');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2020-01-02', '15');
+INSERT INTO Laboratory (ID, Date, RF) VALUES (2, '2020-01-01', '5');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary conditions for T2.RF < 20 (including string vs numeric comparison in SQLite where RF is TEXT) and T1.Thrombosis = 0.
+INSERT INTO Patient (ID) VALUES (1);
+INSERT INTO Patient (ID) VALUES (2);
+INSERT INTO Patient (ID) VALUES (3);
+INSERT INTO Patient (ID) VALUES (4);
+INSERT INTO Patient (ID) VALUES (5);
+INSERT INTO Patient (ID) VALUES (6);
+INSERT INTO Patient (ID) VALUES (7);
+
+-- P1: Valid (RF = 19, Thrombosis = 0)
+INSERT INTO Examination (ID, Thrombosis) VALUES (1, 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2020-01-01', '19');
+
+-- P2: Boundary fail (RF = 20, Thrombosis = 0) -> catches T2.RF <= 20
+INSERT INTO Examination (ID, Thrombosis) VALUES (2, 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (2, '2020-01-01', '20');
+
+-- P3: High RF fail (RF = 25, Thrombosis = 0) -> catches missing RF filter or T2.RF > 20
+INSERT INTO Examination (ID, Thrombosis) VALUES (3, 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (3, '2020-01-01', '25');
+
+-- P4: Thrombosis fail (RF = 10, Thrombosis = 1) -> catches missing Thrombosis filter or Thrombosis != 0
+INSERT INTO Examination (ID, Thrombosis) VALUES (4, 1);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (4, '2020-01-01', '10');
+
+-- P5: Thrombosis fail (RF = 10, Thrombosis = 2) -> catches Thrombosis <= 1
+INSERT INTO Examination (ID, Thrombosis) VALUES (5, 2);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (5, '2020-01-01', '10');
+
+-- P6: NULL checks (RF is NULL or Thrombosis is NULL)
+INSERT INTO Examination (ID, Thrombosis) VALUES (6, NULL);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (6, '2020-01-01', '10');
+INSERT INTO Examination (ID, Thrombosis) VALUES (7, 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (7, '2020-01-01', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests SQLite type affinity / string vs numeric comparison for RF (TEXT column compared against integer 20).
+-- In SQLite, '3' < 20 is FALSE if compared lexicographically ('3' < '20'), but TRUE when compared against integer 20 if cast or coerced, OR wait:
+-- In SQLite, RF has TEXT affinity. The expression `T2.RF < 20` converts 20 to TEXT '20' because the column has TEXT affinity!
+-- Wait: in SQLite, a column with TEXT affinity causes the numeric literal 20 to be converted to '20' before comparison!
+-- Let's include values that distinguish `'15'` (both < '20' and < 20), `'3'` (> '20' lexicographically, < 20 numerically), and `'100'` (< '20' lexicographically, > 20 numerically).
+INSERT INTO Patient (ID) VALUES (1);
+INSERT INTO Patient (ID) VALUES (2);
+INSERT INTO Patient (ID) VALUES (3);
+
+INSERT INTO Examination (ID, Thrombosis) VALUES (1, 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2020-01-01', '15');
+
+INSERT INTO Examination (ID, Thrombosis) VALUES (2, 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (2, '2020-01-01', '3');
+
+INSERT INTO Examination (ID, Thrombosis) VALUES (3, 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (3, '2020-01-01', '100');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN, and joining on ID vs joining on Date/Examination Date, and AND vs OR in WHERE clause.
+INSERT INTO Patient (ID) VALUES (1);
+INSERT INTO Patient (ID) VALUES (2);
+INSERT INTO Patient (ID) VALUES (3);
+INSERT INTO Patient (ID) VALUES (4);
+
+-- P1: Matches both conditions, but Examination Date != Laboratory Date (catches extra join condition T1."Examination Date" = T2.Date)
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (1, '2020-01-01', 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2020-05-05', '12');
+
+-- P2: In Examination (Thrombosis = 0), but NOT in Laboratory (catches LEFT JOIN without proper RF filtering or OR condition)
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (2, '2020-01-01', 0);
+
+-- P3: In Laboratory (RF = '12'), but NOT in Examination (catches RIGHT JOIN / querying only Laboratory)
+INSERT INTO Laboratory (ID, Date, RF) VALUES (3, '2020-01-01', '12');
+
+-- P4: Same patient has one Examination with Thrombosis = 1 and one Laboratory with RF = '12', and another Examination with Thrombosis = 0 on a different date.
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (4, '2020-01-01', 1);
+INSERT INTO Examination (ID, "Examination Date", Thrombosis) VALUES (4, '2020-02-01', 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (4, '2020-01-01', '12');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set (0 matches) where each table has valid rows independently, but no single ID satisfies both conditions.
+INSERT INTO Patient (ID) VALUES (1);
+INSERT INTO Patient (ID) VALUES (2);
+
+-- P1 satisfies Examination condition, fails Laboratory condition
+INSERT INTO Examination (ID, Thrombosis) VALUES (1, 0);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (1, '2020-01-01', '25');
+
+-- P2 fails Examination condition, satisfies Laboratory condition
+INSERT INTO Examination (ID, Thrombosis) VALUES (2, 1);
+INSERT INTO Laboratory (ID, Date, RF) VALUES (2, '2020-01-01', '10');
+```

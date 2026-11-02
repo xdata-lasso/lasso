@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests basic inequality (maxn < maxn_other), duplicate elimination (DISTINCT), ordering (ORDER BY),
+-- and ensures mutants joining on news_report/event fail (some journalists have no reports).
+INSERT INTO "event" ("Event_ID", "Date", "Venue", "Name", "Event_Attendance") VALUES (1, '2023-01-01', 'Hall A', 'Tech Conf', 500);
+
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (1, 'Alice', 'USA', '25', 3);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (2, 'Bob', 'USA', '30', 5);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (3, 'Charlie', 'USA', '30', 6);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (4, 'David', 'UK', '40', 10);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (5, 'Eve', 'UK', '40', 12);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (6, 'Frank', 'UK', '40', 8);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (7, 'Grace', 'Canada', '50', 20);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (8, 'Heidi', 'France', '35', 7);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (9, 'Ivan', 'France', '35', 9);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (10, 'Judy', 'France', '45', 15);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (11, 'Karl', 'France', '45', 11);
+
+INSERT INTO "news_report" ("journalist_ID", "Event_ID", "Work_Type") VALUES (1, 1, 'Anchor');
+INSERT INTO "news_report" ("journalist_ID", "Event_ID", "Work_Type") VALUES (4, 1, 'Reporter');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition where all (age, nationality) groups have the exact same count (1).
+-- Reference query returns empty set; catches mutants using <=, >=, or missing the WHERE clause.
+INSERT INTO "event" ("Event_ID", "Date", "Venue", "Name", "Event_Attendance") VALUES (1, '2023-02-01', 'Stadium', 'Sports', 1000);
+
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (1, 'J1', 'USA', '20', 1);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (2, 'J2', 'USA', '30', 2);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (3, 'J3', 'UK', '20', 3);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (4, 'J4', 'Canada', '40', 4);
+
+INSERT INTO "news_report" ("journalist_ID", "Event_ID", "Work_Type") VALUES (1, 1, 'Photo');
+```
+
+```sql
+-- DATASET 3
+-- Tests grouping semantics: distinguishes grouping by (age, nationality) vs grouping by (nationality) alone vs grouping by (age) alone.
+-- USA has 3 journalists total, but split across 3 different ages (count 1 each).
+-- UK has 2 journalists total, both having the same age (count 2).
+-- Reference Query returns only 'UK'. A mutant grouping only by nationality would see USA=3, UK=2 and return 'USA'.
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (1, 'U1', 'USA', '20', 1);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (2, 'U2', 'USA', '30', 2);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (3, 'U3', 'USA', '40', 3);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (4, 'K1', 'UK', '25', 4);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (5, 'K2', 'UK', '25', 5);
+```
+
+```sql
+-- DATASET 4
+-- Tests intra-nationality comparison across different ages when only a single nationality exists in the table.
+-- Catches mutants that add `LHS.nationality <> RHS.nationality` or `LHS.age = RHS.age`.
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (1, 'S1', 'Spain', '25', 2);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (2, 'S2', 'Spain', '35', 8);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (3, 'S3', 'Spain', '35', 10);
+```
+
+```sql
+-- DATASET 5
+-- Tests comparison across different nationalities where every journalist has the exact same age.
+-- Catches mutants that require `LHS.age <> RHS.age` or `LHS.nationality = RHS.nationality`.
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (1, 'G1', 'Germany', '30', 5);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (2, 'I1', 'Italy', '30', 4);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (3, 'I2', 'Italy', '30', 6);
+```
+
+```sql
+-- DATASET 6
+-- Tests NULL handling in GROUP BY and COUNT(*) vs COUNT(col), plus lexicographical vs numerical sorting/comparison.
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (1, NULL, 'Brazil', NULL, NULL);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (2, NULL, 'Brazil', NULL, NULL);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (3, 'J_Arg', 'Argentina', '9', 1);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (4, 'J_NullNat', NULL, '22', 2);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (5, 'J_NullNat2', NULL, '22', 3);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (6, 'J_Chi1', 'Chile', '100', 10);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (7, 'J_Chi2', 'Chile', '100', 12);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (8, 'J_Chi3', 'Chile', '100', 15);
+```

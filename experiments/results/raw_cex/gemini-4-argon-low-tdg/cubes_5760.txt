@@ -1,0 +1,46 @@
+```sql
+-- DATASET 1
+-- Tests basic MIN(asset_acquired_date) vs MAX, duplicate minimum values (MIN vs ORDER BY without LIMIT 1),
+-- column confusion (asset_acquired_date vs asset_disposed_date, contract dates, fault dates),
+-- and dangling foreign keys (supplier_company_id/maintenance_contract_id NULLs to break inner joins).
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'SUP', 'Acme Corp', '123 Main St', 'None');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '1990-01-01 00:00:00', '1995-01-01 00:00:00', 'Old contract');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, NULL, NULL, 'Server A', 'Dell', 'R740', '2010-05-15 10:00:00', '2025-01-01 00:00:00', 'No FK');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (2, 1, 1, 'Server B', 'HP', 'DL380', '2010-05-15 10:00:00', '2000-01-01 00:00:00', 'Duplicate Min Acquired, Earlier Disposed');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (3, 1, 1, 'Router C', 'Cisco', 'ISR4000', '2020-11-20 14:30:00', '2022-12-31 23:59:59', 'Later Acquired');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (4, 1, 1, 'Switch D', 'Juniper', 'EX4300', NULL, '1999-01-01 00:00:00', 'NULL Acquired Date');
+```
+
+```sql
+-- DATASET 2
+-- Tests scenario where the minimum asset_acquired_date belongs to an asset with NO child records 
+-- in Asset_Parts or Fault_Log (kills mutants that erroneously INNER JOIN Assets with child tables).
+INSERT INTO "Third_Party_Companies" ("company_id", "company_type", "company_name", "company_address", "other_company_details") VALUES (1, 'SUP', 'Tech Supplies', '456 Oak Ave', 'Details');
+INSERT INTO "Maintenance_Contracts" ("maintenance_contract_id", "maintenance_contract_company_id", "contract_start_date", "contract_end_date", "other_contract_details") VALUES (1, 1, '2015-01-01 00:00:00', '2025-01-01 00:00:00', 'Standard');
+INSERT INTO "Parts" ("part_id", "part_name", "chargeable_yn", "chargeable_amount", "other_part_details") VALUES (1, 'Power Supply', 1, 150, 'PSU');
+INSERT INTO "Staff" ("staff_id", "staff_name", "gender", "other_staff_details") VALUES (1, 'Alice Smith', 1, 'Admin');
+
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (10, 1, 1, 'Isolated Old Asset', 'IBM', 'X3650', '2005-03-10 08:00:00', '2015-03-10 08:00:00', 'No parts or faults');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (20, 1, 1, 'Connected Newer Asset', 'Dell', 'PowerEdge', '2018-07-22 12:00:00', '2023-07-22 12:00:00', 'Has parts and faults');
+
+INSERT INTO "Asset_Parts" ("asset_id", "part_id") VALUES (20, 1);
+INSERT INTO "Fault_Log" ("fault_log_entry_id", "recorded_by_staff_id", "asset_id", "fault_log_entry_datetime", "fault_description", "other_fault_details") VALUES (100, 1, 20, '2001-01-01 09:00:00', 'System failure', 'Logged date earlier than min asset acquired');
+```
+
+```sql
+-- DATASET 3
+-- Tests edge case where all assets have NULL asset_acquired_date or table has only NULL dates
+-- (MIN aggregate always returns 1 row with NULL, whereas WHERE asset_acquired_date IS NOT NULL returns 0 rows,
+-- and multiple rows with NULLs without aggregation returns multiple NULL rows).
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, NULL, NULL, 'Unknown Date Asset 1', 'BrandX', 'M1', NULL, '2020-01-01 00:00:00', 'None');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (2, NULL, NULL, 'Unknown Date Asset 2', 'BrandY', 'M2', NULL, '2021-01-01 00:00:00', 'None');
+```
+
+```sql
+-- DATASET 4
+-- Tests anti-ordering between asset_id and asset_acquired_date (highest asset_id has the minimum acquired date)
+-- to kill mutants that order by asset_id or use LIMIT 1 without proper ordering.
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (1, NULL, NULL, 'First ID, Newest Date', 'Apple', 'Xserve', '2022-09-01 00:00:00', '2024-09-01 00:00:00', 'A');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (2, NULL, NULL, 'Middle ID, Middle Date', 'Sun', 'Fire', '2015-06-15 00:00:00', '2020-06-15 00:00:00', 'B');
+INSERT INTO "Assets" ("asset_id", "supplier_company_id", "maintenance_contract_id", "asset_details", "asset_make", "asset_model", "asset_acquired_date", "asset_disposed_date", "other_asset_details") VALUES (3, NULL, NULL, 'Last ID, Oldest Date', 'DEC', 'Alpha', '1998-12-31 23:59:59', '2008-12-31 23:59:59', 'C');
+```

@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests ties in MAX(capacity), ordering by name vs ID, and negative/zero capacities.
+-- Also includes rows with no corresponding events to kill mutants that inner join the event table.
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (1, 'Zeta Arena', 50000, 'Alpha City', 'USA', 2000);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (2, 'Alpha Dome', 50000, 'Beta City', 'UK', 2010);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (3, 'Mid Center', 25000, 'Gamma City', 'Canada', 1995);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (4, 'Zero Field', 0, 'Delta City', 'France', 1980);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (5, 'Neg Stadium', -100, 'Epsilon City', 'Germany', 1970);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL semantics in the self-join (LHS.col = RHS.col fails on NULL in SQL).
+-- If a stadium has the max capacity (or tied for max) but has NULL in City, Country, or Opening_year,
+-- the Reference Query will filter it out due to standard equality `=` instead of `IS NOT DISTINCT FROM`.
+-- This kills simpler mutants like `SELECT name FROM stadium WHERE capacity = (SELECT MAX(capacity) FROM stadium)`.
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (1, 'Null City Stadium', 80000, NULL, 'USA', 2005);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (2, 'Null Country Stadium', 80000, 'London', NULL, 2005);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (3, 'Null Year Stadium', 80000, 'Paris', 'France', NULL);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (4, 'Valid Max Stadium', 80000, 'Berlin', 'Germany', 2005);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (5, 'Smaller Valid Stadium', 60000, 'Madrid', 'Spain', 2010);
+```
+
+```sql
+-- DATASET 3
+-- Tests when the single absolute maximum capacity row has a NULL in a non-capacity column.
+-- The Reference Query will return an empty result set here because the only row matching MAX(capacity) fails the self-join on NULL.
+-- Kills mutants that don't enforce the non-null check on all columns or mutants that take the max of non-null rows.
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (1, 'Supreme Null', 100000, 'Tokyo', 'Japan', NULL);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (2, 'Second Best', 90000, 'Osaka', 'Japan', 1998);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (3, 'Third Best', 85000, 'Kyoto', 'Japan', 2002);
+```
+
+```sql
+-- DATASET 4
+-- Tests duplicate stadium names among maximum capacity stadiums and non-maximum capacity stadiums.
+-- Kills mutants that erroneously use `SELECT DISTINCT name` or group by name.
+-- Also tests foreign key relationships where a non-max stadium has events and max stadiums have 0, 1, or multiple events (kills join-without-distinct mutants).
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (1, 'Olympic Stadium', 75000, 'Athens', 'Greece', 1982);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (2, 'Olympic Stadium', 75000, 'Rome', 'Italy', 1953);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (3, 'Olympic Stadium', 40000, 'Stockholm', 'Sweden', 1912);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (4, 'National Arena', 75000, 'Beijing', 'China', 2008);
+
+INSERT INTO swimmer (ID, name, Nationality, meter_100, meter_200, meter_300, meter_400, meter_500, meter_600, meter_700, Time) VALUES (1, 'John Doe', 'USA', 48.5, '1:45', '2:45', '3:45', '4:45', '5:45', '6:45', '2020');
+
+INSERT INTO event (ID, Stadium_ID, Name, Year) VALUES (1, 1, 'Finals', '2004');
+INSERT INTO event (ID, Stadium_ID, Name, Year) VALUES (2, 1, 'Semi-Finals', '2004');
+INSERT INTO event (ID, Stadium_ID, Name, Year) VALUES (3, 3, 'Qualifiers', '1912');
+
+INSERT INTO record (Swimmer_ID, Event_ID, ID, Result) VALUES (1, 1, 1, 'Gold');
+INSERT INTO record (Swimmer_ID, Event_ID, ID, Result) VALUES (1, 2, 2, 'Silver');
+```
+
+```sql
+-- DATASET 5
+-- Tests string vs integer sorting pitfalls (e.g., if a mutant casts capacity to text, '9000' > '100000').
+-- Also tests presence of NULL capacities alongside valid capacities.
+-- Also tests case-sensitivity and ordering of names (e.g., 'arena' vs 'Stadium' vs 'B_Stadium').
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (1, 'Big Stadium', 100000, 'CityA', 'CountryA', 2001);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (2, 'Small Lexicographic Max', 9000, 'CityB', 'CountryB', 1990);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (3, 'Null Cap Stadium', NULL, 'CityC', 'CountryC', 2015);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (4, 'Another Big', 100000, 'CityA', 'CountryB', 2020);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (5, 'arena lower', 100000, 'CityD', 'CountryA', 2001);
+```
+
+```sql
+-- DATASET 6
+-- Tests partial join condition mutants (e.g. if a mutant omits `LHS.id = RHS.id` or `LHS.city = RHS.city` in the join condition).
+-- Even though RHS only projects MAX(capacity) OVER (), if a mutant alters the subquery or join keys,
+-- having stadiums with identical names, cities, countries, and years but different IDs and capacities ensures they don't cross-match improperly.
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (10, 'Twin Center', 60000, 'Metropolis', 'USA', 2000);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (20, 'Twin Center', 50000, 'Metropolis', 'USA', 2000);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (30, 'Unique Max', 60000, 'Gotham', 'USA', 2000);
+```
+
+```sql
+-- DATASET 7
+-- Tests all negative capacities and NULL name on a max capacity stadium.
+-- If `name` is NULL on a max capacity row, `LHS.name = RHS.name` evaluates to UNKNOWN, filtering it out.
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (1, NULL, -10, 'Ghost Town', 'Nowhere', 1900);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (2, 'Subterranean Pool', -10, 'Underground', 'Deep', 1950);
+INSERT INTO stadium (ID, name, Capacity, City, Country, Opening_year) VALUES (3, 'Deeper Pool', -500, 'Abyss', 'Deep', 1960);
+```

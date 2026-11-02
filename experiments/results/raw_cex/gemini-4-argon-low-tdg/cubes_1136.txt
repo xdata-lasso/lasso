@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+-- Tests scope of MIN(rating): global minimum belongs to an 'english' song, while non-english songs have a higher rating.
+-- Refutes mutants that filter "languages <> 'english'" BEFORE computing the minimum rating.
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('pop', '8', 'US');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('ArtistA', 'pop', 'US', 'F');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (1.0, 'ArtistA', '3MB', '3:00', 'mp3');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (2.0, 'ArtistA', '4MB', '4:00', 'mp3');
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_English_Lowest', 'pop', 1.0, 'ArtistA', 'US', 1.0, 'english', '2020-01-01', 320.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Song_French_Higher', 'pop', 2.0, 'ArtistA', 'FR', 2.0, 'french', '2020-01-02', 320.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests ties for global minimum rating across multiple non-english songs, order by song_name, and non-matching higher ratings.
+-- Refutes mutants using LIMIT 1, wrong ordering (DESC or ordering by rating/f_id), MAX instead of MIN, or wrong comparison operators.
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('rock', '9', 'UK');
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('jazz', '7', 'FR');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist1', 'rock', 'UK', 'M');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Artist2', 'jazz', 'FR', 'F');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (10.0, 'Artist1', '5MB', '3:30', 'wav');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (20.0, 'Artist2', '6MB', '4:10', 'flac');
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Zeta_Song', 'rock', 10.0, 'Artist1', 'ES', 2.5, 'spanish', '2021-05-01', 128.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Alpha_Song', 'jazz', 20.0, 'Artist2', 'DE', 2.5, 'german', '2019-03-15', 256.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Beta_English', 'rock', 10.0, 'Artist1', 'UK', 2.5, 'english', '2020-07-20', 320.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Gamma_High', 'jazz', 20.0, 'Artist2', 'IT', 8.0, 'italian', '2022-01-10', 320.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in "languages", "rating", and foreign key columns ("genre_is", "f_id", "artist_name").
+-- Refutes mutants that replace INNER/implicit logic with INNER JOINs on parent tables, or mishandle NULLs in predicates (e.g., IS NOT 'english').
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Null_FK_Song', NULL, NULL, NULL, 'JP', 3.0, 'japanese', '2021-01-01', 192.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Null_Lang_Song', NULL, NULL, NULL, 'US', 3.0, NULL, '2021-01-02', 192.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Null_Rating_Song', NULL, NULL, NULL, 'KR', NULL, 'korean', '2021-01-03', 192.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests window partitioning mutations (e.g., PARTITION BY genre_is, artist_name, or country) vs unpartitioned OVER ().
+-- Also tests case sensitivity of 'english' vs 'English'.
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('g1', '5', 'US');
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('g2', '6', 'UK');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('a1', 'g1', 'US', 'M');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('a2', 'g2', 'UK', 'F');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (1.0, 'a1', '1MB', '1:00', 'mp3');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (2.0, 'a2', '2MB', '2:00', 'mp3');
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Global_Min_Song', 'g1', 1.0, 'a1', 'C1', 1.0, 'English', '2020-01-01', 100.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Partition_Min_Song', 'g2', 2.0, 'a2', 'C2', 4.0, 'spanish', '2020-01-02', 100.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Partition_High_Song', 'g1', 1.0, 'a1', 'C1', 5.0, 'french', '2020-01-03', 100.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests negative and zero ratings, and ensures "AND" vs "OR" in the WHERE clause is strictly differentiated.
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('indie', '10', 'CA');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('IndieArt', 'indie', 'CA', 'M');
+INSERT INTO "files" ("f_id", "artist_name", "file_size", "duration", "formats") VALUES (99.0, 'IndieArt', '10MB', '5:00', 'ogg');
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Neg_Min_Hindi', 'indie', 99.0, 'IndieArt', 'IN', -5.5, 'hindi', '2018-11-11', 320.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Zero_Arabic', 'indie', 99.0, 'IndieArt', 'EG', 0.0, 'arabic', '2018-11-12', 320.0);
+INSERT INTO "song" ("song_name", "genre_is", "f_id", "artist_name", "country", "rating", "languages", "releasedate", "resolution") VALUES ('Neg_Min_English', 'indie', 99.0, 'IndieArt', 'CA', -5.5, 'english', '2018-11-13', 320.0);
+```

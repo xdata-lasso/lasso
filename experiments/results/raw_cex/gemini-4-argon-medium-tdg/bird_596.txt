@@ -1,0 +1,131 @@
+```sql
+-- DATASET 1
+-- Tests Cartesian product of badges and comments per user vs COUNT(DISTINCT), and basic ORDER BY COUNT DESC vs ASC.
+-- User 1 has 2 badges (same name) and 2 comments -> joined count = 4.
+-- User 2 has 1 badge and 3 comments -> joined count = 3.
+-- User 3 has 5 badges and 0 comments -> excluded by INNER JOIN.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Alice');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Bob');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'Charlie');
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 1, 'GoldBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (2, 1, 'GoldBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (3, 2, 'SilverBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (4, 3, 'BronzeBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (5, 3, 'BronzeBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (6, 3, 'BronzeBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (7, 3, 'BronzeBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (8, 3, 'BronzeBadge');
+
+INSERT INTO comments (Id, UserId, Text) VALUES (1, 1, 'Comment 1');
+INSERT INTO comments (Id, UserId, Text) VALUES (2, 1, 'Comment 2');
+INSERT INTO comments (Id, UserId, Text) VALUES (3, 2, 'Comment 3');
+INSERT INTO comments (Id, UserId, Text) VALUES (4, 2, 'Comment 4');
+INSERT INTO comments (Id, UserId, Text) VALUES (5, 2, 'Comment 5');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on Name ASC and NULLS LAST behavior when counts are equal.
+-- Users 1, 2, and 3 all have 1 badge and 2 comments (joined count = 2).
+-- User 1 has NULL Name, User 2 has 'Zeta', User 3 has 'Alpha'.
+-- Reference query picks 'Alpha' (ASC, NULLS LAST).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'UserNull');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'UserZeta');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'UserAlpha');
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 1, NULL);
+INSERT INTO badges (Id, UserId, Name) VALUES (2, 2, 'Zeta');
+INSERT INTO badges (Id, UserId, Name) VALUES (3, 3, 'Alpha');
+
+INSERT INTO comments (Id, UserId, Text) VALUES (1, 1, 'C1');
+INSERT INTO comments (Id, UserId, Text) VALUES (2, 1, 'C2');
+INSERT INTO comments (Id, UserId, Text) VALUES (3, 2, 'C3');
+INSERT INTO comments (Id, UserId, Text) VALUES (4, 2, 'C4');
+INSERT INTO comments (Id, UserId, Text) VALUES (5, 3, 'C5');
+INSERT INTO comments (Id, UserId, Text) VALUES (6, 3, 'C6');
+```
+
+```sql
+-- DATASET 3
+-- Tests GROUP BY T2.UserId vs GROUP BY Name.
+-- Users 1 and 2 share the badge name 'CommonBadge', each has 1 badge and 2 comments (count = 2 each).
+-- User 3 has 'UniqueBadge', 1 badge and 3 comments (count = 3).
+-- Grouping by UserId yields 'UniqueBadge' (count 3). Grouping by Name yields 'CommonBadge' (combined count 4).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'U1');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'U2');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'U3');
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 1, 'CommonBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (2, 2, 'CommonBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (3, 3, 'UniqueBadge');
+
+INSERT INTO comments (Id, UserId, Text) VALUES (1, 1, 'C1');
+INSERT INTO comments (Id, UserId, Text) VALUES (2, 1, 'C2');
+INSERT INTO comments (Id, UserId, Text) VALUES (3, 2, 'C3');
+INSERT INTO comments (Id, UserId, Text) VALUES (4, 2, 'C4');
+INSERT INTO comments (Id, UserId, Text) VALUES (5, 3, 'C5');
+INSERT INTO comments (Id, UserId, Text) VALUES (6, 3, 'C6');
+INSERT INTO comments (Id, UserId, Text) VALUES (7, 3, 'C7');
+```
+
+```sql
+-- DATASET 4
+-- Tests join condition T1.UserId = T2.UserId vs erroneous joins (e.g., T1.Id = T2.Id, T1.Id = T2.PostId, T1.UserId = T2.Id).
+-- Also includes NULL UserIds to ensure they do not match each other.
+INSERT INTO users (Id, DisplayName) VALUES (10, 'TargetUser');
+INSERT INTO users (Id, DisplayName) VALUES (20, 'DecoyUser');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (1, 20, 'Post 1');
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 20, 'WrongJoinBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (2, NULL, 'NullUserBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (3, NULL, 'NullUserBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (100, 10, 'CorrectBadge');
+
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (1, 1, 10, 5, 'C1');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (2, 1, 10, 5, 'C2');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (3, 1, NULL, 5, 'C3');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (4, 1, NULL, 5, 'C4');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (5, 1, NULL, 5, 'C5');
+```
+
+```sql
+-- DATASET 5
+-- Specifically tests NULLS LAST vs default SQLite ASC (which is NULLS FIRST) when tied between NULL and a non-null string.
+-- User 1 has NULL badge name (count = 2).
+-- User 2 has 'NonNullBadge' (count = 2).
+-- User 3 has 'LowCountBadge' (count = 1).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'U1');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'U2');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'U3');
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 1, NULL);
+INSERT INTO badges (Id, UserId, Name) VALUES (2, 2, 'NonNullBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (3, 3, 'LowCountBadge');
+
+INSERT INTO comments (Id, UserId, Text) VALUES (1, 1, 'C1');
+INSERT INTO comments (Id, UserId, Text) VALUES (2, 1, 'C2');
+INSERT INTO comments (Id, UserId, Text) VALUES (3, 2, 'C3');
+INSERT INTO comments (Id, UserId, Text) VALUES (4, 2, 'C4');
+INSERT INTO comments (Id, UserId, Text) VALUES (5, 3, 'C5');
+```
+
+```sql
+-- DATASET 6
+-- Tests multiple badges vs single comment per user (many-to-one in the other direction).
+-- User 1 has 3 badges (same name 'MultiBadge') and 1 comment -> joined count = 3.
+-- User 2 has 1 badge ('SingleBadge') and 2 comments -> joined count = 2.
+-- Catches mutants that only count comments without joining badges or use COUNT(DISTINCT T2.Id).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'U1');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'U2');
+
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 1, 'MultiBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (2, 1, 'MultiBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (3, 1, 'MultiBadge');
+INSERT INTO badges (Id, UserId, Name) VALUES (4, 2, 'SingleBadge');
+
+INSERT INTO comments (Id, UserId, Text) VALUES (1, 1, 'C1');
+INSERT INTO comments (Id, UserId, Text) VALUES (2, 2, 'C2');
+INSERT INTO comments (Id, UserId, Text) VALUES (3, 2, 'C3');
+```

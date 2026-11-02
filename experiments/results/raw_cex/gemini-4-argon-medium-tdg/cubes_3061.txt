@@ -1,0 +1,59 @@
+```sql
+-- DATASET 1
+-- Core logic: Tests ordering (inserted out of chronological order), duplicate date preservation (SELECT vs SELECT DISTINCT), inner join matching, and filtering on first_name = 'Fanny' vs other names or 'Fanny' in other name columns.
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "zip_postcode", "country") VALUES (1, '123 Main St', 'Springfield', 12345, 'USA');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'John', 'Doe');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name", "date_first_rental", "date_left_university") VALUES (1, 1, 'Fanny', 'Mae', 'Smith', '2020-01-01 00:00:00', '2024-01-01 00:00:00');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name", "date_first_rental", "date_left_university") VALUES (2, 1, 'Fanny', 'Lou', 'Jones', '2021-01-01 00:00:00', '2025-01-01 00:00:00');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name", "date_first_rental", "date_left_university") VALUES (3, 1, 'Fanny', 'Ann', 'NoNotes', '2019-01-01 00:00:00', '2023-01-01 00:00:00');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name", "date_first_rental", "date_left_university") VALUES (4, 1, 'Alice', 'Fanny', 'Fanny', '2020-05-05 00:00:00', '2024-05-05 00:00:00');
+
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (101, 1, 1, '2023-05-15 10:00:00', 'Second note chronologically');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (102, 1, 1, '2023-01-10 09:00:00', 'First note chronologically');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (103, 1, 2, '2023-01-10 09:00:00', 'Duplicate date note from another Fanny');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (104, 1, 4, '2022-01-01 08:00:00', 'Note for non-Fanny first_name');
+```
+
+```sql
+-- DATASET 2
+-- Edge cases: Tests case sensitivity ('fanny' vs 'Fanny'), LIKE/substring mutations ('Fanny Mae'), wrong join conditions (e.g., matching teacher_id or notes_id with student_id), and wrong table selection (Detention/Behavior_Incident dates).
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "zip_postcode", "country") VALUES (10, '456 Elm St', 'Shelbyville', 67890, 'USA');
+INSERT INTO "Ref_Incident_Type" ("incident_type_code", "incident_type_description") VALUES ('NOISE', 'Excessive Noise');
+INSERT INTO "Ref_Detention_Type" ("detention_type_code", "detention_type_description") VALUES ('AFTER', 'After School');
+
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 10, 'Fanny', 'Teacher');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (2, 10, 'Bob', 'Builder');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name") VALUES (1, 10, 'July', 'M', 'Summers');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name") VALUES (2, 10, 'fanny', 'M', 'Lower');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name") VALUES (3, 10, 'Fanny Mae', 'M', 'Prefix');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "middle_name", "last_name") VALUES (5, 10, 'Fanny', 'M', 'Exact');
+
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (5, 1, 1, '2021-06-01 12:00:00', 'Traps wrong join on teacher_id=student_id or notes_id=student_id');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (6, 2, 2, '2021-07-01 12:00:00', 'Traps case-insensitive filter');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (7, 2, 3, '2021-08-01 12:00:00', 'Traps LIKE %Fanny% filter');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (8, 2, 5, '2023-12-01 08:30:00', 'Valid note 2');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (9, 2, 5, '2023-11-01 08:30:00', 'Valid note 1');
+
+INSERT INTO "Behavior_Incident" ("incident_id", "student_id", "incident_type_code", "date_incident_start", "date_incident_end") VALUES (1, 5, 'NOISE', '2020-02-02 00:00:00', '2020-02-03 00:00:00');
+INSERT INTO "Detention" ("detention_id", "teacher_id", "detention_type_code", "datetime_detention_start", "datetime_detention_end") VALUES (1, 1, 'AFTER', '2020-03-03 00:00:00', '2020-03-04 00:00:00');
+INSERT INTO "Students_in_Detention" ("student_id", "detention_id", "incident_id") VALUES (5, 1, 1);
+```
+
+```sql
+-- DATASET 3
+-- Null handling and outer join traps: Tests Fanny with NULL date_of_notes, Fanny with no notes (catches LEFT JOIN), notes with NULL student_id (catches RIGHT JOIN), and student with NULL first_name.
+INSERT INTO "Addresses" ("address_id", "line_1", "city", "zip_postcode", "country") VALUES (1, '789 Pine St', 'Capital City', 11111, 'USA');
+INSERT INTO "Teachers" ("teacher_id", "address_id", "first_name", "last_name") VALUES (1, 1, 'Sarah', 'Connor');
+
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (10, 1, 'Fanny', 'HasNotes');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (20, 1, 'Fanny', 'NoNotes');
+INSERT INTO "Students" ("student_id", "address_id", "first_name", "last_name") VALUES (30, 1, NULL, 'NullFirstName');
+
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (1, 1, 10, '2022-10-10 10:10:10', 'Valid dated note');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (2, 1, 10, NULL, 'Valid note but NULL date');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (3, 1, 10, '2022-01-01 01:01:01', 'Earlier valid dated note');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (4, 1, NULL, '2020-01-01 00:00:00', 'Orphaned note with NULL student_id');
+INSERT INTO "Assessment_Notes" ("notes_id", "teacher_id", "student_id", "date_of_notes", "text_of_notes") VALUES (5, 1, 30, '2021-01-01 00:00:00', 'Note for student with NULL first_name');
+```

@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE "Product" ("product_id" INTEGER PRIMARY KEY, "product_name" TEXT(255), "unit_price" INTEGER, CHECK ("unit_price" > 0));
+
+CREATE TABLE "Sales" ("product_id" INTEGER, "seller_id" INTEGER, "buyer_id" INTEGER, "sale_date" DATE, "quantity" INTEGER, "price" INTEGER, FOREIGN KEY ("product_id") REFERENCES "Product" ("product_id"), CHECK ("quantity" > 0), CHECK ("price" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Product" ("product_id", "product_name", "unit_price") VALUES (20, 'iPhone1', 1);
+INSERT INTO "Product" ("product_id", "product_name", "unit_price") VALUES (19, 'S8', 1);
+INSERT INTO "Sales" ("product_id", "seller_id", "buyer_id", "sale_date", "quantity", "price") VALUES (19, 25, NULL, '1000-01-27', 1, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT s.buyer_id FROM Sales AS s INNER JOIN Product AS p ON s.product_id = p.product_id WHERE NOT s.buyer_id IS NULL GROUP BY s.buyer_id HAVING SUM(CASE WHEN p.product_name = 'S8' THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN p.product_name = 'iPhone' THEN 1 ELSE 0 END) = 0;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT DISTINCT T3.BUYER_ID FROM SALES AS T3 JOIN PRODUCT AS T4 ON T3.PRODUCT_ID = T4.PRODUCT_ID WHERE T4.PRODUCT_NAME = 'S8' AND NOT T3.BUYER_ID IN (SELECT T1.BUYER_ID FROM SALES AS T1 LEFT JOIN PRODUCT AS T2 ON T1.PRODUCT_ID = T2.PRODUCT_ID WHERE T2.PRODUCT_NAME = 'iPhone');
+
+/*
+Prediction Result:
+(None,)
+*/

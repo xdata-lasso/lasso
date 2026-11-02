@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests comprehensive behavior: different counts for CZE and SVK, non-matching countries, NULLs, and non-matching segments.
+-- Also tests extraneous joins by leaving transactions_1k empty or mismatched.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 10, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 10, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 20, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 10, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (5, 30, 'DEU', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (6, 40, NULL, 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (7, 10, 'CZE', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (8, 20, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (9, 20, 'SVK', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests negative result (more SVK than CZE) and potential fan-out bugs if mutants erroneously join transactions_1k.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (101, 'LAM', 'EUR');
+INSERT INTO products (ProductID, Description) VALUES (201, 'Diesel');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 1, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 2, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 2, 'SVK', 'Discount');
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2023-01-01', '10:00:00', 101, 301, 1, 201, 50, 100.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2023-01-02', '11:00:00', 101, 301, 1, 201, 60, 120.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2023-01-03', '12:00:00', 101, 301, 1, 201, 70, 140.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary condition where CZE count is 0 and SVK count > 0.
+-- Catches mutants using COUNT / WHERE subqueries that might return NULL instead of 0 when a country is missing.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 2, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 1, 'CZE', 'Other');
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary condition where SVK count is 0 and CZE count > 0.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 2, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 1, 'SVK', 'Premium');
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary condition where Discount segment exists, but neither CZE nor SVK is present (Result should be 0, not NULL).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'POL', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 2, NULL, 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 1, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 1, 'SVK', 'Premium');
+```
+
+```sql
+-- DATASET 6
+-- Tests boundary condition where no rows match the WHERE clause 'Segment = Discount' (Result should be NULL because SUM over 0 rows is NULL).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 1, 'SVK', 'Value for money');
+```
+
+```sql
+-- DATASET 7
+-- Tests string matching sensitivity (case sensitivity, leading/trailing spaces, partial matches for LIKE/GLOB mutants).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 1, 'cze', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 1, 'CZE', 'discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 1, 'CZE', 'Discount Store');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (5, 1, 'SVK ', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (6, 1, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (7, 1, 'SVK', 'Discount');
+```
+
+```sql
+-- DATASET 8
+-- Tests confusion between customers.Segment and gasstations.Segment.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'Discount', 'CZK');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'Premium', 'EUR');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 1, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, 1, 'SVK', 'Discount');
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2023-05-01', '08:00:00', 1, 100, 10, NULL, 10, 20.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2023-05-01', '09:00:00', 2, 200, 20, NULL, 10, 20.0);
+```

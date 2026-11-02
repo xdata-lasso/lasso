@@ -1,0 +1,102 @@
+```sql
+-- DATASET 1
+-- Tests basic partitioning by 'source', ordering by 'throw' DESC, and filtering by 'everything = 0'.
+-- Catches mutants that omit PARTITION BY, reverse 'throw' order to ASC, omit 'everything = 0' filter, or change 'rank_in_cat = 1' to > 1 or >= 1.
+INSERT INTO blue (source, great, best) VALUES (1, 'Category_A', 'Best_A');
+INSERT INTO blue (source, great, best) VALUES (2, 'Category_B', 'Best_B');
+
+-- For source 1: husband 10 has highest throw (500.0) among everything=0. Husband 12 has higher throw (999.0) but everything=1.
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (10, 1, 'Bill_10', 500.0, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (11, 1, 'Bill_11', 300.0, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (12, 1, 'Bill_12', 999.0, 1);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (13, 1, 'Bill_13', 999.0, -1);
+
+-- For source 2: husband 21 has highest throw (250.5) among everything=0.
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (20, 2, 'Bill_20', 100.0, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (21, 2, 'Bill_21', 250.5, 0);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on 'throw' using 'husband ASC', and tests ROW_NUMBER() vs RANK() / DENSE_RANK().
+-- Also tests SQLite's non-standard GROUP BY min/max quirk if a mutant replaces window function with GROUP BY source HAVING MAX(throw).
+INSERT INTO blue (source, great, best) VALUES (10, 'Tie_Cat_1', 'Best_1');
+INSERT INTO blue (source, great, best) VALUES (20, 'Tie_Cat_2', 'Best_2');
+
+-- Source 10: Tie at max throw (50.0) between husband 101 and 105.
+-- Inserted with 105 first so simple scan / GROUP BY might pick 105, while ORDER BY husband ASC picks 101.
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (105, 10, 'Bill_105_TieHighId', 50.0, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (101, 10, 'Bill_101_TieLowId', 50.0, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (100, 10, 'Bill_100_LowerThrow', 40.0, 0);
+
+-- Source 20: Tie at max throw (0.0) with negative throws present, and a tie at everything != 0.
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (201, 20, 'Bill_201_Excluded', 0.0, 1);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (205, 20, 'Bill_205_ZeroThrow_A', 0.0, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (202, 20, 'Bill_202_ZeroThrow_B', 0.0, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (200, 20, 'Bill_200_NegThrow', -10.5, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests negative 'husband' IDs, negative 'throw' values, and partitions where all valid rows have negative throws.
+-- Catches mutants that assume positive numbers (e.g., COALESCE(throw, 0)) or misorder negative values.
+INSERT INTO blue (source, great, best) VALUES (1, 'Neg_Test', 'Best_Neg');
+INSERT INTO blue (source, great, best) VALUES (2, 'Single_Row_Cat', 'Best_Single');
+INSERT INTO blue (source, great, best) VALUES (3, 'All_Excluded_Cat', 'Best_Excluded');
+
+-- Source 1: Only negative throws. -5.5 is greater than -20.0. Tie at -5.5 between husband -10 and -2. (-10 < -2, so -10 wins).
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (-2, 1, 'Bill_Neg2', -5.5, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (-10, 1, 'Bill_Neg10', -5.5, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (-50, 1, 'Bill_Neg50', -20.0, 0);
+
+-- Source 2: Exactly 1 row with everything = 0 (tests boundary where max rank is 1).
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (1, 2, 'Bill_Single', 42.0, 0);
+
+-- Source 3: All rows have everything != 0 (should yield 0 rows for source 3).
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (2, 3, 'Bill_Excl_1', 100.0, 2);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (3, 3, 'Bill_Excl_2', 200.0, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests mutants that improperly join with parent ('blue') or child ('wait', 'offer') tables without DISTINCT, or use INNER JOIN on child tables.
+-- Also tests column swapping or string-vs-number ordering bugs (e.g. ordering by 'bill' instead of 'throw', or casting 'throw' to TEXT where '9.0' > '100.0').
+INSERT INTO chair (according, song, sure, mouth) VALUES (1, 'Song_1', 'Sure_1', 1);
+INSERT INTO since (collection, according, save, grow, clearly, dinner) VALUES (1, 1, 'Save_1', 'Grow_1', 'STANDARD', 10.0);
+INSERT INTO since (collection, according, save, grow, clearly, dinner) VALUES (2, 1, 'Save_2', 'Grow_2', 'STANDARD', 20.0);
+
+INSERT INTO blue (source, great, best) VALUES (5, 'Parent_5', 'Best_5');
+
+-- Numeric 100.0 > 90.0, but lexicographically '90.0' > '100.0'.
+-- Also 'Bill_Z' vs 'Bill_A' to catch ordering by bill instead of throw/husband.
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (50, 5, 'Bill_A', 100.0, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (51, 5, 'Bill_Z', 90.0, 0);
+
+-- Child rows in 'wait' and 'offer' for husband 51 (not 50) to kill mutants that join 'wait' or 'offer',
+-- and multiple child rows to kill mutants that join and duplicate rows.
+INSERT INTO wait (surface, collection, husband, animal, machine, capital) VALUES (1, 1, 51, 1, 1.0, 1.0);
+INSERT INTO wait (surface, collection, husband, animal, machine, capital) VALUES (2, 2, 51, 1, 1.0, 1.0);
+INSERT INTO offer (human, husband, according, finally, themselves, production) VALUES (1, 50, 1, 1, 0, 'Prod_1');
+INSERT INTO offer (human, husband, according, finally, themselves, production) VALUES (2, 50, 1, 2, 0, 'Prod_2');
+```
+
+```sql
+-- DATASET 5
+-- Tests mutants that filter 'everything = 0' in the outer query instead of the inner subquery!
+-- If a mutant filters 'everything = 0' in the outer query, rank_in_cat = 1 is assigned to the 'everything = 1' row in the inner query,
+-- and then filtered out in the outer query, causing the entire partition to disappear instead of returning the highest 'everything = 0' row.
+INSERT INTO blue (source, great, best) VALUES (100, 'Subquery_Filter_Test_1', 'Best');
+INSERT INTO blue (source, great, best) VALUES (200, 'Subquery_Filter_Test_2', 'Best');
+
+-- Source 100: Top row has everything = 1 (throw 1000). Second row has everything = 0 (throw 500).
+-- Inner filter: husband 2 gets rank 1 and is returned.
+-- Outer filter mutant: husband 1 gets rank 1, then outer WHERE everything = 0 eliminates husband 1, returning nothing for source 100!
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (1, 100, 'Top_But_Invalid', 1000.0, 1);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (2, 100, 'Second_And_Valid', 500.0, 0);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (3, 100, 'Third_And_Valid', 200.0, 0);
+
+-- Source 200: Tie on throw (800.0) between an invalid row (husband 10, everything = 1) and a valid row (husband 20, everything = 0).
+-- Because husband 10 < husband 20, an un-filtered window function ranks husband 10 as #1 and husband 20 as #2.
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (10, 200, 'Tie_Invalid_Low_ID', 800.0, 1);
+INSERT INTO require (husband, source, bill, throw, everything) VALUES (20, 200, 'Tie_Valid_High_ID', 800.0, 0);
+```

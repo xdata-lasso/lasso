@@ -1,0 +1,57 @@
+-- Schema DDL
+CREATE TABLE "COMPANY" (
+    "COMPANY_ID" INT,
+    "RANK" INT,
+    "COMPANY" TEXT,
+    "HEADQUARTERS" TEXT,
+    "MAIN_INDUSTRY" TEXT,
+    "SALES_BILLION" FLOAT,
+    "PROFITS_BILLION" FLOAT,
+    "ASSETS_BILLION" FLOAT,
+    "MARKET_VALUE" FLOAT,
+    PRIMARY KEY ("COMPANY_ID")
+);
+CREATE TABLE "GAS_STATION" (
+    "STATION_ID" INT,
+    "OPEN_YEAR" INT,
+    "LOCATION" TEXT,
+    "MANAGER_NAME" TEXT,
+    "VICE_MANAGER_NAME" TEXT,
+    "REPRESENTATIVE_NAME" TEXT,
+    PRIMARY KEY ("STATION_ID")
+);
+CREATE TABLE "STATION_COMPANY" (
+    "STATION_ID" INT,
+    "COMPANY_ID" INT,
+    "RANK_OF_THE_YEAR" INT,
+    PRIMARY KEY ("COMPANY_ID", "STATION_ID"),
+    FOREIGN KEY ("COMPANY_ID") REFERENCES "COMPANY"("COMPANY_ID"),
+    FOREIGN KEY ("STATION_ID") REFERENCES "GAS_STATION"("STATION_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO COMPANY VALUES (0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO COMPANY VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO GAS_STATION VALUES (0, 2001, 9, -1, 10, 11);
+INSERT INTO GAS_STATION VALUES (1, NULL, 12, 0, 13, 14);
+INSERT INTO STATION_COMPANY VALUES (1, 1, 0);
+INSERT INTO STATION_COMPANY VALUES (0, 1, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT manager_name FROM (SELECT manager_name, COUNT(DISTINCT open_year) AS n_distinct FROM gas_station GROUP BY manager_name) WHERE (n_distinct >= 2000 OR n_distinct <> 1) ORDER BY manager_name;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT manager_name FROM gas_station WHERE open_year > 2000 GROUP BY manager_name ORDER BY COUNT(*) DESC, manager_name NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('-1',)
+*/

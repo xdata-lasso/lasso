@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(DISTINCT order_id) vs COUNT(order_id) / COUNT(*) by having duplicate order_ids within the same (other_order_item_details, product_id) group.
+-- 2. Grouping by BOTH (other_order_item_details, product_id) vs grouping only by product_id or only by other_order_item_details.
+-- 3. SELECT vs SELECT DISTINCT in the outer query: Product 2 has two different other_order_item_details groups that yield the exact same count (1), producing duplicate (2, 1) rows in the output.
+-- 4. Secondary sort order: Product 1 has two groups yielding counts 2 and 1, verifying ORDER BY product_id ASC, count_distinct_order_id_ ASC.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Alice');
+
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (10, 1);
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (20, 1);
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (30, 1);
+
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('CAT1', 'Category 1', 0.20);
+
+INSERT INTO "Products" ("product_id", "production_type_code", "product_name") VALUES (1, 'CAT1', 'Prod 1');
+INSERT INTO "Products" ("product_id", "production_type_code", "product_name") VALUES (2, 'CAT1', 'Prod 2');
+
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (101, 10, 1, '1', 'Detail_A');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (102, 10, 1, '2', 'Detail_A');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (103, 20, 1, '1', 'Detail_A');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (104, 10, 1, '5', 'Detail_B');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (105, 10, 2, '1', 'Detail_A');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (106, 30, 2, '1', 'Detail_C');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Handling of NULLs in order_id: COUNT(DISTINCT order_id) must evaluate to 0 when all order_ids in a group are NULL, whereas COUNT(*) evaluates to 1.
+-- 2. Handling of NULLs in grouping columns (other_order_item_details is NULL, product_id is NULL).
+-- 3. NULLS FIRST vs NULLS LAST in ORDER BY product_id (in SQLite, ASC sorts NULLs first by default unless NULLS LAST is specified on that column).
+-- 4. Outer join vs Inner join mutants: Includes Orders and Products that are NOT referenced in Order_Items.
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Bob');
+
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (100, 1);
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (200, 1);
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (999, 1);
+
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('CAT1', 'Category 1', 0.10);
+
+INSERT INTO "Products" ("product_id", "production_type_code", "product_name") VALUES (10, 'CAT1', 'Used Product 10');
+INSERT INTO "Products" ("product_id", "production_type_code", "product_name") VALUES (20, 'CAT1', 'Used Product 20');
+INSERT INTO "Products" ("product_id", "production_type_code", "product_name") VALUES (99, 'CAT1', 'Unused Product 99');
+
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (1, 100, NULL, '1', 'NullProd');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (2, NULL, 10, '1', 'NullOrder');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (3, 100, 10, '1', NULL);
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (4, 200, 10, '1', NULL);
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (5, NULL, 10, '1', NULL);
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (6, 100, 20, '1', 'Normal');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Ordering of product_id (inserted out of order: 30, 10, 20) and count_distinct_order_id_ (varying counts: 3, 2, 1) to catch missing or inverted ORDER BY clauses (DESC vs ASC, swapped sort keys).
+-- 2. Disambiguation between order_items and invoice_line_items (which also has product_id and order_item_id).
+INSERT INTO "Customers" ("customer_id", "customer_first_name") VALUES (1, 'Charlie');
+
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (1, 1);
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (2, 1);
+INSERT INTO "Orders" ("order_id", "customer_id") VALUES (3, 1);
+
+INSERT INTO "Invoices" ("invoice_number", "order_id") VALUES (500, 1);
+
+INSERT INTO "Product_Categories" ("production_type_code", "product_type_description", "vat_rating") VALUES ('C1', 'Type 1', 0.05);
+
+INSERT INTO "Products" ("product_id", "production_type_code", "product_name") VALUES (10, 'C1', 'P10');
+INSERT INTO "Products" ("product_id", "production_type_code", "product_name") VALUES (20, 'C1', 'P20');
+INSERT INTO "Products" ("product_id", "production_type_code", "product_name") VALUES (30, 'C1', 'P30');
+
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (1, 1, 30, '10', 'D1');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (2, 1, 10, '10', 'D_High');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (3, 2, 10, '10', 'D_High');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (4, 3, 10, '10', 'D_High');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (5, 1, 10, '10', 'D_Low');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (6, 1, 20, '10', 'D_Med');
+INSERT INTO "Order_Items" ("order_item_id", "order_id", "product_id", "product_quantity", "other_order_item_details") VALUES (7, 2, 20, '10', 'D_Med');
+
+INSERT INTO "Invoice_Line_Items" ("product_id", "invoice_number", "order_item_id", "product_title", "product_quantity", "product_price", "derived_product_cost", "derived_vat_payable", "derived_total_cost") VALUES (30, 500, 1, 'P30', '10', 10.0, 100.0, 5.0, 105.0);
+```

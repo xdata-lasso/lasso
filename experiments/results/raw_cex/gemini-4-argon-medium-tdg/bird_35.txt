@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering ("Charter School (Y/N)" = 1 vs 0/NULL), sorting by "Enrollment (K-12)" ASC vs DESC, and table column confusion (T1."Charter School (Y/N)" vs T2.Charter, T1."Enrollment (K-12)" vs T1."Enrollment (Ages 5-17)", AdmEmail1 vs AdmEmail2/AdmEmail3).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Charter, AdmEmail1, AdmEmail2, AdmEmail3, LastUpdate) VALUES ('CDS1', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 1, 'wrong_not_charter@test.com', 'e2_1@test.com', 'e3_1@test.com', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Charter, AdmEmail1, AdmEmail2, AdmEmail3, LastUpdate) VALUES ('CDS2', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 0, 'correct_lowest_enr@test.com', 'e2_2@test.com', 'e3_2@test.com', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Charter, AdmEmail1, AdmEmail2, AdmEmail3, LastUpdate) VALUES ('CDS3', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 1, 'wrong_high_enr@test.com', 'e2_3@test.com', 'e3_3@test.com', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Charter, AdmEmail1, AdmEmail2, AdmEmail3, LastUpdate) VALUES ('CDS4', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 1, 'wrong_null_charter@test.com', 'e2_4@test.com', 'e3_4@test.com', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)", "Enrollment (Ages 5-17)", "Free Meal Count (K-12)", "FRPM Count (K-12)") VALUES ('CDS1', 0, 10.0, 500.0, 5.0, 5.0);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)", "Enrollment (Ages 5-17)", "Free Meal Count (K-12)", "FRPM Count (K-12)") VALUES ('CDS2', 1, 50.0, 900.0, 40.0, 45.0);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)", "Enrollment (Ages 5-17)", "Free Meal Count (K-12)", "FRPM Count (K-12)") VALUES ('CDS3', 1, 200.0, 20.0, 10.0, 15.0);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)", "Enrollment (Ages 5-17)", "Free Meal Count (K-12)", "FRPM Count (K-12)") VALUES ('CDS4', NULL, 5.0, 5.0, 1.0, 1.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in "Enrollment (K-12)" (in SQLite, NULLs sort first in ASC order) and tie-breaking by CDSCode ASC.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmEmail1, LastUpdate) VALUES ('CDS_B', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 'null_enr_second@test.com', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmEmail1, LastUpdate) VALUES ('CDS_A', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 'null_enr_first@test.com', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmEmail1, LastUpdate) VALUES ('CDS_C', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 'non_null_enr@test.com', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS_B', 1, NULL);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS_A', 1, NULL);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS_C', 1, 10.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on non-null "Enrollment (K-12)" using CDSCode, and tests INNER JOIN vs RIGHT/FULL/LEFT JOIN when schools exist without matching frpm records.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Charter, AdmEmail1, LastUpdate) VALUES ('CDS_0', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 1, 'unjoined_school@test.com', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Charter, AdmEmail1, LastUpdate) VALUES ('CDS_Z', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 1, 'tie_loser@test.com', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, Charter, AdmEmail1, LastUpdate) VALUES ('CDS_M', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 1, 'tie_winner@test.com', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS_Z', 1, 100.0);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS_M', 1, 100.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests queries that mistakenly add `AdmEmail1 IS NOT NULL` or fail to handle NULL in the projected column when the top-ranked row has a NULL email. Also tests unnecessary INNER JOIN with `satscores`.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmEmail1, LastUpdate) VALUES ('CDS1', 'Active', 'CountyA', 'DistA', '00', 'TypeA', NULL, '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmEmail1, LastUpdate) VALUES ('CDS2', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 'has_email_and_sat@test.com', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS1', 1, 25.0);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS2', 1, 50.0);
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr) VALUES ('CDS2', 'S', 50, 30);
+```
+
+```sql
+-- DATASET 5
+-- Tests mutations in the WHERE clause (e.g., `>= 1`, `!= 0`, or missing WHERE clause) and floating-point precision in ORDER BY.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmEmail1, LastUpdate) VALUES ('CDS1', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 'charter_2@test.com', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmEmail1, LastUpdate) VALUES ('CDS2', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 'exact_charter_1_low_float@test.com', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmEmail1, LastUpdate) VALUES ('CDS3', 'Active', 'CountyA', 'DistA', '00', 'TypeA', 'exact_charter_1_high_float@test.com', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS1', 2, 10.0);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS2', 1, 30.2);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS3', 1, 30.8);
+```
+
+```sql
+-- DATASET 6
+-- Tests improper JOIN condition mutations (e.g., joining on District Name or County Name instead of CDSCode).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmEmail1, LastUpdate) VALUES ('CDS1', 'Active', 'CountyX', 'DistX', '00', 'TypeA', 'wrong_join_target@test.com', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, AdmEmail1, LastUpdate) VALUES ('CDS2', 'Active', 'CountyX', 'DistX', '00', 'TypeA', 'true_cds_target@test.com', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "District Name", "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS1', 'CountyX', 'DistX', 0, 5.0);
+INSERT INTO frpm (CDSCode, "County Name", "District Name", "Charter School (Y/N)", "Enrollment (K-12)") VALUES ('CDS2', 'CountyX', 'DistX', 1, 15.0);
+```

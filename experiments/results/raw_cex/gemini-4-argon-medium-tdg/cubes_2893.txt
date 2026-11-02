@@ -1,0 +1,98 @@
+```sql
+-- DATASET 1
+-- Tests basic GROUP BY on (genre_id, unit_price), multiple unit prices per genre, and INNER JOIN excluding genres without tracks.
+INSERT INTO "artists" ("id", "name") VALUES (1, 'Artist 1');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 1, 'Album 1');
+INSERT INTO "media_types" ("id", "name") VALUES (1, 'MPEG audio file');
+
+INSERT INTO "genres" ("id", "name") VALUES (1, 'Rock');
+INSERT INTO "genres" ("id", "name") VALUES (2, 'Jazz');
+INSERT INTO "genres" ("id", "name") VALUES (3, 'Classical');
+
+-- Genre 1 ('Rock') has two different unit prices (0.99 with count 2, 1.99 with count 1)
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (1, 1, 1, 1, 'Rock Track 1', 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (2, 1, 1, 1, 'Rock Track 2', 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (3, 1, 1, 1, 'Rock Track 3', 1.99);
+
+-- Genre 2 ('Jazz') has one unit price (0.99 with count 3)
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (4, 1, 2, 1, 'Jazz Track 1', 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (5, 1, 2, 1, 'Jazz Track 2', 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (6, 1, 2, 1, 'Jazz Track 3', 0.99);
+-- Genre 3 ('Classical') has 0 tracks (tests INNER JOIN vs LEFT JOIN)
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY count___ ASC, name ASC NULLS LAST, and duplicate output rows (SELECT vs SELECT DISTINCT).
+INSERT INTO "artists" ("id", "name") VALUES (1, 'Artist 1');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 1, 'Album 1');
+INSERT INTO "media_types" ("id", "name") VALUES (1, 'AAC audio file');
+
+INSERT INTO "genres" ("id", "name") VALUES (1, 'Blues');
+INSERT INTO "genres" ("id", "name") VALUES (2, 'Alternative');
+INSERT INTO "genres" ("id", "name") VALUES (3, NULL);
+INSERT INTO "genres" ("id", "name") VALUES (4, 'Blues');
+
+-- Genre 1 ('Blues') has two price groups of size 1: produces two identical output rows (1, 'Blues')
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (1, 1, 1, 1, 'T1', 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (2, 1, 1, 1, 'T2', 1.99);
+
+-- Genre 2 ('Alternative') has count 1: tests tie-breaking on name ('Alternative' before 'Blues')
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (3, 1, 2, 1, 'T3', 0.99);
+
+-- Genre 3 (NULL name) has count 1: tests NULLS LAST in ORDER BY name
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (4, 1, 3, 1, 'T4', 0.99);
+
+-- Genre 4 (also named 'Blues', different id) has count 2: tests grouping by genre_id rather than genre.name
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (5, 1, 4, 1, 'T5', 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (6, 1, 4, 1, 'T6', 0.99);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in tracks (NULL unit_price, NULL genre_id, NULL track name/composer) and COUNT(*) vs COUNT(column).
+INSERT INTO "artists" ("id", "name") VALUES (1, 'Artist 1');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (1, 1, 'Album 1');
+INSERT INTO "media_types" ("id", "name") VALUES (1, 'Protected AAC audio file');
+
+INSERT INTO "genres" ("id", "name") VALUES (1, 'Metal');
+INSERT INTO "genres" ("id", "name") VALUES (2, 'Pop');
+
+-- Genre 1 ('Metal') with NULL unit_price (2 tracks, one with NULL name/composer to test COUNT(*) vs COUNT(unit_price) or COUNT(name))
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "unit_price") VALUES (1, 1, 1, 1, 'M1', 'Comp', NULL);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "unit_price") VALUES (2, 1, 1, 1, NULL, NULL, NULL);
+
+-- Genre 1 ('Metal') with non-NULL unit_price (1 track)
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "unit_price") VALUES (3, 1, 1, 1, 'M3', NULL, 0.99);
+
+-- Track with NULL genre_id (should be excluded by INNER JOIN on LHS.id = RHS.genre_id)
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "unit_price") VALUES (4, 1, NULL, 1, 'Orphan Track 1', 'Comp', 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "unit_price") VALUES (5, 1, NULL, 1, 'Orphan Track 2', 'Comp', 0.99);
+
+-- Genre 2 ('Pop') with 3 tracks where album_id and media_type_id are NULL (tests if mutant joins extra tables like albums/media_types)
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "unit_price") VALUES (6, NULL, 2, NULL, 'P1', NULL, 1.29);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "unit_price") VALUES (7, NULL, 2, NULL, 'P2', NULL, 1.29);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "composer", "unit_price") VALUES (8, NULL, 2, NULL, 'P3', NULL, 1.29);
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between tracks.name vs genres.name, tracks.id vs genres.id, and invoice_lines.unit_price vs tracks.unit_price.
+INSERT INTO "artists" ("id", "name") VALUES (10, 'Artist 10');
+INSERT INTO "albums" ("id", "artist_id", "title") VALUES (10, 10, 'Album 10');
+INSERT INTO "media_types" ("id", "name") VALUES (10, 'Media 10');
+
+INSERT INTO "genres" ("id", "name") VALUES (10, 'ZebraGenre');
+INSERT INTO "genres" ("id", "name") VALUES (20, 'AlphaGenre');
+
+-- Track IDs deliberately overlap with Genre IDs (10, 20) to catch wrong join conditions (e.g. genres.id = tracks.id)
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (10, 10, 20, 10, 'TrackTen', 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (20, 10, 20, 10, 'TrackTwenty', 0.99);
+INSERT INTO "tracks" ("id", "media_type_id", "genre_id", "album_id", "name", "unit_price") VALUES (30, 10, 10, 10, 'TrackThirty', 2.99);
+
+-- Populate invoice_lines with different quantities/prices to kill mutants that join invoice_lines instead of or in addition to tracks
+INSERT INTO "customers" ("id", "first_name", "last_name", "email") VALUES (1, 'John', 'Doe', 'j@d.com');
+INSERT INTO "invoices" ("id", "customer_id", "total") VALUES (1, 1, 10.00);
+INSERT INTO "invoice_lines" ("id", "track_id", "invoice_id", "unit_price", "quantity") VALUES (1, 30, 1, 0.50, 5);
+INSERT INTO "invoice_lines" ("id", "track_id", "invoice_id", "unit_price", "quantity") VALUES (2, 30, 1, 0.50, 5);
+```

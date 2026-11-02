@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions for min_salary (> 9000.0 vs >= 9000.0, < 9000.0, NULL, off-by-one 9001.0 / 8999.0).
+-- 2. Column swap mutations (min_salary vs max_salary).
+-- 3. SELECT DISTINCT vs SELECT ALL (duplicate job_title with min_salary > 9000.0).
+-- 4. ORDER BY job_title direction (ASC vs DESC) and anti-correlation with job_id and min_salary.
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_EXACT', 'Accountant', 9000.0, 15000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_BELOW', 'Analyst', 8999.0, 12000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_NULL_SAL', 'Clerk', NULL, 15000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_Z9', 'Developer', 9000.5, 8000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_A1', 'Developer', 9500.0, 20000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_M5', 'Manager', 9001.0, 8500.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_B2', 'VP', 12000.0, 25000.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Unnecessary INNER JOINs with employees or job_history (jobs has rows with NO matching employees/job_history).
+-- 2. Duplicate row multiplication from un-grouped JOINs with employees/job_history (one job has multiple employees).
+-- 3. Handling of NULL job_title and NULL job_id in ORDER BY.
+INSERT INTO "departments" ("DEPARTMENT_ID", "DEPARTMENT_NAME", "MANAGER_ID", "LOCATION_ID") VALUES (10, 'Admin', NULL, NULL);
+
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_NO_EMP', 'Architect', 10000.0, 20000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_MULTI_E', 'Director', 15000.0, 30000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_NULL_T', NULL, 11000.0, 22000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES (NULL, 'Architect', 10500.0, 21000.0);
+
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "FIRST_NAME", "LAST_NAME", "EMAIL", "PHONE_NUMBER", "HIRE_DATE", "SALARY", "COMMISSION_PCT", "MANAGER_ID") VALUES (101, 'J_MULTI_E', 10, 'Alice', 'Smith', 'ASMITH', '111-222', '2020-01-01', 16000.0, NULL, NULL);
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "FIRST_NAME", "LAST_NAME", "EMAIL", "PHONE_NUMBER", "HIRE_DATE", "SALARY", "COMMISSION_PCT", "MANAGER_ID") VALUES (102, 'J_MULTI_E', 10, 'Bob', 'Jones', 'BJONES', '111-333', '2020-02-01', 17000.0, NULL, 101);
+
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "JOB_ID", "DEPARTMENT_ID", "END_DATE") VALUES (101, '2018-01-01', 'J_MULTI_E', 10, '2019-12-31');
+INSERT INTO "job_history" ("EMPLOYEE_ID", "START_DATE", "JOB_ID", "DEPARTMENT_ID", "END_DATE") VALUES (102, '2018-06-01', 'J_MULTI_E', 10, '2019-12-31');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty result set behavior when all rows fail the predicate (catches missing WHERE clause, OR instead of AND, < instead of >).
+-- 2. Employee salary > 9000.0 while jobs.min_salary <= 9000.0 (catches mutants querying employees.salary > 9000.0).
+INSERT INTO "departments" ("DEPARTMENT_ID", "DEPARTMENT_NAME", "MANAGER_ID", "LOCATION_ID") VALUES (20, 'Sales', NULL, NULL);
+
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_LOW1', 'Intern', 4000.0, 15000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_LOW2', 'Representative', 9000.0, 20000.0);
+
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "FIRST_NAME", "LAST_NAME", "EMAIL", "PHONE_NUMBER", "HIRE_DATE", "SALARY", "COMMISSION_PCT", "MANAGER_ID") VALUES (201, 'J_LOW1', 20, 'Charlie', 'Brown', 'CBROWN', '555-1234', '2021-05-10', 12000.0, 0.1, NULL);
+INSERT INTO "employees" ("EMPLOYEE_ID", "JOB_ID", "DEPARTMENT_ID", "FIRST_NAME", "LAST_NAME", "EMAIL", "PHONE_NUMBER", "HIRE_DATE", "SALARY", "COMMISSION_PCT", "MANAGER_ID") VALUES (202, 'J_LOW2', 20, 'Dana', 'White', 'DWHITE', '555-5678', '2021-06-15', 14000.0, 0.2, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Tie-breaking on job_title with varying job_id and NULLS LAST vs NULLS FIRST when job_title is identical.
+-- 2. Fine-grained floating point comparisons around 9000.0 (9000.0001 vs 8999.9999) and literal constant mutations (e.g. > 900, > 90000, > 8000, > 10000).
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_100', 'Consultant', 950.0, 2000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_200', 'Engineer', 8500.0, 16000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_300', 'Officer', 8999.99, 18000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_900', 'Specialist', 9000.01, 19000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_400', 'President', 9500.0, 50000.0);
+INSERT INTO "jobs" ("JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY") VALUES ('J_500', 'Chief', 100000.0, 200000.0);
+```

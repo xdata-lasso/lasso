@@ -1,0 +1,42 @@
+-- Schema DDL
+CREATE TABLE "DEPARTMENT" (
+    "DEPT_NAME" INT,
+    "BUILDING" INT,
+    "BUDGET" INT
+);
+CREATE TABLE "TEACHES" (
+    "ID" INT,
+    "YEAR" INT,
+    "SEMESTER" INT
+);
+CREATE TABLE "COURSE" (
+    "COURSE_ID" INT,
+    "DEPT_NAME" INT,
+    "CREDITS" INT
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO DEPARTMENT VALUES (-2147483647, -2147483648, -2147483644);
+INSERT INTO DEPARTMENT VALUES (-2147483647, -2147483648, -2147483644);
+INSERT INTO TEACHES VALUES (-2147483648, -2147483648, -2147483648);
+INSERT INTO TEACHES VALUES (-2147483648, -2147483648, -2147483648);
+INSERT INTO COURSE VALUES (-2147483648, -2147483648, -2147483648);
+INSERT INTO COURSE VALUES (-2147483648, -2147483647, 3);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T.semester, SUM(C.credits) FROM department AS D INNER JOIN teaches AS T ON D.budget = T.year + 4 INNER JOIN course AS C ON C.dept_name = D.dept_name GROUP BY T.semester HAVING AVG(C.credits) > 2 AND COUNT(D.building) = 2;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT T.semester, SUM(C.credits) FROM department AS D INNER JOIN teaches AS T ON D.budget = T.year + 4 INNER JOIN course AS C ON C.dept_name = D.dept_name GROUP BY T.semester HAVING AVG(C.credits) > 2 AND COUNT(D.building) >= 2;
+
+/*
+Prediction Result:
+(-2147483648, 12)
+*/

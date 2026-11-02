@@ -1,0 +1,116 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN (Artist_No_Legality has 0 legalities, would have COUNT=1 or 0 in LEFT JOIN and win ASC).
+-- 2. COUNT(T1.id) vs COUNT(DISTINCT T1.id) (Artist_1Card_3Leg has 1 card but 3 legalities -> COUNT=3; Artist_2Cards_1Leg has 2 cards, 1 legality each -> COUNT=2).
+-- 3. ORDER BY COUNT(T1.id) ASC vs DESC (Artist_Many has 4 legalities).
+-- 4. LIMIT 1 vs no limit (multiple artist groups exist).
+INSERT INTO cards (id, artist, uuid) VALUES (1, 'Artist_No_Legality', 'u1');
+INSERT INTO cards (id, artist, uuid) VALUES (2, 'Artist_1Card_3Leg', 'u2');
+INSERT INTO cards (id, artist, uuid) VALUES (3, 'Artist_2Cards_1Leg', 'u3');
+INSERT INTO cards (id, artist, uuid) VALUES (4, 'Artist_2Cards_1Leg', 'u4');
+INSERT INTO cards (id, artist, uuid) VALUES (5, 'Artist_Many', 'u5');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Standard', 'Legal', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Modern', 'Legal', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (3, 'Legacy', 'Legal', 'u2');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (4, 'Vintage', 'Legal', 'u3');
+INSERT INTO legalities (id, format, status, uuid) VALUES (5, 'Vintage', 'Legal', 'u4');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (6, 'Commander', 'Legal', 'u5');
+INSERT INTO legalities (id, format, status, uuid) VALUES (7, 'Historic', 'Legal', 'u5');
+INSERT INTO legalities (id, format, status, uuid) VALUES (8, 'Pioneer', 'Legal', 'u5');
+INSERT INTO legalities (id, format, status, uuid) VALUES (9, 'Brawl', 'Legal', 'u5');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Tie-breaking on T1.artist NULLS LAST vs default SQLite ASC (where NULL comes first).
+-- 2. Tie-breaking on T1.artist ASC vs DESC ('Alpha' vs 'Beta' vs NULL, all with COUNT = 1).
+-- 3. GROUP BY T1.artist grouping multiple NULL artists together (if not grouped, NULL artists would have COUNT=1 instead of 2 in variations).
+INSERT INTO cards (id, artist, uuid) VALUES (1, NULL, 'u1');
+INSERT INTO cards (id, artist, uuid) VALUES (2, 'Alpha', 'u2');
+INSERT INTO cards (id, artist, uuid) VALUES (3, 'Beta', 'u3');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Standard', 'Legal', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Modern', 'Legal', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (3, 'Legacy', 'Legal', 'u3');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. GROUP BY T1.artist ONLY vs GROUP BY T1.artist, T2.format.
+-- Here, 'Artist_A' has 2 legalities with different formats ('Legacy', 'Modern') -> grouped by artist gives COUNT=2.
+-- 'Artist_B' has 3 legalities with the same format ('Standard') -> grouped by artist gives COUNT=3.
+-- If mutant groups by (T1.artist, T2.format), 'Artist_A' splits into two groups of COUNT=1 and wins; under Gold Query, 'Artist_A' has COUNT=2 and 'Artist_C' (COUNT=2, alphabetically earlier) or 'Artist_B' behaves differently.
+-- Specifically: 'Artist_Z' has 2 different formats (COUNT=2). 'Artist_M' has 1 format repeated 3 times (COUNT=3).
+-- If grouped by (artist, format), 'Artist_Z' has COUNT=1 (wins). If grouped by artist, 'Artist_Z' has COUNT=2, while 'Artist_A' has 1 format repeated 2 times (COUNT=2) and wins on alphabetical tie-breaker!
+INSERT INTO cards (id, artist, uuid) VALUES (1, 'Artist_Z', 'u1');
+INSERT INTO cards (id, artist, uuid) VALUES (2, 'Artist_A', 'u2');
+INSERT INTO cards (id, artist, uuid) VALUES (3, 'Artist_A', 'u3');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Format1', 'Legal', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Format2', 'Legal', 'u1');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (3, 'Format1', 'Legal', 'u2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (4, 'Format1', 'Legal', 'u3');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. COUNT(T1.id) vs COUNT(T2.format) or COUNT(T1.artist) when columns contain NULLs.
+-- NULL artist has 1 legality (COUNT(T1.id) = 1, COUNT(T1.artist) = 0).
+-- 'Artist_Valid' has 1 legality with NULL format (COUNT(T1.id) = 1, COUNT(T2.format) = 0).
+-- 'Artist_Winner' has 2 legalities with non-null format (COUNT(T1.id) = 2).
+-- Also tests NULLS LAST on T1.artist when NULL artist has higher count vs lower count.
+INSERT INTO cards (id, artist, uuid) VALUES (1, NULL, 'u1');
+INSERT INTO cards (id, artist, uuid) VALUES (2, NULL, 'u2');
+INSERT INTO cards (id, artist, uuid) VALUES (3, 'Artist_NullFormat', 'u3');
+INSERT INTO cards (id, artist, uuid) VALUES (4, 'Artist_NullFormat', 'u4');
+INSERT INTO cards (id, artist, uuid) VALUES (5, 'Artist_A_Winner', 'u5');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Standard', 'Legal', 'u1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Modern', 'Legal', 'u2');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (3, NULL, 'Legal', 'u3');
+INSERT INTO legalities (id, format, status, uuid) VALUES (4, NULL, 'Legal', 'u4');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (5, 'Vintage', 'Legal', 'u5');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Join condition T2.uuid = T1.uuid vs accidental join on T2.id = T1.id.
+-- Card id=1 has uuid='u_card_1', Card id=2 has uuid='u_card_2'.
+-- Legality id=1 references 'u_card_2', Legality id=2 references 'u_card_2'.
+-- Under T2.uuid = T1.uuid, only Card 2 matches (Artist_Two, COUNT=2).
+-- Under T2.id = T1.id, Card 1 matches Legality 1 (Artist_One, COUNT=1) and Card 2 matches Legality 2 (COUNT=1).
+-- 2. Also includes an unreferenced legality row (uuid=NULL) to test RIGHT/FULL OUTER JOIN mutants.
+INSERT INTO cards (id, artist, uuid) VALUES (1, 'Artist_One', 'u_card_1');
+INSERT INTO cards (id, artist, uuid) VALUES (2, 'Artist_Two', 'u_card_2');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Format_A', 'Legal', 'u_card_2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Format_B', 'Banned', 'u_card_2');
+INSERT INTO legalities (id, format, status, uuid) VALUES (3, 'Format_Orphan', 'Legal', NULL);
+```
+
+```sql
+-- DATASET 6
+-- Tests:
+-- 1. Mutants that filter on legalities.status (e.g., WHERE status = 'Legal') or card properties.
+-- 2. Only NULL artist groups exist vs non-null, testing T2.format NULLS LAST when T1.artist is tied (or if GROUP BY is mutated to include format/id).
+INSERT INTO cards (id, artist, availability, borderColor, colors, convertedManaCost, edhrecRank, frameVersion, hasFoil, hasNonFoil, isPromo, isReprint, isStarter, layout, manaCost, name, number, rarity, setCode, subtypes, supertypes, type, types, uuid)
+VALUES (10, 'Artist_BannedOnly', 'paper', 'black', 'R', 1.0, 500, '2015', 0, 1, 0, 0, 0, 'normal', '{R}', 'Card A', '1', 'common', 'SET1', 'Goblin', '', 'Creature', 'Creature', 'u10');
+
+INSERT INTO cards (id, artist, availability, borderColor, colors, convertedManaCost, edhrecRank, frameVersion, hasFoil, hasNonFoil, isPromo, isReprint, isStarter, layout, manaCost, name, number, rarity, setCode, subtypes, supertypes, type, types, uuid)
+VALUES (20, 'Artist_Legal', 'mtgo', 'white', 'U', 2.0, 100, '2003', 1, 0, 1, 1, 1, 'normal', '{1}{U}', 'Card B', '2', 'rare', 'SET2', 'Merfolk', 'Legendary', 'Legendary Creature', 'Creature', 'u20');
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (100, 'Legacy', 'Banned', 'u10');
+INSERT INTO legalities (id, format, status, uuid) VALUES (200, 'Standard', 'Legal', 'u20');
+INSERT INTO legalities (id, format, status, uuid) VALUES (201, 'Modern', 'Restricted', 'u20');
+```

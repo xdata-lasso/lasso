@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Exact vs. substring date matching (full timestamp vs. 10-char date vs. prefix mismatch).
+-- 2. Join condition mutations (team_api_id vs. id vs. team_fifa_api_id).
+-- 3. Column projection mutations (chanceCreationCrossingClass vs. other Class columns).
+-- 4. WHERE clause mutations (team_long_name vs. team_short_name, AND vs. OR, exact string match).
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 100, 1000, 'Hull City', 'HUL');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 200, 2000, 'Arsenal', 'Hull City');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (3, 300, 3000, 'Hull City Tigers', 'HCT');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (100, 400, 4000, 'Chelsea', 'CHE');
+
+-- Target matching row (returns 'Normal')
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "buildUpPlaySpeedClass", "buildUpPlayDribblingClass", "buildUpPlayPassingClass", "buildUpPlayPositioningClass", "chanceCreationPassingClass", "chanceCreationCrossing", "chanceCreationCrossingClass", "chanceCreationShootingClass", "chanceCreationPositioningClass", "defencePressureClass", "defenceAggressionClass", "defenceTeamWidthClass", "defenceDefenderLineClass") VALUES (10, 1000, 100, '2010-02-22 00:00:00', 'Balanced', 'Little', 'Mixed', 'Organised', 'Risky', 55, 'Normal', 'Lots', 'Free Form', 'Medium', 'Press', 'Wide', 'Cover');
+
+-- Wrong date for Hull City (tests date equality/inequality, LIKE '%2010%')
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (11, 1000, 100, '2010-02-23 00:00:00', 'Lots');
+
+-- Date where '2010-02-22' is not at index 1..10 (tests LIKE '%2010-02-22%' vs SUBSTRING(1,10))
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (12, 1000, 100, 'X2010-02-22', 'Little');
+
+-- Right date, wrong team, but team_short_name is 'Hull City' (tests team_long_name vs team_short_name and AND vs OR)
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (13, 2000, 200, '2010-02-22 00:00:00', 'Little');
+
+-- Right date, wrong team with superstring name 'Hull City Tigers' (tests LIKE 'Hull City%' vs '=')
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (14, 3000, 300, '2010-02-22 00:00:00', 'Lots');
+
+-- Join key trap 1: t2.team_api_id matches t1.id (1) instead of t1.team_api_id (100)
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (15, 2000, 1, '2010-02-22 00:00:00', 'WrongJoin_t1id_t2api');
+
+-- Join key trap 2: t2.id (100) matches t1.team_api_id (100), or t1.id (100) matches t2.team_api_id (100)
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (100, 4000, 400, '2010-02-22 00:00:00', 'WrongJoin_id100');
+
+-- Join key trap 3: t2.team_fifa_api_id (1000) matches t1.team_fifa_api_id (1000), but t2.team_api_id is different (200)
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (16, 1000, 200, '2010-02-22 00:00:00', 'WrongJoin_fifa');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. DISTINCT vs. ALL (duplicate outputs when multiple matching records exist).
+-- 2. Exact 10-character date string ('2010-02-22') vs. timestamp string ('2010-02-22 12:30:00').
+-- 3. Multiple teams named 'Hull City' (e.g., if a mutant uses a scalar subquery `team_api_id = (SELECT ...)` or `LIMIT 1`).
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 101, 1001, 'Hull City', 'HUL');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 102, 1002, 'Hull City', 'HUL2');
+
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (1, 1001, 101, '2010-02-22', 'Normal');
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (2, 1001, 101, '2010-02-22 15:45:00', 'Normal');
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (3, 1002, 102, '2010-02-22 23:59:59', 'Lots');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. LEFT JOIN / OUTER JOIN mutations where Team has 'Hull City' but no matching Team_Attributes row, or where date condition is pushed into ON clause vs WHERE clause.
+-- 2. Case sensitivity ('hull city' vs 'Hull City').
+-- 3. Off-by-one SUBSTRING length or start index mutations (e.g., SUBSTRING(date, 1, 9) or SUBSTRING(date, 2, 10)).
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (1, 10, 100, 'Hull City', 'HUL');
+INSERT INTO "Team" ("id", "team_api_id", "team_fifa_api_id", "team_long_name", "team_short_name") VALUES (2, 20, 200, 'hull city', 'HUL');
+
+-- Only a non-matching date for 'Hull City' (should yield empty result on INNER JOIN, but NULL row if LEFT JOIN with date in ON clause)
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (1, 100, 10, '2010-02-2', 'Lots');
+
+-- Matching date for lowercase 'hull city' (tests case-insensitive mutants)
+INSERT INTO "Team_Attributes" ("id", "team_fifa_api_id", "team_api_id", "date", "chanceCreationCrossingClass") VALUES (2, 200, 20, '2010-02-22 00:00:00', 'Little');
+```

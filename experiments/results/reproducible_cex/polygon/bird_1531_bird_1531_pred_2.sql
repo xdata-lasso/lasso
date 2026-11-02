@@ -1,0 +1,39 @@
+-- Schema DDL
+CREATE TABLE customers (CustomerID INTEGER UNIQUE NOT NULL PRIMARY KEY, Segment TEXT NULL, Currency TEXT NULL);
+
+CREATE TABLE gasstations (GasStationID INTEGER UNIQUE NOT NULL PRIMARY KEY, ChainID INTEGER NULL, Country TEXT NULL, Segment TEXT NULL);
+
+CREATE TABLE products (ProductID INTEGER UNIQUE NOT NULL PRIMARY KEY, Description TEXT NULL);
+
+CREATE TABLE "transactions_1k" (TransactionID INTEGER PRIMARY KEY AUTOINCREMENT, Date DATE, Time TEXT, CustomerID INTEGER, CardID INTEGER, GasStationID INTEGER, ProductID INTEGER, Amount INTEGER, Price REAL);
+
+CREATE TABLE "yearmonth" (CustomerID INTEGER NOT NULL REFERENCES customers ON update CASCADE ON delete CASCADE REFERENCES customers, Date TEXT NOT NULL, Consumption REAL, PRIMARY KEY (Date, CustomerID));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (38, '33', '34');
+INSERT INTO "gasstations" ("gasstationid", "chainid", "country", "segment") VALUES (20, 38, '38', '38');
+INSERT INTO "gasstations" ("gasstationid", "chainid", "country", "segment") VALUES (19, 38, '38', '38');
+INSERT INTO "products" ("productid", "description") VALUES (22, '38');
+INSERT INTO "products" ("productid", "description") VALUES (21, '38');
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (27, '1000-01-29', '29', 38, 30, 31, 32, 1, NULL);
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (35, '1000-02-06', '37', 38, 39, 40, 41, 0, 961);
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (38, '38', 38);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T2.CustomerID, SUM(T2.Price / T2.Amount), T1.Currency FROM customers AS T1 INNER JOIN transactions_1k AS T2 ON T1.CustomerID = T2.CustomerID WHERE T2.CustomerID = (SELECT CustomerID FROM yearmonth ORDER BY Consumption DESC, yearmonth.date NULLS LAST, yearmonth.customerid NULLS LAST LIMIT 1) GROUP BY T2.CustomerID, T1.Currency;
+
+/*
+Gold Result:
+(38, None, '34')
+*/
+
+-- Prediction Query
+SELECT T1.CustomerID, T2.Price / T2.Amount AS AvgPricePerItem, T1.Currency FROM customers AS T1 INNER JOIN transactions_1k AS T2 ON T1.CustomerID = T2.CustomerID WHERE NOT T2.Amount IS NULL ORDER BY AvgPricePerItem DESC, T1.customerid NULLS LAST, T2.transactionid NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+(38, None, '34')
+*/

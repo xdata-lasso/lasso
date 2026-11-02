@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests basic GROUP BY (Class, Flag), join on (LHS.Ship_ID = RHS.n AND LHS.Class = RHS.Class),
+-- duplicate output rows (1-to-many join when multiple flags have the same count in the same class),
+-- and ordering (DESC vs ASC, insertion order vs sorted order).
+-- Also ensures LHS.Flag does NOT need to equal RHS.Flag, and Captain table is ignored.
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (1, 'Alpha', 'Cargo', 2005.0, 'A', 'US');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (2, 'Beta', 'Cargo', 1995.0, 'A', 'UK');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (3, 'Gamma', 'Cargo', 2010.0, 'B', 'US');
+INSERT INTO "captain" ("Captain_ID", "Ship_ID", "Name", "age", "Class", "Rank") VALUES (1, 1, 'Smith', '45', 'A', 'Captain');
+```
+
+```sql
+-- DATASET 2
+-- Tests counts > 1, ensuring GROUP BY includes both Class and Flag,
+-- and tests that the join condition strictly enforces LHS.Class = RHS.Class and LHS.Ship_ID = RHS.n.
+-- Group (A, US) has count 2. Group (A, UK) has count 1. Group (B, US) has count 2.
+-- Ship 2 (Class A) matches (A, US) -> Built_Year 1980.0. (If LHS.Class = RHS.Class is omitted, Ship 2 also matches (B, US)).
+-- Ship 1 (Class A) matches (A, UK) -> Built_Year 2000.0.
+-- Ship 10 (Class A) has no matching count -> omitted in INNER JOIN, kept if LEFT JOIN mutant.
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (2, 'S2', 'Tanker', 1980.0, 'A', 'US');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (10, 'S10', 'Tanker', 1985.0, 'A', 'US');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (1, 'S1', 'Frigate', 2000.0, 'A', 'UK');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (20, 'S20', 'Cruiser', 1990.0, 'B', 'US');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (21, 'S21', 'Cruiser', 1992.0, 'B', 'US');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Class, Flag, Built_Year, and other columns.
+-- Tests COUNT(*) vs COUNT(Flag) or COUNT(Name) or COUNT(Built_Year).
+-- Group (C, NULL) has 2 rows -> n = 2. If COUNT(Flag) is used, n = 0.
+-- Group (NULL, FR) has 1 row -> n = 1. In SQL, NULL = NULL is unknown, so LHS.Class = RHS.Class fails for NULL Class!
+-- Ship 2 has Class 'C' and Built_Year NULL -> matches (C, NULL) and outputs NULL.
+-- Ship 3 has Class 'C' and Flag 'DE' (count 1) -> if Ship 1 had Class 'C', it would match. Here Ship 4 has ID 1, Class 'D', Flag 'DE', Built_Year 1975.5.
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (1, NULL, NULL, 1999.0, NULL, 'FR');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (2, 'Ghost', NULL, NULL, 'C', NULL);
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (5, 'Phantom', 'Sub', 2001.0, 'C', NULL);
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (4, 'Voyager', 'Yacht', 1975.5, 'D', 'ES');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (6, 'Enterprise', 'Yacht', 1988.5, 'D', 'ES');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (7, 'Defiant', 'Yacht', 1995.5, 'D', 'ES');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (3, 'Reliant', 'Yacht', 1965.5, 'D', 'IT');
+```
+
+```sql
+-- DATASET 4
+-- Tests distinction between multiple ships having the same Built_Year vs a single ship matching multiple RHS groups,
+-- and tests boundary conditions on inequality mutants (e.g., LHS.Ship_ID <= RHS.n or LHS.Ship_ID >= RHS.n).
+-- Group (X, F1) -> count 3. Group (X, F2) -> count 2.
+-- Ship 2 (Class X, Built_Year 2020.0) and Ship 3 (Class X, Built_Year 2000.0) both match.
+-- Ship 4 (Class X, Built_Year 1950.0) does not match (ID 4 > max count 3).
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (2, 'X_Two', 'T1', 2020.0, 'X', 'F1');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (3, 'X_Three', 'T1', 2000.0, 'X', 'F1');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (4, 'X_Four', 'T1', 1950.0, 'X', 'F1');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (8, 'X_Eight', 'T2', 1960.0, 'X', 'F2');
+INSERT INTO "Ship" ("Ship_ID", "Name", "Type", "Built_Year", "Class", "Flag") VALUES (9, 'X_Nine', 'T2', 1970.0, 'X', 'F2');
+```

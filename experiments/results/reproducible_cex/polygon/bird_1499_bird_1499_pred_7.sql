@@ -1,0 +1,41 @@
+-- Schema DDL
+CREATE TABLE customers (CustomerID INTEGER UNIQUE NOT NULL PRIMARY KEY, Segment TEXT NULL, Currency TEXT NULL);
+
+CREATE TABLE gasstations (GasStationID INTEGER UNIQUE NOT NULL PRIMARY KEY, ChainID INTEGER NULL, Country TEXT NULL, Segment TEXT NULL);
+
+CREATE TABLE products (ProductID INTEGER UNIQUE NOT NULL PRIMARY KEY, Description TEXT NULL);
+
+CREATE TABLE "transactions_1k" (TransactionID INTEGER PRIMARY KEY AUTOINCREMENT, Date DATE, Time TEXT, CustomerID INTEGER, CardID INTEGER, GasStationID INTEGER, ProductID INTEGER, Amount INTEGER, Price REAL);
+
+CREATE TABLE "yearmonth" (CustomerID INTEGER NOT NULL REFERENCES customers ON update CASCADE ON delete CASCADE REFERENCES customers, Date TEXT NOT NULL, Consumption REAL, PRIMARY KEY (Date, CustomerID));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (28, 'EUR27', 'EUR');
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (15, 'EUR28', 'EUR28');
+INSERT INTO "gasstations" ("gasstationid", "chainid", "country", "segment") VALUES (17, 28, 'EUR28', 'EUR28');
+INSERT INTO "gasstations" ("gasstationid", "chainid", "country", "segment") VALUES (16, 28, 'EUR28', 'EUR28');
+INSERT INTO "products" ("productid", "description") VALUES (19, 'EUR28');
+INSERT INTO "products" ("productid", "description") VALUES (18, 'EUR28');
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (21, '1000-01-29', 'EUR28', 28, 28, 28, 28, 28, 28);
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (20, '1000-01-29', 'EUR28', 28, 28, 28, 28, 28, 28);
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (28, 'EUR26', 12);
+INSERT INTO "yearmonth" ("customerid", "date", "consumption") VALUES (28, 'EUR29', 78672);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT SUM(T2.Consumption) / 12 AS MonthlyConsumption FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Currency = 'EUR' GROUP BY T1.CustomerID ORDER BY MonthlyConsumption DESC LIMIT 1;
+
+/*
+Gold Result:
+(6557.0,)
+*/
+
+-- Prediction Query
+SELECT MAX(y.Consumption / 12) AS BiggestMonthlyConsumption FROM customers AS c JOIN yearmonth AS y ON c.CustomerID = y.CustomerID WHERE c.Currency = 'EUR';
+
+/*
+Prediction Result:
+(6556.0,)
+*/

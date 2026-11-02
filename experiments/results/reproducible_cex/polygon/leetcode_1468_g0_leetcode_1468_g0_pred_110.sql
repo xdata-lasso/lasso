@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE "Salaries" ("company_id" INTEGER, "employee_id" INTEGER, "employee_name" TEXT(255), "salary" INTEGER, PRIMARY KEY ("company_id", "employee_id"), CHECK ("salary" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Salaries" ("company_id", "employee_id", "employee_name", "salary") VALUES (14, 11, '16', 800);
+INSERT INTO "Salaries" ("company_id", "employee_id", "employee_name", "salary") VALUES (14, 10, '17', 1025);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT S.COMPANY_ID, S.EMPLOYEE_ID, S.EMPLOYEE_NAME, ROUND(CASE WHEN X.MAX_SAL BETWEEN 1000 AND 10000 THEN SALARY * 0.76 WHEN X.MAX_SAL > 10000 THEN SALARY * 0.51 ELSE SALARY END, 0) AS SALARY FROM SALARIES AS S INNER JOIN (SELECT COMPANY_ID, MAX(SALARY) AS MAX_SAL FROM SALARIES GROUP BY COMPANY_ID) AS X ON S.COMPANY_ID = X.COMPANY_ID;
+
+/*
+Gold Result:
+(14, 10, '17', 779.0)
+(14, 11, '16', 608.0)
+*/
+
+-- Prediction Query
+SELECT B.COMPANY_ID, EMPLOYEE_ID, EMPLOYEE_NAME, ROUND(SALARY - (SALARY * (CAST(TAX AS REAL) / 100))) AS SALARY FROM (SELECT COMPANY_ID, CASE WHEN MAX_SAL < 1000 THEN 0 WHEN MAX_SAL >= 1000 AND 10000 >= MAX_SAL THEN 24 ELSE 49 END AS TAX FROM (SELECT COMPANY_ID, MAX(SALARY) AS MAX_SAL FROM SALARIES GROUP BY COMPANY_ID) AS A) AS B JOIN SALARIES AS S ON B.COMPANY_ID = S.COMPANY_ID;
+
+/*
+Prediction Result:
+(14, 10, '17', 779.0)
+(14, 11, '16', 608.0)
+*/

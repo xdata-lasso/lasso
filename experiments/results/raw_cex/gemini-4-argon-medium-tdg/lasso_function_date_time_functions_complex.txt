@@ -1,0 +1,52 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary condition (2024-01-01), one day before (2023-12-31), and one day after (2024-01-02).
+-- Kills mutants changing '<' to '<=', '>', '>=', '=', or off-by-one date calculations.
+INSERT INTO Jobs (job_id, job_title, min_salary, max_salary) VALUES ('J1', 'Developer', 50000, 100000);
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (10, 'IT', 1, 'NY');
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (1, 'Alice', 'Smith', 'alice@example.com', '111-222-3333', '2023-12-31', 'J1', 60000, NULL, NULL, 10);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (2, 'Bob', 'Jones', 'bob@example.com', '111-222-3334', '2024-01-01', 'J1', 65000, NULL, 1, 10);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (3, 'Charlie', 'Brown', 'charlie@example.com', '111-222-3335', '2024-01-02', 'J1', 70000, NULL, 1, 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests date arithmetic mutants (e.g., '-1 month', '-1 day', '+1 year', or no modifier against '2025-01-01').
+-- Also tests year-only extraction mutants (e.g., strftime('%Y', hire_date) < '2024').
+INSERT INTO Jobs (job_id, job_title, min_salary, max_salary) VALUES ('J1', 'Analyst', 40000, 80000);
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (20, 'HR', 10, 'LA');
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (10, 'David', 'clark', 'david@example.com', '555-0101', '2023-06-15', 'J1', 50000, 0.1, NULL, 20);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (20, 'Eve', 'Adams', 'eve@example.com', '555-0102', '2024-06-15', 'J1', 55000, 0.2, 10, 20);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (30, 'Frank', 'Wright', 'frank@example.com', '555-0103', '2024-12-15', 'J1', 60000, NULL, 10, 20);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (40, 'Grace', 'Hall', 'grace@example.com', '555-0104', '2025-01-01', 'J1', 65000, NULL, 10, 20);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (50, 'Hank', 'Green', 'hank@example.com', '555-0105', '2025-06-15', 'J1', 70000, NULL, 10, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in hire_date, and NULLs in foreign key columns (department_id, job_id).
+-- Kills mutants that unnecessarily INNER JOIN with Departments, Jobs, or JobHistory, or mishandle NULL dates.
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (101, 'NullHire', 'User', 'nh@example.com', '999-0001', NULL, NULL, 50000, NULL, NULL, NULL);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (102, 'NoDeptJob', 'ValidHire', 'vh@example.com', '999-0002', '2020-05-20', NULL, 50000, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion with JobHistory dates (start_date, end_date) or manager_id vs employee_id projection.
+-- Also tests duplicate elimination if a mutant joins Employees with JobHistory without DISTINCT.
+INSERT INTO Jobs (job_id, job_title, min_salary, max_salary) VALUES ('J_MGR', 'Manager', 80000, 150000);
+INSERT INTO Departments (department_id, department_name, manager_id, location) VALUES (100, 'Sales', 999, 'Chicago');
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (999, 'Boss', 'Man', 'boss@example.com', '000-0001', '2024-08-01', 'J_MGR', 120000, NULL, NULL, 100);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (888, 'Old', 'Worker', 'old@example.com', '000-0002', '2022-03-10', 'J_MGR', 90000, NULL, 999, 100);
+INSERT INTO JobHistory (employee_id, start_date, end_date, job_id, department_id) VALUES (999, '2021-01-01', '2022-01-01', 'J_MGR', 100);
+INSERT INTO JobHistory (employee_id, start_date, end_date, job_id, department_id) VALUES (888, '2024-02-01', '2024-06-01', 'J_MGR', 100);
+INSERT INTO JobHistory (employee_id, start_date, end_date, job_id, department_id) VALUES (888, '2024-06-02', '2024-12-01', 'J_MGR', 100);
+```
+
+```sql
+-- DATASET 5
+-- Tests string vs DATETIME comparison edge cases (e.g., if mutant uses DATETIME('2025-01-01 00:00:00', '-1 year') which evaluates to '2024-01-01 00:00:00', vs DATE() which evaluates to '2024-01-01').
+-- In SQLite, '2024-01-01' < '2024-01-01 00:00:00' is TRUE! This dataset catches mutants using DATETIME() instead of DATE().
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (77, 'Time', 'Tester', 'time@example.com', '123-4567', '2024-01-01', NULL, 45000, NULL, NULL, NULL);
+INSERT INTO Employees (employee_id, first_name, last_name, email, phone, hire_date, job_id, salary, commission_pct, manager_id, department_id) VALUES (78, 'Early', 'Bird', 'early@example.com', '123-4568', '2023-12-31 23:59:59', NULL, 45000, NULL, NULL, NULL);
+```

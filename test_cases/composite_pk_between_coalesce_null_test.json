@@ -1,0 +1,13 @@
+{
+  "id": "composite_pk_between_coalesce_null_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE \"rate_cards\" (\"item_id\" INTEGER UNIQUE, \"valid_from\" DATE, \"valid_to\" DATE, \"unit_rate\" INTEGER, PRIMARY KEY (\"item_id\", \"valid_from\", \"valid_to\"), CHECK (\"unit_rate\" > 0));\n\nCREATE TABLE \"shipments\" (\"item_id\" INTEGER, \"ship_date\" DATE, \"qty\" INTEGER, FOREIGN KEY (\"item_id\") REFERENCES \"rate_cards\" (\"item_id\"), CHECK (\"qty\" > 0));",
+  "correct_query": "SELECT r.item_id, SUM(s.qty * r.unit_rate) AS total_cost FROM rate_cards AS r JOIN shipments AS s ON (r.item_id = s.item_id AND s.ship_date BETWEEN r.valid_from AND r.valid_to) GROUP BY r.item_id",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "coalesce_nullable_composite_pk_between_bound",
+      "description": "Wraps a SQLite-nullable composite PRIMARY KEY upper bound in COALESCE(..., DATE('9999-12-01')) inside a BETWEEN predicate, accepting rows where the bound is NULL",
+      "query": "SELECT s.item_id, SUM(r.unit_rate * s.qty) AS total_cost FROM shipments AS s INNER JOIN rate_cards AS r ON s.item_id = r.item_id WHERE s.ship_date BETWEEN r.valid_from AND COALESCE(r.valid_to, DATE('9999-12-01')) GROUP BY s.item_id"
+    }
+  ]
+}

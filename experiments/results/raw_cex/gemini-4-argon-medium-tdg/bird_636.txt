@@ -1,0 +1,111 @@
+```sql
+-- DATASET 1
+-- Baseline positive match and boundary condition tests for Score (< 60 vs <= 60 vs > 60 vs IS NULL)
+INSERT INTO users (Id, DisplayName, Reputation, Views, UpVotes, DownVotes, Age) VALUES (1, 'Neil McGuigan', 100, 10, 5, 1, 30);
+INSERT INTO posts (Id, OwnerUserId, Score, ViewCount, AnswerCount, CommentCount, FavoriteCount) VALUES (10, 1, 50, 100, 2, 3, 1);
+INSERT INTO comments (Id, PostId, UserId, Score, Text, UserDisplayName) VALUES (100, 10, 1, 59, 'Valid score 59', 'Neil McGuigan');
+INSERT INTO comments (Id, PostId, UserId, Score, Text, UserDisplayName) VALUES (101, 10, 1, 60, 'Boundary score 60', 'Neil McGuigan');
+INSERT INTO comments (Id, PostId, UserId, Score, Text, UserDisplayName) VALUES (102, 10, 1, 61, 'Invalid score 61', 'Neil McGuigan');
+INSERT INTO comments (Id, PostId, UserId, Score, Text, UserDisplayName) VALUES (103, 10, 1, NULL, 'Null score', 'Neil McGuigan');
+INSERT INTO comments (Id, PostId, UserId, Score, Text, UserDisplayName) VALUES (104, 10, 1, -10, 'Valid negative score', 'Neil McGuigan');
+```
+
+```sql
+-- DATASET 2
+-- Tests join path confusion: Post Owner vs Comment Author vs Post LastEditorUserId vs UserDisplayName
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Neil McGuigan');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Other User');
+
+-- Post owned by Other User, edited by Neil, commented by Neil (Should NOT be counted)
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Score, OwnerDisplayName, LastEditorDisplayName) VALUES (10, 2, 1, 10, 'Other User', 'Neil McGuigan');
+INSERT INTO comments (Id, PostId, UserId, Score, UserDisplayName) VALUES (100, 10, 1, 10, 'Neil McGuigan');
+
+-- Post owned by Neil, edited by Other User, commented by Other User (SHOULD be counted)
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Score, OwnerDisplayName, LastEditorDisplayName) VALUES (20, 1, 2, 10, 'Neil McGuigan', 'Other User');
+INSERT INTO comments (Id, PostId, UserId, Score, UserDisplayName) VALUES (101, 20, 2, 10, 'Other User');
+```
+
+```sql
+-- DATASET 3
+-- Tests table column confusion: T2.Score (posts.Score) vs T3.Score (comments.Score) vs T1.Reputation
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (1, 'Neil McGuigan', 80);
+
+-- Post has Score >= 60, Comment has Score < 60 (SHOULD be counted)
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (10, 1, 100);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (100, 10, 1, 20);
+
+-- Post has Score < 60, Comment has Score >= 60 (Should NOT be counted)
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (20, 1, 10);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (101, 20, 1, 70);
+```
+
+```sql
+-- DATASET 4
+-- Tests COUNT target and DISTINCT: 1 User -> Multiple Posts -> Multiple Comments with identical scores/texts
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Neil McGuigan');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Neil McGuigan');
+
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (10, 1, 5);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (11, 1, 5);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (12, 2, 5);
+
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (100, 10, 1, 15, 'Same text');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (101, 10, 1, 15, 'Same text');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (102, 11, 1, 15, 'Same text');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (103, 12, 2, 15, 'Same text');
+```
+
+```sql
+-- DATASET 5
+-- Tests OUTER JOIN mutants (LEFT JOIN instead of INNER JOIN) and NULL foreign keys
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Neil McGuigan');
+
+-- User has a post with NO comments (Tests posts LEFT JOIN comments paired with COUNT(*) or COUNT(T1.Id) or COUNT(T2.Id))
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (10, 1, 10);
+
+-- Orphan post with NULL OwnerUserId and valid comment
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (20, NULL, 10);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (100, 20, 1, 10);
+
+-- Orphan comment with NULL PostId
+INSERT INTO comments (Id, PostId, UserId, Score, UserDisplayName) VALUES (101, NULL, 1, 10, 'Neil McGuigan');
+```
+
+```sql
+-- DATASET 6
+-- Tests string matching mutations on DisplayName (LIKE, case sensitivity, trimming, NULLs) and AND vs OR
+INSERT INTO users (Id, DisplayName) VALUES (1, 'neil mcguigan');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Neil McGuigan ');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'Mr. Neil McGuigan');
+INSERT INTO users (Id, DisplayName) VALUES (4, NULL);
+INSERT INTO users (Id, DisplayName) VALUES (5, 'John Doe');
+
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (10, 1, 10);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (11, 2, 10);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (12, 3, 10);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (13, 4, 10);
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (14, 5, 10);
+
+INSERT INTO comments (Id, PostId, Score) VALUES (100, 10, 10);
+INSERT INTO comments (Id, PostId, Score) VALUES (101, 11, 10);
+INSERT INTO comments (Id, PostId, Score) VALUES (102, 12, 10);
+INSERT INTO comments (Id, PostId, Score) VALUES (103, 13, 10);
+INSERT INTO comments (Id, PostId, Score) VALUES (104, 14, 10);
+```
+
+```sql
+-- DATASET 7
+-- Tests incorrect join key usage (e.g., joining on ParentId, AcceptedAnswerId, or accidental Id=Id matches)
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Neil McGuigan');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Alice');
+
+-- Post 1 has Id=1 (matches Neil's User.Id=1), but is owned by Alice (User 2)
+INSERT INTO posts (Id, OwnerUserId, ParentId, AcceptedAnswerId, Score) VALUES (1, 2, 1, 1, 10);
+
+-- Comment 1 has Id=1 (matches Post 1 and User 1), PostId=1
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (1, 1, 2, 10);
+
+-- Post 2 is owned by Neil (User 1), but Comment 2 has Id=2 and PostId=1 (attached to Alice's post)
+INSERT INTO posts (Id, OwnerUserId, Score) VALUES (2, 1, 10);
+INSERT INTO comments (Id, PostId, UserId, Score) VALUES (2, 1, 2, 10);
+```

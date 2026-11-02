@@ -1,0 +1,106 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Unmatched Addresses (LEFT JOIN vs INNER JOIN).
+-- 2. Multiple addresses in the same state_province_county with DIFFERENT counts (GROUP BY state_province_county vs GROUP BY address_id).
+-- 3. Multiple addresses in the same state_province_county with the SAME count (SELECT DISTINCT vs SELECT).
+-- 4. An address linked to the same customer multiple times (COUNT(*) vs COUNT(DISTINCT customer_id)).
+-- 5. Ordering by state_province_county ASC, count___ ASC.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Card', 'Alice', '111-1111', 'alice@example.com', '2020-01-01 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (2, 'Cash', 'Bob', '222-2222', 'bob@example.com', '2020-02-01 00:00:00');
+
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '100 Main St', 'LA', '90001', 'CA', 'USA');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (2, '200 Oak St', 'SF', '94101', 'CA', 'USA');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (3, '300 Pine St', 'SD', '92101', 'CA', 'USA');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (4, '400 Maple St', 'NYC', '10001', 'NY', 'USA');
+
+-- Address 1 (CA) has 2 rows for the same customer_id=1 (Tests COUNT(*) vs COUNT(DISTINCT customer_id))
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (1, 1, '2021-01-01 00:00:00', 'Home', '2021-06-01 00:00:00');
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (1, 1, '2021-06-02 00:00:00', 'Billing', '2022-01-01 00:00:00');
+
+-- Address 2 (CA) has 1 row (Tests CA having both count 1 and count 2, and tests ordering of count___)
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (2, 1, '2021-01-01 00:00:00', 'Work', '2022-01-01 00:00:00');
+
+-- Address 3 (CA) has 1 row (Tests DISTINCT collapsing (CA, 1) from Address 2 and Address 3)
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (3, 2, '2021-01-01 00:00:00', 'Home', '2022-01-01 00:00:00');
+
+-- Address 4 (NY) has 0 rows in Customer_Addresses (Tests INNER JOIN vs LEFT JOIN)
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL handling in state_province_county (ORDER BY state_province_county vs NULLS LAST).
+-- 2. NULL handling in nullable columns of Customer_Addresses (COUNT(*) vs COUNT(date_to) or COUNT(address_type)).
+-- 3. Disjoint customer_id and address_id values to catch wrong join predicates (e.g. LHS.address_id = RHS.customer_id).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (10, 'Card', 'Charlie', '333-3333', 'charlie@example.com', '2020-03-01 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (20, 'Cash', 'Diana', '444-4444', 'diana@example.com', '2020-04-01 00:00:00');
+
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '10 First Ave', 'Austin', '73301', 'TX', 'USA');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (2, '20 Second Ave', 'Unknown', '00000', NULL, 'USA');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (3, '30 Third Ave', 'Miami', '33101', 'FL', 'USA');
+
+-- Address 1 (TX): 3 rows, some with NULLs in date_from, address_type, date_to
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (1, 10, NULL, NULL, NULL);
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (1, 20, '2021-01-01 00:00:00', NULL, NULL);
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (1, 10, '2021-05-01 00:00:00', 'Home', '2021-12-01 00:00:00');
+
+-- Address 2 (NULL state): 2 rows
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (2, 10, '2021-01-01 00:00:00', 'Work', NULL);
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (2, 20, '2021-02-01 00:00:00', 'Home', '2021-08-01 00:00:00');
+
+-- Address 3 (FL): 1 row
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (3, 20, '2021-03-01 00:00:00', 'Billing', '2021-09-01 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Mis-joined columns where customer_id overlaps with address_id (e.g. joining on address_id = customer_id or grouping by customer_id instead of address_id).
+-- 2. Reverse insertion order vs alphabetical / numerical sort order (verifying ORDER BY state_province_county, count___).
+-- 3. Confusion between city / country / state_province_county.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Card', 'Eve', '555-5555', 'eve@example.com', '2019-01-01 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (2, 'Card', 'Frank', '666-6666', 'frank@example.com', '2019-02-01 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (3, 'Cash', 'Grace', '777-7777', 'grace@example.com', '2019-03-01 00:00:00');
+
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (1, 'Addr 1', 'CityA', '11111', 'WA', 'CountryX');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (2, 'Addr 2', 'CityB', '22222', 'OR', 'CountryX');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (3, 'Addr 3', 'CityA', '33333', 'AZ', 'CountryY');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (4, 'Addr 4', 'CityC', '44444', 'AZ', 'CountryY');
+
+-- Customer 1 has 3 addresses (1, 2, 3), while Address 1 only has 1 customer (Customer 1).
+-- If a mutant groups by customer_id instead of address_id, count for ID 1 will be 3 instead of 1.
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (1, 1, '2020-01-01 00:00:00', 'Home', '2020-12-31 00:00:00');
+
+-- Address 2 (OR) has 2 rows
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (2, 1, '2020-01-01 00:00:00', 'Work', '2020-12-31 00:00:00');
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (2, 2, '2020-01-01 00:00:00', 'Home', '2020-12-31 00:00:00');
+
+-- Address 3 (AZ) has 3 rows
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (3, 1, '2020-01-01 00:00:00', 'Billing', '2020-12-31 00:00:00');
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (3, 2, '2020-01-01 00:00:00', 'Work', '2020-12-31 00:00:00');
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (3, 3, '2020-01-01 00:00:00', 'Home', '2020-12-31 00:00:00');
+
+-- Address 4 (AZ) has 1 row (inserted after Address 3 so AZ has counts 3 then 1 in insertion order, testing ASC sort on count___)
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (4, 3, '2020-05-01 00:00:00', 'Work', '2020-12-31 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Other tables referencing Addresses (Employees, Delivery_Route_Locations) to ensure the query only counts Customer_Addresses and doesn't join/count from other address-referencing tables.
+-- 2. Customers with no addresses at all.
+-- 3. Single address shared by many customers vs multiple addresses.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Card', 'Cust1', '100', 'c1@example.com', '2020-01-01 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (2, 'Card', 'Cust2', '200', 'c2@example.com', '2020-01-01 00:00:00');
+
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (10, '10 Nevada Rd', 'Reno', '89501', 'NV', 'USA');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (20, '20 Utah St', 'SLC', '84101', 'UT', 'USA');
+
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (1, 'Route 1', 'Details');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('LOC1', 1, 20, 'Depot');
+INSERT INTO "Employees" ("employee_id", "employee_address_id", "employee_name", "employee_phone") VALUES (1, 20, 'Emp1', '999');
+
+-- Only Address 10 is in Customer_Addresses (Address 20 is only in Employees and Delivery_Route_Locations)
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (10, 1, '2021-01-01 00:00:00', 'Home', '2022-01-01 00:00:00');
+```

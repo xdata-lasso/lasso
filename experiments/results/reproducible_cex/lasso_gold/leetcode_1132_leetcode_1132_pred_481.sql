@@ -1,0 +1,28 @@
+-- Schema DDL
+CREATE TABLE "Actions" ("user_id" INTEGER, "post_id" INTEGER UNIQUE, "action_date" DATE, "action" TEXT(255), "extra" TEXT(255));
+
+CREATE TABLE "Removals" ("post_id" INTEGER PRIMARY KEY, "remove_date" DATE, FOREIGN KEY ("post_id") REFERENCES "Actions" ("post_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "actions" ("user_id", "post_id", "action_date", "action", "extra") VALUES (1001, 1002, '1970-01-01', 'report', 'spam');
+INSERT INTO "actions" ("user_id", "post_id", "action_date", "action", "extra") VALUES (1001, NULL, '1970-01-01', 'report', 'spam');
+INSERT INTO "removals" ("post_id", "remove_date") VALUES (1002, '1970-01-01');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ROUND(CAST(SUM(DAILY_AVG) AS REAL) / COUNT(*) * 100, 2) AS AVERAGE_DAILY_PERCENT FROM (SELECT A.ACTION_DATE, CAST(COUNT(DISTINCT R.POST_ID) AS REAL) / COUNT(DISTINCT A.POST_ID) AS DAILY_AVG FROM ACTIONS AS A LEFT JOIN REMOVALS AS R ON A.POST_ID = R.POST_ID WHERE A.ACTION = 'report' AND A.EXTRA = 'spam' GROUP BY ACTION_DATE) AS TEMP;
+
+/*
+Gold Result:
+(100.0,)
+*/
+
+-- Prediction Query
+SELECT ROUND(AVG(DAILYRATE) * 100, 2) AS AVERAGE_DAILY_PERCENT FROM (WITH T3 AS (WITH SPAMPOSTS AS (SELECT * FROM ACTIONS WHERE EXTRA = 'SPAM') SELECT T1.USER_ID, T1.POST_ID, T1.ACTION_DATE, T1.EXTRA, T2.REMOVE_DATE FROM SPAMPOSTS AS T1 LEFT JOIN REMOVALS AS T2 ON T1.POST_ID = T2.POST_ID) SELECT ACTION_DATE, CAST(COUNT(DISTINCT IIF(NOT REMOVE_DATE IS NULL, POST_ID, NULL)) AS REAL) / COUNT(DISTINCT POST_ID) AS DAILYRATE FROM T3 GROUP BY ACTION_DATE) AS T4;
+
+/*
+Prediction Result:
+(None,)
+*/

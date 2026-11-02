@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests price_range boundaries (< 10000.0, = 10000.0, > 10000.0), duplicate outputs (lack of DISTINCT), and mixed ratings.
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('3S', 'Three Star');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('4S', 'Four Star');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('5S', 'Five Star');
+
+-- Excluded: price_range < 10000.0
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (1, '3S', 'Y', 5000.0, 'Budget');
+-- Excluded: boundary price_range = 10000.0
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (2, '3S', 'N', 10000.0, 'Exact Boundary');
+-- Included: price_range > 10000.0, shares rating '3S' with excluded hotels (kills mutants filtering by star_rating_code alone)
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (3, '3S', 'Y', 10000.01, 'Just Above Boundary');
+-- Included: two hotels with same rating '4S' and > 10000.0 (tests duplicate preservation in output vs DISTINCT)
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (4, '4S', 'Y', 12000.0, 'Luxury A');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (5, '4S', 'N', 15000.0, 'Luxury B');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in star_rating_code and price_range, LEFT JOIN vs INNER JOIN, and NOT EXISTS correlation with NULLs.
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('1S', 'One Star');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('2S', 'Two Star');
+
+-- Included: star_rating_code is NULL and price_range <= 10000.0.
+-- In SQL, NULL = NULL is UNKNOWN, so the NOT EXISTS correlation fails to match even itself!
+-- Also tests LEFT JOIN (produces NULL description) vs INNER JOIN (which would drop this row).
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (1, NULL, 'Y', 500.0, 'Unrated Cheap Hotel');
+
+-- Included: price_range is NULL and star_rating_code is non-NULL ('1S').
+-- NULL <= 10000.0 is UNKNOWN, and NULL = NULL in correlation is UNKNOWN.
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (2, '1S', 'N', NULL, 'Priceless Hotel');
+
+-- Included: valid rating '2S' and price > 10000.0 to verify ordering of NULLs vs non-NULLs.
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (3, '2S', 'Y', 20000.0, 'Expensive Two Star');
+```
+
+```sql
+-- DATASET 3
+-- Tests ORDER BY star_rating_description vs ORDER BY star_rating_code or hotel_id, and unused Ref_Hotel_Star_Ratings rows (LEFT JOIN vs RIGHT/FULL JOIN).
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('A_CODE', 'Zebra Rating');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('B_CODE', 'Middle Rating');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('Z_CODE', 'Alpha Rating');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('UNUSED', 'Unused Rating');
+
+-- Inserted in an order where hotel_id, star_rating_code, price_range, and star_rating_description all have different sort orders.
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (10, 'A_CODE', 'Y', 30000.0, 'First ID, Code A, Desc Z');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (20, 'Z_CODE', 'N', 20000.0, 'Second ID, Code Z, Desc A');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (5, 'B_CODE', 'Y', 50000.0, 'Lowest ID, Code B, Desc M');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when all hotels have valid star_rating_code and price_range <= 10000.0 (including negative and zero prices).
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('STD', 'Standard');
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('DLX', 'Deluxe');
+
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (1, 'STD', 'Y', 0.0, 'Free Hotel');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (2, 'STD', 'N', -100.0, 'Negative Price');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (3, 'DLX', 'Y', 9999.99, 'Just Below 10000');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (4, 'DLX', 'N', 10000.0, 'Exactly 10000');
+```
+
+```sql
+-- DATASET 5
+-- Tests Ref_Hotel_Star_Ratings with NULL star_rating_description vs Hotel with NULL star_rating_code, and duplicate identical hotels.
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('NULL_DESC', NULL);
+INSERT INTO Ref_Hotel_Star_Ratings (star_rating_code, star_rating_description) VALUES ('VALID', 'Valid Description');
+
+-- Excluded: has 'NULL_DESC' but price <= 10000.0 (star_rating_code is NOT NULL, so correlation matches and excludes it).
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (1, 'NULL_DESC', 'Y', 5000.0, 'Cheap Null Desc');
+
+-- Included: has 'NULL_DESC' and price > 10000.0 (outputs NULL for star_rating_description).
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (2, 'NULL_DESC', 'N', 15000.0, 'Expensive Null Desc');
+
+-- Included: two different hotels sharing the exact same star_rating_code AND exact same price_range > 10000.0.
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (3, 'VALID', 'Y', 25000.0, 'Twin A');
+INSERT INTO Hotels (hotel_id, star_rating_code, pets_allowed_yn, price_range, other_hotel_details) VALUES (4, 'VALID', 'N', 25000.0, 'Twin B');
+```

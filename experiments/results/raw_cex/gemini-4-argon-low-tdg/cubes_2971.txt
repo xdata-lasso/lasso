@@ -1,0 +1,118 @@
+```sql
+-- DATASET 1
+-- Tests basic logic, DISTINCT requirement, ORDER BY, and distinguishes grouping by (headquarters, industry) vs grouping by (headquarters) or (industry) alone, as well as filtering vs non-filtering (SELECT DISTINCT headquarters FROM companies).
+-- Counts by (HQ, Ind):
+-- ('Boston', 'Tech'): 3
+-- ('Boston', 'Retail'): 3
+-- ('Austin', 'Tech'): 2
+-- ('Chicago', 'Retail'): 1
+-- ('Chicago', 'Finance'): 1
+-- ('Chicago', 'Media'): 1
+-- ('Chicago', 'Health'): 1
+-- Min count is 1 ('Chicago', ...).
+-- Expected Output: 'Austin', 'Boston'.
+-- Catches:
+-- 1. Missing DISTINCT (Boston appears multiple times from Tech and Retail, and comparing against multiple smaller groups).
+-- 2. Grouping by Headquarters only (Chicago total is 4, which would be > Austin's 2).
+-- 3. Grouping by Industry only.
+-- 4. Reversed inequality (n < n_other would output Austin, Chicago).
+-- 5. Equality (n >= n_other would include Chicago).
+-- 6. Missing WHERE clause (would include Chicago).
+-- 7. Wrong ORDER BY (e.g., DESC or ordering by count n).
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'B_Tech1', 'Boston', 'Tech', 10.0, 1.0, 5.0, '10');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'B_Tech2', 'Boston', 'Tech', 10.0, 1.0, 5.0, '10');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'B_Tech3', 'Boston', 'Tech', 10.0, 1.0, 5.0, '10');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (4, 'B_Ret1', 'Boston', 'Retail', 10.0, 1.0, 5.0, '10');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (5, 'B_Ret2', 'Boston', 'Retail', 10.0, 1.0, 5.0, '10');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (6, 'B_Ret3', 'Boston', 'Retail', 10.0, 1.0, 5.0, '10');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (7, 'A_Tech1', 'Austin', 'Tech', 20.0, 2.0, 10.0, '20');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (8, 'A_Tech2', 'Austin', 'Tech', 20.0, 2.0, 10.0, '20');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (9, 'C_Ret1', 'Chicago', 'Retail', 5.0, 0.5, 2.0, '5');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (10, 'C_Fin1', 'Chicago', 'Finance', 5.0, 0.5, 2.0, '5');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (11, 'C_Med1', 'Chicago', 'Media', 5.0, 0.5, 2.0, '5');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (12, 'C_Hea1', 'Chicago', 'Health', 5.0, 0.5, 2.0, '5');
+```
+
+```sql
+-- DATASET 2
+-- Tests when all (headquarters, industry) groups have the exact same count (n = 2).
+-- Since no group has n > n_other, the result must be empty.
+-- Catches mutants using >=, <=, =, or HAVING COUNT(*) > 1 instead of comparing against n_other.
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Comp1', 'NY', 'Tech', 10.0, 1.0, 5.0, '10');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Comp2', 'NY', 'Tech', 15.0, 2.0, 6.0, '12');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Comp3', 'LA', 'Media', 8.0, 0.5, 4.0, '8');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (4, 'Comp4', 'LA', 'Media', 9.0, 0.8, 4.5, '9');
+```
+
+```sql
+-- DATASET 3
+-- Tests intra-headquarters comparison vs inter-headquarters comparison, and intra-industry vs inter-industry.
+-- Only ONE headquarters ('Seattle') exists in the entire table, with two industries: 'Cloud' (count 2) and 'Retail' (count 1).
+-- Expected Output: 'Seattle'.
+-- Catches mutants that add `WHERE LHS.headquarters <> RHS.headquarters` or `WHERE LHS.industry = RHS.industry`.
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Sea_Cloud1', 'Seattle', 'Cloud', 50.0, 10.0, 100.0, '500');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Sea_Cloud2', 'Seattle', 'Cloud', 40.0, 8.0, 80.0, '400');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Sea_Ret1', 'Seattle', 'Retail', 100.0, 5.0, 60.0, '300');
+```
+
+```sql
+-- DATASET 4
+-- Tests the case where only ONE industry ('Finance') exists across different headquarters: 'London' (count 2) and 'Zurich' (count 1).
+-- Also tests extraneous joins with Office_locations / buildings (if a mutant unnecessarily inner-joins Office_locations, London will be lost or counts will be distorted).
+-- Expected Output: 'London'.
+-- Catches mutants that add `WHERE LHS.industry <> RHS.industry` or join with `Office_locations`.
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (1, 'Tower 1', 'Zurich', 200, 50, 'Completed');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Lon_Fin1', 'London', 'Finance', 30.0, 3.0, 200.0, '50');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Lon_Fin2', 'London', 'Finance', 25.0, 2.5, 150.0, '45');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Zur_Fin1', 'Zurich', 'Finance', 40.0, 4.0, 300.0, '60');
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (1, 3, 2010);
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL handling in GROUP BY and COUNT(*) vs COUNT(column).
+-- Group 1: ('Miami', NULL) -> 2 rows (one has name=NULL).
+-- Group 2: (NULL, 'Shipping') -> 2 rows.
+-- Group 3: ('Denver', 'Mining') -> 1 row.
+-- In SQL, GROUP BY treats NULLs as equal, and COUNT(*) counts rows regardless of NULL column values.
+-- Thus ('Miami', NULL) has n=2, (NULL, 'Shipping') has n=2, and ('Denver', 'Mining') has n=1.
+-- Expected Output: NULL, 'Miami'.
+-- Catches:
+-- 1. Mutants using COUNT(industry) or COUNT(headquarters) or COUNT(name) instead of COUNT(*).
+-- 2. Mutants using INNER JOIN on `LHS.industry = RHS.industry` or filtering `WHERE industry IS NOT NULL` / `WHERE headquarters IS NOT NULL`.
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Mia_1', 'Miami', NULL, 10.0, 1.0, 10.0, '10');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, NULL, 'Miami', NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Null_Ship1', NULL, 'Shipping', 12.0, 1.2, 15.0, '12');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (4, 'Null_Ship2', NULL, 'Shipping', 14.0, 1.4, 18.0, '14');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (5, 'Den_Min1', 'Denver', 'Mining', 100.0, 20.0, 200.0, '150');
+```
+
+```sql
+-- DATASET 6
+-- Tests a headquarters that has both a minimum-count group (n=1) AND a larger group (n=2), while no other headquarters has n > 1.
+-- ('Paris', 'Fashion'): 2
+-- ('Paris', 'Food'): 1
+-- ('Rome', 'Food'): 1
+-- ('Madrid', 'Tourism'): 1
+-- Expected Output: 'Paris'.
+-- Catches mutants that use `HAVING MIN(n) > ...` per headquarters, or exclude a headquarters if ANY of its groups is minimal, or select `RHS.headquarters` instead of `LHS.headquarters` (which would output Madrid, Paris, Rome).
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Par_Fash1', 'Paris', 'Fashion', 5.0, 1.0, 5.0, '10');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Par_Fash2', 'Paris', 'Fashion', 6.0, 1.2, 6.0, '12');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Par_Food1', 'Paris', 'Food', 3.0, 0.3, 2.0, '4');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (4, 'Rom_Food1', 'Rome', 'Food', 4.0, 0.4, 3.0, '5');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (5, 'Mad_Tour1', 'Madrid', 'Tourism', 7.0, 0.7, 8.0, '9');
+```
+
+```sql
+-- DATASET 7
+-- Tests minimum count > 1 (where the smallest group has 2 companies, and the larger has 3).
+-- ('Tokyo', 'Auto'): 3
+-- ('Seoul', 'Tech'): 2
+-- Expected Output: 'Tokyo'.
+-- Catches mutants that hardcode `HAVING COUNT(*) > 1` (which would output both Seoul and Tokyo) or `HAVING COUNT(*) > 2` (which we contrast with Dataset 1/3/4/6 where count=2 is valid).
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Tok_Auto1', 'Tokyo', 'Auto', 100.0, 10.0, 150.0, '80');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Tok_Auto2', 'Tokyo', 'Auto', 90.0, 8.0, 120.0, '70');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Tok_Auto3', 'Tokyo', 'Auto', 80.0, 7.0, 110.0, '60');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (4, 'Seo_Tech1', 'Seoul', 'Tech', 120.0, 15.0, 200.0, '150');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (5, 'Seo_Tech2', 'Seoul', 'Tech', 110.0, 12.0, 180.0, '130');
+```

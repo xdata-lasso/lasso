@@ -1,0 +1,43 @@
+-- Schema DDL
+CREATE TABLE "WRESTLER" (
+    "WRESTLER_ID" INT,
+    "NAME" TEXT,
+    "REIGN" TEXT,
+    "DAYS_HELD" TEXT,
+    "LOCATION" TEXT,
+    "EVENT" TEXT,
+    PRIMARY KEY ("WRESTLER_ID")
+);
+CREATE TABLE "ELIMINATION" (
+    "ELIMINATION_ID" TEXT,
+    "WRESTLER_ID" TEXT,
+    "TEAM" TEXT,
+    "ELIMINATED_BY" TEXT,
+    "ELIMINATION_MOVE" TEXT,
+    "TIME" TEXT,
+    PRIMARY KEY ("ELIMINATION_ID"),
+    FOREIGN KEY ("WRESTLER_ID") REFERENCES "WRESTLER"("WRESTLER_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO WRESTLER VALUES (-1, 0, 0, 0, 0, 0);
+INSERT INTO WRESTLER VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO ELIMINATION VALUES (0, -1, 0, 770484918147628326, 0, 0);
+INSERT INTO ELIMINATION VALUES (1, 0, 1, 770484918147628326, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT TEAM FROM ELIMINATION WHERE (ELIMINATED_BY = 'Orton' AND ELIMINATED_BY <> 'Benjamin') ORDER BY team, elimination.elimination_id NULLS LAST;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT Team FROM Elimination WHERE Eliminated_By = 'Orton' INTERSECT SELECT Team FROM Elimination WHERE Eliminated_By = 'Benjamin';
+
+/*
+Prediction Result:
+*/

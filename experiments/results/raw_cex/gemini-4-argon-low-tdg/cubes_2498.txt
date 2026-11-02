@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Tests standard aggregation, duplicate hours_played values (SUM vs SUM DISTINCT), 
+-- ordering by gameid vs ordering by sum(hours_played), and unused Video_Games/Student rows (INNER/LEFT JOIN mutants).
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Smith', 'John', 20, 'M', 100, 10, 'NYC');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Doe', 'Jane', 21, 'F', 100, 10, 'LAX');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (3, 'Brown', 'Bob', 22, 'M', 200, 20, 'CHI');
+
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (10, 'Zelda', 'Adventure');
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (20, 'Mario', 'Platformer');
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (30, 'Tetris', 'Puzzle');
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (40, 'UnusedGame', 'Strategy');
+
+-- Inserted out of GameID order to test ORDER BY gameid
+-- Game 20: two identical values (5, 5) -> SUM=10, AVG=5, COUNT=2, MAX=5, SUM(DISTINCT)=5
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (1, 20, 5);
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (2, 20, 5);
+
+-- Game 10: higher sum than Game 20 to ensure ORDER BY gameid (10 then 20) differs from ORDER BY sum_hours_played (20 then 10)
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (1, 10, 15);
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (2, 10, 25);
+
+-- Game 30: single row -> SUM=3, COUNT=1
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (1, 30, 3);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in both grouping column (GameID) and aggregated column (Hours_Played),
+-- as well as 0 and negative values.
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Alice', 'A', 19, 'F', 101, 11, 'BOS');
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (2, 'Charlie', 'C', 23, 'M', 102, 12, 'SEA');
+
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (1, 'Halo', 'Shooter');
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (2, 'Portal', 'Puzzle');
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (3, 'Doom', 'Shooter');
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (4, 'Pong', 'Arcade');
+
+-- Game 1: Mix of valid hours and NULL hours -> SUM=10
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (1, 1, 10);
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (2, 1, NULL);
+
+-- Game 2: Only NULL hours -> SUM=NULL (Tests NULLS LAST / COALESCE mutants)
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (1, 2, NULL);
+
+-- Game 3: Zero hours -> SUM=0 (Distinguishes 0 from NULL and filters like WHERE hours_played > 0)
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (1, 3, 0);
+
+-- Game 4: Negative and positive hours -> SUM=5, ABS(SUM) or WHERE hours_played > 0 would differ
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (1, 4, -5);
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (2, 4, 10);
+
+-- NULL GameID: Valid FK in SQLite, excluded if mutant inner-joins with Video_Games or filters WHERE gameid IS NOT NULL
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (1, NULL, 50);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty Plays_Games table with populated parent/sibling tables.
+-- Catches mutants without GROUP BY (which return 1 row of NULLs for global SUM) or wrong joins.
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (1, 'Solo', 'Han', 30, 'M', 300, 30, 'COR');
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (100, 'StarWars', 'Action');
+INSERT INTO "SportsInfo" ("StuID", "SportName", "HoursPerWeek", "GamesPlayed", "OnScholarship") VALUES (1, 'Podracing', 10, 5, 'Y');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL StuID in Plays_Games and identical SUM across multiple GameIDs.
+-- Catches mutants that INNER JOIN Student, group by StuID, or use DISTINCT on sum_hours_played.
+INSERT INTO "Student" ("StuID", "LName", "Fname", "Age", "Sex", "Major", "Advisor", "city_code") VALUES (10, 'Lee', 'Bruce', 25, 'M', 400, 40, 'HKG');
+
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (5, 'Tekken', 'Fighting');
+INSERT INTO "Video_Games" ("GameID", "GName", "GType") VALUES (6, 'StreetFighter', 'Fighting');
+
+-- Game 6 inserted before Game 5; both have exact same SUM (20)
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (10, 6, 20);
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (NULL, 5, 12);
+INSERT INTO "Plays_Games" ("StuID", "GameID", "Hours_Played") VALUES (10, 5, 8);
+
+-- Populated SportsInfo to catch unintended joins with SportsInfo causing fan-out
+INSERT INTO "SportsInfo" ("StuID", "SportName", "HoursPerWeek", "GamesPlayed", "OnScholarship") VALUES (10, 'Martial Arts', 20, 10, 'Y');
+INSERT INTO "SportsInfo" ("StuID", "SportName", "HoursPerWeek", "GamesPlayed", "OnScholarship") VALUES (10, 'Running', 5, 2, 'N');
+```

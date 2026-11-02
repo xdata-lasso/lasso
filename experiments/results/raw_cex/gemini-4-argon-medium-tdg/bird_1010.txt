@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Partial matches on forename ('Lewis' with different surname) and surname ('Hamilton' with different forename) to kill OR vs AND mutations and missing conjuncts.
+-- 2. Duplicate 'time' values for 'Lewis Hamilton' across different laps/races to kill SELECT DISTINCT mutations.
+-- 3. Disjoint 'time' values in pitStops and results to kill wrong table selection mutations.
+-- 4. Matching vs non-matching driverId to kill cross-join or wrong join key (e.g., raceId = driverId) mutations.
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://url.com/c1');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://url.com/s2021');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (10, 2021, 1, 1, 'British GP', '2021-07-18', '14:00:00', 'http://url.com/r10');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (20, 2021, 2, 1, 'Hungarian GP', '2021-08-01', '14:00:00', 'http://url.com/r20');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://url.com/d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'lewis_other', 'Lewis', 'Clark', 'http://url.com/d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'other_hamilton', 'Duncan', 'Hamilton', 'http://url.com/d3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'alonso', 'Fernando', 'Alonso', 'http://url.com/d10');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 1, 1, 1, '1:29.111', 89111);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 1, 2, 1, '1:29.111', 89111);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (20, 1, 1, 2, '1:18.222', 78222);
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 2, 1, 3, '1:30.333', 90333);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 3, 1, 4, '1:31.444', 91444);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 10, 1, 5, '1:32.555', 92555);
+
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mercedes', 'Mercedes', 'http://url.com/con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (10, 1, 1, 15, '14:30:00', '24.111', 24111);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (1, 10, 1, 1, 1, '1', 1, 25.0, 52, '1:25:00.000', 5100000, '1:27.000', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Driver 'Lewis Hamilton' exists in drivers table but has NO rows in lapTimes (kills LEFT JOIN / FULL OUTER JOIN mutations on drivers -> lapTimes).
+-- 2. Substring/prefix/case variations in forename and surname (kills LIKE '%Lewis%', LIKE '%Hamilton%', case-insensitive or reversed forename/surname checks).
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://url.com/c1');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://url.com/s2022');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2022, 1, 1, 'Italian GP', '2022-09-11', '13:00:00', 'http://url.com/r1');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton_no_laps', 'Lewis', 'Hamilton', 'http://url.com/d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'swapped_names', 'Hamilton', 'Lewis', 'http://url.com/d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'prefix_match', 'LewisJr', 'HamiltonSr', 'http://url.com/d3');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'case_mismatch', 'lewis', 'hamilton', 'http://url.com/d4');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 1, '1:21.002', 81002);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 3, 1, 2, '1:21.003', 81003);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 4, 1, 3, '1:21.004', 81004);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple distinct drivers named 'Lewis Hamilton' (e.g. different driverIds) both having lapTimes (kills LIMIT 1 on driver subquery or scalar subquery `driverId = (SELECT ...)` mutations).
+-- 2. NULL values in lapTimes.time as well as non-NULL values (kills WHERE time IS NOT NULL or COUNT(time) vs row projection mutations).
+-- 3. Lap numbers and positions matching driverId=1 to kill wrong join conditions (e.g., T1.lap = T2.driverId or T1.position = T2.driverId).
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa-Francorchamps', 'http://url.com/c1');
+INSERT INTO seasons (year, url) VALUES (2023, 'http://url.com/s2023');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (5, 2023, 1, 1, 'Belgian GP', '2023-07-30', '15:00:00', 'http://url.com/r5');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'ham1', 'Lewis', 'Hamilton', 'http://url.com/d10');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'ham2', 'Lewis', 'Hamilton', 'http://url.com/d20');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (30, 'verstappen', 'Max', 'Verstappen', 'http://url.com/d30');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (5, 10, 1, 2, '1:47.100', 107100);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (5, 10, 2, 1, NULL, NULL);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (5, 20, 1, 3, '1:48.200', 108200);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (5, 30, 10, 10, '1:45.999', 105999);
+```

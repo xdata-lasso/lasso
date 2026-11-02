@@ -1,0 +1,63 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. SELECT DISTINCT vs SELECT (multiple rows qualify, should collapse to 1 output row)
+-- 2. OR vs AND (summarket_rate >= 2.0 is TRUE, but market_rate = 2.0 is FALSE for all rows)
+-- 3. >= 2.0 vs > 2.0 boundary (summarket_rate is exactly 2.0)
+-- 4. Window function SUM(market_rate) OVER () vs non-windowed or partitioned by furniture_id
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Chair', 4, 1.2);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Table', 6, 0.8);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. First branch of OR (market_rate = 2.0 is TRUE for one row, while summarket_rate >= 2.0 is FALSE because total sum is 1.0)
+-- 2. Pre-filtering before window function (if WHERE market_rate = 2.0 is pushed below window function, sum becomes 2.0 instead of 1.0)
+-- 3. Negative market_rate handling
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Sofa', 10, 2.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Stool', 3, -1.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Both conditions in WHERE are FALSE (summarket_rate = 1.9 < 2.0, and no market_rate = 2.0) -> Expected empty result
+-- 2. Boundary condition just below 2.0
+-- 3. Duplicate market_rate values (tests SUM(market_rate) vs SUM(DISTINCT market_rate))
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Desk', 5, 0.95);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Lamp', 2, 0.95);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Both conditions in WHERE are TRUE for a row, and total sum > 2.0
+-- 2. Duplicate market_rate = 2.0 values (tests SUM vs SUM(DISTINCT), and DISTINCT in outer SELECT)
+-- 3. Unreferenced vs referenced rows in furniture_manufacte (kills mutants that erroneously INNER JOIN furniture_manufacte)
+INSERT INTO manufacturer (Manufacturer_ID, Open_Year, Name, Num_of_Factories, Num_of_Shops) VALUES (1, 1995.0, 'Acme Corp', 3, 10);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Bed', 8, 2.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Wardrobe', 12, 2.0);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (3, 'Shelf', 4, 0.5);
+INSERT INTO furniture_manufacte (Manufacturer_ID, Furniture_ID, Price_in_Dollar) VALUES (1, 1, 150.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. NULL handling in Market_Rate (when all Market_Rate are NULL, summarket_rate is NULL; tests COALESCE/0 mutations)
+-- 2. Empty result when table has rows with NULLs
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Cabinet', 6, NULL);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Mirror', 1, NULL);
+```
+
+```sql
+-- DATASET 6
+-- Tests:
+-- 1. Mix of NULL and non-NULL Market_Rate (kills AVG vs SUM, COUNT vs SUM, and NULL propagation issues)
+-- 2. Window function with ORDER BY mutation (e.g., SUM(market_rate) OVER (ORDER BY furniture_id) would produce running sums 1.5, 1.5, 3.0 instead of 3.0)
+-- 3. Partition by Name or Num_of_Component mutations (same Name/Num_of_Component vs different)
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (1, 'Bench', 4, 1.5);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (2, 'Bench', 4, NULL);
+INSERT INTO furniture (Furniture_ID, Name, Num_of_Component, Market_Rate) VALUES (3, 'Ottoman', 5, 1.5);
+```

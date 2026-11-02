@@ -1,0 +1,134 @@
+```sql
+-- DATASET 1
+-- Comprehensive dataset testing:
+-- 1. DISTINCT on translation (duplicate translations within the same set and across different sets).
+-- 2. INNER JOIN vs IN subquery (multiple 'Angel of Mercy' cards in the same set).
+-- 3. Card name filtering (exact match vs partial match, case sensitivity, other cards, NULL names).
+-- 4. SetCode matching (sets with no 'Angel of Mercy' cards).
+-- 5. NULL handling on translation and setCode.
+-- 6. Wrong column counting (COUNT(language) or COUNT(setCode) vs COUNT(DISTINCT translation)).
+
+INSERT INTO "sets" ("id", "code", "name") VALUES (1, 'S1', 'Set One');
+INSERT INTO "sets" ("id", "code", "name") VALUES (2, 'S2', 'Set Two');
+INSERT INTO "sets" ("id", "code", "name") VALUES (3, 'S3', 'Set Three');
+INSERT INTO "sets" ("id", "code", "name") VALUES (4, 'S4', 'Set Four');
+
+-- S1 has two 'Angel of Mercy' cards (e.g., normal and foil/alt art) -> tests JOIN multiplicity vs IN
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (1, 'u1', 'Angel of Mercy', 'S1');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (2, 'u2', 'Angel of Mercy', 'S1');
+
+-- S2 has one 'Angel of Mercy' card
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (3, 'u3', 'Angel of Mercy', 'S2');
+
+-- S3 has cards with similar names or different names, but NOT 'Angel of Mercy'
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (4, 'u4', 'Angel of Mercy ', 'S3');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (5, 'u5', 'angel of mercy', 'S3');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (6, 'u6', 'Archangel of Mercy', 'S3');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (7, 'u7', 'Serra Angel', 'S3');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (8, 'u8', NULL, 'S3');
+
+-- Card with 'Angel of Mercy' but NULL setCode
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (9, 'u9', 'Angel of Mercy', NULL);
+
+-- Translations for S1:
+-- 'Trans_A' is duplicated across two languages in S1 (tests DISTINCT translation vs DISTINCT language/id)
+-- Also includes a NULL translation (tests NOT translation IS NULL vs COUNT(*))
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'French', 'S1', 'Trans_A');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'Canadian French', 'S1', 'Trans_A');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'German', 'S1', 'Trans_B');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (4, 'Spanish', 'S1', NULL);
+
+-- Translations for S2:
+-- 'Trans_B' is shared with S1 (tests cross-set DISTINCT translation)
+-- 'Trans_C' is unique to S2
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (5, 'German', 'S2', 'Trans_B');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (6, 'Italian', 'S2', 'Trans_C');
+
+-- Translations for S3 (should be excluded because S3 has no exact 'Angel of Mercy'):
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (7, 'French', 'S3', 'Trans_D');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (8, 'German', 'S3', 'Trans_E');
+
+-- Translations for S4 (no cards in S4 at all):
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (9, 'Japanese', 'S4', 'Trans_F');
+
+-- Translation with NULL setCode:
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (10, 'Russian', NULL, 'Trans_G');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result / zero count behavior and boundary conditions:
+-- 'Angel of Mercy' exists, but its set only has NULL translations or no translations at all,
+-- while other sets have valid translations. Also tests empty string '' vs NULL.
+
+INSERT INTO "sets" ("id", "code", "name") VALUES (1, 'S1', 'Set One');
+INSERT INTO "sets" ("id", "code", "name") VALUES (2, 'S2', 'Set Two');
+INSERT INTO "sets" ("id", "code", "name") VALUES (3, 'S3', 'Set Three');
+
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (1, 'u1', 'Angel of Mercy', 'S1');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (2, 'u2', 'Angel of Mercy', 'S2');
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (3, 'u3', 'Other Card', 'S3');
+
+-- S1 only has NULL translations
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'French', 'S1', NULL);
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'German', 'S1', NULL);
+
+-- S2 has no rows in set_translations at all
+
+-- S3 has valid non-null translations, including an empty string
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'French', 'S3', 'Valid_Trans');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (4, 'German', 'S3', '');
+```
+
+```sql
+-- DATASET 3
+-- Tests empty string '' as a valid translation for 'Angel of Mercy' (ensuring '' is counted as a non-NULL translation),
+-- and tests when `cards.name` vs `foreign_data.name` or `cards.faceName` / `cards.asciiName` could be confused.
+
+INSERT INTO "sets" ("id", "code", "name") VALUES (1, 'S1', 'Set One');
+INSERT INTO "sets" ("id", "code", "name") VALUES (2, 'S2', 'Set Two');
+INSERT INTO "sets" ("id", "code", "name") VALUES (3, 'S3', 'Set Three');
+
+-- Card 1 has name = 'Angel of Mercy' in S1
+INSERT INTO "cards" ("id", "uuid", "name", "asciiName", "faceName", "setCode") VALUES (1, 'u1', 'Angel of Mercy', 'Wrong Ascii', 'Wrong Face', 'S1');
+
+-- Card 2 has asciiName and faceName = 'Angel of Mercy', but name is different (in S2)
+INSERT INTO "cards" ("id", "uuid", "name", "asciiName", "faceName", "setCode") VALUES (2, 'u2', 'Wrong Name', 'Angel of Mercy', 'Angel of Mercy', 'S2');
+
+-- Card 3 has foreign_data name = 'Angel of Mercy', but cards.name is different (in S3)
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (3, 'u3', 'Another Card', 'S3');
+INSERT INTO "foreign_data" ("id", "name", "uuid", "language") VALUES (1, 'Angel of Mercy', 'u3', 'English');
+
+-- S1 has an empty string translation and a normal translation
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'French', 'S1', '');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'German', 'S1', 'Ange de la Miséricorde');
+
+-- S2 and S3 have distinct translations that should NOT be counted
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'Spanish', 'S2', 'Angel S2');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (4, 'Italian', 'S3', 'Angel S3');
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between `sets.name` / `sets.code` and `set_translations.translation` / `cards.name`.
+-- Specifically catches mutants that join on the wrong columns (e.g., sets.name = 'Angel of Mercy' or set_translations.translation = 'Angel of Mercy').
+
+INSERT INTO "sets" ("id", "code", "name") VALUES (1, 'Angel of Mercy', 'Angel of Mercy');
+INSERT INTO "sets" ("id", "code", "name") VALUES (2, 'REAL_SET', 'Normal Set Name');
+
+-- Card in 'Angel of Mercy' set is NOT named 'Angel of Mercy'
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (1, 'u1', 'Llanowar Elves', 'Angel of Mercy');
+
+-- Card in 'REAL_SET' IS named 'Angel of Mercy'
+INSERT INTO "cards" ("id", "uuid", "name", "setCode") VALUES (2, 'u2', 'Angel of Mercy', 'REAL_SET');
+
+-- Translations for 'Angel of Mercy' set (should NOT be counted)
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (1, 'French', 'Angel of Mercy', 'Fake_T1');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (2, 'German', 'Angel of Mercy', 'Fake_T2');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (3, 'Spanish', 'Angel of Mercy', 'Angel of Mercy');
+
+-- Translations for 'REAL_SET' (only 1 distinct translation, though 3 rows)
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (4, 'French', 'REAL_SET', 'Real_T1');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (5, 'German', 'REAL_SET', 'Real_T1');
+INSERT INTO "set_translations" ("id", "language", "setCode", "translation") VALUES (6, 'Spanish', 'REAL_SET', 'Real_T1');
+```

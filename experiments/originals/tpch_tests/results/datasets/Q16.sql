@@ -1,0 +1,18 @@
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (0, 'Stephanie Miller', 'PM', 'win', 'LARGE PLATED', 47, 'human', 1011, 'Officer relate animal direction eye bag.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1004, 'Allen Robinson', 'everything', 'win', 'LARGE PLATED', 47, 'bar', 1028.0, 'Term herself law street class.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1005, 'Alyssa Gonzalez', 'surface', 'win', 'LARGE PLATED', 47, 'old', 1045.0, 'Decide environment view possible participant commercial.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1006, 'Kimberly Robinson', 'animal', 'win', 'LARGE PLATED', 47, 'finally', 1062.0, 'Clear here writer policy news.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1007, 'Rhonda Smith', 'show', 'win', 'LARGE PLATED', 47, 'themselves', 1079.0, 'Successful simply director allow firm environment.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1008, 'Melissa Peterson', 'machine', 'win', 'LARGE PLATED', 47, 'production', 1096.0, 'Tree note responsibility defense material.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1009, 'Tyler Rogers', 'not', 'win', 'LARGE PLATED', 47, 'present', 1113.0, 'Central cause seat much section investment on.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1010, 'Brent Abbott', 'capital', 'win', 'LARGE PLATED', 47, 'value', 1130.0, 'Despite young meeting before another body.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1024, 'Brent Abbott', 'capital', 'win', 'LARGE PLATED', 47, 'value', 1130.0, 'Despite young meeting before another body.');
+INSERT INTO "region" ("r_regionkey", "r_name", "r_comment") VALUES (1021, 'Carmen Rose', 'Institution deep much role cut find yet practice.');
+INSERT INTO "region" ("r_regionkey", "r_name", "r_comment") VALUES (1023, 'Carmen Rose', 'Institution deep much role cut find yet practice.');
+INSERT INTO "nation" ("n_nationkey", "n_name", "n_regionkey", "n_comment") VALUES (1019, 'Angelica Tucker', 1021, 'Within mouth call process.');
+INSERT INTO "nation" ("n_nationkey", "n_name", "n_regionkey", "n_comment") VALUES (1022, 'Angelica Tucker', 1021, 'Within mouth call process.');
+INSERT INTO "supplier" ("s_suppkey", "s_name", "s_address", "s_nationkey", "s_phone", "s_acctbal", "s_comment") VALUES (1001, 'Rebecca Henderson', '784 Erin Crescent Suite 514
+Mooretown, VA 94830', 1019, '282-781-4893x252', 1020, 'Affect upon these story film around there.');
+INSERT INTO "supplier" ("s_suppkey", "s_name", "s_address", "s_nationkey", "s_phone", "s_acctbal", "s_comment") VALUES (1026, 'Rebecca Henderson', '784 Erin Crescent Suite 514
+Mooretown, VA 94830', 1019, '282-781-4893x252', 1020, 'Affect upon these story film around there.');
+INSERT INTO "partsupp" ("ps_partkey", "ps_suppkey", "ps_availqty", "ps_supplycost", "ps_comment") VALUES (0, 1001, 1002, 1003, 'Agent every development say.');

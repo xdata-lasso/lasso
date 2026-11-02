@@ -1,0 +1,103 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (raceId = 592, time IS NOT NULL, dob IS NOT NULL) and ORDER BY dob ASC vs DESC / LIMIT 1.
+-- Includes decoy rows: wrong raceId, NULL time, NULL dob, and an older vs younger driver.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://s2000.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (592, 2000, 1, 1, 'Race 592', '2000-03-12', 'http://r592.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (593, 2000, 2, 1, 'Race 593', '2000-03-26', 'http://r593.com');
+
+-- Driver 1: Valid, oldest among valid (should be selected by Gold Query)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (1, 'd1', 'Oldest', 'Valid', '1970-05-15', 'http://d1.com');
+-- Driver 2: Valid, younger than Driver 1, but has smaller resultId, faster time, and position 1 (catches wrong ORDER BY column or DESC)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (2, 'd2', 'Younger', 'Valid', '1980-08-20', 'http://d2.com');
+-- Driver 3: Older than Driver 1, but has NULL time in race 592 (catches missing T2.time IS NOT NULL)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (3, 'd3', 'Oldest', 'NullTime', '1965-01-01', 'http://d3.com');
+-- Driver 4: Has NULL dob (catches missing T1.dob IS NOT NULL, since NULLs sort first in SQLite ASC)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (4, 'd4', 'Null', 'Dob', NULL, 'http://d4.com');
+-- Driver 5: Older than Driver 1, valid time, but in race 593 instead of 592 (catches missing raceId = 592)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (5, 'd5', 'Wrong', 'Race', '1960-01-01', 'http://d5.com');
+-- Driver 6: Older than Driver 1, not in results at all (catches LEFT JOIN without proper filtering)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (6, 'd6', 'No', 'Results', '1955-01-01', 'http://d6.com');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (10, 592, 2, 1, 1, 1, '1', 1, 10.0, 58, '1:30:00.000', 5400000, '1:25.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (20, 592, 1, 1, 2, 2, '2', 2, 6.0, 58, '+10.000', 5410000, '1:26.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (5, 592, 3, 1, 3, NULL, 'R', 3, 0.0, 20, NULL, NULL, '1:24.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (1, 592, 4, 1, 4, 3, '3', 4, 4.0, 58, '+20.000', 5420000, '1:27.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (2, 593, 5, 1, 1, 1, '1', 1, 10.0, 58, '1:29:00.000', 5340000, '1:23.000', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T1.dob ASC using T1.driverId ASC, and catches confusion between tables (e.g. driverStandings or qualifying vs results) or wrong join keys.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://s2000.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (592, 2000, 1, 1, 'Race 592', '2000-03-12', 'http://r592.com');
+
+-- Two drivers with the exact same DOB to test secondary sort on T1.driverId ASC
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (10, 'd10', 'First', 'Twin', '1975-06-15', 'http://d10.com');
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (20, 'd20', 'Second', 'Twin', '1975-06-15', 'http://d20.com');
+-- An older driver who is in driverStandings and qualifying and lapTimes for race 592, but NOT in results (or has NULL time in results)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (5, 'd5', 'Decoy', 'Tables', '1968-02-10', 'http://d5.com');
+
+-- Note: Driver 20 has smaller resultId (100) than Driver 10 (200), testing priority of T1.driverId over T2.resultId in ORDER BY
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (200, 592, 10, 1, 2, 2, '2', 2, 6.0, 58, '+5.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (100, 592, 20, 1, 1, 1, '1', 1, 10.0, 58, '1:30:00.000', 1);
+
+-- Populate other tables for Driver 5 in race 592 to catch wrong table joins
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (1, 592, 5, 10.0, 1, '1', 1);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 592, 5, 1, 5, 1, '1:20.000', '1:19.000', '1:18.000');
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (592, 5, 1, 1, '1:25.000', 85000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (592, 5, 1, 20, '14:30:00', '25.000', 25000);
+```
+
+```sql
+-- DATASET 3
+-- Tests date comparison edge cases (same birth year/month, different day) and catches OR vs AND mistakes in WHERE clause.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://s2000.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (592, 2000, 1, 1, 'Race 592', '2000-03-12', 'http://r592.com');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (590, 2000, 2, 1, 'Race 590', '2000-04-01', 'http://r590.com');
+
+-- Driver 101: Born Jan 2, 1972 (Valid)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (101, 'd101', 'JanTwo', 'SeventyTwo', '1972-01-02', 'http://d101.com');
+-- Driver 102: Born Jan 10, 1972 (Valid, same year and month, slightly younger)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (102, 'd102', 'JanTen', 'SeventyTwo', '1972-01-10', 'http://d102.com');
+-- Driver 103: Born Dec 31, 1971 (Older, in race 590 with NULL time - tests compound WHERE errors)
+INSERT INTO drivers (driverId, driverRef, forename, surname, dob, url) VALUES (103, 'd103', 'DecThirtyOne', 'SeventyOne', '1971-12-31', 'http://d103.com');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (592, 590, 103, 1, 1, 1, '1', 1, 10.0, 50, NULL, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (600, 592, 101, 1, 2, 2, '2', 2, 6.0, 50, '1:40:00.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, statusId) VALUES (601, 592, 102, 1, 1, 1, '1', 1, 10.0, 50, '1:39:00.000', 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests missing LIMIT 1 (multiple valid drivers with distinct and duplicate results) and ensures T1.forename, T1.surname are projected in the right order.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1.com');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://s2000.com');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1.com');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (592, 2000, 1, 1, 'Race 592', '2000-03-12', 'http://r592.com');
+
+-- Driver 1 has multiple result entries in race 592 (e.g. shared drive) and two other valid drivers exist
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (1, 'fangio', 2, 'FAN', 'Juan', 'Fangio', '1911-06-24', 'Argentine', 'http://d1.com');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (2, 'farina', 3, 'FAR', 'Nino', 'Farina', '1906-10-30', 'Italian', 'http://d2.com');
+INSERT INTO drivers (driverId, driverRef, number, code, forename, surname, dob, nationality, url) VALUES (3, 'ascari', 4, 'ASC', 'Alberto', 'Ascari', '1918-07-13', 'Italian', 'http://d3.com');
+
+-- Driver 2 is the oldest (1906-10-30) and has two valid results in race 592 (tests LIMIT 1 even for same driver, and T2.resultId tie-breaker)
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (50, 592, 2, 1, 3, 1, 1, '1', 1, 8.0, 70, '2:00:00.000', 7200000, 10, 1, '1:40.000', '180.0', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (40, 592, 2, 1, 3, 2, 2, '2', 2, 3.0, 70, '+15.000', 7215000, 12, 2, '1:41.000', '179.0', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (30, 592, 1, 1, 2, 3, 3, '3', 3, 4.0, 70, '+30.000', 7230000, 15, 3, '1:42.000', '178.0', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (20, 592, 3, 1, 4, 4, 4, '4', 4, 3.0, 70, '+45.000', 7245000, 20, 4, '1:43.000', '177.0', 1);
+```

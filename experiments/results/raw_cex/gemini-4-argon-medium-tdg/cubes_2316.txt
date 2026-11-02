@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(*) threshold boundaries (n = 0, n = 1, n = 2, n = 3),
+-- grouping by both (project_id, document_description) vs just project_id or just document_description,
+-- and DISTINCT vs ALL in the outer SELECT (Project 4 has two distinct descriptions each with >= 2 docs).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type 1', 'Desc 1');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Project Zero Docs');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (2, 'Project Split Descriptions');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (3, 'Project Boundary Two');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (4, 'Project Multiple Qualifying Groups');
+
+-- Project 2 has 2 documents total, but different descriptions (n=1 for each group).
+-- "Desc Shared" appears in Project 2 and Project 3 (tests grouping without project_id).
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (101, 2, 'T1', '2023-01-01', 'Doc 1', 'Desc A', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (102, 2, 'T1', '2023-01-02', 'Doc 2', 'Desc Shared', 'Other');
+
+-- Project 3 has 2 documents with the exact same description (n=2, hits boundary) and 1 with "Desc Shared".
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (103, 3, 'T1', '2023-01-03', 'Doc 3', 'Desc B', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (104, 3, 'T1', '2023-01-04', 'Doc 4', 'Desc B', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (105, 3, 'T1', '2023-01-05', 'Doc 5', 'Desc Shared', 'Other');
+
+-- Project 4 has two different descriptions that BOTH have >= 2 documents (n=2 and n=3).
+-- Reference query does not have DISTINCT, so Project 4 should be output twice.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (106, 4, 'T1', '2023-01-06', 'Doc 6', 'Desc C', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (107, 4, 'T1', '2023-01-07', 'Doc 7', 'Desc C', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (108, 4, 'T1', '2023-01-08', 'Doc 8', 'Desc D', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (109, 4, 'T1', '2023-01-09', 'Doc 9', 'Desc D', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (110, 4, 'T1', '2023-01-10', 'Doc 10', 'Desc D', 'Other');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY, COUNT(*) vs COUNT(column), INNER JOIN vs OUTER JOIN,
+-- and ORDER BY project_id, project_details NULLS LAST.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'Type 1', 'Desc 1');
+
+-- Inserted out of order by Project_ID, with NULL Project_Details to test ordering and NULL handling.
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (30, 'Zeta Project');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (10, NULL);
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (20, 'Alpha Project');
+
+-- Project 10 has 2 documents where Document_Description is NULL.
+-- In SQL, GROUP BY treats NULLs as equal, and COUNT(*) counts rows (n=2), whereas COUNT(document_description) would be 0.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (201, 10, 'T1', NULL, NULL, NULL, NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (202, 10, 'T1', NULL, NULL, NULL, NULL);
+
+-- Project 30 has 2 documents with identical non-null description, but different Document_Name / Document_Type_Code.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (203, 30, 'T1', '2023-05-01', 'Name X', 'Valid Desc', 'D1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (204, 30, NULL, '2023-05-02', 'Name Y', 'Valid Desc', 'D2');
+
+-- Documents with NULL Project_ID (orphan documents); should be excluded by INNER JOIN on LHS.project_id = RHS.project_id.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (205, NULL, 'T1', '2023-05-03', 'Orphan 1', 'Orphan Desc', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (206, NULL, 'T1', '2023-05-04', 'Orphan 2', 'Orphan Desc', 'O2');
+```
+
+```sql
+-- DATASET 3
+-- Tests mutants that erroneously join child tables (Statements, Documents_with_Expenses, Accounts)
+-- or confuse Document_Description with Document_Name, Other_Details, or Project_Details.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('T1', 'SameDocType', 'SameTypeDesc');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('B1', 'Budget 1');
+
+-- Two distinct projects sharing the exact same Project_Details string.
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Shared Project Details');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (2, 'Shared Project Details');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (3, 'Unique Project Details');
+
+-- Project 1 and Project 2 each have only 1 document with 'Shared Doc Desc'.
+-- If a mutant groups by Project_Details instead of Project_ID, it will falsely count n=2.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (301, 1, 'T1', '2023-01-01', 'SameName', 'Shared Doc Desc', 'SameOther');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (302, 2, 'T1', '2023-01-01', 'SameName', 'Shared Doc Desc', 'SameOther');
+
+-- Project 1 also has another document with the same Document_Name ('SameName') and Other_Details ('SameOther'),
+-- but a different Document_Description. Kills mutants grouping by Document_Name or Other_Details or Document_Type_Code.
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (303, 1, 'T1', '2023-01-01', 'SameName', 'Different Doc Desc', 'SameOther');
+
+-- Project 3 has 2 documents with the same Document_Description ('Qualifying Desc'),
+-- neither of which is in Statements or Documents_with_Expenses (kills mutants that INNER JOIN those tables).
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (304, 3, 'T1', '2023-02-01', 'N1', 'Qualifying Desc', 'O1');
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (305, 3, 'T1', '2023-02-02', 'N2', 'Qualifying Desc', 'O2');
+
+-- Doc 301 is a Statement with 2 Accounts (if a mutant joins Accounts, Doc 301 gets duplicated to n=2).
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (301, 'Stmt 301');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (1, 301, 'Acct 1');
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (2, 301, 'Acct 2');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (301, 'B1', 'Expense 301');
+```

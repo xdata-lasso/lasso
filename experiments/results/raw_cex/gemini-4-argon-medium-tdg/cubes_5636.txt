@@ -1,0 +1,53 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Tie at maximum date_formed with distinct organization names (catches LIMIT 1, missing ORDER BY, or DESC ordering).
+-- 2. Ties at maximum date_formed with identical organization names (catches missing DISTINCT).
+-- 3. Non-maximum date_formed values (catches inverted operators like <, <=, MIN instead of MAX).
+-- 4. NULL values in date_formed.
+-- 5. Unrelated tables left empty (catches unnecessary INNER JOINs with Organization_Contact_Individuals).
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (1, '2010-01-01 00:00:00', 'Alpha Org', 'VAT001');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (2, '2023-12-31 23:59:59', 'Zeta Corp', 'VAT002');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (3, '2023-12-31 23:59:59', 'Beta Ltd', 'VAT003');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (4, '2023-12-31 23:59:59', 'Beta Ltd', 'VAT004');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (5, NULL, 'Omega LLC', 'VAT005');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Single unique maximum date_formed, while a non-maximum date_formed has ties (catches GROUP BY date_formed HAVING COUNT(*) > 1).
+-- 2. Maximum date_formed has a lower organization_id and smaller uk_vat_number than older organizations (catches MAX(organization_id) or MAX(uk_vat_number) instead of MAX(date_formed)).
+-- 3. Populated Organization_Contact_Individuals with dates different from date_formed (catches using date_contact_from/to instead of date_formed).
+INSERT INTO "Individuals" ("individual_id", "individual_first_name", "individual_middle_name", "inidividual_phone", "individual_email", "individual_address", "individual_last_name") VALUES (1, 'John', 'A', '123456', 'john@example.com', '123 St', 'Doe');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (10, '2022-06-15 12:00:00', 'Gamma Inc', 'VAT100');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (20, '2018-03-10 08:00:00', 'Delta Co', 'VAT999');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (30, '2018-03-10 08:00:00', 'Epsilon Co', 'VAT888');
+INSERT INTO "Organization_Contact_Individuals" ("individual_id", "organization_id", "date_contact_from", "date_contact_to") VALUES (1, 10, '2010-01-01 00:00:00', '2011-01-01 00:00:00');
+INSERT INTO "Organization_Contact_Individuals" ("individual_id", "organization_id", "date_contact_from", "date_contact_to") VALUES (1, 20, '2025-01-01 00:00:00', '2026-01-01 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Same day timestamps differing only in time components (catches DATE() truncation mutations).
+-- 2. Organization with NULL organization_name at the max date alongside valid names.
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (1, '2021-05-20 09:00:00', 'Morning Org', 'VAT1');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (2, '2021-05-20 18:30:00', 'Evening Org', 'VAT2');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (3, '2021-05-20 18:30:00', NULL, 'VAT3');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. All rows have NULL date_formed (tests edge case where MAX(date_formed) is NULL; WHERE condition evaluates to UNKNOWN, returning empty set, catching queries without proper filtering or using COALESCE).
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (1, NULL, 'Null Org 1', 'VAT1');
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (2, NULL, 'Null Org 2', 'VAT2');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Single row in Organizations (tests boundary condition where LHS and RHS cross join has 1x1=1 row, catching strict inequality mutations like date_formed > maxdate_formed_other).
+INSERT INTO "Organizations" ("organization_id", "date_formed", "organization_name", "uk_vat_number") VALUES (1, '2020-02-29 00:00:00', 'Solo Organization', 'VATSOLO');
+```

@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- Tests anti-join (NOT EXISTS vs EXISTS/INNER JOIN), ORDER BY employee_name (out of order vs ID order),
+-- DISTINCT vs ALL (two non-circulating employees with the exact same name 'Zack'),
+-- and HAVING COUNT(*) = 1 vs 0 (Employee 1 has 1 history, Employee 2 has 2 histories).
+INSERT INTO Roles (role_code, role_description) VALUES ('R1', 'Manager');
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Report');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Active');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA1', 'FedEx', 'Courier');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, 'SA1', 'DS1', 'DT1', '2023-01-01', 'R100', 'Doc 1');
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (2, 'SA1', 'DS1', 'DT1', '2023-01-02', 'R101', 'Doc 2');
+
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (1, 1, 'Draft 1');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (2, 2, 'Draft 2');
+
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (1, 1, 1);
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (2, 2, 2);
+
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (1, 'R1', 'Charlie', 'Has 1 circulation');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (2, 'R1', 'Alice', 'Has 2 circulations');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (3, 'R1', 'Zack', 'No circulation 1');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (4, 'R1', 'Bob', 'No circulation 2');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (5, 'R1', 'Zack', 'No circulation 3 - duplicate name');
+
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 1, 1, 1);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 1, 1, 2);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (2, 2, 2, 2);
+```
+
+```sql
+-- DATASET 2
+-- Tests NOT IN vs NOT EXISTS with NULLs, and LEFT JOIN IS NULL mistakes:
+-- 1. Circulation_History contains a row with NULL employee_id (kills NOT IN (SELECT employee_id ...)).
+-- 2. Employees contains rows with NULL role_code, NULL employee_name, and NULL other_details (kills INNER JOIN Roles or LEFT JOIN WHERE other_col IS NULL).
+-- 3. Employees who ARE in Circulation_History share the same employee_name ('SharedName') as an employee NOT in Circulation_History (kills EXCEPT on employee_name).
+INSERT INTO Roles (role_code, role_description) VALUES ('R1', 'Staff');
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Memo');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Pending');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA1', 'UPS', 'Ground');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (10, 'SA1', 'DS1', 'DT1', '2023-02-01', 'R200', 'Doc 10');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (10, 10, 'Draft 10');
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (10, 10, 10);
+
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (10, 'R1', 'SharedName', 'In history');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (20, NULL, 'SharedName', NULL);
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (30, NULL, NULL, 'Null name not in history');
+
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (10, 10, 10, 10);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (10, 10, 10, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests wrong join column mutations (e.g. matching employee_id against document_id, draft_number, or copy_number).
+-- Employee 1 is NOT in Circulation_History, but Circulation_History has document_id=1, draft_number=1, copy_number=1 for Employee 2.
+-- Employee 2 IS in Circulation_History.
+INSERT INTO Roles (role_code, role_description) VALUES ('R1', 'Admin');
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Contract');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Signed');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA1', 'DHL', 'Express');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (1, 'SA1', 'DS1', 'DT1', '2023-03-01', 'R300', 'Doc 1');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (1, 1, 'Draft 1');
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (1, 1, 1);
+
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (1, 'R1', 'TargetEmp', 'ID matches doc/draft/copy 1, but no history');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (2, 'R1', 'OtherEmp', 'Has history on doc/draft/copy 1');
+
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (1, 1, 1, 2);
+```
+
+```sql
+-- DATASET 4
+-- Boundary condition: Empty Circulation_History table.
+-- All employees should be returned, sorted by employee_name.
+INSERT INTO Roles (role_code, role_description) VALUES ('R1', 'Clerk');
+
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (1, 'R1', 'Xavier', 'Details X');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (2, 'R1', 'Amanda', 'Details A');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (3, 'R1', 'Mona', 'Details M');
+```
+
+```sql
+-- DATASET 5
+-- Boundary condition: All employees are present in Circulation_History.
+-- Reference query must return an empty result set.
+INSERT INTO Roles (role_code, role_description) VALUES ('R1', 'Director');
+INSERT INTO Ref_Document_Types (document_type_code, document_type_description) VALUES ('DT1', 'Policy');
+INSERT INTO Ref_Document_Status (document_status_code, document_status_description) VALUES ('DS1', 'Archived');
+INSERT INTO Ref_Shipping_Agents (shipping_agent_code, shipping_agent_name, shipping_agent_description) VALUES ('SA1', 'USPS', 'Mail');
+
+INSERT INTO Documents (document_id, shipping_agent_code, document_status_code, document_type_code, receipt_date, receipt_number, other_details) VALUES (100, 'SA1', 'DS1', 'DT1', '2023-05-01', 'R500', 'Doc 100');
+INSERT INTO Document_Drafts (document_id, draft_number, draft_details) VALUES (100, 1, 'Draft 1');
+INSERT INTO Draft_Copies (document_id, draft_number, copy_number) VALUES (100, 1, 1);
+
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (1, 'R1', 'OnlyEmp1', 'In history');
+INSERT INTO Employees (employee_id, role_code, employee_name, other_details) VALUES (2, 'R1', 'OnlyEmp2', 'Also in history');
+
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (100, 1, 1, 1);
+INSERT INTO Circulation_History (document_id, draft_number, copy_number, employee_id) VALUES (100, 1, 1, 2);
+```

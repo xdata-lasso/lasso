@@ -1,0 +1,49 @@
+-- Schema DDL
+CREATE TABLE "FOLLOWS" (
+    "F1" INT,
+    "F2" INT,
+    PRIMARY KEY ("F1", "F2"),
+    FOREIGN KEY ("F2") REFERENCES "USER_PROFILES"("UID"),
+    FOREIGN KEY ("F1") REFERENCES "USER_PROFILES"("UID")
+);
+CREATE TABLE "TWEETS" (
+    "ID" INT,
+    "UID" INT,
+    "TEXT" TEXT,
+    "CREATEDATE" DATETIME,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("UID") REFERENCES "USER_PROFILES"("UID")
+);
+CREATE TABLE "USER_PROFILES" (
+    "UID" INT,
+    "NAME" TEXT,
+    "EMAIL" TEXT,
+    "PARTITIONID" INT,
+    "FOLLOWERS" INT,
+    PRIMARY KEY ("UID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO FOLLOWS VALUES (0, -2);
+INSERT INTO FOLLOWS VALUES (-2, -2);
+INSERT INTO TWEETS VALUES (0, -2, 0, 0);
+INSERT INTO TWEETS VALUES (1, -2, 0, 0);
+INSERT INTO USER_PROFILES VALUES (0, 1139211414286835764, 0, -1, 0);
+INSERT INTO USER_PROFILES VALUES (-2, 1139211414286835764, 0, -1, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT UID AS PARTITIONID FROM USER_PROFILES WHERE (NAME = 'Iron Man') ORDER BY partitionid, user_profiles.uid NULLS LAST;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT partitionid FROM user_profiles WHERE name = 'Iron Man';
+
+/*
+Prediction Result:
+*/

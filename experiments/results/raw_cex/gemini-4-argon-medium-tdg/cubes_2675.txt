@@ -1,0 +1,42 @@
+```sql
+-- DATASET 1
+-- Empty submission table: tests the critical semantic difference between COUNT(*) OVER () (returns 0 rows) and aggregate COUNT(*) (returns 1 row with value 0).
+INSERT INTO "workshop" ("Workshop_ID", "Date", "Venue", "Name") VALUES (1, '2023-05-01', 'Room A', 'AI Workshop');
+```
+
+```sql
+-- DATASET 2
+-- Multiple submissions with NULLs, duplicates, and partial FK references in Acceptance.
+-- Tests:
+-- 1. DISTINCT removal (window function without DISTINCT returns 3 rows of '3' instead of 1 row of '3').
+-- 2. COUNT(col) vs COUNT(*) (NULL values in Scores, Author, College will reduce count if a specific column is counted).
+-- 3. COUNT(DISTINCT col) vs COUNT(*) (duplicate values in non-PK columns will reduce count).
+-- 4. Unnecessary INNER JOIN with Acceptance (Submission 2 is not in Acceptance, Submission 1 is in Acceptance twice).
+-- 5. Querying the wrong table (workshop has 2 rows, Acceptance has 2 rows, submission has 3 rows).
+INSERT INTO "workshop" ("Workshop_ID", "Date", "Venue", "Name") VALUES (10, '2023-01-01', 'Hall 1', 'DB Systems');
+INSERT INTO "workshop" ("Workshop_ID", "Date", "Venue", "Name") VALUES (20, '2023-01-02', 'Hall 2', 'Software Eng');
+
+INSERT INTO "submission" ("Submission_ID", "Scores", "Author", "College") VALUES (1, 95.5, 'Alice', 'MIT');
+INSERT INTO "submission" ("Submission_ID", "Scores", "Author", "College") VALUES (2, NULL, 'Alice', 'MIT');
+INSERT INTO "submission" ("Submission_ID", "Scores", "Author", "College") VALUES (3, 95.5, NULL, NULL);
+
+INSERT INTO "Acceptance" ("Submission_ID", "Workshop_ID", "Result") VALUES (1, 10, 'Accepted');
+INSERT INTO "Acceptance" ("Submission_ID", "Workshop_ID", "Result") VALUES (1, 20, 'Rejected');
+```
+
+```sql
+-- DATASET 3
+-- Single submission row with all nullable columns set to NULL and negative/zero edge values.
+-- Tests boundary condition of count = 1, and catches mutants that filter out NULLs or specific score thresholds (e.g., Scores > 0).
+INSERT INTO "submission" ("Submission_ID", "Scores", "Author", "College") VALUES (0, -10.0, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Submissions with varied values to catch PARTITION BY or ORDER BY injected inside the OVER() clause.
+-- If a mutant uses COUNT(*) OVER (ORDER BY Scores) or COUNT(*) OVER (PARTITION BY College), it will produce multiple distinct counts (e.g., 1, 2, 3, 4) instead of a single row with 4.
+INSERT INTO "submission" ("Submission_ID", "Scores", "Author", "College") VALUES (1, 10.0, 'Bob', 'Stanford');
+INSERT INTO "submission" ("Submission_ID", "Scores", "Author", "College") VALUES (2, 20.0, 'Charlie', 'Berkeley');
+INSERT INTO "submission" ("Submission_ID", "Scores", "Author", "College") VALUES (3, 30.0, 'David', 'Harvard');
+INSERT INTO "submission" ("Submission_ID", "Scores", "Author", "College") VALUES (4, 40.0, 'Eve', 'CMU');
+```

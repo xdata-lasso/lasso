@@ -1,0 +1,46 @@
+-- Schema DDL
+CREATE TABLE "GYMNAST" (
+    "GYMNAST_ID" INT,
+    "FLOOR_EXERCISE_POINTS" FLOAT,
+    "POMMEL_HORSE_POINTS" FLOAT,
+    "RINGS_POINTS" FLOAT,
+    "VAULT_POINTS" FLOAT,
+    "PARALLEL_BARS_POINTS" FLOAT,
+    "HORIZONTAL_BAR_POINTS" FLOAT,
+    "TOTAL_POINTS" FLOAT,
+    PRIMARY KEY ("GYMNAST_ID"),
+    FOREIGN KEY ("GYMNAST_ID") REFERENCES "PEOPLE"("PEOPLE_ID")
+);
+CREATE TABLE "PEOPLE" (
+    "PEOPLE_ID" INT,
+    "NAME" TEXT,
+    "AGE" FLOAT,
+    "HEIGHT" FLOAT,
+    "HOMETOWN" TEXT,
+    PRIMARY KEY ("PEOPLE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO GYMNAST VALUES (-1, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO GYMNAST VALUES (0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO PEOPLE VALUES (-1, 0, 20, 0, 1);
+INSERT INTO PEOPLE VALUES (0, 0, 20, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT hometown FROM people WHERE (age < 23.0 AND age = 20.0) ORDER BY hometown;
+
+/*
+Gold Result:
+('0',)
+('1',)
+*/
+
+-- Prediction Query
+SELECT Hometown FROM people WHERE Age > 23 INTERSECT SELECT Hometown FROM people WHERE Age < 20;
+
+/*
+Prediction Result:
+*/

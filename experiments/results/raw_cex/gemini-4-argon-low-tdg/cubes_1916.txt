@@ -1,0 +1,97 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering (DESC vs ASC), LIMIT 1 vs no limit, and column confusion (Document_ID vs Location_Code).
+-- Also includes unreferenced rows in Ref_Locations to catch queries querying Ref_Locations instead of Document_Locations.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Report', 'Annual Report');
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-01-01', 1);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-01-02', 2);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-01-03', 3);
+
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_A', 'Alpha', 'First');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_B', 'Beta', 'Second');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_Z', 'Zeta', 'Unreferenced Max');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_0', 'Zero', 'Unreferenced Min');
+
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (10, '2023-01-03', 'DT1', 'Doc 10', 'Desc 10', 'None');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (20, '2023-01-01', 'DT1', 'Doc 20', 'Desc 20', 'None');
+
+-- LOC_B is lexicographically greater than LOC_A, but has a smaller Document_ID (10 vs 20) and earlier dates.
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (20, 'LOC_A', '2023-01-02', '2023-01-03');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (10, 'LOC_B', '2023-01-01', '2023-01-02');
+```
+
+```sql
+-- DATASET 2
+-- Tests frequency-based ordering mistakes (e.g., mutant queries sorting by COUNT(*) DESC instead of location_code DESC).
+-- LOC_A appears 3 times (most frequent), while LOC_C appears 1 time (lexicographically largest).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Contract', 'Legal');
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-05-01', 1);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-05-02', 2);
+
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_A', 'Archive A', 'Main');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_B', 'Archive B', 'Secondary');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_C', 'Archive C', 'Tertiary');
+
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (1, '2023-05-01', 'DT1', 'D1', 'Desc', 'D');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (2, '2023-05-01', 'DT1', 'D2', 'Desc', 'D');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (3, '2023-05-01', 'DT1', 'D3', 'Desc', 'D');
+
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (1, 'LOC_A', '2023-05-01', '2023-05-02');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (2, 'LOC_A', '2023-05-01', '2023-05-02');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (3, 'LOC_A', '2023-05-01', '2023-05-02');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (1, 'LOC_B', '2023-05-02', '2023-05-02');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (2, 'LOC_B', '2023-05-02', '2023-05-02');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (3, 'LOC_C', '2023-05-02', '2023-05-02');
+```
+
+```sql
+-- DATASET 3
+-- Tests lexicographical string sorting vs numeric sorting on Location_Code ('9' > '100' in TEXT),
+-- and tests NULL handling in nullable columns (Date_in_Locaton_To) to catch unintended IS NOT NULL filters.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Memo', 'Internal');
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-10-10', 10);
+
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('100', 'Room 100', 'First Floor');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('9', 'Room 9', 'Ground Floor');
+
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (100, '2023-10-10', 'DT1', 'DocA', NULL, NULL);
+
+-- '9' is lexicographically greater than '100'. Also Date_in_Locaton_To is NULL.
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (100, '100', '2023-10-10', '2023-10-10');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (100, '9', '2023-10-10', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests duplicates in the top Location_Code (to kill mutants that omit LIMIT 1 without DISTINCT)
+-- and tests extraneous joins with Documents_to_be_Destroyed (the top location document is NOT in Documents_to_be_Destroyed).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Invoice', 'Billing');
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-01-01', 1);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-02-01', 32);
+
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('R1', 'Admin', 'Administrator');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (1, 'R1', 'Alice', 'F', '1990-01-01', 'None');
+
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_LOW', 'Low Vault', 'Basement');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_TOP', 'Top Vault', 'Penthouse');
+
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (1, '2023-01-01', 'DT1', 'Destroyed Doc', 'Desc', 'None');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (2, '2023-01-01', 'DT1', 'Active Doc', 'Desc', 'None');
+
+INSERT INTO "Documents_to_be_Destroyed" ("Document_ID", "Actual_Destruction_Date", "Planned_Destruction_Date", "Destruction_Authorised_by_Employee_ID", "Destroyed_by_Employee_ID", "Other_Details") VALUES (1, '2023-02-01', '2023-02-01', 1, 1, 'Destroyed');
+
+-- Doc 1 is in LOC_LOW (and in Documents_to_be_Destroyed).
+-- Doc 2 is in LOC_TOP twice (and NOT in Documents_to_be_Destroyed).
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (1, 'LOC_LOW', '2023-01-01', '2023-02-01');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (2, 'LOC_TOP', '2023-01-01', '2023-02-01');
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (2, 'LOC_TOP', '2023-02-01', '2023-02-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests empty Document_Locations table (edge case: should return 0 rows, whereas MAX(location_code) without GROUP BY returns 1 row with NULL).
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Policy', 'HR');
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-01-01', 1);
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_ONLY', 'Only Location', 'Desc');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (1, '2023-01-01', 'DT1', 'Doc 1', 'Desc', 'None');
+```

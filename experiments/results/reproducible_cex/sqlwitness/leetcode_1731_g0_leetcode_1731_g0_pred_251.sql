@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE "Employees" ("employee_id" INTEGER PRIMARY KEY, "name" TEXT(255), "reports_to" INTEGER, "age" INTEGER, FOREIGN KEY ("reports_to") REFERENCES "Employees" ("employee_id"), CHECK ("age" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO employees (employee_id, name, reports_to, age) VALUES (1, 'default1', NULL, 1), (0, 'default1', NULL, 1), (-1, 'default1', 2, 1), (2, NULL, 1, NULL), (3, NULL, -1, 2), (4, NULL, 2, 2);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT TB1.EMPLOYEE_ID, TB1.NAME, COUNT(*) AS REPORTS_COUNT, ROUND(AVG(TB2.AGE), 0) AS AVERAGE_AGE FROM EMPLOYEES AS TB1 JOIN EMPLOYEES AS TB2 ON TB1.EMPLOYEE_ID = TB2.REPORTS_TO GROUP BY 1 ORDER BY TB1.EMPLOYEE_ID, TB1.NAME NULLS LAST, REPORTS_COUNT NULLS LAST, AVERAGE_AGE NULLS LAST;
+
+/*
+Gold Result:
+(-1, 'default1', 1, 2.0)
+(1, 'default1', 1, None)
+(2, None, 2, 2.0)
+*/
+
+-- Prediction Query
+WITH COMBINE AS (SELECT M.EMPLOYEE_ID, M.NAME, E.AGE FROM EMPLOYEES AS M LEFT JOIN EMPLOYEES AS E ON E.REPORTS_TO = M.EMPLOYEE_ID WHERE NOT E.AGE IS NULL) SELECT EMPLOYEE_ID, NAME, COUNT(AGE) AS REPORTS_COUNT, ROUND(AVG(AGE)) AS AVERAGE_AGE FROM COMBINE GROUP BY EMPLOYEE_ID ORDER BY EMPLOYEE_ID, NAME NULLS LAST, REPORTS_COUNT NULLS LAST, AVERAGE_AGE NULLS LAST;
+
+/*
+Prediction Result:
+(-1, 'default1', 1, 2.0)
+(2, None, 2, 2.0)
+*/

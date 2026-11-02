@@ -1,0 +1,60 @@
+```sql
+-- DATASET 1
+-- Tests behavior when Catalog_Contents is completely empty (returns 0), while parent tables are populated.
+-- Catches mutants querying the wrong table, or using GROUP BY (which returns empty set instead of 0).
+INSERT INTO "Attribute_Definitions" ("attribute_id", "attribute_name", "attribute_data_type") VALUES (1, 'Color', 'TEXT');
+INSERT INTO "Catalogs" ("catalog_id", "catalog_name", "catalog_publisher", "date_of_publication", "date_of_latest_revision") VALUES (1, 'Main Catalog', 'Publisher A', '2023-01-01 00:00:00', '2023-06-01 00:00:00');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (1, 1, 'Root Level');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (2, 1, 'Sub Level');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling, DISTINCT vs ALL, and INNER JOIN vs standalone table counting.
+-- Row 1 has NULLs in all non-PK columns (including the FK catalog_level_number).
+-- Row 2 and Row 3 have duplicate values across non-PK columns.
+-- Child table Catalog_Contents_Additional_Attributes has multiple entries for Row 2 and none for Row 3 (catches unnecessary joins).
+INSERT INTO "Catalogs" ("catalog_id", "catalog_name", "catalog_publisher", "date_of_publication", "date_of_latest_revision") VALUES (10, 'Winter Catalog', 'Pub B', '2022-01-01 00:00:00', '2022-02-01 00:00:00');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (100, 10, 'Apparel');
+INSERT INTO "Attribute_Definitions" ("attribute_id", "attribute_name", "attribute_data_type") VALUES (5, 'Material', 'TEXT');
+
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "product_stock_number", "price_in_dollars", "price_in_euros", "price_in_pounds", "capacity", "length", "height", "width") VALUES (1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "product_stock_number", "price_in_dollars", "price_in_euros", "price_in_pounds", "capacity", "length", "height", "width") VALUES (2, 100, 1, 1, 3, 'Jacket', 'STK-01', 50.0, 45.0, 40.0, '1L', '10cm', '20cm', '5cm');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "product_stock_number", "price_in_dollars", "price_in_euros", "price_in_pounds", "capacity", "length", "height", "width") VALUES (3, 100, 1, 1, 3, 'Jacket', 'STK-01', 50.0, 45.0, 40.0, '1L', '10cm', '20cm', '5cm');
+
+INSERT INTO "Catalog_Contents_Additional_Attributes" ("catalog_level_number", "catalog_entry_id", "attribute_id", "attribute_value") VALUES (100, 2, 5, 'Cotton');
+INSERT INTO "Catalog_Contents_Additional_Attributes" ("catalog_level_number", "catalog_entry_id", "attribute_id", "attribute_value") VALUES (100, 2, 5, 'Polyester');
+```
+
+```sql
+-- DATASET 3
+-- Tests aggregation functions (COUNT vs SUM/AVG/MAX/MIN) and arbitrary WHERE filters.
+-- Uses negative, zero, and large IDs/prices so SUM(catalog_entry_id) or COUNT(price > 0) will differ from COUNT(*).
+INSERT INTO "Catalogs" ("catalog_id", "catalog_name", "catalog_publisher", "date_of_publication", "date_of_latest_revision") VALUES (1, 'Tech Catalog', 'TechPub', '2020-01-01 00:00:00', '2021-01-01 00:00:00');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (10, 1, 'Hardware');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (20, 1, 'Software');
+
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "product_stock_number", "price_in_dollars", "price_in_euros", "price_in_pounds", "capacity", "length", "height", "width") VALUES (-5, 10, 0, 0, 0, 'Item A', 'S1', 0.0, 0.0, 0.0, '0', '0', '0', '0');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "product_stock_number", "price_in_dollars", "price_in_euros", "price_in_pounds", "capacity", "length", "height", "width") VALUES (0, 10, -5, -5, 100, 'Item B', 'S2', -10.5, -9.5, -8.5, '10', '10', '10', '10');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "product_stock_number", "price_in_dollars", "price_in_euros", "price_in_pounds", "capacity", "length", "height", "width") VALUES (100, 20, 0, 0, 200, 'Item C', 'S3', 999.99, 888.88, 777.77, '100', '100', '100', '100');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "product_stock_number", "price_in_dollars", "price_in_euros", "price_in_pounds", "capacity", "length", "height", "width") VALUES (200, 20, 100, 100, NULL, 'Item D', 'S4', 1.0, 1.0, 1.0, '5', '5', '5', '5');
+```
+
+```sql
+-- DATASET 4
+-- Tests single row edge case where ID is not 1 (catches mutants returning catalog_entry_id instead of COUNT(*)).
+-- Ensures all tables have different row counts (Catalogs: 2, Catalog_Structure: 3, Catalog_Contents: 1, Attribute_Definitions: 4, Additional_Attributes: 0).
+INSERT INTO "Attribute_Definitions" ("attribute_id", "attribute_name", "attribute_data_type") VALUES (1, 'A', 'T');
+INSERT INTO "Attribute_Definitions" ("attribute_id", "attribute_name", "attribute_data_type") VALUES (2, 'B', 'T');
+INSERT INTO "Attribute_Definitions" ("attribute_id", "attribute_name", "attribute_data_type") VALUES (3, 'C', 'T');
+INSERT INTO "Attribute_Definitions" ("attribute_id", "attribute_name", "attribute_data_type") VALUES (4, 'D', 'T');
+
+INSERT INTO "Catalogs" ("catalog_id", "catalog_name", "catalog_publisher", "date_of_publication", "date_of_latest_revision") VALUES (1, 'Cat 1', 'Pub 1', '2021-01-01', '2021-01-02');
+INSERT INTO "Catalogs" ("catalog_id", "catalog_name", "catalog_publisher", "date_of_publication", "date_of_latest_revision") VALUES (2, 'Cat 2', 'Pub 2', '2021-01-01', '2021-01-02');
+
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (1, 1, 'L1');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (2, 1, 'L2');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (3, 2, 'L3');
+
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "product_stock_number", "price_in_dollars", "price_in_euros", "price_in_pounds", "capacity", "length", "height", "width") VALUES (42, 3, 42, 42, 42, 'Solo Item', 'SOLO-42', 42.0, 42.0, 42.0, '42', '42', '42', '42');
+```

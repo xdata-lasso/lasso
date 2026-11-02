@@ -1,0 +1,120 @@
+```sql
+-- DATASET 1
+-- Tests basic qualification, <= vs < boundary, DISTINCT vs non-DISTINCT output, and T2.date vs T1.date confusion.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1000, 1.0, 1.0, 1, 1, 1);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 1, 'POPLATEK MESICNE', '1995-03-10');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 1, 'POPLATEK MESICNE', '1998-06-15');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (103, 1, 'POPLATEK MESICNE', '1996-01-20');
+
+-- 1998 transactions: amounts are 100, 150, 200, 350. Sum = 800, Count = 4, AVG = 200.0
+-- Account 101 has two qualifying transactions (100 and 150 < 200) to test duplicate account_id output (kills DISTINCT mutants).
+-- Note: Account 101's creation date is in 1995 (kills mutants filtering on T2.date = '1998').
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 101, '1998-02-10', 'VYDAJ', 'VYBER KARTOU', 100, 5000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 101, '1998-04-12', 'VYDAJ', 'VYBER KARTOU', 150, 4850, NULL, NULL, NULL);
+
+-- Boundary test: amount = 200 (exactly equal to AVG). Should NOT be returned (kills <= and = mutants).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (3, 102, '1998-07-20', 'VYDAJ', 'VYBER KARTOU', 200, 3000, NULL, NULL, NULL);
+
+-- High value transaction to pull the 1998 average up to 200.0 (kills > and >= mutants).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (4, 103, '1998-11-05', 'VYDAJ', 'VYBER KARTOU', 350, 2000, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests subquery scope: Subquery AVG must include ALL 1998 operations (not just 'VYBER KARTOU') and must exclude non-1998 transactions.
+-- Also tests outer query filtering on operation and year.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1000, 1.0, 1.0, 1, 1, 1);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (201, 1, 'POPLATEK MESICNE', '1993-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (202, 1, 'POPLATEK MESICNE', '1993-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (203, 1, 'POPLATEK MESICNE', '1993-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (204, 1, 'POPLATEK MESICNE', '1993-01-01');
+
+-- 1998 'VYBER KARTOU' transactions: 100 and 200. (AVG of only 'VYBER KARTOU' in 1998 is 150).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 201, '1998-01-15', 'VYDAJ', 'VYBER KARTOU', 100, 1000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 202, '1998-05-15', 'VYDAJ', 'VYBER KARTOU', 200, 1000, NULL, NULL, NULL);
+
+-- 1998 'VKLAD' transaction with large amount: 900.
+-- Pulls overall 1998 AVG to (100 + 200 + 900 + 50) / 4 = 312.5.
+-- Because 200 < 312.5, account 202 MUST be returned. (If mutant restricts subquery to 'VYBER KARTOU', AVG is 150 and 202 is missed).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (3, 203, '1998-08-15', 'PRIJEM', 'VKLAD', 900, 5000, NULL, NULL, NULL);
+
+-- 1998 transaction with small amount (50) but wrong operation ('VYBER') and another with NULL operation.
+-- Kills mutants that omit or alter the outer operation = 'VYBER KARTOU' filter.
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (4, 204, '1998-09-15', 'VYDAJ', 'VYBER', 50, 1000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (5, 204, '1998-10-15', 'VYDAJ', NULL, 50, 950, NULL, NULL, NULL);
+
+-- 1997 transaction with 'VYBER KARTOU' and small amount (10).
+-- Kills mutants that omit the outer year '1998' filter.
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (6, 204, '1997-12-31', 'VYDAJ', 'VYBER KARTOU', 10, 1000, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests subquery year filter and correlated subquery mutations.
+-- Ensures non-1998 transactions do not corrupt the subquery AVG, and ensures AVG is global across all accounts (not correlated per account).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1000, 1.0, 1.0, 1, 1, 1);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (301, 1, 'POPLATEK MESICNE', '1998-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (302, 1, 'POPLATEK MESICNE', '1998-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (303, 1, 'POPLATEK MESICNE', '1998-01-01');
+
+-- 1998 transactions:
+-- Account 301 has one 'VYBER KARTOU' of 250. (Per-account AVG for 301 is 250, so correlated < AVG would fail to return 301).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 301, '1998-03-01', 'VYDAJ', 'VYBER KARTOU', 250, 2000, NULL, NULL, NULL);
+
+-- Account 302 has 'VYBER KARTOU' of 400, and another 1998 transaction of 850.
+-- Per-account AVG for 302 is (400 + 850)/2 = 625. (If correlated, 302 would be returned because 400 < 625).
+-- Global 1998 AVG is (250 + 400 + 850) / 3 = 500.0. Under global AVG, both 301 (250 < 500) and 302 (400 < 500) are returned!
+-- Wait: To strictly separate correlated vs uncorrelated, let's make global 1998 AVG = 300.
+-- Let's adjust: trans 2 has amount 400, trans 3 has amount 250.
+-- Global 1998: 250 (acc 301), 400 (acc 302), 250 (acc 303). Global AVG = 900 / 3 = 300.
+-- Acc 301: 250 < 300 (True globally, False if correlated since 250 < 250 is False).
+-- Acc 302: has 400 ('VYBER KARTOU') and 1000 ('VKLAD') in 1997? No, let's keep it simple:
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 302, '1998-06-01', 'VYDAJ', 'VYBER KARTOU', 400, 2000, NULL, NULL, NULL);
+
+-- In 1997, there are many tiny transactions (amount 10) that would drag the all-time AVG down below 250 if the subquery omits the 1998 filter.
+-- 1998 sum = 250 + 400 = 650, count = 2, 1998 AVG = 325.0. (Acc 301 qualifies: 250 < 325; Acc 302 does not: 400 >= 325).
+-- All-time sum (with 1997 rows below) = 650 + 10 + 10 + 10 = 680, count = 5, all-time AVG = 136.0. (If subquery omits year filter, Acc 301 fails: 250 >= 136).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (3, 303, '1997-01-01', 'PRIJEM', 'VKLAD', 10, 100, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (4, 303, '1997-02-01', 'PRIJEM', 'VKLAD', 10, 110, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (5, 303, '1997-03-01', 'PRIJEM', 'VKLAD', 10, 120, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests floating-point AVG precision vs integer division, and column confusion (amount vs balance, account_id vs account/district_id/trans_id).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'D10', 'R10', '100', '1', '1', '1', 1, 1, 1.0, 1000, 1.0, 1.0, 1, 1, 1);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (401, 10, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (402, 10, 'POPLATEK MESICNE', '1995-01-01');
+
+-- 1998 transactions: amounts are 100 and 101.
+-- True AVG(amount) = 100.5. Integer division AVG would be 100.
+-- Trans 1 has amount = 100. Since 100 < 100.5, it MUST be returned (kills integer division mutants where 100 < 100 is False).
+-- Also sets balance = 5000 on Trans 1 and balance = 100 on Trans 2 (AVG(balance) = 2550, testing amount vs balance confusion).
+-- Also sets partner 'account' column to 999 to kill mutants selecting T1.account instead of T1.account_id, or joining on T1.account = T2.account_id.
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 401, '1998-05-01', 'VYDAJ', 'VYBER KARTOU', 100, 5000, 'SIPO', 'AB', 999);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 402, '1998-05-02', 'VYDAJ', 'VYBER KARTOU', 101, 100, 'SIPO', 'AB', 401);
+```
+
+```sql
+-- DATASET 5
+-- Tests aggregate function mutations (AVG vs MIN, MAX, SUM, COUNT) and date boundary conditions for 1998.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1000, 1.0, 1.0, 1, 1, 1);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (501, 1, 'POPLATEK MESICNE', '1994-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (502, 1, 'POPLATEK MESICNE', '1994-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (503, 1, 'POPLATEK MESICNE', '1994-01-01');
+
+-- 1998 transactions on exact year boundaries (1998-01-01 and 1998-12-31).
+-- Amounts: 10, 20, 60.
+-- MIN = 10, COUNT = 3, AVG = 30.0, MAX = 60, SUM = 90.
+-- Trans 1 (amount 10, acc 501): 10 < 30 (True), but 10 < MIN(10) is False, 10 < COUNT(3) is False. (Kills MIN and COUNT mutants).
+-- Trans 2 (amount 20, acc 502): 20 < 30 (True).
+-- Trans 3 (amount 60, acc 503): 60 < 30 (False), but 60 < SUM(90) is True. (Kills SUM mutants).
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 501, '1998-01-01', 'VYDAJ', 'VYBER KARTOU', 10, 1000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (2, 502, '1998-06-15', 'VYDAJ', 'VYBER KARTOU', 20, 1000, NULL, NULL, NULL);
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (3, 503, '1998-12-31', 'VYDAJ', 'VYBER KARTOU', 60, 1000, NULL, NULL, NULL);
+```

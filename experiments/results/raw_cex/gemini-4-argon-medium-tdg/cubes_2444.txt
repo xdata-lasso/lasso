@@ -1,0 +1,96 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. String vs Integer comparison for MAX(order_quantity) ('9' > '10' in TEXT).
+-- 2. Ties for MAX(order_quantity) across different customers and for the same customer (tests DISTINCT vs ALL).
+-- 3. ORDER BY customer_name vs ORDER BY order_quantity / customer_id.
+-- 4. Unmatched Customers (no orders) and Orders (no items) to test INNER vs LEFT JOIN.
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Card', 'Zack', '2020-01-01', 'D1');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Cash', 'Alice', '2020-01-02', 'D2');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (3, 'Card', 'Bob', '2020-01-03', 'D3');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (4, 'Cash', 'NoOrders', '2020-01-04', 'D4');
+
+INSERT INTO Products (product_id, product_details) VALUES (10, 'P1');
+INSERT INTO Products (product_id, product_details) VALUES (20, 'P2');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (101, 1, 'Completed', '2021-01-01', 'O1');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (102, 2, 'Completed', '2021-01-02', 'O2');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (103, 2, 'Pending', '2021-01-03', 'O3');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (104, 3, 'Cancelled', '2021-01-04', 'O4');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (105, 1, 'Pending', '2021-01-05', 'NoItems');
+
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (101, 10, '9');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (102, 10, '9');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (103, 20, '9');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (104, 10, '10');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Global MAX(order_quantity) exists in an orphan/unlinked order_items row (or order with NULL customer_id), causing the inner join with customers to filter it out and return empty result.
+-- 2. Refutes queries that compute MAX(order_quantity) AFTER joining with Customer_Orders and Customers, or queries using ORDER BY order_quantity DESC LIMIT 1 on the joined tables.
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Card', 'Charlie', '2020-01-01', 'D1');
+
+INSERT INTO Products (product_id, product_details) VALUES (10, 'P1');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (101, 1, 'Completed', '2021-01-01', 'Valid Customer Order');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (102, NULL, 'Completed', '2021-01-02', 'Order without Customer');
+
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (101, 10, '5');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (102, 10, '8');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Single-digit numeric strings where MAX(order_quantity) vs SUM(order_quantity) per customer/order differs.
+-- 2. Customer 1 has one item with quantity '7' (the max).
+-- 3. Customer 2 has two items with quantity '5' and '5' (sum is 10 > 7, count is 2 > 1, but max is 5 < 7).
+-- 4. Customer 3 has one item with quantity '1' (tests MIN vs MAX).
+-- 5. NULL values in order_quantity and customer_name.
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1, 'Card', 'MaxSingleItem', '2020-01-01', 'D1');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (2, 'Cash', 'HighSumCustomer', '2020-01-02', 'D2');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (3, 'Card', 'MinCustomer', '2020-01-03', 'D3');
+
+INSERT INTO Products (product_id, product_details) VALUES (1, 'ProdA');
+INSERT INTO Products (product_id, product_details) VALUES (2, 'ProdB');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (10, 1, 'Shipped', '2022-01-01', 'O1');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (20, 2, 'Shipped', '2022-01-02', 'O2');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (30, 3, 'Shipped', '2022-01-03', 'O3');
+
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (10, 1, '7');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (20, 1, '5');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (20, 2, '5');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (30, 1, '1');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (30, 2, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Misaligned IDs (customer_id != order_id != product_id != order_quantity) to catch wrong join predicates (e.g. customer_id = order_id or order_id = product_id).
+-- 2. Multiple customers with the exact same customer_name vs different customer_id (tests GROUP BY customer_id vs GROUP BY customer_name vs no grouping).
+-- 3. Ascending vs Descending sort order on customer_name with 3 distinct names achieving MAX(order_quantity).
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (10, 'Card', 'Delta', '2020-05-01', 'D1');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (20, 'Cash', 'Alpha', '2020-05-02', 'D2');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (30, 'Card', 'Bravo', '2020-05-03', 'D3');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (40, 'Cash', 'Alpha', '2020-05-04', 'Duplicate Name');
+
+INSERT INTO Products (product_id, product_details) VALUES (10, 'P10');
+INSERT INTO Products (product_id, product_details) VALUES (20, 'P20');
+INSERT INTO Products (product_id, product_details) VALUES (100, 'P100');
+
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (100, 10, 'Paid', '2021-06-01', 'O100');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (200, 20, 'Paid', '2021-06-02', 'O200');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (300, 30, 'Paid', '2021-06-03', 'O300');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (400, 40, 'Paid', '2021-06-04', 'O400');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (10, 30, 'Paid', '2021-06-05', 'Order ID matches Cust 10');
+
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (100, 100, '8');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (200, 100, '8');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (300, 100, '8');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (400, 100, '8');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (10, 20, '2');
+```

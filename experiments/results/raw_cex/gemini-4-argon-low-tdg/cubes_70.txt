@@ -1,0 +1,65 @@
+```sql
+-- DATASET 1
+-- General case: Mix of contestants with 0, 1, and multiple votes.
+-- Tests basic anti-join, DISTINCT on window function, and prevents inner/semi-join confusion.
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (212, 'NY');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (1, 'Alice');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (2, 'Bob');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (3, 'Charlie');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (4, 'Diana');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (101, 1, 'NY', 5550101, '2023-01-01 10:00:00');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (102, 1, 'NY', 5550102, '2023-01-01 10:05:00');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (103, 2, 'NY', 5550103, '2023-01-01 10:10:00');
+```
+
+```sql
+-- DATASET 2
+-- Edge case: All contestants have received votes (0 unvoted contestants).
+-- Reference query returns 0 rows (since the subquery is empty and COUNT(*) OVER () is not evaluated),
+-- killing mutants that use standard aggregate COUNT(*) without OVER() which would return a single row with 0.
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (310, 'CA');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (1, 'Alice');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (2, 'Bob');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (201, 1, 'CA', 5550201, '2023-02-01 12:00:00');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (202, 2, 'CA', 5550202, '2023-02-01 12:05:00');
+```
+
+```sql
+-- DATASET 3
+-- Null handling: VOTES table contains a row with NULL contestant_number, plus unvoted contestants with NULL/duplicate names.
+-- Kills mutants using NOT IN (SELECT contestant_number FROM votes) which evaluates to UNKNOWN/empty when NULL is present in VOTES.
+-- Also kills mutants that count contestant_name or DISTINCT contestant_name instead of COUNT(*).
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (312, 'IL');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (1, 'Alice');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (2, NULL);
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (3, 'Bob');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (4, 'Bob');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (301, 1, 'IL', 5550301, '2023-03-01 15:00:00');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (302, NULL, 'IL', 5550302, '2023-03-01 15:05:00');
+```
+
+```sql
+-- DATASET 4
+-- Key collision test: vote_id values overlap with contestant_number values of unvoted contestants.
+-- Kills mutants that mistakenly join on LHS.contestant_number = RHS.vote_id.
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (404, 'GA');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (10, 'Contestant Ten');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (20, 'Contestant Twenty');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (20, 10, 'GA', 5550401, '2023-04-01 09:00:00');
+```
+
+```sql
+-- DATASET 5
+-- Empty VOTES table: All contestants have 0 votes.
+-- Tests boundary condition where the RHS of the anti-join is completely empty.
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (1, 'Alice');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (2, 'Bob');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (3, 'Charlie');
+```
+
+```sql
+-- DATASET 6
+-- Empty database: Both CONTESTANTS and VOTES are empty.
+-- Tests boundary condition where LHS of the anti-join is empty.
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (713, 'TX');
+```

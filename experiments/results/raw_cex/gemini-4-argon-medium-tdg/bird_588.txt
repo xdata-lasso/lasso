@@ -1,0 +1,95 @@
+```sql
+-- DATASET 1
+-- Comprehensive boundary, nullability, aggregation, and column confusion dataset.
+-- Tests:
+-- 1. UserId = 13 with multiple comments (catches COUNT(DISTINCT UserId), Missing COUNT)
+-- 2. Nullable columns (PostId, Score, Text, CreationDate, UserDisplayName) set to NULL for UserId = 13 (catches COUNT(PostId), COUNT(Score), etc., and INNER JOIN posts)
+-- 3. Score variations (0, 10, 20) for UserId = 13 (catches SUM(Score), AVG(Score), MAX(Score), MIN(Score), COUNT(DISTINCT Score))
+-- 4. Comment Id variations (100, 101, 102) for UserId = 13 (catches SUM(Id), MAX(Id), MIN(Id))
+-- 5. Boundary UserIds: 12, 14, NULL (catches <, <=, >, >=, !=, IS NULL, missing WHERE clause)
+-- 6. Column confusion on comments: Id = 13, PostId = 13, Score = 13 for non-13 UserId (catches WHERE Id = 13, WHERE PostId = 13, WHERE Score = 13)
+-- 7. Table confusion: UserId = 13 present in badges, postHistory, posts, votes with different row counts (catches querying wrong table)
+-- 8. User 13 has CommentCount = 99 on posts and UpVotes/Reputation = 99 on users (catches reading pre-aggregated columns instead of counting comments)
+
+INSERT INTO users (Id, Reputation, DisplayName, UpVotes, DownVotes, Views) VALUES (12, 100, 'User12', 5, 1, 10);
+INSERT INTO users (Id, Reputation, DisplayName, UpVotes, DownVotes, Views) VALUES (13, 99, 'User13', 99, 0, 99);
+INSERT INTO users (Id, Reputation, DisplayName, UpVotes, DownVotes, Views) VALUES (14, 100, 'User14', 5, 1, 10);
+
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, Score, CommentCount) VALUES (10, 1, 12, 5, 2);
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, Score, CommentCount) VALUES (13, 1, 12, 5, 99);
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, Score, CommentCount) VALUES (20, 1, 13, 13, 99);
+
+-- Target rows: UserId = 13 (Total count = 3)
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (100, NULL, NULL, NULL, NULL, 13, NULL);
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (101, 10, 0, 'DuplicateText', '2020-01-01 00:00:00', 13, 'Disp13');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (102, 10, 0, 'DuplicateText', '2020-01-01 00:00:00', 13, 'Disp13');
+
+-- Non-target rows: Boundary & Column Confusion
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (13, 10, 5, 'Id is 13', '2020-01-02 00:00:00', 12, '13');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (103, 13, 5, 'PostId is 13', '2020-01-03 00:00:00', 12, 'User12');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (104, 10, 13, 'Score is 13', '2020-01-04 00:00:00', 14, 'User14');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (105, 10, 1, 'UserId is NULL', '2020-01-05 00:00:00', NULL, '13');
+
+-- Other tables with UserId = 13 (different counts from 3)
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 13, 'Badge1', '2020-01-01 00:00:00');
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (1, 10, 13, 'History1');
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (2, 10, 13, 'History2');
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId) VALUES (1, 10, 2, 13);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId) VALUES (2, 13, 2, 13);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId) VALUES (3, 20, 2, 13);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId) VALUES (4, 10, 3, 13);
+```
+
+```sql
+-- DATASET 2
+-- Zero-match dataset (Expected output: 0).
+-- Tests:
+-- 1. User 13 exists in `users`, `posts`, `badges`, `votes`, `postHistory`, and owns a post that HAS comments, but User 13 has authored 0 comments.
+-- 2. Catches mutants using `GROUP BY UserId` (which return empty set instead of 0).
+-- 3. Catches mutants joining `posts` on `posts.OwnerUserId = 13` instead of `comments.UserId = 13`.
+-- 4. Catches mutants checking `users.Id = 13` via LEFT JOIN without counting `comments.Id`.
+-- 5. Catches `SUM(Id)` or `MAX(Id)` which return NULL instead of 0.
+
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (12, 50, 'User12');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (13, 100, 'User13');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (14, 150, 'User14');
+
+-- Post owned by User 13, and Post with Id 13
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, Score, CommentCount) VALUES (13, 1, 13, 10, 2);
+
+-- Comments on User 13's post, but authored by User 12, User 14, and NULL
+INSERT INTO comments (Id, PostId, Score, Text, UserId, UserDisplayName) VALUES (13, 13, 13, '13', 12, '13');
+INSERT INTO comments (Id, PostId, Score, Text, UserId, UserDisplayName) VALUES (14, 13, 1, 'Comment by 14', 14, 'User14');
+INSERT INTO comments (Id, PostId, Score, Text, UserId, UserDisplayName) VALUES (15, 13, 1, 'Anonymous comment', NULL, 'User13');
+
+-- Other activity by User 13
+INSERT INTO badges (Id, UserId, Name) VALUES (13, 13, 'Teacher');
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId) VALUES (13, 13, 2, 13);
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (13, 13, 13, 'Initial body');
+```
+
+```sql
+-- DATASET 3
+-- Single-match dataset with Id = 1 and Score = 0 (Expected output: 1).
+-- Tests:
+-- 1. Distinguishes `COUNT(Id) > 0` / `LIMIT 1` / `DISTINCT` edge cases when combined with Dataset 1.
+-- 2. Comment Id is 50 (so SUM(Id) = 50 != 1) and Score is 0 (so SUM(Score) = 0 != 1).
+-- 3. Post OwnerUserId is 12, testing that `comments.UserId` is not confused with `posts.OwnerUserId` or `posts.LastEditorUserId`.
+-- 4. `UserId = 130` and `UserId = 1` present to kill string prefix/LIKE mutants (`UserId LIKE '13%'` or `UserId LIKE '%13%'`).
+
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 10, 'User1');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (12, 10, 'User12');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (13, 10, 'User13');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (130, 10, 'User130');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (213, 10, 'User213');
+
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, LastEditorUserId) VALUES (100, 1, 12, 12);
+
+-- Single comment by User 13
+INSERT INTO comments (Id, PostId, Score, Text, UserId, UserDisplayName) VALUES (50, 100, 0, 'Only one comment', 13, 'User13');
+
+-- Comments by users with '13' in their ID or negative IDs
+INSERT INTO comments (Id, PostId, Score, Text, UserId, UserDisplayName) VALUES (51, 100, 1, 'Substring 130', 130, 'User130');
+INSERT INTO comments (Id, PostId, Score, Text, UserId, UserDisplayName) VALUES (52, 100, 1, 'Substring 213', 213, 'User213');
+INSERT INTO comments (Id, PostId, Score, Text, UserId, UserDisplayName) VALUES (53, 100, 1, 'User 1', 1, 'User1');
+```

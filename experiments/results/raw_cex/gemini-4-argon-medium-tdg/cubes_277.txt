@@ -1,0 +1,83 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(DISTINCT template_id) vs COUNT(template_id) vs COUNT(*)
+-- 2. Handling of NULL in template_id (producing a 0 count group)
+-- 3. Handling of NULL in the GROUP BY column (other_details)
+-- 4. Duplicate count values across different groups (testing outer SELECT DISTINCT vs SELECT ALL)
+-- 5. Ordering of results (ORDER BY ASC vs DESC vs no order)
+-- 6. Grouping by other_details vs Document_Name or Document_Description
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T1', 'Type 1');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, 'T1', 1, '2020-01-01', '2021-01-01', 'Details 1');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (2, 'T1', 1, '2020-01-01', '2021-01-01', 'Details 2');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (3, 'T1', 1, '2020-01-01', '2021-01-01', 'Details 3');
+
+-- Group 'D_Three' (inserted first to break insertion-order correlation with count): 3 distinct templates
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (1, 1, 'SameName', 'Desc1', 'D_Three');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (2, 2, 'SameName', 'Desc2', 'D_Three');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (3, 3, 'DiffName', 'Desc3', 'D_Three');
+
+-- Group 'D_One_Dup': 2 rows, 1 distinct template (catches missing DISTINCT inside COUNT)
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (4, 1, 'SameName', 'Desc4', 'D_One_Dup');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (5, 1, 'DiffName', 'Desc4', 'D_One_Dup');
+
+-- Group 'D_Zero': 1 row with NULL template_id (catches COUNT(*) vs COUNT(template_id), and inner join to Templates)
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (6, NULL, 'Name6', 'Desc6', 'D_Zero');
+
+-- Group 'D_One_Single': 1 row, 1 distinct template (produces duplicate count '1' in outer query, catching outer SELECT DISTINCT)
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (7, 2, 'Name7', 'Desc7', 'D_One_Single');
+
+-- Group NULL: 2 distinct templates + 1 NULL template_id (tests NULL group key handling)
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (8, 1, 'Name8', 'Desc8', NULL);
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (9, 2, 'Name9', 'Desc9', NULL);
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (10, NULL, 'Name10', 'Desc10', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Unreferenced Templates (catches mutants querying Templates instead of Documents or using RIGHT/FULL OUTER JOIN)
+-- 2. Documents with and without Paragraphs (catches mutants with unnecessary INNER JOIN to Paragraphs or querying Paragraphs.Other_Details)
+-- 3. Multi-digit counts (10 vs 2) to catch lexicographical/string sorting vs numerical sorting in ORDER BY
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T1', 'Type 1');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, 'T1', 1, '2020-01-01', '2021-01-01', 'T1');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (2, 'T1', 1, '2020-01-01', '2021-01-01', 'T2');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (3, 'T1', 1, '2020-01-01', '2021-01-01', 'T3');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (4, 'T1', 1, '2020-01-01', '2021-01-01', 'T4');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (5, 'T1', 1, '2020-01-01', '2021-01-01', 'T5');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (6, 'T1', 1, '2020-01-01', '2021-01-01', 'T6');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (7, 'T1', 1, '2020-01-01', '2021-01-01', 'T7');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (8, 'T1', 1, '2020-01-01', '2021-01-01', 'T8');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (9, 'T1', 1, '2020-01-01', '2021-01-01', 'T9');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (10, 'T1', 1, '2020-01-01', '2021-01-01', 'T10');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (99, 'T1', 1, '2020-01-01', '2021-01-01', 'Unused Template');
+
+-- Group 'Ten_Templates': 10 distinct templates (no paragraphs linked)
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (1, 1, 'D1', 'Desc', 'Ten_Templates');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (2, 2, 'D2', 'Desc', 'Ten_Templates');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (3, 3, 'D3', 'Desc', 'Ten_Templates');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (4, 4, 'D4', 'Desc', 'Ten_Templates');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (5, 5, 'D5', 'Desc', 'Ten_Templates');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (6, 6, 'D6', 'Desc', 'Ten_Templates');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (7, 7, 'D7', 'Desc', 'Ten_Templates');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (8, 8, 'D8', 'Desc', 'Ten_Templates');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (9, 9, 'D9', 'Desc', 'Ten_Templates');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (10, 10, 'D10', 'Desc', 'Ten_Templates');
+
+-- Group 'Two_Templates': 2 distinct templates (with paragraphs linked)
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (11, 1, 'D11', 'Desc', 'Two_Templates');
+INSERT INTO Documents (Document_ID, Template_ID, Document_Name, Document_Description, Other_Details) VALUES (12, 2, 'D12', 'Desc', 'Two_Templates');
+
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (1, 11, 'P1', 'Para_Detail_A');
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (2, 11, 'P2', 'Para_Detail_B');
+INSERT INTO Paragraphs (Paragraph_ID, Document_ID, Paragraph_Text, Other_Details) VALUES (3, 12, 'P3', 'Para_Detail_A');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty Documents table (catches mutants without GROUP BY that return 1 row with 0 instead of 0 rows)
+-- 2. Populated Templates table when Documents is empty
+INSERT INTO Ref_Template_Types (Template_Type_Code, Template_Type_Description) VALUES ('T1', 'Type 1');
+INSERT INTO Templates (Template_ID, Template_Type_Code, Version_Number, Date_Effective_From, Date_Effective_To, Template_Details) VALUES (1, 'T1', 1, '2020-01-01', '2021-01-01', 'T1');
+```

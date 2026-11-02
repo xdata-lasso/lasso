@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Tie-breaking for MAX(FavoriteCount) with different OwnerUserIds (kills ORDER BY FavoriteCount DESC LIMIT 1).
+-- 2. Duplicate OwnerUserId for the tied MAX(FavoriteCount) (kills SELECT DISTINCT OwnerUserId).
+-- 3. NULL FavoriteCount handling (kills ORDER BY FavoriteCount DESC without NULLS LAST in engines where NULLs sort high, or IS NOT NULL mistakes).
+-- 4. Column confusion: Score, ViewCount, AnswerCount, CommentCount, and LastEditorUserId have distinct values from FavoriteCount and OwnerUserId.
+-- 5. Unreferenced users in the users table (kills erroneous RIGHT/OUTER JOINs on users).
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (10, 100, 'UserA');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (20, 200, 'UserB');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (30, 300, 'UserC');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (40, 400, 'UnreferencedUser');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount, AnswerCount, CommentCount) VALUES (1, 10, 30, 50, 5, 100, 1, 1);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount, AnswerCount, CommentCount) VALUES (2, 10, 20, 50, 10, 200, 2, 2);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount, AnswerCount, CommentCount) VALUES (3, 20, 10, 50, 15, 300, 3, 3);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount, AnswerCount, CommentCount) VALUES (4, 30, 10, 10, 100, 1000, 50, 50);
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, FavoriteCount, Score, ViewCount, AnswerCount, CommentCount) VALUES (5, 30, 20, NULL, 200, 2000, 60, 60);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Single winner where OwnerUserId is NULL (kills INNER JOIN users ON posts.OwnerUserId = users.Id, and kills WHERE OwnerUserId IS NOT NULL).
+-- 2. Non-winner has a valid OwnerUserId (ensures a mutant filtering out NULL OwnerUserId before finding MAX returns the wrong row).
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (100, 500, 'ValidUser');
+
+INSERT INTO posts (Id, OwnerUserId, FavoriteCount, Score) VALUES (1, NULL, 99, 10);
+INSERT INTO posts (Id, OwnerUserId, FavoriteCount, Score) VALUES (2, 100, 40, 200);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Negative and zero values for FavoriteCount where the maximum is negative (kills mutants using > 0 filters or COALESCE(FavoriteCount, 0) when NULLs exist).
+-- 2. Presence of NULL alongside strictly negative numbers (if a mutant does COALESCE(FavoriteCount, 0), 0 becomes the max instead of -2).
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 10, 'NegativeMaxWinner');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 20, 'NegativeLoser');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (3, 30, 'NullFavoriteUser');
+
+INSERT INTO posts (Id, OwnerUserId, FavoriteCount, Score) VALUES (10, 1, -2, -10);
+INSERT INTO posts (Id, OwnerUserId, FavoriteCount, Score) VALUES (20, 2, -15, 50);
+INSERT INTO posts (Id, OwnerUserId, FavoriteCount, Score) VALUES (30, 3, NULL, 100);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. All posts have NULL FavoriteCount (MAX(FavoriteCount) is NULL, so FavoriteCount = NULL evaluates to UNKNOWN, returning 0 rows).
+-- 2. Kills mutants using ORDER BY FavoriteCount DESC LIMIT 1, or IS NOT DISTINCT FROM, or COALESCE.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'UserOne');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 200, 'UserTwo');
+
+INSERT INTO posts (Id, OwnerUserId, FavoriteCount, Score) VALUES (1, 1, NULL, 10);
+INSERT INTO posts (Id, OwnerUserId, FavoriteCount, Score) VALUES (2, 2, NULL, 20);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Aggregate confusion: SUM(FavoriteCount), COUNT(FavoriteCount), AVG(FavoriteCount), MIN(FavoriteCount) all differ from MAX(FavoriteCount).
+-- 2. PostTypeId / ParentId / AcceptedAnswerId filters: The winning post has PostTypeId = 2 (Answer), ParentId set, AcceptedAnswerId NULL, ClosedDate set, CommunityOwnedDate set (kills mutants adding arbitrary WHERE clauses like PostTypeId = 1 or ClosedDate IS NULL).
+-- 3. Joining child tables (comments, votes, postHistory, postLinks, tags): The winning post has NO related records in child tables, while losing posts do (kills mutants with unnecessary INNER JOINs to other tables).
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (11, 100, 'WinnerUser');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (22, 200, 'LoserUser');
+
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, FavoriteCount, Score, ViewCount) VALUES (100, 1, 22, 5, 10, 50);
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, FavoriteCount, Score, ViewCount) VALUES (101, 1, 22, 10, 20, 60);
+INSERT INTO posts (Id, PostTypeId, ParentId, OwnerUserId, FavoriteCount, Score, ViewCount, ClosedDate, CommunityOwnedDate) VALUES (102, 2, 100, 11, 25, 1, 5, '2020-01-01', '2020-01-02');
+
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (1, 100, 22, 5, 'Comment on loser post');
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId, BountyAmount) VALUES (1, 100, 2, 22, 50);
+INSERT INTO postHistory (Id, PostId, UserId, PostHistoryTypeId, Text) VALUES (1, 100, 22, 1, 'History on loser post');
+INSERT INTO postLinks (Id, PostId, RelatedPostId, LinkTypeId) VALUES (1, 100, 101, 1);
+INSERT INTO tags (Id, TagName, Count, ExcerptPostId, WikiPostId) VALUES (1, 'sql', 10, 100, 101);
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 22, 'LoserBadge');
+```

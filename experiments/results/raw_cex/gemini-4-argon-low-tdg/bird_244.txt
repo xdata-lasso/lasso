@@ -1,0 +1,131 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering on bond_type = '=' vs total bond count, and DESC vs ASC ordering on the count.
+-- TR001 has more '=' bonds (2), TR002 has more total bonds (4), TR003 has the fewest '=' bonds (1), TR004 has 0 '=' bonds.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR003', '0');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR004', 'x');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR001', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR001', '=');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR002', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'TR002', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'TR002', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B6', 'TR002', '#');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B7', 'TR003', '=');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B8', 'TR004', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B9', 'TR004', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on molecule_id ASC and LIMIT 1 when multiple molecules share the maximum '=' bond count.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR005', 'Label_A');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR010', 'Label_B');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR020', 'Label_C');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR010', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR010', '=');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR005', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'TR005', '=');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'TR020', '=');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULLS LAST in ORDER BY T.molecule_id and INNER JOIN vs LEFT JOIN behavior when NULL molecule_id has a tied maximum count.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', 'Valid_Mol');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', 'Other_Mol');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', NULL, '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', NULL, '=');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR001', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'TR001', '=');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'TR002', '=');
+```
+
+```sql
+-- DATASET 4
+-- Tests subquery LIMIT 1 placement vs outer query LIMIT 1 when NULL molecule_id strictly has the highest count of '=' bonds.
+-- Subquery picks NULL (count 3), which fails the INNER JOIN with molecule, resulting in 0 rows returned.
+-- If a mutant joins before applying LIMIT 1, or filters out NULL molecule_id, it will return 'Runner_Up'.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', 'Runner_Up');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', NULL, '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', NULL, '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', NULL, '=');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'TR001', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'TR001', '=');
+```
+
+```sql
+-- DATASET 5
+-- Tests queries that mistakenly join the 'atom' or 'connected' tables (causing fan-out/row multiplication before counting) or count atoms instead of bonds.
+-- TR001 has 2 '=' bonds (each connected to 2 atoms, so 2 rows in connected).
+-- TR002 has 1 '=' bond, but connected to 6 atom pairs in 'connected' and has 6 atoms in 'atom'.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', 'Winner_By_Bonds');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', 'Loser_With_Many_Atoms');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'TR001', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'TR001', 'c');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'TR002', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A4', 'TR002', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A5', 'TR002', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A6', 'TR002', 'c');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR001', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR001', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR002', '=');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A1', 'A2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A2', 'A1', 'B2');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A4', 'B3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A4', 'A3', 'B3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A3', 'A5', 'B3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A5', 'A3', 'B3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A4', 'A6', 'B3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('A6', 'A4', 'B3');
+```
+
+```sql
+-- DATASET 6
+-- Edge case: No bonds with bond_type = '=' exist in the database.
+-- Tests that the WHERE clause properly filters out all rows and returns an empty result set, rather than falling back to other bond types or molecules without bonds.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', '-');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR001', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR001', '#');
+```
+
+```sql
+-- DATASET 7
+-- Tests GROUP BY T.molecule_id vs GROUP BY T1.label when multiple molecules have the same label.
+-- TR001 has label '-' and 3 '=' bonds.
+-- TR002 and TR003 both have label '+' and 2 '=' bonds each (total 4 '=' bonds for label '+').
+-- Grouping by molecule_id gives TR001 (count 3, label '-'). Grouping by label gives '+' (count 4).
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR003', '+');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR001', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR001', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR001', '=');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'TR002', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'TR002', '=');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B6', 'TR003', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B7', 'TR003', '=');
+```

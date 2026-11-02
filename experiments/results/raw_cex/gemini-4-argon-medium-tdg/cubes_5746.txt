@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Tie for maximum registration_date across multiple students (catches LIMIT 1 vs MAX).
+-- 2. Reverse correlation between student_id and student_details to catch ORDER BY student_id vs ORDER BY student_details.
+-- 3. Multiple tied winners sharing identical student_details to catch missing DISTINCT.
+-- 4. A non-maximum registration_date (2023-01-01) to catch MIN vs MAX or <= vs >= mutations.
+-- 5. An unregistered student with highest student_id to catch LEFT JOIN vs INNER JOIN or querying Students without joining registrations.
+-- 6. Attendance record with a newer date than any registration_date to catch table confusion (Student_Course_Attendance vs Student_Course_Registrations).
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (1, 'Alice', 'A', 'Adams', '111-1111', 'alice@example.com', 'alice', 'pass1');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (2, 'Bob', 'B', 'Baker', '222-2222', 'bob@example.com', 'bob', 'pass2');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (3, 'Charlie', 'C', 'Clark', '333-3333', 'charlie@example.com', 'charlie', 'pass3');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (4, 'David', 'D', 'Davis', '444-4444', 'david@example.com', 'david', 'pass4');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (5, 'Eve', 'E', 'Evans', '555-5555', 'eve@example.com', 'eve', 'pass5');
+
+INSERT INTO Students (student_id, student_details) VALUES (1, 'Zeta_Tie');
+INSERT INTO Students (student_id, student_details) VALUES (2, 'Alpha_Tie');
+INSERT INTO Students (student_id, student_details) VALUES (3, 'Alpha_Tie');
+INSERT INTO Students (student_id, student_details) VALUES (4, 'Beta_Loser');
+INSERT INTO Students (student_id, student_details) VALUES (5, 'Omega_Unregistered');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('101', 'CS101', 'Intro to CS', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('102', 'CS102', 'Data Structures', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('103', 'CS103', 'Algorithms', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('104', 'CS104', 'Databases', 'None');
+
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (1, 101, '2023-10-10 10:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (2, 102, '2023-10-10 10:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (3, 103, '2023-10-10 10:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (4, 104, '2023-01-01 08:00:00');
+
+INSERT INTO Student_Course_Attendance (student_id, course_id, date_of_attendance) VALUES (4, 104, '2024-12-31 23:59:59');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Single unique maximum registration_date vs multiple lower dates.
+-- 2. Distinguishes MAX(registration_date) from MAX(student_id) and MAX(course_id) by giving the newest registration the middle student_id and lowest course_id.
+-- 3. NULL registration_date handling to ensure NULLs do not break MAX() or comparison predicates.
+-- 4. Populates Candidates and Candidate_Assessments to catch queries mistakenly referencing candidate_details or assessment_date.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (10, 'John', 'J', 'Doe', '101-1010', 'john@example.com', 'john', 'pwd10');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (20, 'Jane', 'J', 'Roe', '202-2020', 'jane@example.com', 'jane', 'pwd20');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (30, 'Jim', 'J', 'Boe', '303-3030', 'jim@example.com', 'jim', 'pwd30');
+
+INSERT INTO Students (student_id, student_details) VALUES (10, 'Student_Oldest_Reg');
+INSERT INTO Students (student_id, student_details) VALUES (20, 'Student_Newest_Reg');
+INSERT INTO Students (student_id, student_details) VALUES (30, 'Student_Null_Reg');
+
+INSERT INTO Candidates (candidate_id, candidate_details) VALUES (10, 'Candidate_Detail_10');
+INSERT INTO Candidates (candidate_id, candidate_details) VALUES (20, 'Candidate_Detail_20');
+
+INSERT INTO Candidate_Assessments (candidate_id, qualification, assessment_date, asessment_outcome_code) VALUES (10, 'PhD', '2025-05-05 12:00:00', 'PASS');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('100', 'Math', 'Calculus', 'Core');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('200', 'Physics', 'Mechanics', 'Core');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('300', 'Chemistry', 'Organic', 'Elective');
+
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (10, 300, '2021-06-15 09:30:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (20, 100, '2022-11-20 14:45:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (30, 200, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Same-day timestamps differing only by time components (catches DATE() truncation errors).
+-- 2. Cross-join multiplicity: multiple non-winning registrations to ensure DISTINCT eliminates duplicate rows arising from the CROSS JOIN with Student_Course_Registrations.
+-- 3. Ordering check when two winners have names with different prefixes and case/sort order.
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (1, 'Sam', 'S', 'Smith', '111-2222', 'sam@example.com', 'sam', 'p1');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (2, 'Tina', 'T', 'Turner', '222-3333', 'tina@example.com', 'tina', 'p2');
+INSERT INTO People (person_id, first_name, middle_name, last_name, cell_mobile_number, email_address, login_name, password) VALUES (3, 'Uma', 'U', 'Underwood', '333-4444', 'uma@example.com', 'uma', 'p3');
+
+INSERT INTO Students (student_id, student_details) VALUES (1, 'Detail_C_EarlyTime');
+INSERT INTO Students (student_id, student_details) VALUES (2, 'Detail_B_MaxTime');
+INSERT INTO Students (student_id, student_details) VALUES (3, 'Detail_A_MaxTime');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('1', 'Art', 'Painting', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('2', 'Music', 'Theory', 'None');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES ('3', 'Drama', 'Acting', 'None');
+
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (1, 1, '2023-05-01 08:00:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (2, 2, '2023-05-01 18:30:00');
+INSERT INTO Student_Course_Registrations (student_id, course_id, registration_date) VALUES (3, 3, '2023-05-01 18:30:00');
+```

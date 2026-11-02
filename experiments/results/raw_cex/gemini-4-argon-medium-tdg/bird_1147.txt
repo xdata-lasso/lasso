@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT keyword (Player 1 has two entries with the max rating).
+-- 2. Ties for maximum rating (Player 1 and Player 2 both achieve the max rating of 95, testing LIMIT 1 vs Subquery MAX).
+-- 3. Filtering out lower ratings (Player 3 has 88) and NULL ratings.
+-- 4. Correct column selection (overall_rating vs potential).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 101, 'Lionel Messi', 1001);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 102, 'Cristiano Ronaldo', 1002);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (3, 103, 'Neymar', 1003);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (1, 1001, 101, 95, 95);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (2, 1001, 101, 95, 96);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (3, 1002, 102, 95, 95);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (4, 1003, 103, 88, 99);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (5, 1003, 103, NULL, 99);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Unjoined rows in Player_Attributes having a higher overall_rating than any joined row (tests if MAX is computed before or after JOIN).
+-- 2. Join condition specificity: t1.player_api_id = t2.player_api_id vs joining on id or player_fifa_api_id.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 101, 'Zlatan Ibrahimovic', 1001);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 102, 'Luka Modric', 1002);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (3, 103, 'Gareth Bale', 1003);
+
+-- Orphan attribute with player_api_id = 999 (not in Player) having the global max rating 99.
+-- Reference query MAX(overall_rating) is 99, so joined query should return empty set.
+-- A mutant computing MAX over the joined table would return 'Zlatan Ibrahimovic' (92).
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (1, 1001, 999, 99, 99);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (2, 1001, 101, 92, 92);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (3, 1002, 102, 89, 89);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Misaligned IDs: id, player_api_id, and player_fifa_api_id are intentionally cross-mapped to kill mutants that join on the wrong key (e.g., t1.id = t2.id, t1.player_fifa_api_id = t2.player_fifa_api_id, or t1.id = t2.player_api_id).
+-- 2. Two different players with the exact same player_name (one has max rating, one does not).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (10, 20, 'Luis Suarez', 30);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (20, 30, 'Karim Benzema', 10);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (30, 10, 'Robert Lewandowski', 20);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (40, 40, 'Luis Suarez', 40);
+
+-- Max overall_rating is 94, belonging to player_api_id = 20 ('Luis Suarez', id=10).
+-- If joined on t1.id = t2.id (10=10), it matches 'Luis Suarez'. Wait: let's make t2.id = 20 so t1.id = t2.id matches 'Karim Benzema'.
+-- And t2.player_fifa_api_id = 20 so t1.player_fifa_api_id = t2.player_fifa_api_id matches 'Robert Lewandowski'.
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (20, 20, 20, 94, 90);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (10, 30, 30, 85, 95);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (30, 10, 10, 80, 80);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (40, 40, 40, 75, 75);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Single player with multiple attribute rows across different dates where only one row is the maximum, plus another player with multiple rows below the maximum.
+-- 2. Negative/Zero boundary ratings or unusual numerical distributions (kills AVG, SUM, MIN, COUNT mutants).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 501, 'Andres Iniesta', 5001);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 502, 'Xavi Hernandez', 5002);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (3, 503, 'Sergio Busquets', 5003);
+
+-- Player 501 has ratings 91 and 60 (AVG = 75.5, SUM = 151, MAX = 91).
+-- Player 502 has ratings 85, 85, 85 (AVG = 85, SUM = 255, MAX = 85).
+-- Player 503 has rating 50 (MIN = 50).
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (1, 5001, 501, '2015-01-01', 91, 91);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (2, 5001, 501, '2016-01-01', 60, 60);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (3, 5002, 502, '2014-01-01', 85, 85);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (4, 5002, 502, '2015-01-01', 85, 85);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (5, 5002, 502, '2016-01-01', 85, 85);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential) VALUES (6, 5003, 503, '2016-01-01', 50, 50);
+```

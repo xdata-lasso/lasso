@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests basic join, DISTINCT elimination of duplicate (language, flavorText) pairs, 
+-- table disambiguation for flavorText (T1 vs T2), and basic WHERE filtering on watermark.
+INSERT INTO "cards" (id, uuid, name, watermark, flavorText) VALUES (1, 'uuid-1', 'Card One', 'colorpie', 'English Flavor 1');
+INSERT INTO "cards" (id, uuid, name, watermark, flavorText) VALUES (2, 'uuid-2', 'Card Two', 'colorpie', 'English Flavor 2');
+INSERT INTO "cards" (id, uuid, name, watermark, flavorText) VALUES (3, 'uuid-3', 'Card Three', 'other', 'English Flavor 3');
+INSERT INTO "cards" (id, uuid, name, watermark, flavorText) VALUES (4, 'uuid-4', 'Card Four', NULL, 'English Flavor 4');
+
+INSERT INTO "foreign_data" (id, uuid, language, flavorText, name, text) VALUES (10, 'uuid-1', 'German', 'Deutscher Text', 'Karte Eins', 'Regeltext 1');
+INSERT INTO "foreign_data" (id, uuid, language, flavorText, name, text) VALUES (20, 'uuid-2', 'German', 'Deutscher Text', 'Karte Zwei', 'Regeltext 2');
+INSERT INTO "foreign_data" (id, uuid, language, flavorText, name, text) VALUES (30, 'uuid-1', 'French', 'Texte Francais', 'Carte Un', 'Texte 1');
+INSERT INTO "foreign_data" (id, uuid, language, flavorText, name, text) VALUES (40, 'uuid-3', 'Spanish', 'Texto Espanol', 'Carta Tres', 'Texto 3');
+INSERT INTO "foreign_data" (id, uuid, language, flavorText, name, text) VALUES (50, 'uuid-4', 'Italian', 'Testo Italiano', 'Carta Quattro', 'Testo 4');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN (dangling card with 'colorpie' watermark but no foreign_data),
+-- and join condition mutants (e.g., T1.id = T2.id or T1.id = T2.multiverseid instead of T1.uuid = T2.uuid).
+INSERT INTO "cards" (id, uuid, name, watermark, flavorText) VALUES (1, 'uuid-match', 'Card Match', 'colorpie', 'Card Flavor Match');
+INSERT INTO "cards" (id, uuid, name, watermark, flavorText) VALUES (2, 'uuid-no-foreign', 'Card No Foreign', 'colorpie', 'Card Flavor No Foreign');
+INSERT INTO "cards" (id, uuid, name, watermark, flavorText) VALUES (3, 'uuid-wrong-wm', 'Card Wrong WM', 'guild', 'Card Flavor Wrong');
+
+INSERT INTO "foreign_data" (id, uuid, language, flavorText, multiverseid) VALUES (1, 'uuid-wrong-wm', 'Japanese', 'Wrong Join By ID', 2);
+INSERT INTO "foreign_data" (id, uuid, language, flavorText, multiverseid) VALUES (2, 'uuid-wrong-wm', 'Russian', 'Wrong Join By ID 2', 1);
+INSERT INTO "foreign_data" (id, uuid, language, flavorText, multiverseid) VALUES (99, 'uuid-match', 'Korean', 'Correct Join By UUID', 999);
+```
+
+```sql
+-- DATASET 3
+-- Tests handling of NULL values in projected columns (T2.language, T2.flavorText) to kill mutants 
+-- that improperly add IS NOT NULL filters, and tests string matching edge cases (case sensitivity, substrings) on watermark.
+INSERT INTO "cards" (id, uuid, watermark, flavorText) VALUES (1, 'u1', 'colorpie', 'Non-null card flavor');
+INSERT INTO "cards" (id, uuid, watermark, flavorText) VALUES (2, 'u2', 'Colorpie', 'Case variation');
+INSERT INTO "cards" (id, uuid, watermark, flavorText) VALUES (3, 'u3', 'colorpie_extra', 'Prefix variation');
+INSERT INTO "cards" (id, uuid, watermark, flavorText) VALUES (4, 'u4', 'my_colorpie', 'Suffix variation');
+
+INSERT INTO "foreign_data" (id, uuid, language, flavorText) VALUES (1, 'u1', 'Portuguese', NULL);
+INSERT INTO "foreign_data" (id, uuid, language, flavorText) VALUES (2, 'u1', 'Portuguese', NULL);
+INSERT INTO "foreign_data" (id, uuid, language, flavorText) VALUES (3, 'u1', NULL, 'Flavor with null language');
+INSERT INTO "foreign_data" (id, uuid, language, flavorText) VALUES (4, 'u2', 'Chinese', 'Should be excluded (Case)');
+INSERT INTO "foreign_data" (id, uuid, language, flavorText) VALUES (5, 'u3', 'Chinese', 'Should be excluded (Prefix)');
+INSERT INTO "foreign_data" (id, uuid, language, flavorText) VALUES (6, 'u4', 'Chinese', 'Should be excluded (Suffix)');
+```
+
+```sql
+-- DATASET 4
+-- Tests table confusion mutants (e.g., querying set_translations instead of foreign_data for language, 
+-- or confusing T1.name/T1.originalText/T2.text with T2.flavorText, or filtering 'colorpie' on wrong card columns).
+INSERT INTO "sets" (id, code, name) VALUES (1, 'SET1', 'Set One');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'FakeLanguage', 'SET1', 'FakeTranslation');
+
+INSERT INTO "cards" (id, uuid, setCode, name, watermark, flavorText, text, originalText, type) 
+VALUES (1, 'uuid-real', 'SET1', 'CardA', 'colorpie', 'CardA_Flavor', 'CardA_Text', 'CardA_OrigText', 'CardA_Type');
+
+INSERT INTO "cards" (id, uuid, setCode, name, watermark, flavorText, text, originalText, type) 
+VALUES (2, 'uuid-decoy', 'SET1', 'colorpie', 'wrong_wm', 'colorpie', 'colorpie', 'colorpie', 'colorpie');
+
+INSERT INTO "foreign_data" (id, uuid, language, flavorText, name, text, type) 
+VALUES (1, 'uuid-real', 'RealLanguage', 'RealForeignFlavor', 'ForeignName', 'ForeignText', 'ForeignType');
+
+INSERT INTO "foreign_data" (id, uuid, language, flavorText, name, text, type) 
+VALUES (2, 'uuid-decoy', 'DecoyLanguage', 'DecoyForeignFlavor', 'colorpie', 'colorpie', 'colorpie');
+```
+
+```sql
+-- DATASET 5
+-- Tests partial duplicates (same language with different flavorText, and different language with same flavorText)
+-- to kill mutants that use GROUP BY T2.language or GROUP BY T2.flavorText instead of SELECT DISTINCT T2.language, T2.flavorText.
+INSERT INTO "cards" (id, uuid, watermark) VALUES (1, 'c1', 'colorpie');
+INSERT INTO "cards" (id, uuid, watermark) VALUES (2, 'c2', 'colorpie');
+
+INSERT INTO "foreign_data" (id, uuid, language, flavorText) VALUES (1, 'c1', 'Spanish', 'Flavor A');
+INSERT INTO "foreign_data" (id, uuid, language, flavorText) VALUES (2, 'c2', 'Spanish', 'Flavor B');
+INSERT INTO "foreign_data" (id, uuid, language, flavorText) VALUES (3, 'c1', 'Italian', 'Flavor A');
+INSERT INTO "foreign_data" (id, uuid, language, flavorText) VALUES (4, 'c2', 'Italian', 'Flavor A');
+```

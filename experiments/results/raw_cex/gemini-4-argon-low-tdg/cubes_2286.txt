@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Comprehensive mutant killer: tests COUNT(*) vs COUNT(col), COUNT(DISTINCT col), GROUP BY, INNER JOIN vs base table, and wrong table selection.
+-- Each table has a distinct row count, and Ref_Budget_Codes includes NULL and duplicate descriptions as well as unreferenced codes.
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('BC1', 'Advertising');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('BC2', 'Advertising');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('BC3', NULL);
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('BC4', 'Operations');
+
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Invoice', 'Standard Invoice');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Project Alpha');
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (2, 'Project Beta');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (101, 1, 'DT1', '2023-01-01 10:00:00', 'Doc 1', 'First Doc', NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (102, 1, 'DT1', '2023-01-02 10:00:00', 'Doc 2', 'Second Doc', NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (103, 2, 'DT1', '2023-01-03 10:00:00', 'Doc 3', 'Third Doc', NULL);
+
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (101, 'BC1', 'Expense 1');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (102, 'BC1', 'Expense 2');
+```
+
+```sql
+-- DATASET 2
+-- Edge case: Ref_Budget_Codes is completely empty (count = 0), while other tables are populated.
+-- Kills mutants that use GROUP BY (which returns empty result set instead of 0) or query the wrong table.
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Contract', 'Legal Contract');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (1, 'Solo Project');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 1, 'DT1', '2023-05-05 00:00:00', 'Doc A', 'Desc A', 'Details');
+
+INSERT INTO "Statements" ("Statement_ID", "Statement_Details") VALUES (1, 'Statement A');
+
+INSERT INTO "Accounts" ("Account_ID", "Statement_ID", "Account_Details") VALUES (10, 1, 'Account A');
+```
+
+```sql
+-- DATASET 3
+-- Edge case: 1-to-many join expansion test (fan-out).
+-- Only 1 row in Ref_Budget_Codes, but referenced multiple times in Documents_with_Expenses.
+-- Kills mutants that perform an unnecessary LEFT JOIN or INNER JOIN with Documents_with_Expenses without DISTINCT.
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('BC_ONLY', 'Single Budget Code');
+
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT1', 'Receipt', 'Expense Receipt');
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DT2', 'Report', 'Annual Report');
+
+INSERT INTO "Projects" ("Project_ID", "Project_Details") VALUES (10, 'Expansion Test Project');
+
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 10, 'DT1', '2023-01-01', 'D1', 'Desc', NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (2, 10, 'DT1', '2023-01-02', 'D2', 'Desc', NULL);
+INSERT INTO "Documents" ("Document_ID", "Project_ID", "Document_Type_Code", "Document_Date", "Document_Name", "Document_Description", "Other_Details") VALUES (3, 10, 'DT2', '2023-01-03', 'D3', 'Desc', NULL);
+
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (1, 'BC_ONLY', 'Exp 1');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (2, 'BC_ONLY', 'Exp 2');
+INSERT INTO "Documents_with_Expenses" ("Document_ID", "Budget_Type_Code", "Document_Details") VALUES (3, 'BC_ONLY', 'Exp 3');
+```
+
+```sql
+-- DATASET 4
+-- Edge case: SQLite dynamic typing allow NULL in TEXT PRIMARY KEY (unlike INTEGER PRIMARY KEY).
+-- Also tests numeric codes to kill SUM/AVG/MAX/MIN aggregation mutants vs COUNT(*).
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES (NULL, NULL);
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('10', 'Ten');
+INSERT INTO "Ref_Budget_Codes" ("Budget_Type_Code", "Budget_Type_Description") VALUES ('20', 'Twenty');
+```

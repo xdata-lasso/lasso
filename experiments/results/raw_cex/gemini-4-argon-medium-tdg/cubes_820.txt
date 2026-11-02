@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by End ASC vs DESC, Start vs End confusion, and AppointmentID vs End ordering.
+-- The earliest End time (2023-05-01 09:00:00) belongs to the largest AppointmentID (30), while having the latest Start time (2023-05-01 12:00:00).
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Smith', 'Attending', 111111111);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'Nurse Joy', 'RN', 1, 222222222);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100, 1, 'John Doe', '123 Main St', '555-0100', 999);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (10, 1, 1, 100, '2023-05-01 08:00:00', '2023-05-01 11:00:00', 'A');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (20, 1, 1, 100, '2023-05-01 10:00:00', '2023-05-01 10:00:00', 'B');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (30, 1, 1, 100, '2023-05-01 12:00:00', '2023-05-01 09:00:00', 'C');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on End time using AppointmentID ASC, and tests unnecessary INNER JOIN mutants with Physician/Nurse/Patient/Prescribes.
+-- Two appointments share the earliest End time; the winning row (AppointmentID = 5) has NULL foreign keys and no Prescribes records.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Adams', 'Resident', 111111112);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'Nurse Kelly', 'RN', 1, 222222223);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100, 1, 'Jane Roe', '456 Oak St', '555-0200', 888);
+INSERT INTO "Medication" ("Code", "Name", "Brand", "Description") VALUES (1, 'Aspirin', 'Bayer', 'Pain reliever');
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (15, 1, 1, 100, '2023-06-01 08:00:00', '2023-06-01 10:00:00', 'Room 1');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (5, NULL, NULL, NULL, '2023-06-01 09:00:00', '2023-06-01 10:00:00', 'Room 2');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (1, 1, 1, 100, '2023-06-01 07:00:00', '2023-06-01 11:00:00', 'Room 3');
+
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 100, 1, '2023-06-01 10:00:00', 15, '100mg');
+INSERT INTO "Prescribes" ("Physician", "Patient", "Medication", "Date", "Appointment", "Dose") VALUES (1, 100, 1, '2023-06-01 11:00:00', 1, '200mg');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in the End column (SQLite sorts NULLs first in ASC order, whereas MIN(End) ignores NULLs).
+-- Also tests tie-breaking among NULL End values using AppointmentID ASC.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Baker', 'Surgeon', 111111113);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'Nurse Sam', 'RN', 1, 222222224);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100, 1, 'Alice Smith', '789 Pine St', '555-0300', 777);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (50, 1, 1, 100, '2023-07-01 08:00:00', NULL, 'Room A');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (40, 1, 1, 100, '2023-07-01 09:00:00', NULL, 'Room B');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (10, 1, 1, 100, '2023-07-01 07:00:00', '2023-07-01 08:00:00', 'Room C');
+```
+
+```sql
+-- DATASET 4
+-- Tests negative and zero AppointmentIDs, date vs time-only sorting, and ensures LIMIT 1 is strictly enforced when all rows have the exact same End timestamp.
+INSERT INTO "Physician" ("EmployeeID", "Name", "Position", "SSN") VALUES (1, 'Dr. Clark', 'Specialist', 111111114);
+INSERT INTO "Nurse" ("EmployeeID", "Name", "Position", "Registered", "SSN") VALUES (1, 'Nurse Pat', 'LPN', 0, 222222225);
+INSERT INTO "Patient" ("SSN", "PCP", "Name", "Address", "Phone", "InsuranceID") VALUES (100, 1, 'Bob Brown', '321 Elm St', '555-0400', 666);
+
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (0, 1, 1, 100, '2023-08-02 08:00:00', '2023-08-01 15:00:00', 'X');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (-5, 1, 1, 100, '2023-08-02 09:00:00', '2023-08-01 15:00:00', 'Y');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (-10, 1, 1, 100, '2023-08-02 10:00:00', '2023-08-02 01:00:00', 'Z');
+```
+
+```sql
+-- DATASET 5
+-- Tests integer vs lexicographical sorting of AppointmentID on tied End times (e.g., 2 vs 10, where '10' < '2' as text, but 2 < 10 as integer).
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (10, NULL, NULL, NULL, '2023-09-01 08:00:00', '2023-09-01 09:00:00', 'R1');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (2, NULL, NULL, NULL, '2023-09-01 08:30:00', '2023-09-01 09:00:00', 'R2');
+INSERT INTO "Appointment" ("AppointmentID", "Physician", "PrepNurse", "Patient", "Start", "End", "ExaminationRoom") VALUES (1, NULL, NULL, NULL, '2023-09-01 07:00:00', '2023-09-01 09:30:00', 'R3');
+```

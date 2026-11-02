@@ -1,0 +1,77 @@
+```sql
+-- DATASET 1
+-- Tests basic join semantics where LHS.shop_id = RHS.n (so shop_id must be 1 because shop_id is a PK and COUNT(*) per shop_id is always 1).
+-- Also includes a shop with shop_id = 2 to kill mutants that join on LHS.shop_id = RHS.shop_id instead of LHS.shop_id = RHS.n.
+-- Includes multiple employees for shop 1 and multiple shops to test DISTINCT and Cartesian join effects.
+INSERT INTO employee (Employee_ID, Name, Age, City) VALUES (101, 'Alice', 30, 'New York');
+INSERT INTO employee (Employee_ID, Name, Age, City) VALUES (102, 'Bob', 25, 'Los Angeles');
+INSERT INTO employee (Employee_ID, Name, Age, City) VALUES (103, 'Charlie', 35, 'Chicago');
+
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (1, 'Alpha Shop', 'Downtown', 'D1', 100, 'M1');
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (2, 'Beta Shop', 'Uptown', 'D2', 200, 'M2');
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (3, 'Gamma Shop', 'Midtown', 'D3', 150, 'M3');
+
+INSERT INTO hiring (Employee_ID, Shop_ID, Start_from, Is_full_time) VALUES (101, 1, '2020-01-01', 1);
+INSERT INTO hiring (Employee_ID, Shop_ID, Start_from, Is_full_time) VALUES (102, 1, '2021-01-01', 0);
+INSERT INTO hiring (Employee_ID, Shop_ID, Start_from, Is_full_time) VALUES (103, 2, '2022-01-01', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests the case where shop_id = 1 exists in the shop table, and other shops are hired into, 
+-- but NO hiring record exists for shop_id = 1.
+-- The Reference Query should return an empty result, whereas a mutant joining on shop_id = shop_id will return 'Zeta Shop' and 'Eta Shop'.
+INSERT INTO employee (Employee_ID, Name, Age, City) VALUES (201, 'David', 28, 'Seattle');
+INSERT INTO employee (Employee_ID, Name, Age, City) VALUES (202, 'Eva', 40, 'Boston');
+
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (1, 'Omega Shop', 'Loc1', 'Dist1', 50, 'Mgr1');
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (2, 'Zeta Shop', 'Loc2', 'Dist2', 60, 'Mgr2');
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (3, 'Eta Shop', 'Loc3', 'Dist3', 70, 'Mgr3');
+
+INSERT INTO hiring (Employee_ID, Shop_ID, Start_from, Is_full_time) VALUES (201, 2, '2019-05-10', 1);
+INSERT INTO hiring (Employee_ID, Shop_ID, Start_from, Is_full_time) VALUES (202, 3, '2018-03-15', 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests outer join vs inner join mutations and NULL handling when hiring has a NULL Shop_ID, 
+-- or when shop has no hirings at all. Also tests when total count of shops is 1 vs >1 (if GROUP BY is mutated/removed).
+INSERT INTO employee (Employee_ID, Name, Age, City) VALUES (301, 'Frank', 50, 'Miami');
+INSERT INTO employee (Employee_ID, Name, Age, City) VALUES (302, 'Grace', 22, 'Denver');
+
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (1, 'Solo Shop', 'Center', 'Central', 500, 'Boss');
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (2, 'Unreferenced Shop', 'West', 'WestEnd', 300, 'Chief');
+
+INSERT INTO hiring (Employee_ID, Shop_ID, Start_from, Is_full_time) VALUES (301, NULL, '2023-01-01', 1);
+INSERT INTO hiring (Employee_ID, Shop_ID, Start_from, Is_full_time) VALUES (302, 1, '2023-02-01', 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests mutations that omit the GROUP BY shop_id in the inner subquery (which would make COUNT(*) = total number of shops, here 3).
+-- By having a hiring for shop_id = 3 (and no hiring for shop_id = 1), a mutant without GROUP BY would match shop_id = 3 with COUNT(*) = 3 and output 'Shop Three', whereas the Reference Query outputs nothing.
+INSERT INTO employee (Employee_ID, Name, Age, City) VALUES (401, 'Hank', 33, 'Austin');
+
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (1, 'Shop One', 'North', 'N1', 10, 'M_A');
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (2, 'Shop Two', 'South', 'S1', 20, 'M_B');
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (3, 'Shop Three', 'East', 'E1', 30, 'M_C');
+
+INSERT INTO hiring (Employee_ID, Shop_ID, Start_from, Is_full_time) VALUES (401, 3, '2020-10-10', 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests outer join mutations where LHS.shop_id = RHS.shop_id_other is used instead of LHS.shop_id = RHS.shop_id in the outer join.
+-- Since RHS.shop_id_other takes the value of every shop_id in the shop table (1, 2, 3), 
+-- if the outer join mistakenly joins on LHS.shop_id = RHS.shop_id_other, it will return all shops (B_Shop, A_Shop, C_Shop) instead of just 'C_Shop' (which has shop_id = 1).
+-- Also tests ORDER BY name by assigning shop names in reverse order of their Shop_IDs.
+INSERT INTO employee (Employee_ID, Name, Age, City) VALUES (501, 'Ivy', 29, 'Portland');
+
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (1, 'C_Shop', 'LocC', 'DC', 111, 'MgrC');
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (2, 'B_Shop', 'LocB', 'DB', 222, 'MgrB');
+INSERT INTO shop (Shop_ID, Name, Location, District, Number_products, Manager_name) VALUES (3, 'A_Shop', 'LocA', 'DA', 333, 'MgrA');
+
+INSERT INTO hiring (Employee_ID, Shop_ID, Start_from, Is_full_time) VALUES (501, 1, '2021-06-01', 0);
+
+INSERT INTO evaluation (Employee_ID, Year_awarded, Bonus) VALUES ('501', '2022', 1500.50);
+```

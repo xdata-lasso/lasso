@@ -1,0 +1,92 @@
+```sql
+-- DATASET 1
+-- Tests HAVING/WHERE boundary conditions (counts of 0, 1, 2, 3, 4), ORDER BY count and name tie-breaking, and Official/Unofficial language distinction.
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES 
+('C00', 'ZeroLang', 'Asia', 'East', 100.0, 1990, 1000, 70.0, 100.0, 90.0, 'Zero', 'Republic', 'Head0', 1, 'Z0'),
+('C01', 'OneLang', 'Asia', 'East', 100.0, 1990, 1000, 70.0, 100.0, 90.0, 'One', 'Republic', 'Head1', 2, 'O1'),
+('C02', 'TwoLang', 'Europe', 'West', 200.0, 1980, 2000, 75.0, 200.0, 180.0, 'Two', 'Monarchy', 'Head2', 3, 'T2'),
+('C03', 'ZetaThree', 'Africa', 'North', 300.0, 1970, 3000, 65.0, 300.0, 270.0, 'Zeta', 'Republic', 'Head3', 4, 'Z3'),
+('C04', 'AlphaThree', 'Africa', 'South', 400.0, 1960, 4000, 60.0, 400.0, 360.0, 'Alpha', 'Republic', 'Head4', 5, 'A3'),
+('C05', 'BetaFour', 'Oceania', 'Pacific', 500.0, 1950, 5000, 80.0, 500.0, 450.0, 'Beta', 'Federation', 'Head5', 6, 'B4');
+
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES 
+('C01', 'L1', 'T', 100.0),
+('C02', 'L1', 'T', 60.0),
+('C02', 'L2', 'F', 40.0),
+('C03', 'L1', 'T', 50.0),
+('C03', 'L2', 'F', 30.0),
+('C03', 'L3', 'F', 20.0),
+('C04', 'L1', 'F', 40.0),
+('C04', 'L2', 'F', 40.0),
+('C04', 'L3', 'F', 20.0),
+('C05', 'L1', 'T', 25.0),
+('C05', 'L2', 'T', 25.0),
+('C05', 'L3', 'T', 25.0),
+('C05', 'L4', 'F', 25.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY Name vs GROUP BY Code, and COUNT(DISTINCT Language) vs COUNT(Language) when two different country codes share the exact same country Name.
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES 
+('D01', 'SharedNameA', 'Asia', 'East', 100.0, 1990, 1000, 70.0, 100.0, 90.0, 'S1', 'Republic', 'H1', 1, 'D1'),
+('D02', 'SharedNameA', 'Europe', 'West', 200.0, 1980, 2000, 75.0, 200.0, 180.0, 'S2', 'Monarchy', 'H2', 2, 'D2'),
+('D03', 'SharedNameB', 'Africa', 'North', 300.0, 1970, 3000, 65.0, 300.0, 270.0, 'S3', 'Republic', 'H3', 3, 'D3'),
+('D04', 'SharedNameB', 'Africa', 'South', 400.0, 1960, 4000, 60.0, 400.0, 360.0, 'S4', 'Republic', 'H4', 4, 'D4');
+
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES 
+-- SharedNameA has 2 languages per code, 3 distinct languages total ('L1', 'L2', 'L3'), 4 language rows total.
+('D01', 'L1', 'T', 50.0),
+('D01', 'L2', 'F', 50.0),
+('D02', 'L2', 'T', 50.0),
+('D02', 'L3', 'F', 50.0),
+-- SharedNameB has 2 languages per code, 2 distinct languages total ('L1', 'L2'), 4 language rows total.
+('D03', 'L1', 'T', 60.0),
+('D03', 'L2', 'F', 40.0),
+('D04', 'L1', 'F', 70.0),
+('D04', 'L2', 'T', 30.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in country.Name (GROUP BY NULL, ORDER BY name NULLS LAST) and NULL in countrylanguage.Language (COUNT(DISTINCT) ignores NULLs).
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES 
+('N01', NULL, 'Asia', 'East', 100.0, 1990, 1000, 70.0, 100.0, 90.0, 'NullCountry', 'Republic', 'H1', 1, 'N1'),
+('N02', 'ValidNameThree', 'Europe', 'West', 200.0, 1980, 2000, 75.0, 200.0, 180.0, 'Valid1', 'Monarchy', 'H2', 2, 'N2'),
+('N03', 'NullLangTest', 'Africa', 'North', 300.0, 1970, 3000, 65.0, 300.0, 270.0, 'Valid2', 'Republic', 'H3', 3, 'N3');
+
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES 
+-- N01 (Name is NULL) has 3 distinct languages -> should appear in result, ordered LAST among count=3.
+('N01', 'L1', 'T', 33.3),
+('N01', 'L2', 'F', 33.3),
+('N01', 'L3', 'F', 33.3),
+-- N02 has 3 distinct languages -> should appear before N01 due to NULLS LAST.
+('N02', 'L1', 'T', 50.0),
+('N02', 'L2', 'F', 25.0),
+('N02', 'L3', 'F', 25.0),
+-- N03 has 2 non-null languages and 1 NULL language (allowed by SQLite PK) -> COUNT(DISTINCT Language) is 2 (excluded), whereas COUNT(*) is 3.
+('N03', 'L1', 'T', 50.0),
+('N03', 'L2', 'F', 50.0),
+('N03', NULL, 'F', 0.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests resistance to decoy joins with the "city" table (ensures query does not accidentally join city and multiply rows or filter out countries without cities) and tests mistaken join conditions (e.g., Code2 = CountryCode or LocalName = Name).
+INSERT INTO "country" ("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2") VALUES 
+('X01', 'NoCitiesCountry', 'South America', 'Andes', 500.0, 1820, 5000, 72.0, 500.0, 450.0, 'LocalX01', 'Republic', 'HX1', NULL, 'X1'),
+('X02', 'ManyCitiesTwoLangs', 'North America', 'Central', 600.0, 1850, 6000, 74.0, 600.0, 550.0, 'LocalX02', 'Republic', 'HX2', 1, 'X2');
+
+INSERT INTO "city" ("ID", "CountryCode", "Name", "District", "Population") VALUES 
+(1, 'X02', 'City1', 'Dist1', 1000),
+(2, 'X02', 'City2', 'Dist2', 2000),
+(3, 'X02', 'City3', 'Dist3', 3000);
+
+INSERT INTO "countrylanguage" ("CountryCode", "Language", "IsOfficial", "Percentage") VALUES 
+('X01', 'Span', 'T', 80.0),
+('X01', 'Quechua', 'F', 10.0),
+('X01', 'Aymara', 'F', 10.0),
+('X01', 'Guarani', 'F', 0.0),
+('X02', 'Eng', 'T', 90.0),
+('X02', 'Fr', 'F', 10.0);
+```

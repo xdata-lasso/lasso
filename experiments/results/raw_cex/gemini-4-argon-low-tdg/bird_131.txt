@@ -1,0 +1,121 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering on status ('C' vs 'A', 'B'), SUM vs MAX/AVG/COUNT, and GROUP BY A3 across multiple districts.
+-- Region 'Alpha' has two districts with status 'C' loans totaling 1200 (600 + 600).
+-- Region 'Beta' has one district with a status 'C' loan of 1000 (MAX is higher than Alpha's individual loans, AVG is 1000 vs Alpha's 600), and a status 'A' loan of 5000 (tests status filter).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Dist1', 'Alpha', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'Dist2', 'Alpha', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'Dist3', 'Beta', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (10, 1, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (20, 2, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (30, 3, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (40, 3, 'MONTHLY', '2020-01-01');
+
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (100, 10, '2020-06-01', 600, 12, 50.0, 'C');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (200, 20, '2020-06-01', 600, 12, 50.0, 'C');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (300, 30, '2020-06-01', 1000, 12, 83.3, 'C');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (400, 40, '2020-06-01', 5000, 12, 416.6, 'A');
+```
+
+```sql
+-- DATASET 2
+-- Tests inclusion of both 'C' and 'D' statuses (kills mutants that only check status = 'C' or only status = 'D').
+-- Also tests SUM(amount) vs SUM(payments) or SUM(duration).
+-- Region 'South' has 'D' loan (amount 800) and 'C' loan (amount 500) -> Total 1300.
+-- Region 'North' has 'C' loan (amount 1000) -> Total 1000. (If 'D' is ignored, North wins. If 'C' is ignored, South wins with 800, so we add 'East' with 'D' loan of 900 to kill status = 'D' only).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D_South', 'South', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D_North', 'North', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D_East', 'East', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 2, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (4, 3, 'MONTHLY', '2020-01-01');
+
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 1, '2020-06-01', 800, 12, 10.0, 'D');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 2, '2020-06-01', 500, 12, 10.0, 'C');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (3, 3, '2020-06-01', 1000, 60, 900.0, 'C');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (4, 4, '2020-06-01', 900, 60, 900.0, 'D');
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking in ORDER BY: SUM(T3.amount) DESC, T2.A3 ASC.
+-- Also tests SUM(DISTINCT amount) vs SUM(amount).
+-- Region 'B_Region' and 'A_Region' both have total amount = 1000.
+-- 'A_Region' has two identical loans of 500 (if SUM(DISTINCT) is used, it becomes 500 and loses).
+-- With proper SUM(amount), both tie at 1000, and 'A_Region' wins due to T2.A3 ASC tie-breaker.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'DistA', 'A_Region', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'DistB', 'B_Region', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 2, 'MONTHLY', '2020-01-01');
+
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 1, '2020-06-01', 500, 12, 50.0, 'C');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 2, '2020-06-01', 500, 12, 50.0, 'D');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (3, 3, '2020-06-01', 1000, 12, 100.0, 'C');
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY T2.A3 vs GROUP BY T2.district_id or T2.A2.
+-- Also tests COUNT(T3.amount) vs SUM(T3.amount).
+-- Region 'Moravia' is split across 3 districts (1, 2, 3), each with 1 loan of 400 (Total = 1200, Count = 3).
+-- Region 'Bohemia' has 1 district (4) with 4 loans of 250 (Total = 1000, Count = 4).
+-- If grouped by district_id, district 4 wins (1000 vs 400). If ordered by COUNT, Bohemia wins (4 vs 3).
+-- Reference query groups by A3 and orders by SUM, so 'Moravia' (1200) wins.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'M1', 'Moravia', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'M2', 'Moravia', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'M3', 'Moravia', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (4, 'B1', 'Bohemia', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 2, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 3, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (4, 4, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (5, 4, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (6, 4, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (7, 4, 'MONTHLY', '2020-01-01');
+
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 1, '2020-06-01', 400, 12, 10.0, 'C');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 2, '2020-06-01', 400, 12, 10.0, 'C');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (3, 3, '2020-06-01', 400, 12, 10.0, 'D');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (4, 4, '2020-06-01', 250, 12, 10.0, 'C');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (5, 5, '2020-06-01', 250, 12, 10.0, 'D');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (6, 6, '2020-06-01', 250, 12, 10.0, 'C');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (7, 7, '2020-06-01', 250, 12, 10.0, 'D');
+```
+
+```sql
+-- DATASET 5
+-- Tests join conditions: T1.district_id = T2.district_id and T1.account_id = T3.account_id.
+-- Intentionally offsets IDs so accidental joins (e.g. T1.account_id = T2.district_id or T3.loan_id = T1.account_id) fail or produce wrong results.
+-- Also tests INNER JOIN vs LEFT JOIN when a district has no valid loans (and another has negative loans or small loans).
+-- Also includes client/disp/trans/order tables to kill mutants that unnecessarily join with other tables (which would filter out accounts without clients/orders/trans).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'WrongJoinRegion', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'CorrectRegion', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D3', 'FallbackRegion', '100', '10', '10', '10', 1, 1, 50.0, 1000, 1.0, 1.0, 10, 10, 10);
+
+-- Account 1 belongs to District 2 ('CorrectRegion'), NOT District 1.
+-- Account 2 belongs to District 1 ('WrongJoinRegion').
+-- Account 3 belongs to District 3 ('FallbackRegion') and has extra table records (client, disp, order, trans).
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 2, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 1, 'MONTHLY', '2020-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 3, 'MONTHLY', '2020-01-01');
+
+-- Loan 2 belongs to Account 1 (Amount 5000, Status 'D').
+-- Loan 1 belongs to Account 2 (Amount 100, Status 'B' - excluded).
+-- Loan 3 belongs to Account 3 (Amount 500, Status 'C').
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (2, 1, '2020-06-01', 5000, 12, 100.0, 'D');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (1, 2, '2020-06-01', 100, 12, 10.0, 'B');
+INSERT INTO loan (loan_id, account_id, date, amount, duration, payments, status) VALUES (3, 3, '2020-06-01', 500, 12, 10.0, 'C');
+
+-- Populate other tables ONLY for Account 3 / District 3. If a mutant inner-joins client, disp, order, or trans, 'CorrectRegion' will be dropped and 'FallbackRegion' will win.
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1980-01-01', 3);
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (1, 1, 3, 'OWNER');
+INSERT INTO card (card_id, disp_id, type, issued) VALUES (1, 1, 'classic', '2020-02-01');
+INSERT INTO "order" (order_id, account_id, bank_to, account_to, amount, k_symbol) VALUES (1, 3, 'AB', 999, 50.0, 'SIPO');
+INSERT INTO trans (trans_id, account_id, date, type, operation, amount, balance, k_symbol, bank, account) VALUES (1, 3, '2020-03-01', 'PRIJEM', 'VKLAD', 500, 500, ' ', ' ', 0);
+```

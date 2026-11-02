@@ -1,0 +1,49 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. ORDER BY Calendar_Date vs no ORDER BY (inserted out of chronological order)
+-- 2. ORDER BY Calendar_Date vs ORDER BY Day_Number (Day_Number goes inversely to Calendar_Date)
+-- 3. Unreferenced Calendar_Date rows (catches mutants with accidental INNER JOINs to child tables)
+-- 4. Duplicate references to the same Calendar_Date in child tables (catches mutants with JOINs lacking DISTINCT)
+INSERT INTO "Ref_Document_Types" ("Document_Type_Code", "Document_Type_Name", "Document_Type_Description") VALUES ('DOC_A', 'Report', 'Annual Report');
+INSERT INTO "Ref_Locations" ("Location_Code", "Location_Name", "Location_Description") VALUES ('LOC_1', 'Archive', 'Main Archive');
+INSERT INTO "Roles" ("Role_Code", "Role_Name", "Role_Description") VALUES ('MGR', 'Manager', 'Dept Manager');
+INSERT INTO "Employees" ("Employee_ID", "Role_Code", "Employee_Name", "Gender_MFU", "Date_of_Birth", "Other_Details") VALUES (1, 'MGR', 'Alice', 'F', '1980-01-01 00:00:00', 'None');
+
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-05-15 00:00:00', 10);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2021-01-01 00:00:00', 30);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2022-08-20 00:00:00', 20);
+
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (101, '2021-01-01 00:00:00', 'DOC_A', 'Doc 1', 'First', 'None');
+INSERT INTO "All_Documents" ("Document_ID", "Date_Stored", "Document_Type_Code", "Document_Name", "Document_Description", "Other_Details") VALUES (102, '2021-01-01 00:00:00', 'DOC_A', 'Doc 2', 'Second', 'None');
+
+INSERT INTO "Document_Locations" ("Document_ID", "Location_Code", "Date_in_Location_From", "Date_in_Locaton_To") VALUES (101, 'LOC_1', '2021-01-01 00:00:00', '2022-08-20 00:00:00');
+INSERT INTO "Documents_to_be_Destroyed" ("Document_ID", "Actual_Destruction_Date", "Planned_Destruction_Date", "Destruction_Authorised_by_Employee_ID", "Destroyed_by_Employee_ID", "Other_Details") VALUES (101, '2022-08-20 00:00:00', '2021-01-01 00:00:00', 1, 1, 'Destroyed');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Handling of NULL values in Day_Number (catches mutants with WHERE Day_Number IS NOT NULL or inner self-joins on Day_Number)
+-- 2. Handling of duplicate Day_Number values (catches mutants with GROUP BY Day_Number or DISTINCT Day_Number)
+-- 3. Handling of 0 and negative values in Day_Number (catches mutants with WHERE Day_Number > 0)
+-- 4. Completely empty child tables (catches any mutant joining Ref_Calendar with All_Documents, Document_Locations, or Documents_to_be_Destroyed)
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-12-31 23:59:59', NULL);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-01-01 00:00:00', 5);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-06-15 12:00:00', 5);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-03-10 08:30:00', 0);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2023-02-01 00:00:00', -1);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Fine-grained timestamp sorting (same date, different times; same year/month, different days)
+-- 2. Large cardinality (6 rows) to catch mutants with arbitrary LIMIT clauses (e.g., LIMIT 1, LIMIT 5)
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2020-02-29 15:00:00', 60);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2020-02-29 09:00:00', 60);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2020-02-28 23:59:59', 59);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2020-12-01 00:00:00', 336);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2020-01-01 00:00:00', 1);
+INSERT INTO "Ref_Calendar" ("Calendar_Date", "Day_Number") VALUES ('2019-12-31 23:59:59', 365);
+```

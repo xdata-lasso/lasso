@@ -1,0 +1,94 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, ORDER BY cust_name (inserted in reverse alphabetical order), 
+-- and decoupling of customer.branch_id from customer.no_of_loans and bank.no_of_customers.
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (1, 'First Bank', 100, 'Boston', 'MA');
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (2, 'Second Bank', 200, 'Dallas', 'TX');
+
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C01', 2, 'Zack', 'S', 5000, 99, 750, 'TX');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C02', 1, 'Alice', 'C', 3000, 88, 700, 'MA');
+
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L01', 'C01', '1', 'Auto', 10000);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L02', 'C01', '2', 'Home', 20000);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L03', 'C02', '2', 'Personal', 5000);
+```
+
+```sql
+-- DATASET 2
+-- Tests inequality mutants (<, <=, >, >=, !=) on LHS.branch_id = RHS.n,
+-- and tests confusion between customer.branch_id and customer.no_of_loans.
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (1, 'B1', 10, 'CityA', 'ST1');
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (2, 'B2', 20, 'CityB', 'ST2');
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (3, 'B3', 30, 'CityC', 'ST3');
+
+-- C01: branch_ID (1) < actual loan count (2). But no_of_loans (2) == actual loan count (2).
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C01', 1, 'Bob', 'S', 1000, 2, 600, 'ST1');
+-- C02: branch_ID (3) > actual loan count (2).
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C02', 3, 'Charlie', 'C', 2000, 3, 650, 'ST3');
+-- C03: branch_ID (2) == actual loan count (2). Matches reference query.
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C03', 2, 'David', 'S', 1500, 5, 700, 'ST2');
+
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L01', 'C01', '1', 'Auto', 100);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L02', 'C01', '1', 'Home', 200);
+
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L03', 'C02', '3', 'Auto', 300);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L04', 'C02', '3', 'Home', 400);
+
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L05', 'C03', '1', 'Auto', 500);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L06', 'C03', '1', 'Home', 600);
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition omission (missing LHS.cust_id = RHS.cust_id) or OR instead of AND,
+-- and tests GROUP BY loan.branch_id instead of loan.cust_id.
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (1, 'B1', 10, 'CityA', 'ST1');
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (2, 'B2', 20, 'CityB', 'ST2');
+
+-- C01 has branch_ID = 2, but only 1 loan.
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C01', 2, 'Eve', 'S', 1000, 1, 600, 'ST1');
+-- C02 has branch_ID = 1, and has 2 loans.
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C02', 1, 'Frank', 'C', 2000, 2, 650, 'ST2');
+
+-- C01 has 1 loan (RHS.n = 1, matches C02's branch_ID if cust_ID join is dropped)
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L01', 'C01', '2', 'Auto', 1000);
+-- C02 has 2 loans (RHS.n = 2, matches C01's branch_ID if cust_ID join is dropped)
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L02', 'C02', '2', 'Home', 2000);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L03', 'C02', '1', 'Auto', 3000);
+```
+
+```sql
+-- DATASET 4
+-- Tests COUNT(*) vs COUNT(loan_type), COUNT(DISTINCT loan_type), COUNT(amount), or SUM(amount),
+-- and tests duplicate cust_name (SELECT DISTINCT vs SELECT).
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (2, 'B2', 50, 'CityA', 'ST1');
+
+-- Two distinct customers with the same name 'Grace', both matching branch_ID = 2.
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C01', 2, 'Grace', 'S', 1000, 0, 700, 'ST1');
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C02', 2, 'Grace', 'C', 2000, 0, 750, 'ST1');
+
+-- C01 has 2 loans, but one has NULL loan_type and NULL amount, and amounts don't sum to 2.
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L01', 'C01', '2', 'Auto', 500);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L02', 'C01', '2', NULL, NULL);
+
+-- C02 has 2 loans with identical loan_type and identical amount (tests COUNT(DISTINCT ...)).
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L03', 'C02', '2', 'Home', 1000);
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L04', 'C02', '2', 'Home', 1000);
+```
+
+```sql
+-- DATASET 5
+-- Tests LEFT JOIN vs INNER JOIN, and branch_ID = 0 edge case (customer with 0 loans).
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (0, 'ZeroBank', 5, 'CityZ', 'ST0');
+INSERT INTO bank (branch_ID, bname, no_of_customers, city, state) VALUES (1, 'OneBank', 10, 'CityO', 'ST1');
+
+-- C01 has branch_ID = 0 and 0 loans (not present in loan table). 
+-- INNER JOIN produces nothing for C01; a LEFT JOIN mutant with COALESCE(n, 0) would include C01.
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C01', 0, 'Hank', 'S', 500, 0, 600, 'ST0');
+-- C02 has branch_ID = 1 and 0 loans (tests LEFT JOIN without condition check).
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C02', 1, 'Ivy', 'C', 1500, 1, 650, 'ST1');
+-- C03 has branch_ID = 1 and 1 loan (valid match).
+INSERT INTO customer (cust_ID, branch_ID, cust_name, acc_type, acc_bal, no_of_loans, credit_score, state) VALUES ('C03', 1, 'Jack', 'S', 2500, 1, 700, 'ST1');
+
+INSERT INTO loan (loan_ID, cust_ID, branch_ID, loan_type, amount) VALUES ('L01', 'C03', '0', 'Auto', 1500);
+```

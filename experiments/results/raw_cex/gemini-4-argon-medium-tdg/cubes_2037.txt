@@ -1,0 +1,85 @@
+```sql
+-- DATASET 1
+-- Tests 3 distinct status codes with strictly increasing counts (1, 2, 3) and inverse alphabetical vs count ordering.
+-- Catches: SELECT DISTINCT mutants, MIN(n) only mutants, MAX(n) mutants, > vs < or >=, ORDER BY DESC or ORDER BY n.
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (1, 'Z_Rare');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (2, 'M_Medium');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (3, 'M_Medium');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (4, 'A_Common');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (5, 'A_Common');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (6, 'A_Common');
+```
+
+```sql
+-- DATASET 2
+-- Tests tied maximum counts (two status codes with count 3, one with count 1).
+-- Catches: Mutants using LIMIT 1 to find the maximum group, or failing to output multiple rows when multiple groups beat a smaller group.
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (1, 'MaxA');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (2, 'MaxA');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (3, 'MaxA');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (4, 'MaxB');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (5, 'MaxB');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (6, 'MaxB');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (7, 'MinC');
+```
+
+```sql
+-- DATASET 3
+-- Tests all status codes having identical counts (ties across all groups).
+-- Reference query returns empty result set.
+-- Catches: Mutants using >= instead of >, != instead of >, or unconditional projections with LIMIT.
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (1, 'Status1');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (2, 'Status1');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (3, 'Status2');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (4, 'Status2');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL customer_status_code values and NULLs in other columns.
+-- In SQL, GROUP BY groups NULLs together, and COUNT(*) counts the NULL group (size 1), whereas COUNT(customer_status_code) evaluates to 0.
+-- Catches: COUNT(customer_status_code) vs COUNT(*), COUNT(amount_outstanding), and WHERE customer_status_code IS NOT NULL mutants.
+INSERT INTO "Customers" ("customer_id", "customer_status_code", "amount_outstanding") VALUES (1, NULL, NULL);
+INSERT INTO "Customers" ("customer_id", "customer_status_code", "amount_outstanding") VALUES (2, 'Active', NULL);
+INSERT INTO "Customers" ("customer_id", "customer_status_code", "amount_outstanding") VALUES (3, 'Active', 50.0);
+INSERT INTO "Customers" ("customer_id", "customer_status_code", "amount_outstanding") VALUES (4, 'Inactive', 10.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests join traps with child tables (Lessons, Customer_Payments) and unreferenced Customers.
+-- Catches: Mutants that erroneously INNER JOIN Customers with Lessons or Customer_Payments before grouping/counting.
+INSERT INTO "Addresses" ("address_id", "city") VALUES (1, 'TestCity');
+INSERT INTO "Staff" ("staff_id", "staff_address_id", "first_name") VALUES (1, 1, 'StaffOne');
+INSERT INTO "Vehicles" ("vehicle_id", "vehicle_details") VALUES (1, 'CarOne');
+
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "customer_status_code") VALUES (1, 1, 'NoChildRows');
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "customer_status_code") VALUES (2, 1, 'NoChildRows');
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "customer_status_code") VALUES (3, 1, 'NoChildRows');
+INSERT INTO "Customers" ("customer_id", "customer_address_id", "customer_status_code") VALUES (4, 1, 'ManyChildRows');
+
+INSERT INTO "Customer_Payments" ("customer_id", "datetime_payment", "payment_method_code", "amount_payment") VALUES (4, '2023-01-01 10:00:00', 'CARD', 100.0);
+INSERT INTO "Customer_Payments" ("customer_id", "datetime_payment", "payment_method_code", "amount_payment") VALUES (4, '2023-01-02 10:00:00', 'CARD', 100.0);
+INSERT INTO "Customer_Payments" ("customer_id", "datetime_payment", "payment_method_code", "amount_payment") VALUES (4, '2023-01-03 10:00:00', 'CARD', 100.0);
+INSERT INTO "Customer_Payments" ("customer_id", "datetime_payment", "payment_method_code", "amount_payment") VALUES (4, '2023-01-04 10:00:00', 'CARD', 100.0);
+
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code") VALUES (1, 4, 1, 1, 'Completed');
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code") VALUES (2, 4, 1, 1, 'Completed');
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code") VALUES (3, 4, 1, 1, 'Completed');
+INSERT INTO "Lessons" ("lesson_id", "customer_id", "staff_id", "vehicle_id", "lesson_status_code") VALUES (4, 4, 1, 1, 'Completed');
+```
+
+```sql
+-- DATASET 6
+-- Tests 4 distinct groups with tied intermediate and minimum counts (counts: 4, 2, 2, 1).
+-- Verified complex multiplicity and ordering of output rows.
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (1, 'D_Four');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (2, 'D_Four');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (3, 'D_Four');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (4, 'D_Four');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (5, 'B_Two');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (6, 'B_Two');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (7, 'C_Two');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (8, 'C_Two');
+INSERT INTO "Customers" ("customer_id", "customer_status_code") VALUES (9, 'A_One');
+```

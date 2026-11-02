@@ -1,0 +1,68 @@
+-- Schema DDL
+CREATE TABLE "USERS" (
+    "USER_ID" INT,
+    "NAME" TEXT,
+    "EMAIL" TEXT,
+    "REGISTRATION_DATE" DATE,
+    "IS_ACTIVE" INT,
+    PRIMARY KEY ("USER_ID")
+);
+CREATE TABLE "ORDERS" (
+    "ORDER_ID" INT,
+    "USER_ID" INT,
+    "ORDER_DATE" DATE,
+    "TOTAL_AMOUNT" FLOAT,
+    "STATUS" TEXT,
+    PRIMARY KEY ("ORDER_ID"),
+    FOREIGN KEY ("USER_ID") REFERENCES "USERS"("USER_ID")
+);
+CREATE TABLE "PRODUCTS" (
+    "PRODUCT_ID" INT,
+    "NAME" TEXT,
+    "CATEGORY" TEXT,
+    "PRICE" FLOAT,
+    "STOCK_QUANTITY" INT,
+    PRIMARY KEY ("PRODUCT_ID")
+);
+CREATE TABLE "ORDERITEMS" (
+    "ORDER_ITEM_ID" INT,
+    "ORDER_ID" INT,
+    "PRODUCT_ID" INT,
+    "QUANTITY" INT,
+    "UNIT_PRICE" FLOAT,
+    PRIMARY KEY ("ORDER_ITEM_ID"),
+    FOREIGN KEY ("PRODUCT_ID") REFERENCES "PRODUCTS"("PRODUCT_ID"),
+    FOREIGN KEY ("ORDER_ID") REFERENCES "ORDERS"("ORDER_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO USERS VALUES (0, 13, 14, '0001-01-01', 0);
+INSERT INTO USERS VALUES (-1, 17, 18, '0001-01-01', 0);
+INSERT INTO ORDERS VALUES (1, 0, '0001-01-01', 15, 16);
+INSERT INTO ORDERS VALUES (0, 0, '0001-01-01', 19, 20);
+INSERT INTO PRODUCTS VALUES (1, 0, 0, 0, 0);
+INSERT INTO PRODUCTS VALUES (0, 0, 0, 0, 0);
+INSERT INTO ORDERITEMS VALUES (0, 1, 1, 0, 0);
+INSERT INTO ORDERITEMS VALUES (1, 1, 1, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT u.name, o.order_date FROM Users AS u LEFT JOIN Orders AS o ON u.user_id = o.user_id;
+
+/*
+Gold Result:
+('13', '0001-01-01')
+('13', '0001-01-01')
+('17', None)
+*/
+
+-- Prediction Query
+SELECT u.name, o.order_date FROM Users AS u CROSS JOIN Orders AS o ON u.user_id = o.user_id;
+
+/*
+Prediction Result:
+('13', '0001-01-01')
+('13', '0001-01-01')
+*/

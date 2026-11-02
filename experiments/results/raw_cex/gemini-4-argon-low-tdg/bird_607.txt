@@ -1,0 +1,53 @@
+```sql
+-- DATASET 1
+-- Tests basic threshold boundary (59, 60, 61), NULL Score, and NULL Foreign Keys (PostId, UserId) to catch INNER JOIN mutants or COUNT(PostId)/COUNT(UserId) mutants.
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (10, NULL, 59, 'Below threshold', '2023-01-01 10:00:00', NULL, 'UserA');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (20, NULL, 60, 'Exact boundary', '2023-01-01 11:00:00', NULL, 'UserB');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (30, NULL, 61, 'Just above threshold', '2023-01-01 12:00:00', NULL, 'UserC');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (40, NULL, NULL, 'Null score', '2023-01-01 13:00:00', NULL, 'UserD');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate values in other columns (Score, PostId, UserId, Text) to catch COUNT(DISTINCT ...) mutants, and large/small IDs to catch SUM/MAX/MIN(Id) or WHERE Id > 60 mutants.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'Alice');
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, Title) VALUES (1, 1, 10, 1, 'Post 1');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (1, 1, 65, 'Same text', '2023-01-02 10:00:00', 1, 'Alice');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (2, 1, 65, 'Same text', '2023-01-02 10:00:00', 1, 'Alice');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (100, 1, 10, 'High ID but low score', '2023-01-02 11:00:00', 1, 'Alice');
+```
+
+```sql
+-- DATASET 3
+-- Tests empty result set (0 rows matching) while populating `posts` with Score > 60 and `users` with Reputation > 60 to catch wrong table mutants (e.g., querying posts instead of comments) and HAVING/empty-table edge cases.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 500, 'HighRepUser');
+INSERT INTO posts (Id, PostTypeId, Score, ViewCount, OwnerUserId, Title, CommentCount) VALUES (1, 1, 100, 200, 1, 'High Score Post', 75);
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (1, 1, 60, 'Boundary 60', '2023-01-03 10:00:00', 1, 'HighRepUser');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (2, 1, 0, 'Zero score', '2023-01-03 11:00:00', 1, 'HighRepUser');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (3, 1, -10, 'Negative score', '2023-01-03 12:00:00', 1, 'HighRepUser');
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple matching comments with varied scores and nullable non-key attributes (Text, CreationDate, UserDisplayName) set to NULL to catch COUNT(Text), COUNT(CreationDate), or COUNT(UserDisplayName) mutants.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (10, 50, 'Bob');
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, Title) VALUES (20, 1, 5, 10, 'Sample Post');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (5, 20, 61, NULL, NULL, 10, NULL);
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (6, NULL, 100, 'Valid text', '2023-01-04 10:00:00', NULL, NULL);
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (7, 20, 62, 'Another valid', NULL, NULL, 'Anon');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (8, 20, 50, 'Below', '2023-01-04 12:00:00', 10, 'Bob');
+```
+
+```sql
+-- DATASET 5
+-- Tests 1-to-many join fan-out traps (a comment's post or user having multiple votes, badges, postHistory, or postLinks) to kill mutants that unnecessarily join other tables.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'User1');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (1, 1, 'Badge1', '2023-01-01');
+INSERT INTO badges (Id, UserId, Name, Date) VALUES (2, 1, 'Badge2', '2023-01-02');
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, Title) VALUES (1, 1, 10, 1, 'Post1');
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId) VALUES (1, 1, 2, 1);
+INSERT INTO votes (Id, PostId, VoteTypeId, UserId) VALUES (2, 1, 2, 1);
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId, Text) VALUES (1, 1, 1, 1, 'Hist1');
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, UserId, Text) VALUES (2, 2, 1, 1, 'Hist2');
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId, UserDisplayName) VALUES (1, 1, 80, 'Single high score comment', '2023-01-05 10:00:00', 1, 'User1');
+```

@@ -1,0 +1,48 @@
+```sql
+-- DATASET 1
+-- Tests predicate boundary (9, 10, 11), column disambiguation (problem_log_id = 10 vs problem_id = 10), and anti-correlated ORDER BY (problem_log_id ASC vs log_entry_date DESC)
+INSERT INTO "Problem_Category_Codes" ("problem_category_code", "problem_category_description") VALUES ('CAT1', 'Hardware');
+INSERT INTO "Problem_Status_Codes" ("problem_status_code", "problem_status_description") VALUES ('STAT1', 'Open');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (1, 'Product A', 'Details A');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (1, 'John', 'Doe', 'Details');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (9, 1, 1, 1, '2023-01-01 08:00:00', '2023-01-02 08:00:00', 'Prob 9', 'None');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (10, 1, 1, 1, '2023-01-01 09:00:00', '2023-01-02 09:00:00', 'Prob 10', 'None');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (11, 1, 1, 1, '2023-01-01 10:00:00', '2023-01-02 10:00:00', 'Prob 11', 'None');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (10, 'STAT1', 9, 1, 'CAT1', '2023-01-05 10:00:00', 'Log 10 for Prob 9', 'Fix 1', 'Other 1');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (20, 'STAT1', 11, 1, 'CAT1', '2023-01-06 10:00:00', 'Log 20 for Prob 11', 'Fix 2', 'Other 2');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (100, 'STAT1', 10, 1, 'CAT1', '2023-01-10 10:00:00', 'Log 100 for Prob 10', 'Fix 3', 'Other 3');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (50, 'STAT1', 10, 1, 'CAT1', '2023-01-20 10:00:00', 'Log 50 for Prob 10', 'Fix 4', 'Other 4');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL foreign keys (inner join vs direct table scan) and assigned_to_staff_id = 10 confusion
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (10, NULL, NULL, NULL, '2023-02-01 00:00:00', NULL, 'Prob 10 with NULL FKs', NULL);
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (20, NULL, NULL, NULL, '2023-02-01 00:00:00', NULL, 'Prob 20', NULL);
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (10, 'Jane', 'Smith', 'Staff 10');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (1, NULL, 10, NULL, NULL, '2023-02-05 12:00:00', 'Unassigned log for Prob 10', NULL, NULL);
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (2, NULL, 20, 10, NULL, '2023-02-06 12:00:00', 'Log for Prob 20 assigned to Staff 10', NULL, NULL);
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (3, NULL, NULL, 10, NULL, '2023-02-07 12:00:00', 'Log with NULL problem_id', NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests numeric vs lexicographical sorting (2 vs 15), identical log_entry_date ties, and join fan-out traps
+INSERT INTO "Problem_Category_Codes" ("problem_category_code", "problem_category_description") VALUES ('10', 'Cat 10');
+INSERT INTO "Problem_Status_Codes" ("problem_status_code", "problem_status_description") VALUES ('10', 'Stat 10');
+INSERT INTO "Product" ("product_id", "product_name", "product_details") VALUES (10, 'Prod 10', 'Details');
+INSERT INTO "Staff" ("staff_id", "staff_first_name", "staff_last_name", "other_staff_details") VALUES (1, 'Alice', 'Wonder', 'Details');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (10, 1, 10, 1, '2023-03-01 00:00:00', '2023-03-10 00:00:00', 'Prob 10', 'Details');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (100, 1, 10, 1, '2023-03-01 00:00:00', '2023-03-10 00:00:00', 'Prob 100 on Prod 10', 'Details');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (15, '10', 10, 1, '10', '2023-03-05 08:00:00', 'Log 15', 'Fix', 'Other');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (2, '10', 10, 1, '10', '2023-03-05 08:00:00', 'Log 2', 'Fix', 'Other');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (8, '10', 100, 1, '10', '2023-03-05 08:00:00', 'Log 8 for Prob 100', 'Fix', 'Other');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set for problem_id = 10 when Problem 10 exists in Problems table (catches LEFT JOIN from Problems or wrong table queries)
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (10, NULL, NULL, NULL, '2023-04-01 00:00:00', '2023-04-02 00:00:00', 'Problem 10 with no logs', 'None');
+INSERT INTO "Problems" ("problem_id", "reported_by_staff_id", "product_id", "closure_authorised_by_staff_id", "date_problem_reported", "date_problem_closed", "problem_description", "other_problem_details") VALUES (5, NULL, NULL, NULL, '2023-04-01 00:00:00', '2023-04-02 00:00:00', 'Problem 5', 'None');
+INSERT INTO "Problem_Log" ("problem_log_id", "problem_status_code", "problem_id", "assigned_to_staff_id", "problem_category_code", "log_entry_date", "log_entry_description", "log_entry_fix", "other_log_details") VALUES (1, NULL, 5, NULL, NULL, '2023-04-03 00:00:00', 'Log for Prob 5', 'Fix', 'None');
+```

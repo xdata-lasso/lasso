@@ -1,0 +1,95 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(DISTINCT T1.ID) vs COUNT(*) / COUNT(T1.ID) / COUNT(T2.Date) (Patient 1 has multiple matching Lab records)
+-- 2. Boundary condition T2.C4 > 10 vs >= 10, < 10, = 10, or NULL (Patients 2, 3, 4)
+-- 3. Logical AND vs OR in WHERE clause
+-- 4. Exact match vs LIKE '%APS%' or case-insensitivity on T1.Diagnosis (Patients 5, 6, 7)
+-- 5. INNER JOIN vs LEFT JOIN (Patient 8 has no Laboratory records)
+-- 6. Wrong column reference: T2.C3 vs T2.C4 (Patient 3 has C3 > 10 but C4 = 5)
+-- 7. Wrong table reference: Examination.Diagnosis vs Patient.Diagnosis (Patient 5 has 'APS' in Examination, not Patient)
+
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (1, 'F', 'APS');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (2, 'M', 'APS');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (3, 'F', 'APS');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (4, 'M', 'APS');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (5, 'F', 'SLE');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (6, 'M', 'APS, SLE');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (7, 'F', 'aps');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (8, 'F', 'APS');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (9, 'M', NULL);
+
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (1, '2020-01-01', 5, 11);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (1, '2020-01-02', 5, 25);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (1, '2020-01-03', 5, 10);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (2, '2020-01-01', 20, 10);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (3, '2020-01-01', 20, 5);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (4, '2020-01-01', 20, NULL);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (5, '2020-01-01', 20, 15);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (6, '2020-01-01', 20, 15);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (7, '2020-01-01', 20, 15);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (9, '2020-01-01', 20, 15);
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '2020-01-01', 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (5, '2020-01-01', 'APS');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (8, '2020-01-01', 'APS');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. COUNT(DISTINCT T1.ID) vs COUNT(DISTINCT T2.C4) or COUNT(DISTINCT T1.Diagnosis) or COUNT(DISTINCT T2.Date)
+--    Here, 3 distinct patients match, all sharing the exact same C4 (15), Date ('2021-05-01'), and Diagnosis ('APS').
+--    Gold Query returns 3. Mutants counting distinct C4, Date, or Diagnosis will return 1.
+-- 2. Mutants using SUM(T1.ID), MAX(T1.ID), MIN(T1.ID), or AVG(T1.ID) instead of COUNT (IDs 10, 20, 30 yield non-3 values).
+-- 3. Mutants joining on Examination table (Patients 10 and 20 have no Examination records; Patient 30 has multiple).
+
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (10, 'F', 'APS');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (20, 'M', 'APS');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (30, 'F', 'APS');
+
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (10, '2021-05-01', 5, 15);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (20, '2021-05-01', 5, 15);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (30, '2021-05-01', 5, 15);
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (30, '2021-05-01', 'APS');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (30, '2021-05-02', 'APS');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Zero-match behavior: Gold Query returns 0.
+-- 2. Catches mutants with GROUP BY (which return empty set instead of 0), or aggregate functions like SUM/MAX/MIN (which return NULL instead of 0).
+-- 3. Catches mutants that drop either of the WHERE predicates or change > 10 to >= 10.
+
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (1, 'F', 'APS');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (2, 'M', 'SLE');
+INSERT INTO Patient (ID, SEX, Diagnosis) VALUES (3, 'F', 'APS');
+
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (1, '2022-01-01', 25, 10);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (1, '2022-01-02', 25, 0);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (1, '2022-01-03', 25, -15);
+INSERT INTO Laboratory (ID, Date, C3, C4) VALUES (2, '2022-01-01', 25, 20);
+
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '2022-01-01', 'APS');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (3, '2022-01-01', 'APS');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Missing/Corrupted Join Condition (Cartesian Product / Cross Join) or accidental join on T1.ID = T2.C4.
+--    Patient 11 has Diagnosis='APS', but C4=5 (fails C4 > 10).
+--    Patient 12 has Diagnosis='SLE', but C4=11 (passes C4 > 10, and C4 equals Patient 11's ID).
+--    Gold Query returns 0. Cross join or T1.ID = T2.C4 mutant returns > 0.
+-- 2. Column confusion: Admission = 'APS' vs Diagnosis = 'APS' (Patient 13).
+
+INSERT INTO Patient (ID, Admission, Diagnosis) VALUES (11, 'No', 'APS');
+INSERT INTO Patient (ID, Admission, Diagnosis) VALUES (12, 'No', 'SLE');
+INSERT INTO Patient (ID, Admission, Diagnosis) VALUES (13, 'APS', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, C4) VALUES (11, '2023-01-01', 5);
+INSERT INTO Laboratory (ID, Date, C4) VALUES (12, '2023-01-01', 11);
+INSERT INTO Laboratory (ID, Date, C4) VALUES (13, '2023-01-01', 20);
+```

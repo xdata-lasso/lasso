@@ -1,0 +1,134 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions for T1.year (>= 2010 vs > 2010 vs < 2010).
+-- 2. Floating-point division (CAST AS REAL) by ensuring a non-integer percentage (1 out of 3 = 33.3333%).
+-- 3. NULL handling in T2.position (NULL is excluded from numerator, included in denominator).
+-- 4. Duplicate values in T2.position (verifies COUNT vs COUNT(DISTINCT)).
+-- 5. Filtering on T3.surname = 'Hamilton' vs other surnames or forename = 'Hamilton'.
+-- 6. Confounding data in results and qualifying tables (catches wrong table joins).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2009, 'http://s2009');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://s2010');
+INSERT INTO seasons (year, url) VALUES (2011, 'http://s2011');
+INSERT INTO seasons (year, url) VALUES (2012, 'http://s2012');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'vettel', 'Sebastian', 'Vettel', 'http://d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'false_ham', 'Hamilton', 'Smith', 'http://d3');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2009, 1, 1, 'R2009', '2009-03-29', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2010, 1, 1, 'R2010', '2010-03-14', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2011, 1, 1, 'R2011', '2011-03-27', 'http://r3');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 2012, 1, 1, 'R2012', '2012-03-18', 'http://r4');
+
+-- Hamilton in 2009 (Excluded by year >= 2010)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (1, 1, 1, 10, 2, '2', 0);
+
+-- Hamilton in >= 2010:
+-- Race 2 (2010): position 1 (Excluded from numerator, included in denominator)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (2, 2, 1, 25, 1, '1', 1);
+-- Race 3 (2011): position 2 (Included in numerator and denominator)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (3, 3, 1, 18, 2, '2', 0);
+-- Race 4 (2012): position NULL (Excluded from numerator, included in denominator)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (4, 4, 1, 0, NULL, 'DNF', 0);
+
+-- Other drivers in >= 2010 (Excluded by surname = 'Hamilton')
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (5, 2, 2, 18, 2, '2', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (6, 2, 3, 15, 3, '3', 0);
+
+-- Confounding data in results and qualifying (to catch queries using results or qualifying instead of driverStandings)
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mclaren', 'McLaren', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, statusId) VALUES (1, 2, 1, 1, 1, 2, '2', 2, 18, 50, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, statusId) VALUES (2, 3, 1, 1, 1, 2, '2', 2, 18, 50, 1);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position) VALUES (1, 2, 1, 1, 44, 2);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Multiple drivers with surname 'Hamilton' (tests T3.driverId = T2.driverId join integrity and COUNT(DISTINCT driverId) mutants).
+-- 2. Duplicate non-1 positions (both position 2) to kill COUNT(DISTINCT T2.position) in the numerator.
+-- 3. Position > 1 vs Position <> 1 (includes position 0 to differentiate <> 1 from > 1).
+-- 4. Unmatched races and drivers (tests INNER JOIN vs LEFT JOIN).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://s2010');
+INSERT INTO seasons (year, url) VALUES (2015, 'http://s2015');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'lewis_ham', 'Lewis', 'Hamilton', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'duncan_ham', 'Duncan', 'Hamilton', 'http://d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'unmatched_ham', 'Nicolas', 'Hamilton', 'http://d3');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2010, 1, 1, 'R1', '2010-05-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2015, 1, 1, 'R2', '2015-05-01', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2015, 2, 1, 'R3_Unmatched', '2015-05-15', 'http://r3');
+
+-- Lewis Hamilton in R1 and R2, both with position = 2 (tests duplicate position values)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (10, 1, 1, 18, 2, '2', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (20, 2, 1, 18, 2, '2', 0);
+
+-- Duncan Hamilton in R1 with position = 0 (tests <> 1 vs > 1) and R2 with position = 1
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (30, 1, 2, 0, 0, '0', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (40, 2, 2, 25, 1, '1', 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Zero numerator edge case (all matching rows have position = 1, resulting in 0.0).
+-- 2. Differentiating T2.position from T2.wins and T2.points (where wins <> 1 and points <> 1).
+-- 3. Case sensitivity / partial match on surname ('Hamilton' vs 'hamilton' vs 'Hamiltons').
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://s2020');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'ham_exact', 'Lewis', 'Hamilton', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'ham_lower', 'Lewis', 'hamilton', 'http://d2');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'ham_plural', 'Lewis', 'Hamiltons', 'http://d3');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'R1', '2020-08-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2020, 2, 1, 'R2', '2020-08-08', 'http://r2');
+
+-- Exact 'Hamilton' only has position = 1, but wins = 2 (not 1) and points = 25 (not 1)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (1, 1, 1, 25, 1, '2', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (2, 2, 1, 50, 1, '2', 2);
+
+-- Non-exact surnames have position <> 1 (would skew result if matched via LIKE or case-insensitive comparison)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (3, 1, 2, 10, 5, '5', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (4, 1, 3, 10, 5, '5', 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Confounding IDs across tables (driverId = 1 is NOT Hamilton, raceId = 1 is NOT >= 2010, constructorId = 1 has standings).
+-- 2. Kills mutants that join driverStandings to constructors/constructorStandings or mix up join keys (e.g. T1.raceId = T2.driverStandingsId or T3.driverId = T2.driverStandingsId).
+-- 3. Fractional percentage (5 out of 6 = 83.3333%).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'bahrain', 'Bahrain', 'http://c1');
+INSERT INTO seasons (year, url) VALUES (2005, 'http://s2005');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://s2010');
+
+-- driverId 1 is Alonso; driverId 10 is Hamilton
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'alonso', 'Fernando', 'Alonso', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'hamilton', 'Lewis', 'Hamilton', 'http://d10');
+
+-- raceId 1 is 2005 (< 2010); raceId 10 through 15 are 2010
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2005, 1, 1, 'R_Old', '2005-03-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2010, 1, 1, 'R10', '2010-03-01', 'http://r10');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (11, 2010, 2, 1, 'R11', '2010-03-08', 'http://r11');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (12, 2010, 3, 1, 'R12', '2010-03-15', 'http://r12');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (13, 2010, 4, 1, 'R13', '2010-03-22', 'http://r13');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (14, 2010, 5, 1, 'R14', '2010-03-29', 'http://r14');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (15, 2010, 6, 1, 'R15', '2010-04-05', 'http://r15');
+
+-- Confounding row where driverStandingsId = 10 (matches Hamilton's driverId and R10's raceId), but belongs to Alonso in 2005
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (10, 1, 1, 25, 1, '1', 1);
+
+-- Actual Hamilton standings in 2010 (5 rows with position <> 1, 1 row with position = 1)
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (100, 10, 10, 18, 2, '2', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (101, 11, 10, 15, 3, '3', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (102, 12, 10, 12, 4, '4', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (103, 13, 10, 10, 5, '5', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (104, 14, 10, 8, 6, '6', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (105, 15, 10, 25, 1, '1', 1);
+```

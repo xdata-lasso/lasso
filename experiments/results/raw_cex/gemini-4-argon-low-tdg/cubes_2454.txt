@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests empty Transactions table (distinguishes window function returning 0 rows vs standard aggregate returning 1 row of NULL)
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BUY', 'Purchase');
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple transactions with different amounts, investor_ids, and transaction_type_codes.
+-- Catches missing DISTINCT, wrong aggregate (MIN, AVG, SUM, COUNT), PARTITION BY mutations, and column substitutions.
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (2, 'Investor B');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BUY', 'Purchase');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('SELL', 'Sale');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'BUY', 1, '2023-01-01 10:00:00', 100.50, '10', 'First');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'SELL', 2, '2023-01-02 11:00:00', 500.75, '50', 'Second');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (3, 'BUY', 1, '2023-01-03 12:00:00', 250.00, '25', 'Third');
+```
+
+```sql
+-- DATASET 3
+-- Tests negative amounts and NULLs.
+-- Catches COALESCE(..., 0) mutations and improper NULL handling.
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('ADJ', 'Adjustment');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (10, 'ADJ', 1, '2023-02-01 09:00:00', -50.25, '5', 'Neg 1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (20, 'ADJ', 1, '2023-02-02 09:00:00', -10.50, '1', 'Neg 2');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (30, 'ADJ', 1, '2023-02-03 09:00:00', NULL, '0', 'Null amount');
+```
+
+```sql
+-- DATASET 4
+-- Tests a single row with NULL amount_of_transaction.
+-- Catches WHERE amount_of_transaction IS NOT NULL mutations (which would return 0 rows instead of 1 row with NULL).
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BUY', 'Purchase');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'BUY', 1, '2023-03-01 10:00:00', NULL, '100', 'Null only');
+```
+
+```sql
+-- DATASET 5
+-- Tests join mutations (e.g., unnecessary INNER JOIN with Sales, Purchases, Transactions_Lots, Investors, or Ref_Transaction_Types)
+-- and numeric vs lexicographical sorting/comparison (e.g. CAST(amount AS TEXT): '90.0' > '1000.0', or share_count '9999' > 1000.0).
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (1, 1, 'Lot 1');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BUY', 'Purchase');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'BUY', 1, '2023-04-01 10:00:00', 90.00, '9999', 'Has child records');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, NULL, NULL, '2023-04-02 10:00:00', 1000.00, '5', 'No parent or child records, max amount');
+INSERT INTO "Sales" ("sales_transaction_id", "sales_details") VALUES (1, 'Sale 1');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (1, 'Purchase 1');
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (1, 1);
+```
+
+```sql
+-- DATASET 6
+-- Tests duplicate max values and window framing mutations (e.g. OVER (ORDER BY date_of_transaction) where running max changes across rows).
+-- Placing the maximum amount on the last chronological transaction ensures running max != global max on earlier rows.
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('BUY', 'Purchase');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'BUY', 1, '2023-01-01 00:00:00', 10.00, '10', 'Early small');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'BUY', 1, '2023-01-02 00:00:00', 50.00, '50', 'Middle max 1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (3, 'BUY', 1, '2023-01-03 00:00:00', 50.00, '50', 'Late max 2');
+```

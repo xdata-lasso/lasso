@@ -1,0 +1,46 @@
+-- Schema DDL
+CREATE TABLE "MISSION" (
+    "MISSION_ID" INT,
+    "SHIP_ID" INT,
+    "CODE" TEXT,
+    "LAUNCHED_YEAR" INT,
+    "LOCATION" TEXT,
+    "SPEED_KNOTS" INT,
+    "FATE" TEXT,
+    PRIMARY KEY ("MISSION_ID"),
+    FOREIGN KEY ("SHIP_ID") REFERENCES "SHIP"("SHIP_ID")
+);
+CREATE TABLE "SHIP" (
+    "SHIP_ID" INT,
+    "NAME" TEXT,
+    "TYPE" TEXT,
+    "NATIONALITY" TEXT,
+    "TONNAGE" INT,
+    PRIMARY KEY ("SHIP_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO MISSION VALUES (-1, -1, 0, 0, 0, 0, 0);
+INSERT INTO MISSION VALUES (0, 0, 0, 0, 0, 0, 0);
+INSERT INTO SHIP VALUES (0, 24, -1, 25, 0);
+INSERT INTO SHIP VALUES (-1, 6, NULL, 7, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT TYPE FROM (SELECT LHS.n AS n, RHS.type AS TYPE FROM (SELECT MAX(n) AS n FROM (SELECT TYPE, COUNT(*) AS n FROM ship GROUP BY TYPE)) AS LHS LEFT JOIN (SELECT TYPE, COUNT(*) AS n FROM ship GROUP BY TYPE) AS RHS ON (LHS.n = RHS.n)) ORDER BY TYPE;
+
+/*
+Gold Result:
+(None,)
+('-1',)
+*/
+
+-- Prediction Query
+SELECT TYPE FROM ship GROUP BY TYPE ORDER BY COUNT(*) DESC, TYPE NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('-1',)
+*/

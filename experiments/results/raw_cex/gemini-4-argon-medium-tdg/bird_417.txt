@@ -1,0 +1,103 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset testing:
+-- 1. Floating-point division vs integer division (1 Japanese out of 4 joined expansion rows = 25.0, or 1 out of 3 = 33.333...)
+-- 2. COUNT(T1.id) vs COUNT(DISTINCT T1.id) (one expansion set has multiple translations)
+-- 3. INNER JOIN vs LEFT JOIN (an expansion set with no translations at all)
+-- 4. WHERE T1.type = 'expansion' filter (non-expansion sets with Japanese and non-Japanese translations, plus NULL type)
+-- 5. T2.language = 'Japanese' case sensitivity and NULL handling
+-- 6. Confusion with foreign_data table (cards and foreign_data populated with misleading language counts)
+
+INSERT INTO sets (id, code, name, type) VALUES (1, 'EXP1', 'Expansion One', 'expansion');
+INSERT INTO sets (id, code, name, type) VALUES (2, 'EXP2', 'Expansion Two', 'expansion');
+INSERT INTO sets (id, code, name, type) VALUES (3, 'EXP3_NO_TR', 'Expansion Three No Translation', 'expansion');
+INSERT INTO sets (id, code, name, type) VALUES (4, 'CORE1', 'Core Set One', 'core');
+INSERT INTO sets (id, code, name, type) VALUES (5, 'NULL_TYPE', 'Null Type Set', NULL);
+
+-- EXP1 has 2 translations (1 Japanese, 1 French) -> tests COUNT(T1.id) vs COUNT(DISTINCT T1.id)
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Japanese', 'EXP1', 'JP_EXP1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'French', 'EXP1', 'FR_EXP1');
+
+-- EXP2 has 1 translation (German) and 1 NULL language -> total joined expansion rows = 3 (or 4 with NULL)
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'German', 'EXP2', 'DE_EXP2');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, NULL, 'EXP2', 'NULL_EXP2');
+
+-- CORE1 (non-expansion) has Japanese translations -> tests WHERE T1.type = 'expansion'
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (5, 'Japanese', 'CORE1', 'JP_CORE1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (6, 'Japanese', 'CORE1', 'JP_CORE1_ALT');
+
+-- NULL_TYPE has Japanese translation -> tests NULL handling in WHERE T1.type = 'expansion'
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (7, 'Japanese', 'NULL_TYPE', 'JP_NULL');
+
+-- Distractor rows in cards and foreign_data to kill mutants querying foreign_data instead of set_translations
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Card 1', 'EXP1');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (1, 'Japanese', 'JP Card 1', 'uuid-1');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (2, 'Japanese', 'JP Card 2', 'uuid-1');
+```
+
+```sql
+-- DATASET 2
+-- Tests non-integer percentage calculation (1 / 3 = 33.333333333333336) to strictly kill missing CAST(... AS REAL)
+-- Also tests multiple Japanese translations for the same set (killing COUNT(DISTINCT CASE...))
+
+INSERT INTO sets (id, code, name, type) VALUES (1, 'SET_A', 'Set A', 'expansion');
+INSERT INTO sets (id, code, name, type) VALUES (2, 'SET_B', 'Set B', 'expansion');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Japanese', 'SET_A', 'Trans 1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Spanish', 'SET_A', 'Trans 2');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Italian', 'SET_B', 'Trans 3');
+```
+
+```sql
+-- DATASET 3
+-- Edge case: Expansion sets exist and have translations, but 0 'Japanese' translations for 'expansion' sets.
+-- Meanwhile, 'Japanese' translations exist for non-expansion sets and lowercase 'japanese' exists for expansion sets.
+-- Gold query output should be 0.0 (not NULL, not > 0).
+-- Kills mutants using WHERE T2.language = 'Japanese' (which would result in division by 0 -> NULL).
+
+INSERT INTO sets (id, code, name, type) VALUES (1, 'EXP_A', 'Expansion A', 'expansion');
+INSERT INTO sets (id, code, name, type) VALUES (2, 'CMD_A', 'Commander A', 'commander');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Chinese Simplified', 'EXP_A', 'CN_EXP_A');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'japanese', 'EXP_A', 'Lowercase JP');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Japanese', 'CMD_A', 'JP_CMD_A');
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple Japanese translations across multiple expansion sets where:
+-- Total sets = 2, Total expansion sets = 2, Total joined rows = 5, Total Japanese = 2 (40.0%).
+-- Also includes an orphan set_translation with NULL setCode (kills RIGHT/FULL JOIN or unjoined subqueries).
+-- Also sets id and translation id to different patterns to kill joining on T1.id = T2.id.
+
+INSERT INTO sets (id, code, name, type) VALUES (10, 'E1', 'Expansion 1', 'expansion');
+INSERT INTO sets (id, code, name, type) VALUES (20, 'E2', 'Expansion 2', 'expansion');
+INSERT INTO sets (id, code, name, type) VALUES (1, 'M1', 'Masters 1', 'masters');
+
+-- Note: id=10 and id=20 in sets, while id=1..6 in set_translations.
+-- A mutant joining ON T1.id = T2.id would join sets(id=1, type='masters') with set_translations(id=1).
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Japanese', 'E1', 'J1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Japanese', 'E2', 'J2');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'Russian', 'E1', 'R1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, 'Korean', 'E1', 'K1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (5, 'Portuguese (Brazil)', 'E2', 'P2');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (6, 'Japanese', NULL, 'Orphan JP');
+```
+
+```sql
+-- DATASET 5
+-- Edge case: All translations for expansion sets are 'Japanese' (100.0%),
+-- while non-expansion sets have non-Japanese translations, and expansion sets exist without translations.
+-- Kills LEFT JOIN mutants (which would increase COUNT(T1.id) denominator and lower the percentage below 100.0)
+-- and kills missing WHERE clause mutants.
+
+INSERT INTO sets (id, code, name, type) VALUES (1, 'EXP_JP1', 'Exp JP 1', 'expansion');
+INSERT INTO sets (id, code, name, type) VALUES (2, 'EXP_JP2', 'Exp JP 2', 'expansion');
+INSERT INTO sets (id, code, name, type) VALUES (3, 'EXP_EMPTY', 'Exp Empty', 'expansion');
+INSERT INTO sets (id, code, name, type) VALUES (4, 'FUNNY_1', 'Funny Set', 'funny');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Japanese', 'EXP_JP1', 'JP1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Japanese', 'EXP_JP2', 'JP2');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (3, 'French', 'FUNNY_1', 'FR1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (4, 'German', 'FUNNY_1', 'DE1');
+```

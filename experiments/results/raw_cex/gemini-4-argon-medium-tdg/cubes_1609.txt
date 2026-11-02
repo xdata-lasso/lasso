@@ -1,0 +1,92 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions for Year (2015, 2016, 2017) to kill >, <, <=, = mutations on Year >= 2016.
+-- 2. Handling of NULL in Year (COUNT(*) vs COUNT(Year), and NULL filtering in WHERE).
+-- 3. Duplicate count values across different years (kills SELECT DISTINCT mutations).
+-- 4. Inverse ordering between Year and count___ (kills ORDER BY Year vs ORDER BY count___, and ASC vs DESC).
+-- 5. Count mutations (COUNT(DISTINCT Church_ID), COUNT(DISTINCT Male_ID), etc.).
+
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (1, 'John', 'USA', 'T', 30);
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (2, 'Mike', 'USA', 'T', 35);
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (3, 'Alice', 'UK', 'F', 28);
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (4, 'Mary', 'UK', 'F', 32);
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (5, 'Sara', 'CAN', 'F', 25);
+
+INSERT INTO "church" ("Church_ID", "Name", "Organized_by", "Open_Date", "Continuation_of") VALUES (1, 'St. Mary', 'Diocese', 1990, 'None');
+INSERT INTO "church" ("Church_ID", "Name", "Organized_by", "Open_Date", "Continuation_of") VALUES (2, 'Grace', 'Community', 2000, 'None');
+
+-- Year NULL: 2 weddings (Should be excluded by WHERE, tests COUNT(*) vs COUNT(Year))
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 1, 3, NULL);
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 1, 4, NULL);
+
+-- Year 2015: 4 weddings (Excluded: 2015 < 2016 and 4 <= 2016)
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 1, 5, 2015);
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 2, 3, 2015);
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 2, 4, 2015);
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 2, 5, 2015);
+
+-- Year 2016: 3 weddings (Included: boundary Year = 2016, count = 3. Uses same Church_ID and Male_ID to kill COUNT(DISTINCT ...))
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (2, 1, 3, 2016);
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (2, 1, 4, 2016);
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (2, 1, 5, 2016);
+
+-- Year 2017: 1 wedding (Included: Year > 2016, count = 1)
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (2, 2, 3, 2017);
+
+-- Year 2018: 3 weddings (Included: Year > 2016, count = 3. Duplicate count with 2016 to kill DISTINCT)
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (2, 2, 4, 2018);
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (2, 2, 5, 2018);
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 1, 3, 2018);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Empty result set from wedding when all rows fail the WHERE condition.
+-- 2. Kills mutations like Year <= 2016, n < 2016, n <= 2016, or removing the WHERE clause entirely.
+-- 3. Unreferenced rows in people and church (kills INNER JOIN to people/church if mutated in strange ways, or tests orphan handling).
+
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (1, 'Bob', 'USA', 'T', 40);
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (2, 'Alice', 'USA', 'F', 38);
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (3, 'Unmarried', 'USA', 'T', 20);
+
+INSERT INTO "church" ("Church_ID", "Name", "Organized_by", "Open_Date", "Continuation_of") VALUES (1, 'First Church', 'State', 1980, 'None');
+INSERT INTO "church" ("Church_ID", "Name", "Organized_by", "Open_Date", "Continuation_of") VALUES (2, 'Empty Church', 'State', 1985, 'None');
+
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 1, 2, 2010);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty wedding table.
+-- 2. Kills mutations that omit GROUP BY (since SELECT COUNT(*) FROM wedding without GROUP BY returns 1 row with 0 on an empty table, whereas WITH GROUP BY it returns 0 rows).
+
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (1, 'Adam', 'USA', 'T', 25);
+INSERT INTO "church" ("Church_ID", "Name", "Organized_by", "Open_Date", "Continuation_of") VALUES (1, 'Eden', 'God', 0, 'None');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. NULL values in non-PK columns of referenced tables (people, church).
+-- 2. Kills mutations that unnecessarily JOIN `people` or `church` and filter or group by their nullable attributes, or do COUNT(column_from_joined_table).
+-- 3. Negative and zero Year values, and large future Year values.
+
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (1, NULL, NULL, NULL, NULL);
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (2, NULL, NULL, NULL, NULL);
+INSERT INTO "people" ("People_ID", "Name", "Country", "Is_Male", "Age") VALUES (3, 'Eve', 'UK', 'F', 22);
+
+INSERT INTO "church" ("Church_ID", "Name", "Organized_by", "Open_Date", "Continuation_of") VALUES (1, NULL, NULL, NULL, NULL);
+
+-- Year 0: 1 wedding (Excluded)
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 1, 2, 0);
+
+-- Year 2016: 2 weddings (Included)
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 1, 3, 2016);
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 2, 3, 2016);
+
+-- Year 2020: 1 wedding (Included)
+INSERT INTO "wedding" ("Church_ID", "Male_ID", "Female_ID", "Year") VALUES (1, 2, 1, 2020);
+```

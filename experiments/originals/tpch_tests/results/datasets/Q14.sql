@@ -1,0 +1,40 @@
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (0, 'Sandra Montgomery', 'fall', 'his', 'determine', 1040, 'write', 1044, 'Play move each left establish understand read detail.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1005, 'Laura Bush', 'long', 'commercial', 'religious', 1053.0, 'result', 1061.0, 'Successful simply director allow firm environment.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1006, 'Darren Roberts', 'prove', 'hospital', 'example', 1066.0, 'raise', 1078.0, 'Tree note responsibility defense material.');
+INSERT INTO "part" ("p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment") VALUES (1007, 'David Garcia', 'they', 'hear', 'science', 1079.0, 'away', 1095.0, 'Central cause seat much section investment on.');
+INSERT INTO "region" ("r_regionkey", "r_name", "r_comment") VALUES (1084, 'Scott Cole', 'Floor music catch discuss really relationship.');
+INSERT INTO "region" ("r_regionkey", "r_name", "r_comment") VALUES (1085, 'Sara Ramirez', 'Increase former letter artist.');
+INSERT INTO "region" ("r_regionkey", "r_name", "r_comment") VALUES (1086, 'Kari Allen', 'Hope show watch affect thing offer.');
+INSERT INTO "region" ("r_regionkey", "r_name", "r_comment") VALUES (1087, 'Micheal Young', 'Accept goal send table well industry section.');
+INSERT INTO "nation" ("n_nationkey", "n_name", "n_regionkey", "n_comment") VALUES (1072, 'Cynthia Collins', 1084, 'Manager during prevent accept seem show.');
+INSERT INTO "nation" ("n_nationkey", "n_name", "n_regionkey", "n_comment") VALUES (1073, 'Brittany Williams', 1084, 'Sing despite sound receive.');
+INSERT INTO "nation" ("n_nationkey", "n_name", "n_regionkey", "n_comment") VALUES (1074, 'Miss Patricia Gibson', 1084, 'Anyone eat summer lead soon property write.');
+INSERT INTO "nation" ("n_nationkey", "n_name", "n_regionkey", "n_comment") VALUES (1075, 'Laura Higgins', 1084, 'Fish sense kind spring throughout interview trade knowledge.');
+INSERT INTO "customer" ("c_custkey", "c_name", "c_address", "c_nationkey", "c_phone", "c_acctbal", "c_mktsegment", "c_comment") VALUES (1048, 'Joshua Blair', '301 Jeremy Bypass
+Chadbury, KY 88185', 1072, '(502)660-6474x6872', 1076, 'democratic', 'Enter capital population lead upon.');
+INSERT INTO "customer" ("c_custkey", "c_name", "c_address", "c_nationkey", "c_phone", "c_acctbal", "c_mktsegment", "c_comment") VALUES (1049, 'Eric Carney', '997 Kristen Valley
+Leeville, TN 56999', 1072, '909.480.5009', 1089.0, 'relationship', 'Act perform none beyond.');
+INSERT INTO "customer" ("c_custkey", "c_name", "c_address", "c_nationkey", "c_phone", "c_acctbal", "c_mktsegment", "c_comment") VALUES (1050, 'Jessica Holmes', '0106 Mcbride Coves Apt. 338
+Taylorburgh, KY 61138', 1072, '3815219136', 1102.0, 'sense', 'Defense enter value thing these hard citizen.');
+INSERT INTO "customer" ("c_custkey", "c_name", "c_address", "c_nationkey", "c_phone", "c_acctbal", "c_mktsegment", "c_comment") VALUES (1051, 'Danny Morgan', '8108 Tanya Terrace
+East Richard, NJ 28517', 1072, '001-790-691-6998', 1115.0, 'former', 'Region particularly would pressure account stage federal.');
+INSERT INTO "supplier" ("s_suppkey", "s_name", "s_address", "s_nationkey", "s_phone", "s_acctbal", "s_comment") VALUES (1008, 'Teresa Taylor', '64005 Dana Greens
+Lake Scott, VT 56558', 1072, '730.836.5414', 1080, 'Professor here security community notice image.');
+INSERT INTO "supplier" ("s_suppkey", "s_name", "s_address", "s_nationkey", "s_phone", "s_acctbal", "s_comment") VALUES (1009, 'Brian Tran', '28059 Russell Canyon
+Michaelton, MH 47399', 1072, '+1-785-801-4294x01965', 1093.0, 'Fight decision size.');
+INSERT INTO "supplier" ("s_suppkey", "s_name", "s_address", "s_nationkey", "s_phone", "s_acctbal", "s_comment") VALUES (1010, 'Larry Robbins', '158 Dickson Summit
+East Michelle, AS 23707', 1072, '+1-581-769-3406x088', 1106.0, 'Pressure let kind degree list top somebody college.');
+INSERT INTO "supplier" ("s_suppkey", "s_name", "s_address", "s_nationkey", "s_phone", "s_acctbal", "s_comment") VALUES (1011, 'Mark Baker', '56342 Patrick Camp
+Walkermouth, MI 40502', 1072, '(415)595-1484x65648', 1119.0, 'Exist professional people behavior.');
+INSERT INTO "orders" ("o_orderkey", "o_custkey", "o_orderstatus", "o_totalprice", "o_orderdate", "o_orderpriority", "o_clerk", "o_shippriority", "o_comment") VALUES (1001, 1048, 'high', 1052, '0003-11-22', 'minute', 'traditional', 1060, 'Society instead as high.');
+INSERT INTO "orders" ("o_orderkey", "o_custkey", "o_orderstatus", "o_totalprice", "o_orderdate", "o_orderpriority", "o_clerk", "o_shippriority", "o_comment") VALUES (1002, 1048, 'discuss', 1061.0, '0003-11-23', 'benefit', 'break', 1077.0, 'More wife team activity result race Mr.');
+INSERT INTO "orders" ("o_orderkey", "o_custkey", "o_orderstatus", "o_totalprice", "o_orderdate", "o_orderpriority", "o_clerk", "o_shippriority", "o_comment") VALUES (1003, 1048, 'certainly', 1070.0, '0003-11-24', 'someone', 'claim', 1094.0, 'Shoulder future fall citizen about.');
+INSERT INTO "orders" ("o_orderkey", "o_custkey", "o_orderstatus", "o_totalprice", "o_orderdate", "o_orderpriority", "o_clerk", "o_shippriority", "o_comment") VALUES (1004, 1048, 'Mr', 1079.0, '0003-11-25', 'anyone', 'product', 1111.0, 'Will seven medical blood personal.');
+INSERT INTO "partsupp" ("ps_partkey", "ps_suppkey", "ps_availqty", "ps_supplycost", "ps_comment") VALUES (0, 1008, 1064, 1068, 'Participant check several much single morning a.');
+INSERT INTO "partsupp" ("ps_partkey", "ps_suppkey", "ps_availqty", "ps_supplycost", "ps_comment") VALUES (1005, 1009, 1071.0, 1077.0, 'Major born guy world southern dream.');
+INSERT INTO "partsupp" ("ps_partkey", "ps_suppkey", "ps_availqty", "ps_supplycost", "ps_comment") VALUES (1006, 1010, 1078.0, 1086.0, 'There water beat magazine attorney.');
+INSERT INTO "partsupp" ("ps_partkey", "ps_suppkey", "ps_availqty", "ps_supplycost", "ps_comment") VALUES (1007, 1011, 1085.0, 1095.0, 'She campaign little near enter their institution.');
+INSERT INTO "lineitem" ("l_orderkey", "l_partkey", "l_suppkey", "l_linenumber", "l_quantity", "l_extendedprice", "l_discount", "l_tax", "l_returnflag", "l_linestatus", "l_shipdate", "l_commitdate", "l_receiptdate", "l_shipinstruct", "l_shipmode", "l_comment") VALUES (1001, 0, 1008, 1012, 1016, 1020, 1024, 1028, 'purpose', 'face', '1994-03-01', '0003-10-29', '0003-11-02', 'since', 'wait', 'All behavior discussion own night respond.');
+INSERT INTO "lineitem" ("l_orderkey", "l_partkey", "l_suppkey", "l_linenumber", "l_quantity", "l_extendedprice", "l_discount", "l_tax", "l_returnflag", "l_linestatus", "l_shipdate", "l_commitdate", "l_receiptdate", "l_shipinstruct", "l_shipmode", "l_comment") VALUES (1002, 0, 1008, 1013, 1027.0, 1033.0, 1039.0, 1045.0, 'brother', 'election', '1994-03-02', '0003-10-30', '0003-11-03', 'blue', 'offer', 'Information last everything thank serve civil institution.');
+INSERT INTO "lineitem" ("l_orderkey", "l_partkey", "l_suppkey", "l_linenumber", "l_quantity", "l_extendedprice", "l_discount", "l_tax", "l_returnflag", "l_linestatus", "l_shipdate", "l_commitdate", "l_receiptdate", "l_shipinstruct", "l_shipmode", "l_comment") VALUES (1003, 0, 1008, 1014, 1038.0, 1046.0, 1054.0, 1062.0, 'ago', 'dog', '1994-03-03', '0003-10-31', '0003-11-04', 'require', 'begin', 'Choice whatever from behavior benefit.');
+INSERT INTO "lineitem" ("l_orderkey", "l_partkey", "l_suppkey", "l_linenumber", "l_quantity", "l_extendedprice", "l_discount", "l_tax", "l_returnflag", "l_linestatus", "l_shipdate", "l_commitdate", "l_receiptdate", "l_shipinstruct", "l_shipmode", "l_comment") VALUES (1004, 0, 1008, 1015, 1049.0, 1059.0, 1069.0, 1079.0, 'site', 'chair', '1994-03-04', '0003-11-01', '0003-11-05', 'sit', 'performance', 'Page southern role movie win her.');

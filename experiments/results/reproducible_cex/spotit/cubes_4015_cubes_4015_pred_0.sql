@@ -1,0 +1,47 @@
+-- Schema DDL
+CREATE TABLE "SCIENTISTS" (
+    "SSN" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("SSN")
+);
+CREATE TABLE "PROJECTS" (
+    "CODE" TEXT,
+    "NAME" TEXT,
+    "HOURS" INT,
+    PRIMARY KEY ("CODE")
+);
+CREATE TABLE "ASSIGNEDTO" (
+    "SCIENTIST" INT,
+    "PROJECT" TEXT,
+    PRIMARY KEY ("SCIENTIST", "PROJECT"),
+    FOREIGN KEY ("PROJECT") REFERENCES "PROJECTS"("CODE"),
+    FOREIGN KEY ("SCIENTIST") REFERENCES "SCIENTISTS"("SSN")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO SCIENTISTS VALUES (0, 0);
+INSERT INTO SCIENTISTS VALUES (1, 0);
+INSERT INTO PROJECTS VALUES (1, 1, 1);
+INSERT INTO PROJECTS VALUES (0, 0, 1);
+INSERT INTO ASSIGNEDTO VALUES (0, 1);
+INSERT INTO ASSIGNEDTO VALUES (0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT name FROM (SELECT LHS.code AS code, LHS.name AS name, LHS.hours AS hours FROM projects AS LHS INNER JOIN (SELECT MAX(hours) AS hours FROM projects) AS RHS ON (LHS.hours = RHS.hours)) ORDER BY name;
+
+/*
+Gold Result:
+('0',)
+('1',)
+*/
+
+-- Prediction Query
+SELECT name FROM projects ORDER BY hours DESC, projects.code NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('0',)
+*/

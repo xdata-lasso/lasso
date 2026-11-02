@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests asymmetric join conditions (LHS.order_id = RHS.product_id AND LHS.order_item_id = RHS.order_id),
+-- partial join failures, DISTINCT elimination, and LHS vs RHS column projection.
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_LHS1', 'Method 1');
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_RHS1', 'Method 2');
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_FAIL1', 'Method 3');
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_FAIL2', 'Method 4');
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_UNMAT', 'Method 5');
+
+INSERT INTO "Addresses" ("Address_ID", "Line_1") VALUES ('1', '123 Main St');
+INSERT INTO "Marketing_Regions" ("Marketing_Region_Code", "Marketing_Region_Name") VALUES ('MR1', 'Region 1');
+INSERT INTO "Customers" ("Customer_ID", "Address_ID", "Customer_Name") VALUES ('1', 1, 'Alice');
+INSERT INTO "Stores" ("Store_ID", "Marketing_Region_Code", "Address_ID", "Store_Name") VALUES ('1', 'MR1', 1, 'Store A');
+
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID") VALUES (10, 1, 1);
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID") VALUES (20, 1, 1);
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID") VALUES (30, 1, 1);
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID") VALUES (40, 1, 1);
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID") VALUES (50, 1, 1);
+
+-- Valid pair 1: Inv 1 (LHS) joins Inv 2 (RHS) because 10 = 10 AND 20 = 20
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (1, 'PM_LHS1', 10, 999, '5', 'LHS_Valid_1', 20);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (2, 'PM_RHS1', 20, 10, '10', 'RHS_Valid_1', 999);
+
+-- Valid pair 2: Same payment_method_code ('PM_LHS1') with different Order_Quantity to test DISTINCT
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (3, 'PM_LHS1', 10, 888, '15', 'LHS_Valid_2', 20);
+
+-- Partial match 1: LHS.order_id = RHS.product_id (30 = 30), but LHS.order_item_id != RHS.order_id (40 != 50)
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (4, 'PM_FAIL1', 30, 777, '1', 'LHS_Fail_1', 40);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (5, 'PM_UNMAT', 50, 30, '1', 'RHS_Fail_1', 777);
+
+-- Partial match 2: LHS.order_id != RHS.product_id (30 != 99), but LHS.order_item_id = RHS.order_id (50 = 50)
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (6, 'PM_FAIL2', 30, 666, '1', 'LHS_Fail_2', 50);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (7, 'PM_UNMAT', 50, 99, '1', 'RHS_Fail_2', 666);
+```
+
+```sql
+-- DATASET 2
+-- Tests aggregation mutant where GROUP BY is only on (order_quantity) instead of (order_quantity, payment_method_code),
+-- where MAX(n) might filter out a payment_method_code that has a smaller count for the same order_quantity.
+-- Also tests ORDER BY payment_method_code sorting.
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_Z_LOW', 'Low Count Method');
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_A_HIGH', 'High Count Method');
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_M_RHS', 'RHS Dummy Method');
+
+INSERT INTO "Addresses" ("Address_ID", "Line_1") VALUES ('1', '123 Main St');
+INSERT INTO "Marketing_Regions" ("Marketing_Region_Code", "Marketing_Region_Name") VALUES ('MR1', 'Region 1');
+INSERT INTO "Customers" ("Customer_ID", "Address_ID", "Customer_Name") VALUES ('1', 1, 'Bob');
+INSERT INTO "Stores" ("Store_ID", "Marketing_Region_Code", "Address_ID", "Store_Name") VALUES ('1', 'MR1', 1, 'Store B');
+
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID") VALUES (100, 1, 1);
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID") VALUES (200, 1, 1);
+
+-- RHS target rows (2 rows matching Order_ID=200, Product_ID=100)
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (10, 'PM_M_RHS', 200, 100, '99', 'RHS_1', 1);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (11, 'PM_M_RHS', 200, 100, '99', 'RHS_2', 2);
+
+-- LHS row with 'PM_Z_LOW' and Order_Quantity='50' (produces n = 2 after joining with 2 RHS rows)
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (1, 'PM_Z_LOW', 100, 555, '50', 'LHS_Low', 200);
+
+-- Two LHS rows with 'PM_A_HIGH' and same Order_Quantity='50' (produces n = 4 after joining with 2 RHS rows)
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (2, 'PM_A_HIGH', 100, 555, '50', 'LHS_High_1', 200);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (3, 'PM_A_HIGH', 100, 555, '50', 'LHS_High_2', 200);
+```
+
+```sql
+-- DATASET 3
+-- Tests self-joining single row (LHS = RHS), NULL values in Order_Quantity (GROUP BY NULL behavior) 
+-- vs non-NULL values, and cyclic/symmetric join confusion (where LHS.order_id = LHS.product_id).
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_SELF', 'Self Join Method');
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_NULLQ', 'Null Quantity Method');
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('PM_TRAP', 'Trap Method');
+
+INSERT INTO "Addresses" ("Address_ID", "Line_1") VALUES ('1', '123 Main St');
+INSERT INTO "Marketing_Regions" ("Marketing_Region_Code", "Marketing_Region_Name") VALUES ('MR1', 'Region 1');
+INSERT INTO "Customers" ("Customer_ID", "Address_ID", "Customer_Name") VALUES ('1', 1, 'Charlie');
+INSERT INTO "Stores" ("Store_ID", "Marketing_Region_Code", "Address_ID", "Store_Name") VALUES ('1', 'MR1', 1, 'Store C');
+
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID") VALUES (7, 1, 1);
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID") VALUES (8, 1, 1);
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID") VALUES (9, 1, 1);
+
+-- Self-joining row: Order_ID = 7, Product_ID = 7, Order_Item_ID = 7
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (1, 'PM_SELF', 7, 7, '1', 'Self_Join', 7);
+
+-- Row with NULL Order_Quantity that joins with Invoice 1 (Order_ID = 7 = RHS.Product_ID, Order_Item_ID = 7 = RHS.Order_ID)
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (2, 'PM_NULLQ', 7, 999, NULL, 'Null_Qty', 7);
+
+-- Trap row: Order_ID = 8, Product_ID = 9, Order_Item_ID = 9 (Matches if mutant checks LHS.order_item_id = LHS.product_id or RHS.order_id = RHS.product_id)
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (3, 'PM_TRAP', 8, 9, '10', 'Trap_Row_1', 9);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (4, 'PM_TRAP', 9, 9, '10', 'Trap_Row_2', 8);
+```

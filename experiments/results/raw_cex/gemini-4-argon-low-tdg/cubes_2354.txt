@@ -1,0 +1,47 @@
+```sql
+-- DATASET 1
+-- Tests basic DESC ordering on Police_force, decoupling of Police_force from other numeric/text columns, and queries that incorrectly join with the city table (since County_ID 2 has no cities).
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (1, 'Alpha County', 500000, 1000, 500, 100, 50.5, 'Force A', 'Loc Z');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (2, 'Beta County', 100000, 200, 100, 20, 10.1, 'Force Z', 'Loc A');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (3, 'Gamma County', 300000, 500, 300, 50, 30.3, 'Force M', 'Loc M');
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (1, 1, 'Alpha City 1', 50.0, 20.0, 1.0, 10.0, 4.0, 15.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (2, 1, 'Alpha City 2', 60.0, 10.0, 1.0, 10.0, 4.0, 15.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (3, 3, 'Gamma City', 70.0, 5.0, 1.0, 5.0, 4.0, 15.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on the secondary sort column (County_ID ASC), ensuring physical insertion order does not mask missing secondary sort or wrong secondary sort direction (County_ID DESC).
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (20, 'County Twenty', 2000, 20, 100, 10, 5.0, 'Force X', 'North');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (10, 'County Ten', 1000, 10, 100, 10, 5.0, 'Force X', 'South');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (30, 'County Thirty', 3000, 30, 100, 10, 5.0, 'Force X', 'East');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (5, 'County Five', 5000, 50, 100, 10, 5.0, 'Force A', 'West');
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (1, 10, 'City Ten', 80.0, 5.0, 1.0, 4.0, 2.0, 8.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in Police_force (in SQLite, NULLs are considered smaller than any non-NULL value, so DESC places NULLs last) and NULLS LAST on County_ID when Police_force is tied.
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (1, 'Null Force County', 1000, 10, 100, 10, 5.0, NULL, 'Loc 1');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (NULL, 'Null ID County', 2000, 20, 100, 10, 5.0, 'Force Top', 'Loc 2');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (5, 'Valid ID County', 3000, 30, 100, 10, 5.0, 'Force Top', 'Loc 3');
+```
+
+```sql
+-- DATASET 4
+-- Tests lexicographical (TEXT) vs numerical sorting on Police_force (e.g., '9' > '100' in TEXT), catching mutants that cast Police_force to INTEGER/REAL or sort by Police_officers instead.
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (1, 'Numeric High Force', 50000, 100, 500, 50, 12.5, '100', 'East');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (2, 'Lexicographic High Force', 50000, 9, 500, 50, 12.5, '9', 'West');
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (1, 1, 'East City', 50.0, 50.0, 0.0, 0.0, 0.0, 0.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (2, 2, 'West City', 50.0, 50.0, 0.0, 0.0, 0.0, 0.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests tie-breaking with negative and zero County_IDs, and ensures that if a mutant joins with city and selects city.Name instead of county_public_safety.Name, it returns the wrong name.
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (0, 'Zero County', 1000, 10, 100, 5, 1.0, 'Metro Police', 'Central');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (-5, 'Negative County', 1000, 10, 100, 5, 1.0, 'Metro Police', 'Central');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (10, 'Positive County', 1000, 10, 100, 5, 1.0, 'Metro Police', 'Central');
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (100, -5, 'Negative City Name', 40.0, 40.0, 5.0, 5.0, 5.0, 5.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (101, 0, 'Zero City Name', 40.0, 40.0, 5.0, 5.0, 5.0, 5.0);
+```

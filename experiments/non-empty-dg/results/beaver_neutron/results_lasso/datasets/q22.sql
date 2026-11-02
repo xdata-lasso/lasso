@@ -1,0 +1,10 @@
+INSERT INTO "networkrbacs" ("id", "object_id", "tenant_id", "target_tenant", "action") VALUES ('purpose', 'face', 'since', 'wait', 'knowledge');
+INSERT INTO "networkrbacs" ("id", "object_id", "tenant_id", "target_tenant", "action") VALUES ('brother', 'election', 'blue', 'offer', 'almost');
+INSERT INTO "networkrbacs" ("id", "object_id", "tenant_id", "target_tenant", "action") VALUES ('ago', 'dog', 'require', 'begin', 'all');
+INSERT INTO "networkrbacs" ("id", "object_id", "tenant_id", "target_tenant", "action") VALUES ('site', 'chair', 'sit', 'performance', 'better');
+INSERT INTO "networks" ("tenant_id", "id", "name", "status", "admin_state_up", "mtu", "vlan_transparent", "standard_attr_id", "availability_zone_hints") VALUES ('discover', 'face', 'Lance Hoffman', 'ACTIVE', 1001, 1002, 1003, 1004, 'sense');
+INSERT INTO "networks" ("tenant_id", "id", "name", "status", "admin_state_up", "mtu", "vlan_transparent", "standard_attr_id", "availability_zone_hints") VALUES ('rate', 'face', 'Lance Hoffman', 'ACTIVE', 1001, 1005, 1006, 1007, 'science');
+INSERT INTO "networksecuritybindings" ("network_id", "port_security_enabled") VALUES ('face', 1008);
+INSERT INTO "networksecuritybindings" ("network_id", "port_security_enabled") VALUES ('election', 1013.0);
+INSERT INTO "networksecuritybindings" ("network_id", "port_security_enabled") VALUES ('dog', 1018.0);
+INSERT INTO "networksecuritybindings" ("network_id", "port_security_enabled") VALUES ('chair', 1023.0);

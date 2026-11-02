@@ -1,0 +1,47 @@
+-- Schema DDL
+CREATE TABLE "HIGHSCHOOLER" (
+    "ID" INT,
+    "NAME" TEXT,
+    "GRADE" INT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "FRIEND" (
+    "STUDENT_ID" INT,
+    "FRIEND_ID" INT,
+    PRIMARY KEY ("STUDENT_ID", "FRIEND_ID"),
+    FOREIGN KEY ("FRIEND_ID") REFERENCES "HIGHSCHOOLER"("ID"),
+    FOREIGN KEY ("STUDENT_ID") REFERENCES "HIGHSCHOOLER"("ID")
+);
+CREATE TABLE "LIKES" (
+    "STUDENT_ID" INT,
+    "LIKED_ID" INT,
+    PRIMARY KEY ("STUDENT_ID", "LIKED_ID"),
+    FOREIGN KEY ("STUDENT_ID") REFERENCES "HIGHSCHOOLER"("ID"),
+    FOREIGN KEY ("LIKED_ID") REFERENCES "HIGHSCHOOLER"("ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO HIGHSCHOOLER VALUES (0, 12, 0);
+INSERT INTO HIGHSCHOOLER VALUES (-1, 11, 0);
+INSERT INTO FRIEND VALUES (-1, 0);
+INSERT INTO FRIEND VALUES (0, 0);
+INSERT INTO LIKES VALUES (-1, -1);
+INSERT INTO LIKES VALUES (0, -1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT grade FROM (SELECT LHS.id AS id, LHS.name AS name, LHS.grade AS grade, RHS.n AS n FROM highschooler AS LHS LEFT JOIN (SELECT grade, COUNT(*) AS n FROM highschooler GROUP BY grade) AS RHS ON (LHS.grade = RHS.grade)) ORDER BY grade;
+
+/*
+Gold Result:
+(0,)
+*/
+
+-- Prediction Query
+SELECT grade FROM Highschooler GROUP BY grade HAVING COUNT(*) >= 4;
+
+/*
+Prediction Result:
+*/

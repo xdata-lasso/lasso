@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. GROUP BY / deduplication of EMP.DEPTNO (multiple employees in DEPT 10).
+-- 2. Unreferenced DEPT rows (DEPT 30 has no employees; kills RIGHT/FULL JOIN or querying DEPT directly).
+-- 3. Multiple distinct DEPTNOs in EMP (DEPT 10 and 20).
+-- 4. Boundary/Edge values in EMP columns (0, negative numbers, NULL MGR) to kill mutants injecting spurious WHERE predicates.
+-- 5. EMPNO = DEPTNO matching (EMPNO 30 when DEPT 30 is unreferenced) to kill join condition mutants (e.g., EMP.EMPNO = DEPT.DEPTNO).
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (10, 'ACCOUNTING');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (20, 'RESEARCH');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (30, 'SALES');
+
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (10, 10, 'CLARK', 'MANAGER', NULL, '1981-06-09', 2450, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (20, 10, 'KING', 'PRESIDENT', 10, '1981-11-17', 5000, 100, 1);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (30, 20, 'SMITH', 'CLERK', 10, '1980-12-17', 0, -50, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Empty EMP table with populated DEPT table (kills mutants returning DEPT rows or aggregate counts).
+-- 2. Populated sibling tables (EMPNULLABLES, EMPNULLABLES_20, EMP_B, BONUS) with different DEPTNOs (40, 50, 60) to kill table-name substitution mutants.
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (10, 'ACCOUNTING');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (40, 'OPERATIONS');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (50, 'HR');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (60, 'IT');
+
+INSERT INTO EMPNULLABLES (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (101, 40, 'ALICE', 'ANALYST', NULL, '2020-01-01', 3000, 0, 0);
+INSERT INTO EMPNULLABLES (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (102, NULL, 'BOB', 'CLERK', 101, '2020-02-01', 1500, NULL, 1);
+
+INSERT INTO EMPNULLABLES_20 (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (201, 50, 'CHARLIE', 'DEV', NULL, '2020-03-01', 4000, 500, 0);
+
+INSERT INTO EMP_B (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER, BIRTHDATE) VALUES (301, 60, 'DAVE', 'ADMIN', NULL, '2020-04-01', 3500, 0, 0, '1990-05-15');
+
+INSERT INTO BONUS (ENAME, JOB, SAL, COMM) VALUES ('EVE', 'SALES', 2000, 300);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Negative and zero DEPTNO values.
+-- 2. Employees sharing the exact same ENAME, JOB, SAL, COMM, HIREDATE, MGR, SLACKER across different DEPTNOs (kills mutants that GROUP BY non-DEPTNO columns like JOB, SAL, MGR, or SLACKER instead of EMP.DEPTNO).
+-- 3. Employees in the same DEPTNO having completely different attributes (tests grouping granularity).
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (0, 'ZERO_DEPT');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (-10, 'NEG_DEPT');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (100, 'HUNDRED_DEPT');
+
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (1, 0, 'SAME_NAME', 'SAME_JOB', 999, '2000-01-01', 1000, 100, 1);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (2, -10, 'SAME_NAME', 'SAME_JOB', 999, '2000-01-01', 1000, 100, 1);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (3, -10, 'DIFF_NAME', 'DIFF_JOB', NULL, '2022-12-31', 9999, 0, 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Single row in EMP, multiple in DEPT where DEPT.NAME is identical across different DEPTNOs (kills mutants grouping by DEPT.NAME and projecting min/max DEPTNO or similar).
+-- 2. MGR equals another valid DEPTNO (EMP.MGR = 20 while EMP.DEPTNO = 10; kills mutants joining on EMP.MGR = DEPT.DEPTNO).
+-- 3. SAL and COMM equal valid DEPTNOs (kills mutants projecting or joining on SAL/COMM/SLACKER).
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (10, 'DUPLICATE_DEPT_NAME');
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (20, 'DUPLICATE_DEPT_NAME');
+
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (20, 10, 'ALLEN', 'SALESMAN', 20, '1981-02-20', 20, 20, 20);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Orphaned EMP.DEPTNO (if SQLite foreign key enforcement is disabled during test evaluation, this directly tests LEFT JOIN vs INNER JOIN and SELECT EMP.DEPTNO vs SELECT DEPT.DEPTNO; if FK is enabled, Dataset 1-4 cover everything cleanly).
+INSERT INTO DEPT (DEPTNO, NAME) VALUES (10, 'ACCOUNTING');
+
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (1, 10, 'MILLER', 'CLERK', NULL, '1982-01-23', 1300, 0, 0);
+INSERT INTO EMP (EMPNO, DEPTNO, ENAME, JOB, MGR, HIREDATE, SAL, COMM, SLACKER) VALUES (2, 99, 'GHOST', 'NONE', NULL, '1982-01-23', 1300, 0, 0);
+```

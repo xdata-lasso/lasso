@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests semi-join (EXISTS) vs regular INNER JOIN (preventing duplicate rows when a customer has multiple 'On Road' orders)
+-- Also tests filtering out customers with no orders or only non-'On Road' orders, and tests ASC ordering.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Alice', 'Details_Z');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'Bob', 'Details_A');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (3, 'Charlie', 'Details_M');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (4, 'David', 'Details_B');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (101, 1, 'On Road', '2023-01-01 10:00:00', 'Order 1');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (102, 1, 'On Road', '2023-01-02 10:00:00', 'Order 2');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (103, 2, 'Delivered', '2023-01-03 10:00:00', 'Order 3');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (104, 4, 'On Road', '2023-01-04 10:00:00', 'Order 4');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (105, 4, 'Cancelled', '2023-01-05 10:00:00', 'Order 5');
+```
+
+```sql
+-- DATASET 2
+-- Tests SELECT without DISTINCT when two different customers have the exact same 'customer_details'.
+-- A mutant using SELECT DISTINCT customer_details will fail here.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Alice', 'Same_Details');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'Bob', 'Same_Details');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (3, 'Charlie', 'Other_Details');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (201, 1, 'On Road', '2023-02-01 10:00:00', 'Order 1');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (202, 2, 'On Road', '2023-02-02 10:00:00', 'Order 2');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (203, 3, 'Shipped', '2023-02-03 10:00:00', 'Order 3');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in customer_details, NULLS LAST vs NULLS FIRST in ORDER BY, and NULLs in Orders columns.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Alice', NULL);
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'Bob', 'Beta_Details');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (3, 'Charlie', 'Alpha_Details');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (4, 'David', NULL);
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (301, 1, 'On Road', '2023-03-01 10:00:00', 'Order 1');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (302, 2, 'On Road', '2023-03-02 10:00:00', 'Order 2');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (303, 3, 'On Road', '2023-03-03 10:00:00', 'Order 3');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (304, 4, NULL, '2023-03-04 10:00:00', 'Order 4');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (305, NULL, 'On Road', '2023-03-05 10:00:00', 'Order 5');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong join key mutations (e.g., matching Customers.customer_id = Orders.order_id) and string case/Substring sensitivity on 'On Road'.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Name_1', 'Details_1');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'Name_2', 'Details_2');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (3, 'Name_3', 'Details_3');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (10, 'Name_10', 'Details_10');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (1, 2, 'On Road', '2023-04-01 10:00:00', 'Order_ID is 1, but Customer_ID is 2');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (2, 1, 'on road', '2023-04-02 10:00:00', 'Lowercase status');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (3, 3, 'On Road ', '2023-04-03 10:00:00', 'Trailing space');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (10, 3, 'Pending', '2023-04-04 10:00:00', 'Order_ID 10 matches Customer 10 if join is wrong');
+```
+
+```sql
+-- DATASET 5
+-- Tests mutants that unnecessarily join child tables (Order_Items, Shipments, Invoices, Products)
+-- by having valid 'On Road' orders that have NO corresponding records in those child tables, 
+-- alongside non-'On Road' orders that DO have records in those child tables with 'On Road' statuses/details.
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (1, 'Cust_No_Items', 'Valid_Customer_Details');
+INSERT INTO Customers (customer_id, customer_name, customer_details) VALUES (2, 'Cust_With_Items', 'Invalid_Customer_Details');
+
+INSERT INTO Products (product_id, product_name, product_details) VALUES (50, 'Prod_1', 'On Road');
+INSERT INTO Invoices (invoice_number, invoice_date, invoice_details) VALUES (60, '2023-05-01 10:00:00', 'On Road');
+
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (501, 1, 'On Road', '2023-05-01 00:00:00', 'No items or shipments');
+INSERT INTO Orders (order_id, customer_id, order_status, date_order_placed, order_details) VALUES (502, 2, 'New', '2023-05-02 00:00:00', 'On Road');
+
+INSERT INTO Order_Items (order_item_id, product_id, order_id, order_item_status, order_item_details) VALUES (701, 50, 502, 'On Road', 'On Road');
+INSERT INTO Shipments (shipment_id, invoice_number, order_id, shipment_tracking_number, shipment_date, other_shipment_details) VALUES (801, 60, 502, 'TRK123', '2023-05-03 00:00:00', 'On Road');
+INSERT INTO Shipment_Items (shipment_id, order_item_id) VALUES (801, 701);
+```

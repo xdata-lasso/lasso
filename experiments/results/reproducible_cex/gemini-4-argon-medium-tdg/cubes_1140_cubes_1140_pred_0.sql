@@ -1,0 +1,46 @@
+-- Schema DDL
+CREATE TABLE "genre" ("g_name" TEXT(20) PRIMARY KEY, "rating" TEXT(10), "most_popular_in" TEXT(50));
+
+CREATE TABLE "artist" ("artist_name" TEXT(50) PRIMARY KEY, "preferred_genre" TEXT(50), "country" TEXT(20), "gender" TEXT(20), FOREIGN KEY ("preferred_genre") REFERENCES "genre" ("g_name"));
+
+CREATE TABLE "files" ("f_id" REAL(10) PRIMARY KEY, "artist_name" TEXT(50), "file_size" TEXT(20), "duration" TEXT(20), "formats" TEXT(20), FOREIGN KEY ("artist_name") REFERENCES "artist" ("artist_name"));
+
+CREATE TABLE "song" ("song_name" TEXT(50) PRIMARY KEY, "genre_is" TEXT(20), "f_id" REAL(10), "artist_name" TEXT(50), "country" TEXT(20), "rating" REAL(10), "languages" TEXT(20), "releasedate" DATE, "resolution" REAL(10), FOREIGN KEY ("genre_is") REFERENCES "genre" ("g_name"), FOREIGN KEY ("f_id") REFERENCES "files" ("f_id"), FOREIGN KEY ("artist_name") REFERENCES "artist" ("artist_name"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+-- Tests basic WHERE conditions (True/True, True/False, False/True, False/False), NULL handling, and ORDER BY artist_name vs insertion order or other columns.
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Rock', '9', 'UK');
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Pop', '8', 'US');
+INSERT INTO "genre" ("g_name", "rating", "most_popular_in") VALUES ('Jazz', '7', 'France');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Zack', 'Pop', 'UK', 'Male');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Adam', 'Rock', 'UK', 'Male');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Adele', 'Pop', 'UK', 'Female');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Bob', 'Rock', 'US', 'Male');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Taylor', 'Pop', 'US', 'Female');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('NullCountry', 'Jazz', NULL, 'Male');
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('NullGender', 'Jazz', 'UK', NULL);
+INSERT INTO "artist" ("artist_name", "preferred_genre", "country", "gender") VALUES ('Charlie', NULL, 'UK', 'Male');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT "artist_name" FROM "artist" WHERE ("country" = 'UK' AND "gender" = 'Male') ORDER BY artist_name;
+
+/*
+Gold Result:
+('Adam',)
+('Charlie',)
+('Zack',)
+*/
+
+-- Prediction Query
+SELECT artist_name FROM artist WHERE country = 'UK' AND gender = 'Male';
+
+/*
+Prediction Result:
+('Zack',)
+('Adam',)
+('Charlie',)
+*/

@@ -1,0 +1,106 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (ParentId IS NOT NULL vs IS NULL), ordering by Score DESC, and foreign key join on OwnerUserId vs LastEditorUserId.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'Alice_QuestionOwner');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 200, 'Bob_TopAnswerOwner');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (3, 150, 'Charlie_LowAnswerOwner');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (4, 300, 'Dave_Editor');
+
+-- Post 10: High score (100), but ParentId IS NULL (should be excluded)
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, LastEditorUserId, ParentId, OwnerDisplayName) VALUES (10, 1, 100, 1, 4, NULL, 'FakeAlice');
+
+-- Post 20: Highest score among answers (50), ParentId IS NOT NULL (should be selected -> Bob)
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, LastEditorUserId, ParentId, OwnerDisplayName) VALUES (20, 2, 50, 2, 4, 10, 'FakeBob');
+
+-- Post 30: Lower score among answers (10), ParentId IS NOT NULL (kills Score ASC or MIN(Score) mutants -> Charlie)
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, LastEditorUserId, ParentId, OwnerDisplayName) VALUES (30, 2, 10, 3, 4, 10, 'FakeCharlie');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on posts.id ASC (secondary sort when Score is tied) and duplicate DisplayName handling.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 50, 'User_LowerPostId');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 500, 'User_HigherPostId');
+
+-- Both posts have the exact same top Score (25) and non-null ParentId.
+-- Post 5 has smaller Id (5 < 15), so User 1 must be selected over User 2.
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (15, 2, 25, 2, 100);
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (5, 2, 25, 1, 100);
+```
+
+```sql
+-- DATASET 3
+-- Tests JOIN vs Subquery (LIMIT 1) semantics when the winning OwnerUserId owns multiple answers, and when multiple users have the same top score.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (10, 100, 'DuplicateOwner_Top');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (20, 100, 'SecondTopOwner');
+
+-- User 10 owns TWO answers (Posts 1 and 2). A mutant using INNER JOIN without DISTINCT or without subquery LIMIT 1 would return 'DuplicateOwner_Top' multiple times.
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (1, 2, 40, 10, 99);
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (2, 2, 40, 10, 99);
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (3, 2, 40, 20, 99);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in Score and OwnerUserId, plus negative scores.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 10, 'NegativeScoreWinner');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 20, 'EvenLowerNegativeScore');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (3, 30, 'NullScoreOwner');
+
+-- Post 1: Highest non-null score (-5), should win over -10 and NULL (since in SQLite DESC, integers > NULL).
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (1, 2, -5, 1, 50);
+
+-- Post 2: Lower negative score (-10)
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (2, 2, -10, 2, 50);
+
+-- Post 3: NULL Score (kills mutants that treat NULL as highest or coalesce to 0)
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (3, 2, NULL, 3, 50);
+```
+
+```sql
+-- DATASET 5
+-- Tests the case where the top-scoring answer has OwnerUserId IS NULL (community/deleted user).
+-- The reference query subquery returns NULL, so WHERE Id = NULL yields an empty result set.
+-- Kills mutants that add 'AND OwnerUserId IS NOT NULL' to the subquery or use INNER JOIN before LIMIT 1.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'ShouldNotBeReturned');
+
+-- Post 1: Top score (999), ParentId is not null, but OwnerUserId IS NULL.
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (1, 2, 999, NULL, 10);
+
+-- Post 2: Second best score (50), has a valid OwnerUserId (1).
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (2, 2, 50, 1, 10);
+```
+
+```sql
+-- DATASET 6
+-- Tests boundary values (ParentId = 0, Score = 0) and ensures ParentId IS NOT NULL is not mutated to ParentId > 0 or PostTypeId = 2.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'ZeroParentAndPostType1');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (2, 100, 'StandardAnswerUser');
+
+-- Post 1: ParentId is 0 (which IS NOT NULL) and PostTypeId is 1 (not 2), Score is 0.
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (1, 1, 0, 1, 0);
+
+-- Post 2: Standard answer with Score -1, ParentId 5.
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (2, 2, -1, 2, 5);
+```
+
+```sql
+-- DATASET 7
+-- Tests when NO posts have ParentId IS NOT NULL (all posts have ParentId IS NULL).
+-- Reference query must return empty result. Kills mutants that omit the WHERE NOT ParentId IS NULL clause or use LEFT JOIN improperly.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (1, 100, 'QuestionOnlyUser');
+
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (1, 1, 50, 1, NULL);
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (2, 1, 10, 1, NULL);
+```
+
+```sql
+-- DATASET 8
+-- Tests column confusion between users.Id and posts.Id or posts.ParentId.
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (100, 50, 'MatchedByPostId_Wrong');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (200, 50, 'MatchedByParentId_Wrong');
+INSERT INTO users (Id, Reputation, DisplayName) VALUES (300, 50, 'MatchedByOwnerUserId_Correct');
+
+-- Post Id = 100, ParentId = 200, OwnerUserId = 300.
+INSERT INTO posts (Id, PostTypeId, Score, OwnerUserId, ParentId) VALUES (100, 2, 10, 300, 200);
+```

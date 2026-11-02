@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT vs non-DISTINCT (multiple qualifying records for race 355 and q2 LIKE '1:40%' sharing 'British' nationality).
+-- 2. Exact match '1:40' vs prefix '1:40%' ('British' vs 'German').
+-- 3. Wrong column check: q1 or q3 LIKE '1:40%' when q2 does not match ('French', 'Italian').
+-- 4. Substring vs Prefix match: '%1:40%' vs '1:40%' ('Spanish').
+-- 5. Boundary raceId values: 354 and 356 vs 355 ('Dutch', 'Brazilian').
+-- 6. Wrong table column projection: constructors.nationality vs drivers.nationality.
+-- 7. Wrong join key: joining on qualifyId = driverId or number = driverId ('Australian').
+
+INSERT INTO seasons (year, url) VALUES (2010, 'http://en.wikipedia.org/wiki/2010_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'valencia', 'Valencia Street Circuit', 'http://en.wikipedia.org/wiki/Valencia_Street_Circuit');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (354, 2010, 7, 1, 'Race 354', '2010-05-30', 'http://race354');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (355, 2010, 8, 1, 'Race 355', '2010-06-27', 'http://race355');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (356, 2010, 9, 1, 'Race 356', '2010-07-11', 'http://race356');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'mclaren', 'McLaren', 'Constructor_Nationality_1', 'http://mclaren');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (2, 'ferrari', 'Ferrari', 'Constructor_Nationality_2', 'http://ferrari');
+
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, nationality, url) VALUES (1, 'hamilton', 2, 'Lewis', 'Hamilton', 'British', 'http://hamilton');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, nationality, url) VALUES (2, 'button', 1, 'Jenson', 'Button', 'British', 'http://button');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, nationality, url) VALUES (3, 'vettel', 5, 'Sebastian', 'Vettel', 'German', 'http://vettel');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, nationality, url) VALUES (4, 'alonso', 8, 'Fernando', 'Alonso', 'Spanish', 'http://alonso');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, nationality, url) VALUES (5, 'massa', 7, 'Felipe', 'Massa', 'Brazilian', 'http://massa');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, nationality, url) VALUES (6, 'prost', 9, 'Alain', 'Prost', 'French', 'http://prost');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, nationality, url) VALUES (7, 'trulli', 18, 'Jarno', 'Trulli', 'Italian', 'http://trulli');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, nationality, url) VALUES (8, 'verstappen', 33, 'Max', 'Verstappen', 'Dutch', 'http://verstappen');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, nationality, url) VALUES (99, 'webber', 6, 'Mark', 'Webber', 'Australian', 'http://webber');
+
+-- Valid matches (Duplicate 'British' tests DISTINCT; '1:40.123' tests prefix wildcard; '1:40' tests exact boundary)
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (10, 355, 1, 1, 99, 1, '1:41.000', '1:40.123', '1:39.500');
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (11, 355, 2, 1, 2, 2, '1:41.200', '1:40.456', '1:39.800');
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (12, 355, 3, 2, 5, 3, '1:41.300', '1:40', '1:39.900');
+
+-- Invalid q2 prefix (tests '%1:40%' vs '1:40%' and '1:4%' vs '1:40%')
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (13, 355, 4, 2, 8, 4, '1:41.400', '01:40.123', '1:40.000');
+
+-- Wrong raceId (356 and 354)
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (14, 356, 5, 2, 7, 1, '1:40.100', '1:40.200', '1:40.300');
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (15, 354, 8, 1, 33, 1, '1:40.100', '1:40.200', '1:40.300');
+
+-- Wrong q column (q1 or q3 matches '1:40%', but q2 does not)
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (16, 355, 6, 1, 9, 5, '1:40.111', '1:41.222', '1:42.333');
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (17, 355, 7, 2, 18, 6, '1:41.111', '1:41.222', '1:40.333');
+
+-- Trap for wrong join condition (qualifyId = 99 -> driverId 99 'Australian', while actual driverId is 1 'British')
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (99, 355, 1, 1, 99, 7, '1:41.000', '1:40.999', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. INNER JOIN vs RIGHT JOIN / LEFT JOIN (drivers with no qualifying rows; qualifying rows with NULL q2 or NULL nationality).
+-- 2. AND vs OR in WHERE clause (raceId = 355 with non-matching q2; raceId != 355 with matching q2).
+-- 3. Handling of NULL in drivers.nationality and qualifying.q2.
+-- 4. Confusion between `results` table and `qualifying` table.
+
+INSERT INTO seasons (year, url) VALUES (2010, 'http://en.wikipedia.org/wiki/2010_Formula_One_season');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://silverstone');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (355, 2010, 8, 1, 'Race 355', '2010-06-27', 'http://race355');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (400, 2010, 9, 1, 'Race 400', '2010-07-11', 'http://race400');
+
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (10, 'sauber', 'Sauber', 'Swiss', 'http://sauber');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (10, 'kobayashi', 'Kamui', 'Kobayashi', 'Japanese', 'http://kobayashi');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (20, 'perez', 'Sergio', 'Perez', 'Mexican', 'http://perez');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (30, 'hulkenberg', 'Nico', 'Hulkenberg', NULL, 'http://hulkenberg');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (40, 'sutil', 'Adrian', 'Sutil', 'German', 'http://sutil');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (50, 'petrov', 'Vitaly', 'Petrov', 'Russian', 'http://petrov');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (60, 'kubica', 'Robert', 'Kubica', 'Polish', 'http://kubica');
+
+-- Valid match with non-null nationality
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 355, 10, 10, 23, 1, '1:40.000', '1:40.500', '1:40.100');
+
+-- Valid match where driver nationality is NULL
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (2, 355, 30, 10, 24, 2, '1:40.000', '1:40.600', '1:40.200');
+
+-- Race 355, but q2 is NULL (Tests NULL handling in LIKE)
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (3, 355, 20, 10, 25, 18, '1:40.100', NULL, NULL);
+
+-- Race 355, but q2 is '1:41.000' (Tests AND vs OR, and '1:4%' vs '1:40%')
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (4, 355, 40, 10, 26, 12, '1:41.000', '1:41.000', NULL);
+
+-- Race 400 with q2 LIKE '1:40%' (Tests AND vs OR)
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (5, 400, 50, 10, 27, 5, '1:40.000', '1:40.050', '1:40.010');
+
+-- Trap in `results` table (If mutant queries `results.fastestLapTime` instead of `qualifying.q2`)
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, fastestLapTime, statusId) VALUES (1, 355, 60, 10, 11, 1, 1, '1', 1, 25, 50, '1:40.123', 1);
+```

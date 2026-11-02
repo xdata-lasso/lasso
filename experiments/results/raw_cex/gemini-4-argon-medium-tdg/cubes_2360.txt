@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests boundary conditions for (White >= 90.0): exact boundary (90.0), just below (89.99), just above (90.01), and NULL.
+-- Also tests ordering by crime_rate in non-insertion order.
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (1, 'County A', 10000, 50, 200, 10, 55.5, 'Force A', 'North');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (2, 'County B', 20000, 100, 200, 20, 12.3, 'Force B', 'South');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (3, 'County C', 15000, 75, 200, 15, 88.9, 'Force C', 'East');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (4, 'County D', 30000, 150, 200, 30, 34.0, 'Force D', 'West');
+
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (101, 1, 'City Boundary', 90.0, 5.0, 1.0, 1.0, 1.0, 2.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (102, 2, 'City Above', 90.01, 4.99, 1.0, 1.0, 1.0, 2.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (103, 3, 'City Below', 89.99, 5.01, 1.0, 1.0, 1.0, 2.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (104, 4, 'City Null', NULL, 5.0, 1.0, 1.0, 1.0, 2.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate preservation (SELECT vs SELECT DISTINCT) and 1-to-many join multiplicity.
+-- County 1 has two cities with White >= 90.0 (should yield 2 rows with Crime_rate 25.0).
+-- County 2 has the exact same Crime_rate (25.0) and one qualifying city (should yield a 3rd row with 25.0).
+-- County 3 has no cities at all (tests INNER JOIN vs LEFT JOIN).
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (1, 'Multi City County', 50000, 200, 250, 40, 25.0, 'Metro PD', 'Central');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (2, 'Same Rate County', 40000, 160, 250, 35, 25.0, 'State PD', 'East');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (3, 'Empty County', 10000, 20, 500, 10, 5.0, 'Sheriff', 'West');
+
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (201, 1, 'Alpha', 92.5, 2.5, 1.0, 1.0, 1.0, 2.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (202, 1, 'Beta', 95.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (203, 2, 'Gamma', 91.0, 3.0, 1.0, 2.0, 1.0, 2.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition correctness (LHS.County_ID = RHS.County_ID vs accidental City_ID = County_ID or Name = Name)
+-- and tests column selection confusion (e.g., querying Black/Hispanic >= 90.0 instead of White >= 90.0).
+-- Also includes a city with NULL County_ID to refute RIGHT/FULL OUTER JOIN mutants.
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (1, 'SharedName', 12000, 40, 300, 12, 99.9, 'Force 1', 'Loc 1');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (2, 'DistinctCounty', 24000, 80, 300, 24, 15.5, 'Force 2', 'Loc 2');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (3, 'WrongDemographic', 36000, 120, 300, 36, 45.0, 'Force 3', 'Loc 3');
+
+-- City_ID is 1 (matches County 1 ID), Name is 'SharedName' (matches County 1 Name), but County_ID is 2.
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (1, 2, 'SharedName', 94.0, 2.0, 1.0, 1.0, 1.0, 1.0);
+-- High Black and Hispanic percentages, low White percentage.
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (2, 3, 'OtherCity', 5.0, 92.0, 0.5, 0.5, 1.0, 95.0);
+-- Orphan city with NULL County_ID.
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (3, NULL, 'UnassignedCity', 98.0, 0.5, 0.5, 0.5, 0.5, 0.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests ORDER BY crime_rate with NULLs, 0.0, negative values (if any), and floating-point precision,
+-- as well as ensuring ORDER BY is on crime_rate and not County_ID, City_ID, Population, or White.
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (10, 'County Z', 90000, 500, 180, 5, 10.05, 'PD Z', 'North');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (20, 'County Y', 10000, 100, 100, 50, 10.01, 'PD Y', 'South');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (30, 'County X', 50000, 250, 200, 25, NULL, 'PD X', 'East');
+INSERT INTO "county_public_safety" ("County_ID", "Name", "Population", "Police_officers", "Residents_per_officer", "Case_burden", "Crime_rate", "Police_force", "Location") VALUES (40, 'County W', 70000, 350, 200, 15, 0.0, 'PD W', 'West');
+
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (4, 10, 'City 4', 91.0, 1.0, 1.0, 1.0, 1.0, 5.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (3, 20, 'City 3', 99.0, 0.2, 0.2, 0.2, 0.2, 0.2);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (2, 30, 'City 2', 95.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+INSERT INTO "city" ("City_ID", "County_ID", "Name", "White", "Black", "Amerindian", "Asian", "Multiracial", "Hispanic") VALUES (1, 40, 'City 1', 90.0, 2.0, 2.0, 2.0, 2.0, 2.0);
+```

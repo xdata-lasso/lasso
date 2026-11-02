@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT T1.ID) vs COUNT(*) or COUNT(T1.ID) when a single patient has multiple matching laboratory records.
+INSERT INTO Patient (ID, SEX, Description, Diagnosis) VALUES (1, 'F', NULL, 'SLE');
+INSERT INTO Laboratory (ID, Date, DNA, "DNA-II") VALUES (1, '2020-01-01', '5', 5);
+INSERT INTO Laboratory (ID, Date, DNA, "DNA-II") VALUES (1, '2020-01-02', '3', 3);
+INSERT INTO Laboratory (ID, Date, DNA, "DNA-II") VALUES (1, '2020-01-03', '7', 7);
+```
+
+```sql
+-- DATASET 2
+-- Tests strict inequality (< 8 vs <= 8) and SQLite TEXT affinity comparison ('7' < 8 is true, '8' < 8 is false, '9' < 8 is false).
+-- Also tests column confusion between DNA and "DNA-II".
+INSERT INTO Patient (ID, Description) VALUES (1, NULL);
+INSERT INTO Patient (ID, Description) VALUES (2, NULL);
+INSERT INTO Patient (ID, Description) VALUES (3, NULL);
+INSERT INTO Patient (ID, Description) VALUES (4, NULL);
+
+-- Patient 1: DNA = '7' (matches), but "DNA-II" = 10 (fails if mutant uses "DNA-II")
+INSERT INTO Laboratory (ID, Date, DNA, "DNA-II") VALUES (1, '2020-01-01', '7', 10);
+
+-- Patient 2: Boundary DNA = '8' (should NOT match < 8, would match <= 8)
+INSERT INTO Laboratory (ID, Date, DNA, "DNA-II") VALUES (2, '2020-01-01', '8', 5);
+
+-- Patient 3: DNA = '9' (should NOT match < 8)
+INSERT INTO Laboratory (ID, Date, DNA, "DNA-II") VALUES (3, '2020-01-01', '9', 2);
+
+-- Patient 4: DNA is NULL (should NOT match)
+INSERT INTO Laboratory (ID, Date, DNA, "DNA-II") VALUES (4, '2020-01-01', NULL, 4);
+```
+
+```sql
+-- DATASET 3
+-- Tests Description IS NULL vs Description IS NOT NULL, empty string '', and confusion with other columns (First Date, Diagnosis).
+INSERT INTO Patient (ID, Description, "First Date", Diagnosis) VALUES (1, NULL, '2020-01-01', 'SLE');
+INSERT INTO Patient (ID, Description, "First Date", Diagnosis) VALUES (2, '2020-05-05', NULL, NULL);
+INSERT INTO Patient (ID, Description, "First Date", Diagnosis) VALUES (3, '', '2020-01-01', 'SLE');
+
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (1, '2020-01-01', '4');
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (2, '2020-01-01', '4');
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (3, '2020-01-01', '4');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT JOIN, and Examination table confusion vs Laboratory table.
+-- Also tests WHERE vs AND vs OR conditions.
+INSERT INTO Patient (ID, Description) VALUES (1, NULL);
+INSERT INTO Patient (ID, Description) VALUES (2, NULL);
+INSERT INTO Patient (ID, Description) VALUES (3, '2021-01-01');
+
+-- Patient 1 has no Laboratory records, only Examination records (tests LEFT JOIN and wrong table join)
+INSERT INTO Examination (ID, "Examination Date", ANA, Thrombosis) VALUES (1, '2020-01-01', 4, 4);
+
+-- Patient 2 has a Laboratory record that fails DNA < 8 (tests OR vs AND)
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (2, '2020-01-01', '9');
+
+-- Patient 3 has a Laboratory record that passes DNA < 8, but fails Description IS NULL (tests OR vs AND)
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (3, '2020-01-01', '5');
+```
+
+```sql
+-- DATASET 5
+-- Tests SQLite lexicographical comparison nuances on TEXT column DNA vs numeric cast, and mixed matching/non-matching rows for the same patient.
+INSERT INTO Patient (ID, Description) VALUES (10, NULL);
+INSERT INTO Patient (ID, Description) VALUES (20, NULL);
+INSERT INTO Patient (ID, Description) VALUES (30, NULL);
+
+-- Patient 10 has one failing record and one passing record
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (10, '2020-01-01', '9');
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (10, '2020-01-02', '6.5');
+
+-- Patient 20 has DNA = '10' (In SQLite, TEXT '10' < '8' is TRUE because '1' < '8' lexicographically, whereas CAST(DNA AS REAL) < 8 is FALSE)
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (20, '2020-01-01', '10');
+
+-- Patient 30 has DNA = '0' (Matches both text and numeric comparison)
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (30, '2020-01-01', '0');
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set (COUNT should return 0) and missing join condition (Cartesian product killer).
+INSERT INTO Patient (ID, Description) VALUES (1, NULL);
+INSERT INTO Patient (ID, Description) VALUES (2, '2020-01-01');
+
+-- Only Patient 2 (whose Description is NOT NULL) has DNA < 8.
+-- If the join condition T1.ID = T2.ID is omitted, Patient 1 will pair with Patient 2's Lab record and return 1 instead of 0.
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (1, '2020-01-01', '9');
+INSERT INTO Laboratory (ID, Date, DNA) VALUES (2, '2020-01-01', '4');
+```

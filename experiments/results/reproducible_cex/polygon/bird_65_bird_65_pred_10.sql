@@ -1,0 +1,29 @@
+-- Schema DDL
+CREATE TABLE frpm (CDSCode TEXT NOT NULL PRIMARY KEY, "Academic Year" TEXT NULL, "County Code" TEXT NULL, "District Code" INTEGER NULL, "School Code" TEXT NULL, "County Name" TEXT NULL, "District Name" TEXT NULL, "School Name" TEXT NULL, "District Type" TEXT NULL, "School Type" TEXT NULL, "Educational Option Type" TEXT NULL, "NSLP Provision Status" TEXT NULL, "Charter School (Y/N)" INTEGER NULL, "Charter School Number" TEXT NULL, "Charter Funding Type" TEXT NULL, IRC INTEGER NULL, "Low Grade" TEXT NULL, "High Grade" TEXT NULL, "Enrollment (K-12)" REAL NULL, "Free Meal Count (K-12)" REAL NULL, "Percent (%) Eligible Free (K-12)" REAL NULL, "FRPM Count (K-12)" REAL NULL, "Percent (%) Eligible FRPM (K-12)" REAL NULL, "Enrollment (Ages 5-17)" REAL NULL, "Free Meal Count (Ages 5-17)" REAL NULL, "Percent (%) Eligible Free (Ages 5-17)" REAL NULL, "FRPM Count (Ages 5-17)" REAL NULL, "Percent (%) Eligible FRPM (Ages 5-17)" REAL NULL, "2013-14 CALPADS Fall 1 Certification Status" INTEGER NULL, FOREIGN KEY (CDSCode) REFERENCES schools (CDSCode));
+
+CREATE TABLE satscores (cds TEXT NOT NULL PRIMARY KEY, rtype TEXT NOT NULL, sname TEXT NULL, dname TEXT NULL, cname TEXT NULL, enroll12 INTEGER NOT NULL, NumTstTakr INTEGER NOT NULL, AvgScrRead INTEGER NULL, AvgScrMath INTEGER NULL, AvgScrWrite INTEGER NULL, NumGE1500 INTEGER NULL, FOREIGN KEY (cds) REFERENCES schools (CDSCode));
+
+CREATE TABLE schools (CDSCode TEXT NOT NULL PRIMARY KEY, NCESDist TEXT NULL, NCESSchool TEXT NULL, StatusType TEXT NOT NULL, County TEXT NOT NULL, District TEXT NOT NULL, School TEXT NULL, Street TEXT NULL, StreetAbr TEXT NULL, City TEXT NULL, Zip TEXT NULL, State TEXT NULL, MailStreet TEXT NULL, MailStrAbr TEXT NULL, MailCity TEXT NULL, MailZip TEXT NULL, MailState TEXT NULL, Phone TEXT NULL, Ext TEXT NULL, Website TEXT NULL, OpenDate DATE NULL, ClosedDate DATE NULL, Charter INTEGER NULL, CharterNum TEXT NULL, FundingType TEXT NULL, DOC TEXT NOT NULL, DOCType TEXT NOT NULL, SOC TEXT NULL, SOCType TEXT NULL, EdOpsCode TEXT NULL, EdOpsName TEXT NULL, EILCode TEXT NULL, EILName TEXT NULL, GSoffered TEXT NULL, GSserved TEXT NULL, Virtual TEXT NULL, Magnet INTEGER NULL, Latitude REAL NULL, Longitude REAL NULL, AdmFName1 TEXT NULL, AdmLName1 TEXT NULL, AdmEmail1 TEXT NULL, AdmFName2 TEXT NULL, AdmLName2 TEXT NULL, AdmEmail2 TEXT NULL, AdmFName3 TEXT NULL, AdmLName3 TEXT NULL, AdmEmail3 TEXT NULL, LastUpdate DATE NOT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "schools" ("cdscode", "ncesdist", "ncesschool", "statustype", "county", "district", "school", "street", "streetabr", "city", "zip", "state", "mailstreet", "mailstrabr", "mailcity", "mailzip", "mailstate", "phone", "ext", "website", "opendate", "closeddate", "charter", "charternum", "fundingtype", "doc", "doctype", "soc", "soctype", "edopscode", "edopsname", "eilcode", "eilname", "gsoffered", "gsserved", "virtual", "magnet", "latitude", "longitude", "admfname1", "admlname1", "admemail1", "admfname2", "admlname2", "admemail2", "admfname3", "admlname3", "admemail3", "lastupdate") VALUES ('Locally funded49', 'Santa Clara52', 'Locally funded53', 'Santa Clara54', 'Santa Clara', 'Locally funded55', 'Santa Clara56', 'Locally funded57', 'Santa Clara58', 'Locally funded59', 'Santa Clara60', 'Locally funded61', 'Santa Clara62', 'Locally funded63', 'Santa Clara64', 'Locally funded65', 'Santa Clara66', 'Locally funded67', 'Santa Clara68', 'Locally funded69', '1000-03-12', '1000-03-13', 51, 'Santa Clara72', 'Locally funded73', 'Santa Clara74', 'Locally funded75', 'Santa Clara76', 'Locally funded77', 'Santa Clara78', 'Locally funded79', 'Santa Clara80', 'Locally funded81', 'Santa Clara82', 'Locally funded83', 'Santa Clara84', 85, 86, 87, 'Santa Clara88', 'Locally funded89', 'Santa Clara90', 'Locally funded91', 'Santa Clara92', 'Locally funded93', 'Santa Clara94', 'Locally funded95', 'Santa Clara96', '1000-04-08');
+INSERT INTO "schools" ("cdscode", "ncesdist", "ncesschool", "statustype", "county", "district", "school", "street", "streetabr", "city", "zip", "state", "mailstreet", "mailstrabr", "mailcity", "mailzip", "mailstate", "phone", "ext", "website", "opendate", "closeddate", "charter", "charternum", "fundingtype", "doc", "doctype", "soc", "soctype", "edopscode", "edopsname", "eilcode", "eilname", "gsoffered", "gsserved", "virtual", "magnet", "latitude", "longitude", "admfname1", "admlname1", "admemail1", "admfname2", "admlname2", "admemail2", "admfname3", "admlname3", "admemail3", "lastupdate") VALUES ('Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara98', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', '1000-02-20', '1000-02-20', 50, 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 50, 50, 50, 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', 'Santa Clara50', '1000-02-20');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CAST(SUM(CASE WHEN FundingType = 'Locally funded' THEN 1 ELSE 0 END) AS REAL) * 100 / SUM(CASE WHEN FundingType <> 'Locally funded' THEN 1 ELSE 0 END) FROM schools WHERE County = 'Santa Clara' AND Charter = 1;
+
+/*
+Gold Result:
+(None,)
+*/
+
+-- Prediction Query
+SELECT CAST(SUM(CASE WHEN "fundingtype" = 'Locally funded' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT("cdscode") FROM "schools" WHERE "county" = 'Santa Clara';
+
+/*
+Prediction Result:
+(0.0,)
+*/

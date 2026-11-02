@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests standard join condition where LHS.shop_id = 1 (since COUNT(*) per PK group is always 1),
+-- distinct elimination over multiple stock rows, and decouples stock's shop_id from the matched LHS.shop_id.
+INSERT INTO device (Device_ID, Device, Carrier, Package_Version, Applications, Software_Platform) VALUES (10, 'Phone A', 'Carrier X', '1.0', 'App1', 'OS1');
+INSERT INTO device (Device_ID, Device, Carrier, Package_Version, Applications, Software_Platform) VALUES (20, 'Phone B', 'Carrier Y', '2.0', 'App2', 'OS2');
+
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (1, 'Shop One', 'Loc A', '2020-01-01', 2020);
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (2, 'Shop Two', 'Loc B', '2021-01-01', 2021);
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (3, 'Shop Three', 'Loc C', '2022-01-01', 2022);
+
+INSERT INTO stock (Shop_ID, Device_ID, Quantity) VALUES (2, 10, 5);
+INSERT INTO stock (Shop_ID, Device_ID, Quantity) VALUES (2, 20, 10);
+INSERT INTO stock (Shop_ID, Device_ID, Quantity) VALUES (3, 10, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests scenario where Shop_ID = 1 exists, and Stock is populated with multiple items for a single shop/device,
+-- catching mutants that group only by shop_id or only by device_id, or use SUM(Quantity) instead of COUNT(*).
+INSERT INTO device (Device_ID, Device, Carrier, Package_Version, Applications, Software_Platform) VALUES (1, 'Phone A', 'Carrier X', '1.0', 'App1', 'OS1');
+INSERT INTO device (Device_ID, Device, Carrier, Package_Version, Applications, Software_Platform) VALUES (2, 'Phone B', 'Carrier Y', '2.0', 'App2', 'OS2');
+INSERT INTO device (Device_ID, Device, Carrier, Package_Version, Applications, Software_Platform) VALUES (3, 'Phone C', 'Carrier Z', '3.0', 'App3', 'OS3');
+
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (1, 'Alpha Shop', 'NY', '2019-05-05', 2019);
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (2, 'Beta Shop', 'LA', '2020-06-06', 2020);
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (3, 'Gamma Shop', 'SF', '2021-07-07', 2021);
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (5, 'Delta Shop', 'TX', '2022-08-08', 2022);
+
+INSERT INTO stock (Shop_ID, Device_ID, Quantity) VALUES (2, 1, 5);
+INSERT INTO stock (Shop_ID, Device_ID, Quantity) VALUES (2, 2, 5);
+INSERT INTO stock (Shop_ID, Device_ID, Quantity) VALUES (3, 1, 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests scenario where Shop_ID = 1 does NOT exist in the shop table, so the reference query returns an empty result set.
+-- Catches mutants that join on LHS.shop_id = RHS.shop_id or LHS.shop_id = RHS.device_id, or use LEFT JOIN.
+INSERT INTO device (Device_ID, Device, Carrier, Package_Version, Applications, Software_Platform) VALUES (2, 'Device Two', 'C1', 'v1', 'A1', 'P1');
+INSERT INTO device (Device_ID, Device, Carrier, Package_Version, Applications, Software_Platform) VALUES (3, 'Device Three', 'C2', 'v2', 'A2', 'P2');
+
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (2, 'Second Shop', 'Loc 2', '2020-02-02', 2020);
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (3, 'Third Shop', 'Loc 3', '2021-03-03', 2021);
+
+INSERT INTO stock (Shop_ID, Device_ID, Quantity) VALUES (2, 2, 2);
+INSERT INTO stock (Shop_ID, Device_ID, Quantity) VALUES (2, 3, 2);
+INSERT INTO stock (Shop_ID, Device_ID, Quantity) VALUES (3, 2, 3);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty stock table when Shop_ID = 1 exists.
+-- Catches mutants that replace INNER JOIN with LEFT JOIN or omit the join entirely.
+INSERT INTO device (Device_ID, Device, Carrier, Package_Version, Applications, Software_Platform) VALUES (1, 'Solo Device', 'C1', 'v1', 'A1', 'P1');
+
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (1, 'Lonely Shop', 'Nowhere', '2020-01-01', 2020);
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (2, 'Other Shop', 'Somewhere', '2021-01-01', 2021);
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary values (0, negative numbers, NULLs) and ordering when Shop_ID = 1 has stock itself.
+-- Catches mutants that confuse COUNT(*) with COUNT(Quantity) when Quantity is NULL, or filter on Quantity > 0.
+INSERT INTO device (Device_ID, Device, Carrier, Package_Version, Applications, Software_Platform) VALUES (1, 'NullQty Device', 'C1', 'v1', 'A1', 'P1');
+
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (0, 'Zero Shop', 'Loc 0', '2018-01-01', 2018);
+INSERT INTO shop (Shop_ID, Shop_Name, Location, Open_Date, Open_Year) VALUES (1, 'One Shop', 'Loc 1', '2019-01-01', 2019);
+
+INSERT INTO stock (Shop_ID, Device_ID, Quantity) VALUES (1, 1, NULL);
+```

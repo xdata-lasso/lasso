@@ -1,0 +1,109 @@
+```sql
+-- DATASET 1
+-- Comprehensive truth table and boundary conditions for predicates, joins, NULL handling, and ordering.
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('Paper', 'Paper Document');
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('PDF', 'Electronic Document');
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('USPS', 'Confusing Type');
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('done', 'Confusing Type 2');
+
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('done', 'Completed');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('pending', 'In Progress');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('Paper', 'Confusing Status');
+
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'USPS', 'United States Postal Service');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A2', 'FedEx', 'Federal Express');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('USPS', 'DHL', 'Confusing Code vs Name');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A3', 'USPS', 'Second USPS Agent with no matching valid docs');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A4', 'UPS', 'USPS');
+
+-- Matching rows (inserted out of order to test ORDER BY document_id ASC)
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (50, 'A1', 'done', 'Paper', '2023-01-05', 'R50', 'Valid match 1');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (10, 'A1', 'done', 'Paper', '2023-01-01', 'R10', 'Valid match 2');
+
+-- Fails document_type_code = 'Paper' (inner filter fails because status is 'done' AND type <> 'Paper')
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (20, 'A1', 'done', 'PDF', '2023-01-02', 'R20', 'Fails inner filter');
+
+-- Passes inner filter (status <> 'done' AND type = 'Paper'), fails outer filter (status = 'done')
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (30, 'A1', 'pending', 'Paper', '2023-01-03', 'R30', 'Fails outer status filter');
+
+-- Passes inner filter (status <> 'done' AND type <> 'Paper'), fails outer filter (status = 'done')
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (40, 'A1', 'pending', 'PDF', '2023-01-04', 'R40', 'Fails outer status and type');
+
+-- Passes status and type, fails shipping_agent_name = 'USPS'
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (60, 'A2', 'done', 'Paper', '2023-01-06', 'R60', 'Wrong agent name');
+
+-- Confusing column values: shipping_agent_code is 'USPS', but shipping_agent_name is 'DHL'
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (70, 'USPS', 'done', 'Paper', '2023-01-07', 'R70', 'Code is USPS but Name is DHL');
+
+-- Confusing column values: shipping_agent_description is 'USPS', but shipping_agent_name is 'UPS'
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (80, 'A4', 'done', 'Paper', '2023-01-08', 'R80', 'Description is USPS');
+
+-- Confusing column values: document_status_code is 'Paper' and document_type_code is 'done'
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (90, 'A1', 'Paper', 'done', '2023-01-09', 'R90', 'Swapped status and type');
+
+-- NULL handling tests (unjoined / NULL attributes)
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (100, NULL, 'done', 'Paper', '2023-01-10', 'R100', 'NULL agent');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (110, 'A1', NULL, 'Paper', '2023-01-11', 'R110', 'NULL status');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (120, 'A1', 'done', NULL, '2023-01-12', 'R120', 'NULL type');
+```
+
+```sql
+-- DATASET 2
+-- Tests child tables and 1-to-many relationships to kill mutants that unnecessarily join Document_Drafts, Draft_Copies, or Documents_Mailed without DISTINCT, or require their existence (INNER JOIN vs no join).
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('Paper', 'Paper Document');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('done', 'Completed');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('US1', 'USPS', 'Postal');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (1, '123 Main St');
+INSERT INTO "Addresses" ("address_id", "address_details") VALUES (2, '456 Oak Ave');
+
+-- Document 1: Valid match, has NO drafts and NO mailing records (kills mutants with INNER JOIN to child tables)
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (1, 'US1', 'done', 'Paper', '2023-05-01', '100', 'No children');
+
+-- Document 2: Valid match, has multiple mailing records (kills mutants that join Documents_Mailed without deduplication)
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (2, 'US1', 'done', 'Paper', '2023-05-02', '200', 'Multiple mailings');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (2, 1, '2023-05-03');
+INSERT INTO "Documents_Mailed" ("document_id", "mailed_to_address_id", "mailing_date") VALUES (2, 2, '2023-05-04');
+```
+
+```sql
+-- DATASET 3
+-- Tests case sensitivity, partial string matching (LIKE '%USPS%' vs '= USPS'), and negative/zero document_ids.
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('Paper', 'Exact Paper');
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('paper', 'Lowercase paper');
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('Paperwork', 'Prefix Paper');
+
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('done', 'Exact done');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('DONE', 'Uppercase DONE');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('not done', 'Suffix done');
+
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('S1', 'USPS', 'Exact USPS');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('S2', 'usps', 'Lowercase usps');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('S3', 'USPS Express', 'Prefix USPS');
+
+-- Valid matches with negative, zero, and positive IDs
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (5, 'S1', 'done', 'Paper', '2022-01-01', '999', 'Positive ID');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (-5, 'S1', 'done', 'Paper', '2022-12-31', '111', 'Negative ID');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (0, 'S1', 'done', 'Paper', '2022-06-15', '555', 'Zero ID');
+
+-- Near misses (case sensitivity and substring checks)
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (1, 'S2', 'done', 'Paper', '2022-01-02', 'R1', 'Lowercase agent name');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (2, 'S3', 'done', 'Paper', '2022-01-03', 'R2', 'Substring agent name');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (3, 'S1', 'DONE', 'Paper', '2022-01-04', 'R3', 'Uppercase status');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (4, 'S1', 'not done', 'Paper', '2022-01-05', 'R4', 'Substring status');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (6, 'S1', 'done', 'paper', '2022-01-06', 'R6', 'Lowercase type');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (7, 'S1', 'done', 'Paperwork', '2022-01-07', 'R7', 'Substring type');
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple distinct shipping agents having the same shipping_agent_name = 'USPS', ensuring all valid documents across all 'USPS' agents are returned and properly sorted, and testing empty result sets if inner/outer conditions conflict.
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('Paper', 'Paper');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('done', 'Done');
+
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('USPS_EAST', 'USPS', 'East Coast');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('USPS_WEST', 'USPS', 'West Coast');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (200, 'USPS_WEST', 'done', 'Paper', NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (100, 'USPS_EAST', 'done', 'Paper', NULL, NULL, NULL);
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (150, 'USPS_WEST', 'done', 'Paper', NULL, NULL, NULL);
+```

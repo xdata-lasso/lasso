@@ -1,0 +1,25 @@
+-- Schema DDL
+CREATE TABLE "Activity" ("user_id" INTEGER, "session_id" INTEGER, "activity_date" DATE, "activity_type" TEXT(255));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO Activity (user_id, session_id, activity_date, activity_type) VALUES (1, 1, '2019-07-01', NULL);
+INSERT INTO Activity (user_id, session_id, activity_date, activity_type) VALUES (NULL, 2, '2019-07-02', 'open_session');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT activity_date AS day, COUNT(DISTINCT user_id) AS active_users FROM activity WHERE activity_date > '2019-06-27' AND activity_date <= '2019-07-27' GROUP BY activity_date;
+
+/*
+Gold Result:
+('2019-07-01', 1)
+('2019-07-02', 0)
+*/
+
+-- Prediction Query
+SELECT ACTIVITY_DATE AS DAY, COUNT(USER_ID) AS ACTIVE_USERS FROM (SELECT DISTINCT USER_ID, ACTIVITY_DATE FROM (SELECT * FROM ACTIVITY WHERE ACTIVITY_DATE BETWEEN '2019-06-28' AND '2019-07-27') AS A WHERE ACTIVITY_TYPE IN (SELECT ACTIVITY_TYPE FROM ACTIVITY)) AS A GROUP BY 1 HAVING COUNT(USER_ID) >= 1 ORDER BY 1, DAY NULLS LAST, ACTIVE_USERS NULLS LAST;
+
+/*
+Prediction Result:
+*/

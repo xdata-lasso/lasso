@@ -1,0 +1,34 @@
+-- Schema DDL
+CREATE TABLE "Salaries" ("company_id" INTEGER, "employee_id" INTEGER, "employee_name" TEXT(255), "salary" INTEGER, PRIMARY KEY ("company_id", "employee_id"), CHECK ("salary" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO salaries (company_id, employee_id, employee_name, salary) VALUES (9999, 999, 'default2', 1001), (25, 1001, NULL, 25), (1001, 100, NULL, 1), (48, 25, NULL, 1001), (48, 100, 'default1', 49), (1, 23, 'default1', 10000);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT S.COMPANY_ID, S.EMPLOYEE_ID, S.EMPLOYEE_NAME, ROUND(CASE WHEN X.MAX_SAL BETWEEN 1000 AND 10000 THEN SALARY * 0.76 WHEN X.MAX_SAL > 10000 THEN SALARY * 0.51 ELSE SALARY END, 0) AS SALARY FROM SALARIES AS S INNER JOIN (SELECT COMPANY_ID, MAX(SALARY) AS MAX_SAL FROM SALARIES GROUP BY COMPANY_ID) AS X ON S.COMPANY_ID = X.COMPANY_ID;
+
+/*
+Gold Result:
+(1, 23, 'default1', 7600.0)
+(25, 1001, None, 25.0)
+(48, 25, None, 761.0)
+(48, 100, 'default1', 37.0)
+(1001, 100, None, 1.0)
+(9999, 999, 'default2', 761.0)
+*/
+
+-- Prediction Query
+WITH CT_TAX AS (SELECT CASE WHEN MAX(SALARY) < 1000 THEN 0 WHEN MAX(SALARY) < 10000 THEN 24 ELSE 49 END AS TAX_RATE, COMPANY_ID FROM SALARIES GROUP BY COMPANY_ID) SELECT S.COMPANY_ID, S.EMPLOYEE_ID, S.EMPLOYEE_NAME, ROUND((S.SALARY - (CAST(S.SALARY * C.TAX_RATE AS REAL) / 100))) AS SALARY FROM SALARIES AS S CROSS JOIN CT_TAX AS C WHERE S.COMPANY_ID = C.COMPANY_ID;
+
+/*
+Prediction Result:
+(9999, 999, 'default2', 761.0)
+(25, 1001, None, 25.0)
+(1001, 100, None, 1.0)
+(48, 25, None, 761.0)
+(48, 100, 'default1', 37.0)
+(1, 23, 'default1', 5100.0)
+*/

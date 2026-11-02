@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "Actions" ("user_id" INTEGER, "post_id" INTEGER UNIQUE, "action_date" DATE, "action" TEXT(255), "extra" TEXT(255));
+
+CREATE TABLE "Removals" ("post_id" INTEGER PRIMARY KEY, "remove_date" DATE, FOREIGN KEY ("post_id") REFERENCES "Actions" ("post_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO actions (user_id, post_id, action_date, action, extra) VALUES (1, 99, '2023-01-02', 'reaction', 'SPAM'), (99, NULL, NULL, 'report', 'SPAM'), (99, 100, '2023-01-02', 'like', 'SPAM'), (0, 3, '2023-01-01', 'share', 'null');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT ROUND(CAST(SUM(DAILY_AVG) AS REAL) / COUNT(*) * 100, 2) AS AVERAGE_DAILY_PERCENT FROM (SELECT A.ACTION_DATE, CAST(COUNT(DISTINCT R.POST_ID) AS REAL) / COUNT(DISTINCT A.POST_ID) AS DAILY_AVG FROM ACTIONS AS A LEFT JOIN REMOVALS AS R ON A.POST_ID = R.POST_ID WHERE A.ACTION = 'report' AND A.EXTRA = 'spam' GROUP BY ACTION_DATE) AS TEMP;
+
+/*
+Gold Result:
+(None,)
+*/
+
+-- Prediction Query
+WITH CTE AS (SELECT POST_ID, ACTION_DATE, COUNT(*) AS TOTAL FROM ACTIONS WHERE EXTRA = 'SPAM' GROUP BY ACTION_DATE, POST_ID) SELECT ROUND(100 * AVG(PCT), 2) AS AVERAGE_DAILY_PERCENT FROM (SELECT ACTION_DATE, CAST(COUNT(R.REMOVE_DATE) AS REAL) / COUNT(ACTION_DATE) AS PCT FROM CTE LEFT JOIN REMOVALS AS R ON CTE.POST_ID = R.POST_ID GROUP BY ACTION_DATE) AS TEMP;
+
+/*
+Prediction Result:
+(0.0,)
+*/

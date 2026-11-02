@@ -1,0 +1,59 @@
+```sql
+-- DATASET 1
+-- Tests standard join vs FK join (t0.JOB = DEPT.NAME vs t0.DEPTNO = DEPT.DEPTNO),
+-- GROUP BY deduplication (multiple employees with ENAME='A' and multiple departments with same NAME),
+-- and filtering on ENAME = 'A'.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'SALES');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'CLERK');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'CLERK');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (40, 'A');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (50, 'MANAGER');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'A', 'CLERK', NULL, '2020-01-01', 1000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 10, 'A', 'CLERK', 1, '2020-01-02', 1200, 100, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (3, 20, 'A', 'ANALYST', 1, '2020-01-03', 2000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (4, 50, 'B', 'MANAGER', NULL, '2020-01-04', 3000, 500, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 40, 'B', 'A', 4, '2020-01-05', 1500, 0, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple distinct groups in the output, case sensitivity ('a' vs 'A'),
+-- substring/pattern matching ('A ' or 'AB' vs 'A'), and outer join mutants (unmatched rows on both sides).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (1, 'DEV');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (2, 'QA');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (3, 'HR');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (4, 'OPS');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (101, 3, 'A', 'DEV', NULL, '2021-05-10', 5000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (102, 3, 'A', 'QA', 101, '2021-06-15', 4000, 200, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (103, 1, 'A', 'NONE', 101, '2021-07-20', 3500, 0, 1);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (104, 4, 'a', 'OPS', 101, '2021-08-01', 3000, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (105, 4, 'AB', 'OPS', 101, '2021-09-01', 3000, 0, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty result set when ENAME = 'A' exists and DEPT exists, but the join condition t0.JOB = DEPT.NAME fails,
+-- while confusing column mappings (like t0.ENAME = DEPT.NAME or t0.DEPTNO = DEPT.DEPTNO) would succeed.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'A');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'SUPPORT');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 10, 'A', 'ADMIN', NULL, '2019-03-15', 2500, 50, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (2, 20, 'SMITH', 'SUPPORT', 1, '2019-04-20', 1800, 0, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests self-referential string values where ENAME, JOB, and DEPT.NAME all share the value 'A',
+-- alongside other tables populated to catch mutants referencing wrong tables (e.g., BONUS, EMPNULLABLES, EMP_B).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (100, 'A');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (200, 'B');
+
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (10, 200, 'A', 'A', NULL, '2022-01-01', 100, 10, 0);
+
+INSERT INTO "BONUS" ("ENAME", "JOB", "SAL", "COMM") VALUES ('A', 'B', 100, 10);
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (20, 200, 'A', 'B', NULL, '2022-01-01', 100, 10, 0);
+INSERT INTO "EMPNULLABLES_20" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (30, 200, 'A', 'B', NULL, '2022-01-01', 100, 10, 0);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (40, 200, 'A', 'B', NULL, '2022-01-01', 100, 10, 0, '1990-01-01');
+```

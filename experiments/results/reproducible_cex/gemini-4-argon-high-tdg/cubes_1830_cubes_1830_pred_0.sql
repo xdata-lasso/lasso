@@ -1,0 +1,36 @@
+-- Schema DDL
+CREATE TABLE "people" ("People_ID" INTEGER PRIMARY KEY, "District" TEXT, "Name" TEXT, "Party" TEXT, "Age" INTEGER);
+
+CREATE TABLE "debate" ("Debate_ID" INTEGER PRIMARY KEY, "Date" TEXT, "Venue" TEXT, "Num_of_Audience" INTEGER);
+
+CREATE TABLE "debate_people" ("Debate_ID" INTEGER, "Affirmative" INTEGER, "Negative" INTEGER, "If_Affirmative_Win" INTEGER, PRIMARY KEY ("Debate_ID", "Affirmative", "Negative"), FOREIGN KEY ("Negative") REFERENCES "people" ("People_ID"), FOREIGN KEY ("Affirmative") REFERENCES "people" ("People_ID"), FOREIGN KEY ("Debate_ID") REFERENCES "debate" ("Debate_ID"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO people (People_ID, District, Name, Party, Age) VALUES (1, 'District_M', 'Alice', 'Beta', 18);
+INSERT INTO people (People_ID, District, Name, Party, Age) VALUES (2, 'District_Z', 'Aaron', 'Beta', 85);
+INSERT INTO people (People_ID, District, Name, Party, Age) VALUES (3, 'District_A', 'Zack', 'Beta', 50);
+INSERT INTO people (People_ID, District, Name, Party, Age) VALUES (4, 'District_F', 'grace', 'Zeta', 25);
+INSERT INTO people (People_ID, District, Name, Party, Age) VALUES (5, 'District_K', 'Liam', 'Alpha', 40);
+INSERT INTO debate (Debate_ID, Date, Venue, Num_of_Audience) VALUES (10, '2020-01-01', 'Hall_A', 500);
+INSERT INTO debate_people (Debate_ID, Affirmative, Negative, If_Affirmative_Win) VALUES (10, 1, 2, 1);
+INSERT INTO debate_people (Debate_ID, Affirmative, Negative, If_Affirmative_Win) VALUES (10, 3, 5, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT party FROM (SELECT * FROM (SELECT * FROM people ORDER BY party DESC, people.people_id NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+('Zeta',)
+*/
+
+-- Prediction Query
+SELECT Party FROM people ORDER BY Age ASC, people.people_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('Beta',)
+*/

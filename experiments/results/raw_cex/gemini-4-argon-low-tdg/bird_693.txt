@@ -1,0 +1,92 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(T2.Id) vs COUNT(DISTINCT T2.Id) via multiple comments on the same post.
+-- 2. Join condition mutations (T1.Id = T2.OwnerUserId vs LastEditorUserId, T3.PostId = T2.Id vs T3.UserId = T1.Id).
+-- 3. INNER JOIN vs LEFT JOIN (users without posts, posts with NULL OwnerUserId, posts without comments, comments with NULL PostId).
+-- 4. COUNT(T2.Id) vs COUNT(T3.UserId) or other nullable columns.
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (1, '2020-01-01 10:00:00', 'UserOne');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (2, '2020-01-02 10:00:00', 'UserTwo');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (3, '2020-01-03 10:00:00', 'UserWithNoPosts');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (10, 1, 2, 'Post With Two Comments');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (20, 2, 1, 'Post With No Comments');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, Title) VALUES (30, NULL, 1, 'Post With Null Owner');
+
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (100, 10, 2, 'First comment on post 10');
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (101, 10, NULL, 'Second comment on post 10 with NULL UserId');
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (102, 30, 1, 'Comment on post with NULL owner');
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (103, NULL, 1, 'Comment with NULL PostId');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Missing aggregation (e.g., SELECT T2.Id instead of SELECT COUNT(T2.Id)).
+--    By ensuring T2.Id > 10 while the true count is 3, any non-aggregated output will differ.
+-- 2. GROUP BY mutations (e.g., GROUP BY T1.Id or GROUP BY T2.Id combined with ORDER BY T1.CreationDate DESC LIMIT 1).
+--    Total count is 3, while per-user and per-post counts are 1 and 2.
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (10, '2021-01-01 00:00:00', 'OlderUser');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (20, '2022-01-01 00:00:00', 'NewerUser');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (50, 10, 'Older User Post');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (60, 20, 'Newer User Post');
+
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (500, 50, 10, 'Comment 1 on Post 50');
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (501, 50, 20, 'Comment 2 on Post 50');
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (502, 60, 10, 'Comment 1 on Post 60');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty join result behavior: COUNT() without GROUP BY must return 1 row with value 0,
+--    whereas queries with GROUP BY or without aggregation on an empty join return 0 rows.
+-- 2. Disjoint relationships (Users own posts without comments; comments exist only on unowned posts).
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (1, '2023-01-01 00:00:00', 'ActiveUser');
+
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (10, 1, 'Owned Post Without Comments');
+INSERT INTO posts (Id, OwnerUserId, Title) VALUES (20, NULL, 'Unowned Post With Comment');
+
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (100, 20, 1, 'Comment on unowned post');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Table confusion / wrong table joins (e.g., joining postHistory, votes, or badges instead of posts/comments).
+-- 2. Accidental ID collisions (e.g., T1.Id = T2.Id or T2.Id = T3.Id instead of proper foreign keys).
+--    Here UserIds (1, 2), PostIds (1, 2), and CommentIds (1, 2) overlap, but FKs point across different numbers.
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (1, '2020-05-01 00:00:00', 'U1');
+INSERT INTO users (Id, CreationDate, DisplayName) VALUES (2, '2020-05-02 00:00:00', 'U2');
+
+INSERT INTO posts (Id, OwnerUserId, ParentId, AcceptedAnswerId, Title) VALUES (1, 2, 2, 2, 'P1 owned by U2');
+INSERT INTO posts (Id, OwnerUserId, ParentId, AcceptedAnswerId, Title) VALUES (2, NULL, 1, 1, 'P2 unowned');
+
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (1, 2, 1, 'C1 on unowned P2');
+INSERT INTO comments (Id, PostId, UserId, Text) VALUES (2, 1, 2, 'C2 on owned P1');
+
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (1, 1, 1, 'History 1');
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (2, 1, 2, 'History 2');
+INSERT INTO postHistory (Id, PostId, UserId, Text) VALUES (3, 1, 2, 'History 3');
+
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (1, 1, 1, 2);
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (2, 1, 2, 2);
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (3, 2, 1, 2);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. COUNT(DISTINCT T1.Id) vs COUNT(DISTINCT T2.Id) vs COUNT(T2.Id).
+--    1 User -> 2 Posts -> 3 Comments total (True count = 3, Distinct Posts = 2, Distinct Users = 1).
+-- 2. Handling of NULL CreationDate and NULL non-key attributes (ensuring they are not accidentally filtered out by WHERE clauses).
+INSERT INTO users (Id, CreationDate, Reputation, Views) VALUES (5, NULL, NULL, 0);
+
+INSERT INTO posts (Id, OwnerUserId, Score, ViewCount, CommentCount) VALUES (15, 5, 0, NULL, 0);
+INSERT INTO posts (Id, OwnerUserId, Score, ViewCount, CommentCount) VALUES (25, 5, -1, 10, NULL);
+
+INSERT INTO comments (Id, PostId, Score, CreationDate) VALUES (105, 15, NULL, NULL);
+INSERT INTO comments (Id, PostId, Score, CreationDate) VALUES (106, 25, 0, '2021-06-01 12:00:00');
+INSERT INTO comments (Id, PostId, Score, CreationDate) VALUES (107, 25, -5, '2021-06-02 12:00:00');
+```

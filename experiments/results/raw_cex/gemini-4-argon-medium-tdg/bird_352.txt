@@ -1,0 +1,78 @@
+```sql
+-- DATASET 1
+-- Tests fractional percentage (33.333333333333336) to catch missing CAST(... AS REAL) / integer division,
+-- 1-to-N join multiplicity to catch COUNT(DISTINCT T1.id) or COUNT(DISTINCT T1.uuid),
+-- and unmatched parent rows to catch LEFT JOIN vs INNER JOIN mutations.
+INSERT INTO cards (id, uuid, name) VALUES (1, 'uuid-1', 'Card One');
+INSERT INTO cards (id, uuid, name) VALUES (2, 'uuid-2', 'Card Two');
+INSERT INTO cards (id, uuid, name) VALUES (3, 'uuid-3', 'Card Three Unmatched');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (1, 'Chinese Simplified', 'uuid-1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (2, 'Japanese', 'uuid-1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (3, 'German', 'uuid-2');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL values in foreign_data.language, close string variants ('Chinese Traditional', 'Chinese'),
+-- NULL in foreign_data.uuid, and mismatched id vs uuid (catching ON T1.id = T2.id).
+-- Total joined rows = 8, Chinese Simplified = 3 -> 37.5% (non-integer to also guard against integer division).
+INSERT INTO cards (id, uuid, name) VALUES (10, 'uuid-10', 'Card Ten');
+INSERT INTO cards (id, uuid, name) VALUES (20, 'uuid-20', 'Card Twenty');
+INSERT INTO cards (id, uuid, name) VALUES (30, 'uuid-30', 'Card Thirty');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (1, 'Chinese Simplified', 'uuid-10');
+INSERT INTO foreign_data (id, language, uuid) VALUES (2, 'Chinese Simplified', 'uuid-10');
+INSERT INTO foreign_data (id, language, uuid) VALUES (3, 'Chinese Simplified', 'uuid-20');
+INSERT INTO foreign_data (id, language, uuid) VALUES (4, 'Chinese Traditional', 'uuid-10');
+INSERT INTO foreign_data (id, language, uuid) VALUES (5, 'Chinese', 'uuid-20');
+INSERT INTO foreign_data (id, language, uuid) VALUES (6, 'Simplified Chinese', 'uuid-30');
+INSERT INTO foreign_data (id, language, uuid) VALUES (7, NULL, 'uuid-30');
+INSERT INTO foreign_data (id, language, uuid) VALUES (8, 'French', 'uuid-30');
+INSERT INTO foreign_data (id, language, uuid) VALUES (10, 'Chinese Simplified', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests 0% result (0 rows matching 'Chinese Simplified' out of 2 joined rows).
+-- Catches mutants using WHERE T2.language = 'Chinese Simplified' (which would divide by 0 -> NULL)
+-- or mutants missing ELSE 0 in CASE WHEN (which would return NULL instead of 0.0).
+INSERT INTO cards (id, uuid, name) VALUES (1, 'uuid-1', 'Card One');
+INSERT INTO cards (id, uuid, name) VALUES (2, 'uuid-2', 'Card Two');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (1, 'Russian', 'uuid-1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (2, 'Korean', 'uuid-2');
+```
+
+```sql
+-- DATASET 4
+-- Tests decoy table `set_translations` which also has a `language` column.
+-- Catches mutants that join `cards` with `set_translations` (via setCode) instead of `foreign_data` (via uuid).
+INSERT INTO sets (id, code, name) VALUES (1, 'SET1', 'Set One');
+INSERT INTO sets (id, code, name) VALUES (2, 'SET2', 'Set Two');
+
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'Chinese Simplified', 'SET1', 'Translation 1');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (2, 'Chinese Simplified', 'SET2', 'Translation 2');
+
+INSERT INTO cards (id, uuid, setCode, name) VALUES (1, 'uuid-1', 'SET1', 'Card One');
+INSERT INTO cards (id, uuid, setCode, name) VALUES (2, 'uuid-2', 'SET2', 'Card Two');
+INSERT INTO cards (id, uuid, setCode, name) VALUES (3, 'uuid-3', 'SET1', 'Card Three');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (1, 'Chinese Simplified', 'uuid-1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (2, 'Spanish', 'uuid-2');
+INSERT INTO foreign_data (id, language, uuid) VALUES (3, 'Italian', 'uuid-3');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple 'Chinese Simplified' entries for the same card vs other cards.
+-- Catches mutants that do COUNT(DISTINCT CASE WHEN T2.language = 'Chinese Simplified' THEN T1.id END)
+-- or group by card first.
+-- Joined rows = 3, Chinese Simplified rows = 2 (both on uuid-1) -> 66.66666666666667%.
+INSERT INTO cards (id, uuid, name) VALUES (1, 'uuid-1', 'Card One');
+INSERT INTO cards (id, uuid, name) VALUES (2, 'uuid-2', 'Card Two');
+
+INSERT INTO foreign_data (id, language, uuid) VALUES (1, 'Chinese Simplified', 'uuid-1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (2, 'Chinese Simplified', 'uuid-1');
+INSERT INTO foreign_data (id, language, uuid) VALUES (3, 'Portuguese (Brazil)', 'uuid-2');
+```

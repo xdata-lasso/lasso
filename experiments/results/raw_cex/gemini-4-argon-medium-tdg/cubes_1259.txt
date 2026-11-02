@@ -1,0 +1,113 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions on event counts: 0, 1, 2, 3, 4, 5 events per customer.
+-- Also tests ordering by customer_id vs count(n) vs customer_details.
+INSERT INTO Customers (customer_id, customer_details) VALUES (1, 'Zero_Events');
+INSERT INTO Customers (customer_id, customer_details) VALUES (2, 'One_Event');
+INSERT INTO Customers (customer_id, customer_details) VALUES (3, 'Two_Events');
+INSERT INTO Customers (customer_id, customer_details) VALUES (4, 'Three_Events');
+INSERT INTO Customers (customer_id, customer_details) VALUES (5, 'Z_Four_Events');
+INSERT INTO Customers (customer_id, customer_details) VALUES (6, 'A_Five_Events');
+
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (101, 2);
+
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (201, 3);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (202, 3);
+
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (301, 4);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (302, 4);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (303, 4);
+
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (401, 5);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (402, 5);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (403, 5);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (404, 5);
+
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (501, 6);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (502, 6);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (503, 6);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (504, 6);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (505, 6);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Customer_Events (customer_id IS NULL, resident_id IS NULL, thing_id IS NULL)
+-- and duplicate values in non-key columns to refute COUNT(col) or COUNT(DISTINCT col) mutants.
+INSERT INTO Customers (customer_id, customer_details) VALUES (10, NULL);
+INSERT INTO Customers (customer_id, customer_details) VALUES (20, 'Same_Details');
+INSERT INTO Customers (customer_id, customer_details) VALUES (30, 'Same_Details');
+
+INSERT INTO Properties (property_id, property_type_code, property_address, other_details) VALUES (1, 'APT', '123 Main', 'None');
+INSERT INTO Residents (resident_id, property_id, date_moved_in, date_moved_out, other_details) VALUES (1, 1, '2020-01-01', NULL, 'Res1');
+INSERT INTO Organizations (organization_id, parent_organization_id, organization_details) VALUES (1, NULL, 'Org1');
+INSERT INTO Things (thing_id, organization_id, Type_of_Thing_Code, service_type_code, service_details) VALUES (1, 1, 'T1', 'S1', 'Thing1');
+
+-- 4 events with NULL customer_id (tests INNER JOIN filtering out NULL group and COUNT(*) vs COUNT(customer_id))
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (1, 1, 1, '2020-01-01', NULL, 1);
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (2, 1, 1, '2020-01-01', NULL, 1);
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (3, 1, 1, '2020-01-01', NULL, 1);
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (4, 1, 1, '2020-01-01', NULL, 1);
+
+-- Customer 10 has 4 events, all with NULL resident_id and thing_id (refutes COUNT(resident_id) or COUNT(thing_id))
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (5, NULL, NULL, NULL, 10, NULL);
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (6, NULL, NULL, NULL, 10, NULL);
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (7, NULL, NULL, NULL, 10, NULL);
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (8, NULL, NULL, NULL, 10, NULL);
+
+-- Customer 20 has 4 events, all referencing the exact same resident_id and thing_id (refutes COUNT(DISTINCT ...))
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (9, 1, 1, '2020-01-01', 20, 1);
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (10, 1, 1, '2020-01-01', 20, 1);
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (11, 1, 1, '2020-01-01', 20, 1);
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (12, 1, 1, '2020-01-01', 20, 1);
+
+-- Customer 30 has 2 events, sharing 'Same_Details' with Customer 20 (refutes GROUP BY customer_details)
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (13, 1, 1, '2020-01-01', 30, 1);
+INSERT INTO Customer_Events (Customer_Event_ID, resident_id, property_id, date_moved_in, customer_id, thing_id) VALUES (14, 1, 1, '2020-01-01', 30, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty result set when total events across all customers > 3, but no single customer has > 3 events.
+-- Refutes missing GROUP BY customer_id or HAVING COUNT(*) > 3 without proper grouping.
+INSERT INTO Customers (customer_id, customer_details) VALUES (1, 'Cust_A');
+INSERT INTO Customers (customer_id, customer_details) VALUES (2, 'Cust_B');
+
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (1, 1);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (2, 1);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (3, 1);
+
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (4, 2);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (5, 2);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (6, 2);
+```
+
+```sql
+-- DATASET 4
+-- Tests sorting order (ASC vs DESC) and ties in event counts, as well as joining with other tables (Customer_Event_Notes).
+-- Refutes mutants that mistakenly join Customer_Event_Notes or sort by count(n) or customer_id DESC.
+INSERT INTO Customers (customer_id, customer_details) VALUES (50, 'Middle_Customer');
+INSERT INTO Customers (customer_id, customer_details) VALUES (100, 'Last_Customer');
+INSERT INTO Customers (customer_id, customer_details) VALUES (10, 'First_Customer');
+
+-- Customer 100 has 4 events, 0 notes
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (1, 100);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (2, 100);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (3, 100);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (4, 100);
+
+-- Customer 10 has 6 events
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (5, 10);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (6, 10);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (7, 10);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (8, 10);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (9, 10);
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (10, 10);
+
+-- Customer 50 has only 1 event, but 4 notes on that event (refutes joining Customer_Event_Notes before counting)
+INSERT INTO Customer_Events (Customer_Event_ID, customer_id) VALUES (11, 50);
+INSERT INTO Customer_Event_Notes (Customer_Event_Note_ID, Customer_Event_ID, service_type_code) VALUES (1, 11, 'N1');
+INSERT INTO Customer_Event_Notes (Customer_Event_Note_ID, Customer_Event_ID, service_type_code) VALUES (2, 11, 'N2');
+INSERT INTO Customer_Event_Notes (Customer_Event_Note_ID, Customer_Event_ID, service_type_code) VALUES (3, 11, 'N3');
+INSERT INTO Customer_Event_Notes (Customer_Event_Note_ID, Customer_Event_ID, service_type_code) VALUES (4, 11, 'N4');
+```

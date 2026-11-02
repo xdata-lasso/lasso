@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- General test: Semesters with and without enrollments, ordering check, and column confusion (description/details vs name).
+-- Also ensures semester_id order is inverse to semester_name order to catch ORDER BY id vs name.
+INSERT INTO Addresses (address_id, line_1, city) VALUES (1, '123 Main St', 'Metropolis');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'Computer Science');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (1, 1, 'BSc CS');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (10, 1, 1, 'Alice', 'Smith');
+
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (1, 'Zeta Semester', 'Desc 1', 'Detail 1');
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (2, 'Beta Semester', 'Desc 2', 'Detail 2');
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (3, 'Alpha Semester', 'Desc 3', 'Detail 3');
+
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id, other_details) VALUES (100, 10, 2, 1, 'Enrolled in Beta');
+```
+
+```sql
+-- DATASET 2
+-- Duplicate semester_name test: Catches mutants that improperly add DISTINCT or GROUP BY semester_name.
+-- Also tests multiple enrollments for the same semester (to catch HAVING COUNT(*) = 0 vs = 1 issues).
+INSERT INTO Addresses (address_id, line_1, city) VALUES (1, '123 Main St', 'Metropolis');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'Mathematics');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (1, 1, 'BSc Math');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (1, 1, 1, 'Bob', 'Jones');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (2, 1, 1, 'Charlie', 'Brown');
+
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (1, 'Spring', 'Spring 2023', 'None');
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (2, 'Spring', 'Spring 2024', 'None');
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (3, 'Fall', 'Fall 2023', 'None');
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (4, 'Winter', 'Winter 2023', 'None');
+
+-- Semester 3 has two enrollments; Semester 4 has one enrollment; Semesters 1 and 2 have none (both named 'Spring').
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (10, 1, 3, 1);
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (11, 2, 3, 1);
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (12, 1, 4, 1);
+```
+
+```sql
+-- DATASET 3
+-- NULL foreign key test: Catches the classic NOT IN vs NOT EXISTS semantic trap when Student_Enrolment.semester_id contains NULL.
+INSERT INTO Addresses (address_id, line_1, city) VALUES (1, '456 Oak Ave', 'Gotham');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'Physics');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (1, 1, 'BSc Physics');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (1, 1, 1, 'Diana', 'Prince');
+
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (1, 'Fall 2025', 'Future Fall', 'Active');
+INSERT INTO Semesters (semester_id, semester_name, semester_description, other_details) VALUES (2, 'Spring 2025', 'Future Spring', 'Active');
+
+-- Enrollment with a valid semester_id (1) and an enrollment with a NULL semester_id.
+-- A query using `WHERE semester_id NOT IN (SELECT semester_id FROM Student_Enrolment)` will return empty set instead of 'Spring 2025'.
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (1, 1, 1, 1);
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (2, 1, NULL, 1);
+```
+
+```sql
+-- DATASET 4
+-- Wrong join column / ID collision test: Catches mutants that join Semesters.semester_id with Student_Enrolment.student_enrolment_id, student_id, or degree_program_id.
+INSERT INTO Addresses (address_id, line_1, city) VALUES (1, '789 Pine Rd', 'Star City');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'History');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (2, 1, 'BA History');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (3, 1, 1, 'Barry', 'Allen');
+
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (1, 'Summer I', 'First Summer');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (2, 'Summer II', 'Second Summer');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (3, 'Summer III', 'Third Summer');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (4, 'Winter I', 'First Winter');
+
+-- Here, student_enrolment_id = 1, degree_program_id = 2, student_id = 3, and semester_id = 4.
+-- Only Semester 4 is actually enrolled. If a mutant checks any other ID column in Student_Enrolment, it will wrongly exclude Semester 1, 2, or 3.
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (1, 3, 4, 2);
+```
+
+```sql
+-- DATASET 5
+-- Empty child table & Same-name-enrolled-elsewhere test:
+-- 1) Tests when one semester with name 'Term A' is enrolled, while another semester also named 'Term A' is NOT enrolled.
+--    Catches mutants that do `SELECT semester_name FROM Semesters EXCEPT SELECT semester_name FROM Semesters JOIN Student_Enrolment ...`
+INSERT INTO Addresses (address_id, line_1, city) VALUES (1, '101 Maple St', 'Central City');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'Biology');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (1, 1, 'BSc Bio');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (1, 1, 1, 'Hal', 'Jordan');
+
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (10, 'Term A', '2020 Term A');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (20, 'Term A', '2021 Term A');
+INSERT INTO Semesters (semester_id, semester_name, semester_description) VALUES (30, 'Term B', '2021 Term B');
+
+-- Semester 10 ('Term A') has an enrollment, but Semester 20 ('Term A') does not.
+-- Reference query outputs 'Term A', 'Term B'. An EXCEPT on semester_name would only output 'Term B'.
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (1, 1, 10, 1);
+```

@@ -1,0 +1,126 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. COUNT(driverId) vs COUNT(DISTINCT driverId) (same driver in multiple results on the target date)
+-- 2. T2.time IS NOT NULL vs T2.time IS NULL
+-- 3. T1.date = '2015-11-29' vs other dates or year = 2015
+-- 4. T2.time vs T1.time or T2.fastestLapTime or T2.milliseconds
+-- 5. INNER JOIN vs LEFT JOIN (race on target date with no results)
+-- 6. Wrong join keys (e.g. T1.raceId = T2.resultId or T1.raceId = T2.driverId)
+
+INSERT INTO seasons (year, url) VALUES (2015, 'http://en.wikipedia.org/wiki/2015_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2016, 'http://en.wikipedia.org/wiki/2016_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'yas_marina', 'Yas Marina Circuit', 'http://en.wikipedia.org/wiki/Yas_Marina_Circuit');
+
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mercedes', 'Mercedes', 'http://en.wikipedia.org/wiki/Mercedes-Benz_in_Formula_One');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+INSERT INTO status (statusId, status) VALUES (2, 'Collision');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'hamilton', 'Lewis', 'Hamilton', 'http://en.wikipedia.org/wiki/Lewis_Hamilton');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'rosberg', 'Nico', 'Rosberg', 'http://en.wikipedia.org/wiki/Nico_Rosberg');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (100, 'vettel', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Sebastian_Vettel');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (100, 2015, 19, 1, 'Abu Dhabi Grand Prix', '2015-11-29', NULL, 'http://en.wikipedia.org/wiki/2015_Abu_Dhabi_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (101, 2015, 20, 1, 'Abu Dhabi Grand Prix 2', '2015-11-29', '13:00:00', 'http://en.wikipedia.org/wiki/2015_Abu_Dhabi_Grand_Prix_2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (102, 2015, 18, 1, 'Brazilian Grand Prix', '2015-11-15', '14:00:00', 'http://en.wikipedia.org/wiki/2015_Brazilian_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (103, 2016, 1, 1, 'Australian Grand Prix', '2016-03-20', '05:00:00', 'http://en.wikipedia.org/wiki/2016_Australian_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (104, 2015, 21, 1, 'Empty Race', '2015-11-29', '15:00:00', 'http://en.wikipedia.org/wiki/Empty_Race');
+
+-- Valid match 1: race 100 (date '2015-11-29', T1.time IS NULL), driver 10, T2.time NOT NULL (while milliseconds and fastestLapTime are NULL)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (1, 100, 10, 1, 1, '1', 1, 25.0, 55, '1:38:04.013', NULL, NULL, 1);
+
+-- Valid match 2: race 101 (date '2015-11-29'), SAME driver 10 (tests COUNT vs COUNT DISTINCT), T2.time NOT NULL
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (2, 101, 10, 1, 1, '1', 1, 25.0, 55, '1:38:05.000', 5885000, '1:44.000', 1);
+
+-- Invalid match (NULL T2.time): race 100 (date '2015-11-29'), driver 20, T2.time IS NULL (but milliseconds and fastestLapTime are NOT NULL, and race 101 has T1.time NOT NULL)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (3, 101, 20, 1, 2, 'R', 2, 0.0, 10, NULL, 100000, '1:45.000', 2);
+
+-- Invalid match (wrong date, same year): race 102 (date '2015-11-15'), driver 20, T2.time NOT NULL. Also resultId = 100 (tests join on T1.raceId = T2.resultId) and driverId = 100 (tests join on T1.raceId = T2.driverId)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (100, 102, 100, 1, 1, '1', 1, 25.0, 71, '1:31:09.090', 5469090, '1:14.000', 1);
+
+-- Invalid match (wrong year & date): race 103 (date '2016-03-20'), driver 20, T2.time NOT NULL
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES (4, 103, 20, 1, 1, '1', 1, 25.0, 57, '1:48:15.565', 6495565, '1:28.997', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Boundary date conditions: '2015-11-28', '2015-11-29', '2015-11-30' (catches <=, >=, <, > mutations on date)
+-- 2. Empty string '' vs NULL in T2.time (catches T2.time != '' or truthy string checks if any)
+-- 3. Case where 0 rows match on '2015-11-29' with non-null time, but adjacent dates have matches
+
+INSERT INTO seasons (year, url) VALUES (2015, 'http://en.wikipedia.org/wiki/2015_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'interlagos', 'Autodromo Jose Carlos Pace', 'http://en.wikipedia.org/wiki/Autodromo_Jose_Carlos_Pace');
+
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'ferrari', 'Ferrari', 'http://en.wikipedia.org/wiki/Scuderia_Ferrari');
+
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'raikkonen', 'Kimi', 'Raikkonen', 'http://en.wikipedia.org/wiki/Kimi_Raikkonen');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'alonso', 'Fernando', 'Alonso', 'http://en.wikipedia.org/wiki/Fernando_Alonso');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2015, 1, 1, 'Before Race', '2015-11-28', '12:00:00', 'http://en.wikipedia.org/wiki/Race_1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2015, 2, 1, 'Target Race', '2015-11-29', '12:00:00', 'http://en.wikipedia.org/wiki/Race_2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (3, 2015, 3, 1, 'After Race', '2015-11-30', '12:00:00', 'http://en.wikipedia.org/wiki/Race_3');
+
+-- Before date: has non-null time
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (1, 1, 1, 1, 1, '1', 1, 25.0, 50, '1:20:00.000', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (2, 1, 2, 1, 2, '2', 2, 18.0, 50, '+5.000', 1);
+
+-- Target date: one row with empty string '' (which IS NOT NULL in SQL) and one row with NULL
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (3, 2, 1, 1, 1, '1', 1, 25.0, 50, '', 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (4, 2, 2, 1, 2, 'R', 2, 0.0, 12, NULL, 1);
+
+-- After date: has non-null time
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES (5, 3, 1, 1, 1, '1', 1, 25.0, 50, '1:25:00.000', 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Table confusion: lapTimes, pitStops, qualifying, driverStandings also have raceId, driverId, and time/q1 columns.
+-- 2. Column confusion inside results: position, number, milliseconds, fastestLap, fastestLapTime, fastestLapSpeed being NULL while time is NOT NULL, and vice versa.
+-- 3. SUM(driverId) or AVG(driverId) or MAX(driverId) vs COUNT(driverId) (using driverIds > 1 so COUNT != SUM/MAX).
+
+INSERT INTO seasons (year, url) VALUES (2015, 'http://en.wikipedia.org/wiki/2015_Formula_One_season');
+
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (10, 'silverstone', 'Silverstone Circuit', 'http://en.wikipedia.org/wiki/Silverstone_Circuit');
+
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (10, 'williams', 'Williams', 'http://en.wikipedia.org/wiki/Williams_Grand_Prix_Engineering');
+
+INSERT INTO status (statusId, status) VALUES (10, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (50, 'massa', 'Felipe', 'Massa', 'http://en.wikipedia.org/wiki/Felipe_Massa');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (60, 'bottas', 'Valtteri', 'Bottas', 'http://en.wikipedia.org/wiki/Valtteri_Bottas');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (70, 'button', 'Jenson', 'Button', 'http://en.wikipedia.org/wiki/Jenson_Button');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (500, 2015, 19, 10, 'Abu Dhabi GP', '2015-11-29', '13:00:00', 'http://en.wikipedia.org/wiki/2015_Abu_Dhabi_GP');
+
+-- Result 1: T2.time is NOT NULL, but all other nullable columns in results (number, position, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed) are NULL
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (501, 500, 50, 10, NULL, 1, NULL, '1', 1, 25.0, 55, '1:30:00.000', NULL, NULL, NULL, NULL, NULL, 10);
+
+-- Result 2: T2.time is NULL, but all other nullable columns in results are NOT NULL
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (502, 500, 60, 10, 77, 2, 2, '2', 2, 18.0, 55, NULL, 5400000, 50, 1, '1:40.000', '200.5', 10);
+
+--Result 3: T2.time is NULL, also driver 70 has NULL time
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (503, 500, 70, 10, 22, 3, 3, '3', 3, 15.0, 55, NULL, 5410000, 49, 2, '1:41.000', '199.5', 10);
+
+-- Populate lapTimes, pitStops, qualifying, driverStandings for race 500 with multiple rows having non-null times
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (500, 50, 1, 1, '1:45.000', 105000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (500, 60, 1, 2, '1:46.000', 106000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (500, 70, 1, 3, '1:47.000', 107000);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (500, 50, 1, 10, '13:20:00', '22.000', 22000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (500, 60, 1, 11, '13:22:00', '23.000', 23000);
+
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 500, 50, 10, 19, 1, '1:40.000', '1:39.000', '1:38.000');
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (2, 500, 60, 10, 77, 2, '1:41.000', '1:40.000', '1:39.000');
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (3, 500, 70, 10, 22, 3, '1:42.000', '1:41.000', NULL);
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (1, 500, 50, 25.0, 1, '1', 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (2, 500, 60, 18.0, 2, '2', 0);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, position, positionText, wins) VALUES (3, 500, 70, 15.0, 3, '3', 0);
+```

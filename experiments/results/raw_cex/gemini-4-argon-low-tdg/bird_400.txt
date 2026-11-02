@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, WHERE clause omission, operator inversion, and case/substring variations in language
+INSERT INTO "sets" (id, code, name, type) VALUES (1, 'LEA', 'Limited Edition Alpha', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (2, 'LEB', 'Limited Edition Beta', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (3, '2ED', 'Unlimited Edition', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (4, 'ARN', 'Arabian Nights', 'expansion');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Spanish', 'LEA', 'Edición Limitada Alfa');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'French', 'LEB', 'Édition Limitée Bêta');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'spanish', '2ED', 'Edición Ilimitada');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (4, 'Spanish (Latin America)', 'ARN', 'Las mil y una noches');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (5, NULL, 'ARN', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate setCode preservation (kills SELECT DISTINCT setCode mutants and GROUP BY setCode mutants)
+-- Also tests column confusion (translation = 'Spanish' or setCode = 'Spanish')
+INSERT INTO "sets" (id, code, name, type) VALUES (1, '10E', 'Tenth Edition', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (2, 'M10', 'Magic 2010', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (3, 'Spanish', 'Fake Set Named Spanish', 'funny');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Spanish', '10E', 'Décima Edición');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'Spanish', '10E', 'Décima Edición (Alt)');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'German', 'M10', 'Spanish');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (4, 'Italian', 'Spanish', 'Spagnolo');
+```
+
+```sql
+-- DATASET 3
+-- Tests table/join confusion:
+-- 1) Joining with `sets` when setCode in `set_translations` is NULL (INNER JOIN kills NULL setCode rows).
+-- 2) Joining with `cards` (many-to-many / zero-to-many relationship via setCode).
+-- 3) Querying `foreign_data` + `cards` instead of `set_translations`.
+INSERT INTO "sets" (id, code, name, type) VALUES (1, 'DOM', 'Dominaria', 'expansion');
+INSERT INTO "sets" (id, code, name, type) VALUES (2, 'XLN', 'Ixalan', 'expansion');
+INSERT INTO "sets" (id, code, name, type) VALUES (3, 'RIX', 'Rivals of Ixalan', 'expansion');
+
+-- Set 'DOM' has Spanish translation, and has 2 cards (INNER JOIN with cards would duplicate 'DOM')
+-- Set 'XLN' has Spanish translation, and has 0 cards (INNER JOIN with cards would drop 'XLN')
+-- Row 3 has language = 'Spanish', but NULL setCode (INNER JOIN with sets would drop the NULL row)
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Spanish', 'DOM', 'Dominaria');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'Spanish', 'XLN', 'Ixalan');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'Spanish', NULL, 'Sin Código');
+
+INSERT INTO "cards" (id, name, setCode, uuid) VALUES (1, 'Karn, Scion of Urza', 'DOM', 'uuid-dom-1');
+INSERT INTO "cards" (id, name, setCode, uuid) VALUES (2, 'Teferi, Hero of Dominaria', 'DOM', 'uuid-dom-2');
+INSERT INTO "cards" (id, name, setCode, uuid) VALUES (3, 'Jadelight Ranger', 'RIX', 'uuid-rix-1');
+
+-- Card in 'RIX' has Spanish foreign_data, but 'RIX' is NOT in set_translations for Spanish
+INSERT INTO "foreign_data" (id, language, name, uuid) VALUES (1, 'Spanish', 'Exploradora luz de jade', 'uuid-rix-1');
+```
+
+```sql
+-- DATASET 4
+-- Tests LIMIT 1 mutants, ordering assumptions, and additional sets without translations
+INSERT INTO "sets" (id, code, name, type) VALUES (1, 'ZNR', 'Zendikar Rising', 'expansion');
+INSERT INTO "sets" (id, code, name, type) VALUES (2, 'KHM', 'Kaldheim', 'expansion');
+INSERT INTO "sets" (id, code, name, type) VALUES (3, 'STX', 'Strixhaven', 'expansion');
+INSERT INTO "sets" (id, code, name, type) VALUES (4, 'AFR', 'Adventures in the Forgotten Realms', 'expansion');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Spanish', 'ZNR', 'El resurgir de Zendikar');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'Spanish', 'KHM', 'Kaldheim');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'Spanish', 'STX', 'Strixhaven');
+```
+
+```sql
+-- DATASET 5
+-- Edge case: No Spanish translations exist in set_translations (result should be empty)
+INSERT INTO "sets" (id, code, name, type) VALUES (1, 'NEO', 'Kamigawa: Neon Dynasty', 'expansion');
+INSERT INTO "sets" (id, code, name, type) VALUES (2, 'SNC', 'Streets of New Capenna', 'expansion');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Japanese', 'NEO', '神河：輝ける世界');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'Chinese Simplified', 'SNC', '新卡佩纳：喧嚣黑街');
+
+INSERT INTO "cards" (id, name, setCode, uuid) VALUES (1, 'The Wandering Emperor', 'NEO', 'uuid-neo-1');
+INSERT INTO "foreign_data" (id, language, name, uuid) VALUES (1, 'Spanish', 'La Emperatriz Errante', 'uuid-neo-1');
+```

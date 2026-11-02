@@ -1,0 +1,11 @@
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('cla_913b97', 'c_e66f0', 0.0);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('A', 'c_e66f0', 10.0);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('@', 'c_e66f0', 10.0);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('H', 'c_e66f0', 10.0);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('_', 'c_e66f0', 10.0);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('?', 'c_e66f0', 10.0);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('G', 'c_e66f0', 10.0);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('C', 'c_e66f0', 10.0);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('a', 'c_e66f0', 10.0);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('B', 'c_e66f0', 10.0);
+INSERT INTO "classroom" ("building", "room_number", "capacity") VALUES ('#', 'c_e66f0', 10.0);

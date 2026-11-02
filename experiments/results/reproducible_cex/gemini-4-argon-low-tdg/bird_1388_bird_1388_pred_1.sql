@@ -1,0 +1,45 @@
+-- Schema DDL
+CREATE TABLE event (event_id TEXT CONSTRAINT event_pk PRIMARY KEY, event_name TEXT, event_date TEXT, type TEXT, notes TEXT, location TEXT, status TEXT);
+
+CREATE TABLE major (major_id TEXT CONSTRAINT major_pk PRIMARY KEY, major_name TEXT, department TEXT, college TEXT);
+
+CREATE TABLE zip_code (zip_code INTEGER CONSTRAINT zip_code_pk PRIMARY KEY, type TEXT, city TEXT, county TEXT, state TEXT, short_state TEXT);
+
+CREATE TABLE "attendance" (link_to_event TEXT, link_to_member TEXT, PRIMARY KEY (link_to_event, link_to_member), FOREIGN KEY (link_to_event) REFERENCES event (event_id), FOREIGN KEY (link_to_member) REFERENCES member (member_id));
+
+CREATE TABLE "budget" (budget_id TEXT PRIMARY KEY, category TEXT, spent REAL, remaining REAL, amount INTEGER, event_status TEXT, link_to_event TEXT, FOREIGN KEY (link_to_event) REFERENCES event (event_id));
+
+CREATE TABLE "expense" (expense_id TEXT PRIMARY KEY, expense_description TEXT, expense_date TEXT, cost REAL, approved TEXT, link_to_member TEXT, link_to_budget TEXT, FOREIGN KEY (link_to_budget) REFERENCES budget (budget_id), FOREIGN KEY (link_to_member) REFERENCES member (member_id));
+
+CREATE TABLE "income" (income_id TEXT CONSTRAINT income_pk PRIMARY KEY, date_received TEXT, amount INTEGER, source TEXT, notes TEXT, link_to_member TEXT, FOREIGN KEY (link_to_member) REFERENCES member (member_id));
+
+CREATE TABLE "member" (member_id TEXT CONSTRAINT member_pk PRIMARY KEY, first_name TEXT, last_name TEXT, email TEXT, position TEXT, t_shirt_size TEXT, phone TEXT, zip INTEGER, link_to_major TEXT, FOREIGN KEY (link_to_major) REFERENCES major (major_id), FOREIGN KEY (zip) REFERENCES zip_code (zip_code));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+-- Tests SUM(T2.amount) vs MAX(T2.amount), AVG(T2.amount), MIN(T2.amount), and no aggregation (single row amount).
+-- Alice has a smaller single transaction (80 vs 100) and smaller average (70 vs 100), but a larger sum (140 vs 100).
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M1', 'Alice', 'Smith');
+INSERT INTO member (member_id, first_name, last_name) VALUES ('M2', 'Bob', 'Jones');
+INSERT INTO income (income_id, amount, source, link_to_member) VALUES ('I1', 80, 'Donation', 'M1');
+INSERT INTO income (income_id, amount, source, link_to_member) VALUES ('I2', 60, 'Donation', 'M1');
+INSERT INTO income (income_id, amount, source, link_to_member) VALUES ('I3', 100, 'Grant', 'M2');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1.first_name, T1.last_name, T2.source FROM member AS T1 INNER JOIN income AS T2 ON T1.member_id = T2.link_to_member GROUP BY T1.first_name, T1.last_name, T2.source ORDER BY SUM(T2.amount) DESC, T1.first_name NULLS LAST, T1.last_name NULLS LAST, T2.source NULLS LAST LIMIT 1;
+
+/*
+Gold Result:
+('Alice', 'Smith', 'Donation')
+*/
+
+-- Prediction Query
+SELECT member.first_name, member.last_name, income.source FROM income INNER JOIN member ON income.link_to_member = member.member_id WHERE income.amount = (SELECT MAX(amount) FROM income);
+
+/*
+Prediction Result:
+('Bob', 'Jones', 'Grant')
+*/

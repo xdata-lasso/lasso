@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests basic condition where Diagnosis does NOT contain 'SLE', killing mutants that use ELSE NULL or SUM(CASE ... THEN 1 ELSE 0 END).
+-- Reference Query returns 1 (since COUNT(0) = 1, 1 / 1 = 1). Mutants counting only matches return 0.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'RA');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2020-01-01', 65);
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition GOT = 60 and Diagnosis = NULL.
+-- If a mutant uses GOT > 60, COUNT(T1.ID) becomes 0 and the query evaluates to NULL (division by zero) instead of 1.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, NULL);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2020-01-01', 60);
+```
+
+```sql
+-- DATASET 3
+-- Tests GOT < 60 filtering.
+-- Reference Query filters out the row and returns NULL (0 / 0). Mutants missing the WHERE clause or using <= / < will return 1.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'SLE');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2020-01-01', 59);
+```
+
+```sql
+-- DATASET 4
+-- Tests substring matching '%SLE%' vs exact matching '= ''SLE''' or prefix/suffix matching, and kills SUM(CASE WHEN ... THEN T1.ID ELSE 0 END).
+-- With ID = 10, a SUM(T1.ID) mutant will return 10 / 1 = 10 instead of 1.
+INSERT INTO Patient (ID, Diagnosis) VALUES (10, 'Severe SLE case');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (10, '2020-01-01', 100);
+```
+
+```sql
+-- DATASET 5
+-- Tests INNER JOIN vs LEFT JOIN and Laboratory vs Examination table confusion.
+-- Patient 1 has no Laboratory record (only Examination). Reference Query returns NULL. LEFT JOIN or Examination join mutants return 1.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'SLE');
+INSERT INTO Examination (ID, "Examination Date", Diagnosis) VALUES (1, '2020-01-01', 'SLE');
+```
+
+```sql
+-- DATASET 6
+-- Tests COUNT(DISTINCT ...) mutants when a patient has multiple Laboratory records with GOT >= 60 and Diagnosis NOT LIKE '%SLE%'.
+-- Reference Query: numerator has two 0s -> COUNT is 2; denominator is 2 -> 2 / 2 = 1.
+-- Mutant with COUNT(DISTINCT CASE ...) / COUNT(T1.ID) yields 1 / 2 = 0.
+-- Mutant with COUNT(...) / COUNT(DISTINCT T1.ID) yields 2 / 1 = 2.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'Normal');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2020-01-01', 70);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (1, '2020-01-02', 80);
+```
+
+```sql
+-- DATASET 7
+-- Tests column confusion between GOT and GPT, and Patient.Diagnosis vs Examination.Diagnosis.
+-- Patient 1 has GPT >= 60 but GOT < 60. Reference Query returns NULL.
+INSERT INTO Patient (ID, Diagnosis) VALUES (1, 'SLE');
+INSERT INTO Laboratory (ID, Date, GOT, GPT) VALUES (1, '2020-01-01', 40, 75);
+```
+
+```sql
+-- DATASET 8
+-- Tests mixed records (matching and non-matching GOT, matching and non-matching Diagnosis, multiple patients).
+-- Kills mutants doing COUNT(*) without WHERE, or messing up join keys (e.g., cross join).
+INSERT INTO Patient (ID, Diagnosis) VALUES (2, 'Suspected SLE');
+INSERT INTO Patient (ID, Diagnosis) VALUES (3, 'Healthy');
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (2, '2020-01-01', 60);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (3, '2020-01-01', 50);
+INSERT INTO Laboratory (ID, Date, GOT) VALUES (3, '2020-01-02', 90);
+```

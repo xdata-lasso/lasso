@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests standard grouping, distinct counts per group, and opposing alphabetical vs count ordering to catch ORDER BY mutations.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'John', 'Doe');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (1, 1, 'Checking');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (1, 1, 'VISA');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 1, 'Deposit', 100.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 2, 'Deposit', 200.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 3, 'Deposit', 300.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 4, 'Payment', 50.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 5, 'Withdrawal', 25.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 6, 'Withdrawal', 75.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL values in transaction_type to distinguish COUNT(*) from COUNT(transaction_type) and verify NULL sorting behavior.
+-- Also includes NULLs in foreign key columns (account_id, card_id) to catch mutants that introduce unnecessary INNER JOINs.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Jane', 'Smith');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (1, 1, 'Savings');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (1, 1, 'MC');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 1, NULL, 10.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (NULL, NULL, 2, NULL, 20.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, NULL, 3, 'Fee', 5.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (NULL, 1, 4, 'Transfer', 500.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 5, 'Transfer', 500.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests duplicate values across other columns (transaction_id, account_id, amount) to kill mutants using COUNT(DISTINCT ...) or grouping by wrong columns.
+-- Also populates parent tables with unreferenced rows to kill mutants using RIGHT/LEFT JOINs from parent tables.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Alice', 'Wonder');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (2, 'Bob', 'Builder');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (10, 1, 'Acc1');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (20, 2, 'Acc2_Unused');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (100, 1, 'AMEX');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (200, 2, 'DISC_Unused');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_amount") VALUES (10, 100, 1, NULL, 'Refund', 50.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_amount") VALUES (10, 100, 1, NULL, 'Refund', 50.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_amount") VALUES (10, 100, 2, 1, 'Purchase', 50.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty Financial_Transactions table (with populated parent tables) to catch mutants that fail on empty sets or aggregate over parent tables.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Empty', 'Test');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (1, 1, 'NoTxAccount');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (1, 1, 'VISA');
+```
+
+```sql
+-- DATASET 5
+-- Tests groups having identical counts (ties in count___) to catch mutants that order by count___ first instead of transaction_type.
+-- Also includes negative/zero amounts and empty string transaction_type to test edge-case filtering mutants.
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Charlie', 'Brown');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (1, 1, 'Main');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code") VALUES (1, 1, 'DEBIT');
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 1, 'Zebra_Type', 0.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 2, 'Zebra_Type', -10.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 3, 'Alpha_Type', 100.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 4, 'Alpha_Type', 200.0);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "transaction_type", "transaction_amount") VALUES (1, 1, 5, '', 5.0);
+```

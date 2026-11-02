@@ -1,0 +1,100 @@
+```sql
+-- DATASET 1
+-- Tests: Missing DISTINCT in COUNT(DISTINCT molecule_id) vs COUNT(molecule_id) or COUNT(atom_id) or COUNT(bond_id).
+-- Also tests joining via `connected` table when the `o` atom and `=` bond are in the same molecule, vs NOT directly connected.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm1', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a3', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a3', 'b3');
+```
+
+```sql
+-- DATASET 2
+-- Tests: Logical operators (AND vs OR), predicate values (element = 'o' vs others, bond_type = '=' vs others),
+-- and INNER JOIN vs LEFT/RIGHT JOIN (molecules with only matching atom or only matching bond).
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m4', '-');
+
+-- m1: has element 'o', but bond_type is '-' (not '=')
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+
+-- m2: has bond_type '=', but element is 'c' (not 'o')
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm2', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm2', '=');
+
+-- m3: has element 'o', and NO bonds at all
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm3', 'o');
+
+-- m4: has bond_type '=', and NO atoms at all
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b4', 'm4', '=');
+```
+
+```sql
+-- DATASET 3
+-- Tests: Mutants that join through `connected` (meaning the 'o' atom must be part of the '=' bond)
+-- vs the reference query which only requires 'o' and '=' to exist anywhere in the SAME molecule.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm1', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '=');
+-- 'o' (a1) is only connected via single bond b1. Double bond b2 connects two carbons (a2, a3).
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a1', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a3', 'b2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a3', 'a2', 'b2');
+```
+
+```sql
+-- DATASET 4
+-- Tests: NULL handling in join keys (molecule_id IS NULL) and predicate columns,
+-- as well as extra predicates on `molecule.label` (e.g., filtering by '+' or '-').
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', NULL);
+
+-- Orphan atom and bond with NULL molecule_id (should not join in SQL '=', and if joined, COUNT(molecule_id) ignores NULL)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a_null', NULL, 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b_null', NULL, '=');
+
+-- Valid match on m1 (with label '-') and m2 (with label NULL)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1_null', 'm1', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1_null', 'm1', NULL);
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm2', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm2', '=');
+```
+
+```sql
+-- DATASET 5
+-- Tests: Wrong join condition (e.g., T1.atom_id = T2.bond_id, or Cross Join without ON clause)
+-- and case sensitivity / substring matching ('O' vs 'o', '==' vs '=').
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m4', '+');
+
+-- m1 & m2: Cross join trap (m1 has 'o', m2 has '='; cross join finds a match, inner join on molecule_id does not)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('id1', 'm1', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('id1', 'm2', '=');
+
+-- m3: Case sensitivity and substring trap
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm3', 'O');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a4', 'm3', 'os');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm3', '==');
+
+-- m4: Valid match where atom_id != bond_id
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a5', 'm4', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b5', 'm4', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a5', 'a5', 'b5');
+```

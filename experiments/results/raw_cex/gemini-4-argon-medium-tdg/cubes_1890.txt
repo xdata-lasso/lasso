@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering on payment_method (including case sensitivity, partial matches, and NULLs),
+-- projection of customer_email and customer_name, and ordering by customer_email.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Visa', 'Charlie', '111-2222', 'z_charlie@example.com', '2022-01-01 10:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (2, 'MasterCard', 'Bob', '222-3333', 'a_bob@example.com', '2022-01-02 10:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (3, 'visa', 'Lowercase Visa', '333-4444', 'b_lower@example.com', '2022-01-03 10:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (4, 'VisaCard', 'Prefix Visa', '444-5555', 'c_prefix@example.com', '2022-01-04 10:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (5, NULL, 'Null Payment', '555-6666', 'd_null@example.com', '2022-01-05 10:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (6, 'Visa', 'Alice', '666-7777', 'a_alice@example.com', '2022-01-06 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate preservation (SELECT vs SELECT DISTINCT) and secondary ordering by customer_id
+-- when customer_email values are identical (and when customer_name is also identical vs different).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (10, 'Visa', 'John Doe', '111-1111', 'same@example.com', '2021-05-01 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (5, 'Visa', 'John Doe', '222-2222', 'same@example.com', '2021-05-02 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (20, 'Visa', 'Jane Doe', '333-3333', 'same@example.com', '2021-05-03 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Visa', 'Zack Doe', '444-4444', 'same@example.com', '2021-05-04 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in projected columns (customer_email, customer_name) and in ORDER BY
+-- (specifically testing NULL ordering in customer_email and NULLS LAST in customer_id).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (3, 'Visa', 'No Email High ID', '123-4567', NULL, '2023-01-01 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Visa', 'No Email Low ID', '234-5678', NULL, '2023-01-02 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (2, 'Visa', NULL, '345-6789', 'valid_email@example.com', '2023-01-03 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (4, 'Visa', NULL, '456-7890', NULL, '2023-01-04 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (NULL, 'Visa', 'Null Customer ID', '567-8901', 'valid_email@example.com', '2023-01-05 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests against mutants that introduce unnecessary INNER JOINs with child tables (Regular_Orders, Customer_Addresses)
+-- or cause row multiplication via 1-to-many relationships.
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (100, '123 Main St', 'Metropolis', '10001', 'NY', 'USA');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (101, '456 Oak Ave', 'Gotham', '20002', 'NJ', 'USA');
+
+-- Customer 1 has 'Visa', NO orders, and NO addresses (would be dropped by INNER JOINs)
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Visa', 'Isolated Customer', '100-0001', 'isolated@example.com', '2020-01-01 00:00:00');
+
+-- Customer 2 has 'Visa', MULTIPLE orders, and MULTIPLE addresses (would be duplicated by unaggregated JOINs)
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (2, 'Visa', 'Active Customer', '100-0002', 'active@example.com', '2020-01-02 00:00:00');
+
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (501, 2);
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (502, 2);
+
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (100, 2, '2020-01-01 00:00:00', 'Billing', '2021-01-01 00:00:00');
+INSERT INTO "Customer_Addresses" ("address_id", "customer_id", "date_from", "address_type", "date_to") VALUES (101, 2, '2021-01-01 00:00:00', 'Shipping', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set behavior when Customers table is populated but no customer uses 'Visa',
+-- and when strings have leading/trailing spaces or swapped column values.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, ' Visa', 'Leading Space', '111-0000', 'lead@example.com', '2022-06-01 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (2, 'Cash', 'Visa', '222-0000', 'Visa', '2022-06-02 00:00:00');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (3, 'Amex', 'Normal Customer', 'Visa', 'amex@example.com', '2022-06-03 00:00:00');
+```

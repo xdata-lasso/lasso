@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- General case: Multiple customers (some with multiple orders, some with one, some with zero), and orders with NULL customer_id.
+-- Tests:
+-- 1. Window function COUNT(*) OVER () counts ALL rows in Orders (including NULL customer_id) before joining.
+-- 2. DISTINCT collapses multiple matched rows into a single output row.
+-- 3. Aliasing confusion: customer_id vs order_id vs n (the total order count).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (10, 'Alice', 'Regular');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (20, 'Bob', 'VIP');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (30, 'Charlie', 'No orders');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (101, 10, 'Shipped', '2023-01-01 10:00:00', 'First order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (102, 10, 'Pending', '2023-01-02 11:00:00', 'Second order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (103, 20, 'Shipped', '2023-01-03 12:00:00', 'Third order');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (104, NULL, 'Cancelled', '2023-01-04 13:00:00', 'Unassigned order');
+```
+
+```sql
+-- DATASET 2
+-- Edge case: Orders exist, but all have NULL customer_id (no match in INNER JOIN).
+-- Tests:
+-- 1. INNER JOIN vs LEFT/RIGHT JOIN (Gold returns empty set; standard COUNT(*) without join or LEFT JOIN from Customers/Orders would return 0, NULL, or 2).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (1, 'Alice', 'Details A');
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (2, 'Bob', 'Details B');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (500, NULL, 'Pending', '2023-05-01 00:00:00', 'Orphan order 1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (501, NULL, 'Pending', '2023-05-02 00:00:00', 'Orphan order 2');
+```
+
+```sql
+-- DATASET 3
+-- Edge case: Customers exist, but Orders table is completely empty.
+-- Tests:
+-- 1. Empty table handling and INNER JOIN vs COUNT(*) aggregate (COUNT(*) aggregate over empty set returns 0; window function in subquery with INNER JOIN returns empty result set).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (100, 'Solo Customer', 'No orders in DB');
+```
+
+```sql
+-- DATASET 4
+-- Edge case: Single customer, multiple orders, alongside populated child tables (Order_Items, Products, Shipments, Invoices).
+-- Tests:
+-- 1. Mutants that mistakenly join other tables (Products, Order_Items, Shipments) or count rows from those tables.
+-- 2. Mutants that use COUNT(DISTINCT customer_id) (which would be 1) instead of COUNT(*) OVER () (which is 3).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (5, 'SingleBuyer', 'Buys a lot');
+
+INSERT INTO "Products" ("product_id", "product_name", "product_details") VALUES (1, 'Laptop', 'Electronics');
+
+INSERT INTO "Invoices" ("invoice_number", "invoice_date", "invoice_details") VALUES (900, '2023-06-01 00:00:00', 'Paid');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (10, 5, 'New', '2023-06-01 08:00:00', 'O1');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (20, 5, 'New', '2023-06-01 09:00:00', 'O2');
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (30, 5, 'New', '2023-06-01 10:00:00', 'O3');
+
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1000, 1, 10, 'OK', 'Item 1');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id", "order_item_status", "order_item_details") VALUES (1001, 1, 10, 'OK', 'Item 2');
+
+INSERT INTO "Shipments" ("shipment_id", "invoice_number", "order_id", "shipment_tracking_number", "shipment_date", "other_shipment_details") VALUES (700, 900, 10, 'TRK123', '2023-06-02 00:00:00', 'Shipped fast');
+
+INSERT INTO "Shipment_Items" ("shipment_id", "order_item_id") VALUES (700, 1000);
+```
+
+```sql
+-- DATASET 5
+-- Edge case: Multiple customers with 1 order each, and NULLs in non-key columns of Orders.
+-- Tests:
+-- 1. Mutants that use COUNT(order_status), COUNT(date_order_placed), or COUNT(order_details) instead of COUNT(*).
+-- 2. Mutants that PARTITION BY customer_id (which would return 1 instead of 2).
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (7, NULL, NULL);
+INSERT INTO "Customers" ("customer_id", "customer_name", "customer_details") VALUES (8, 'Eight', 'D8');
+
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (77, 7, NULL, NULL, NULL);
+INSERT INTO "Orders" ("order_id", "customer_id", "order_status", "date_order_placed", "order_details") VALUES (88, 8, 'Done', '2023-07-07 07:07:07', 'Full details');
+```

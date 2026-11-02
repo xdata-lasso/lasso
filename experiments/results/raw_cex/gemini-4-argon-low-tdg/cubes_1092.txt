@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Customers with 0 accounts (catches LEFT JOIN from Customers vs querying Accounts).
+-- 2. Customers with multiple accounts (catches missing GROUP BY or COUNT(DISTINCT customer_id)).
+-- 3. Accounts with NULL customer_id (catches COUNT(customer_id) vs COUNT(*), INNER JOIN Customers vs no join, and NULLS LAST in ORDER BY).
+-- 4. Accounts with NULL non-PK attributes (catches COUNT(account_name), COUNT(date_account_opened), etc.).
+-- 5. Tie-breaking in ORDER BY (same count___, different customer_id including NULL).
+-- 6. Inversely correlated customer_id and count___ (catches ORDER BY customer_id, count___ vs ORDER BY count___, customer_id).
+-- 7. Confounder rows in Orders and Financial_Transactions (catches querying wrong table or ungrouped joins).
+
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (1, 'Alice', 'Smith');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (2, 'Bob', 'Jones');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (3, 'Charlie', 'Brown');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (4, 'Diana', 'Prince');
+
+-- Customer 3 has 1 account (with NULL non-key columns)
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (101, 3, NULL, NULL, NULL);
+
+-- Customer 2 has 1 account (ties with Customer 3 on count=1, tests secondary sort on customer_id)
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (102, 2, '2023-01-01', 'Checking', 'Details');
+
+-- NULL customer_id has 1 account (ties with Customer 2 and 3 on count=1, tests NULLS LAST and COUNT(*) vs COUNT(customer_id))
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (103, NULL, '2023-01-02', 'Anonymous', 'Details');
+
+-- Customer 1 has 3 accounts (higher count with lower customer_id=1 to test primary sort on count___ vs customer_id)
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (104, 1, '2023-01-03', 'Savings', 'Details');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (105, 1, '2023-01-04', 'Savings', 'Details');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (106, 1, NULL, NULL, NULL);
+
+-- Confounders in Orders (Customer 4 has orders but 0 accounts; Customer 2 has 2 orders vs 1 account)
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (201, 4, '2023-02-01');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (202, 2, '2023-02-02');
+INSERT INTO "Orders" ("order_id", "customer_id", "date_order_placed") VALUES (203, 2, '2023-02-03');
+
+-- Confounders in Invoices & Financial_Transactions (Account 102 has multiple transactions)
+INSERT INTO "Invoices" ("invoice_number", "order_id", "invoice_date") VALUES (301, 202, '2023-02-05');
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (102, 301, 401, 50.0);
+INSERT INTO "Financial_Transactions" ("account_id", "invoice_number", "transaction_id", "transaction_amount") VALUES (102, 301, 402, 75.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests clean non-NULL customer_id scenarios (for mutants that INNER JOIN Customers):
+-- 1. Multiple customers with distinct and tied account counts.
+-- 2. Duplicate account_name and date_account_opened values per customer (catches COUNT(DISTINCT account_name) etc.).
+-- 3. Customer with 0 accounts (Customer 10).
+-- 4. Sorting order verification:
+--    Customer 30 -> 1 account
+--    Customer 20 -> 2 accounts
+--    Customer 40 -> 2 accounts
+--    Customer 5  -> 3 accounts
+
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (5, 'Eve', 'Adams');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (10, 'Frank', 'Miller');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (20, 'Grace', 'Hopper');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (30, 'Heidi', 'Klum');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (40, 'Ivan', 'Drago');
+
+-- Customer 30: 1 account
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (1, 30, '2022-05-01', 'Main', 'A');
+
+-- Customer 40: 2 accounts (Inserted before Customer 20 to defeat insertion-order reliance)
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (2, 40, '2022-05-01', 'Main', 'A');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (3, 40, '2022-05-01', 'Main', 'A');
+
+-- Customer 20: 2 accounts (with NULLs in non-PK columns)
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (4, 20, NULL, NULL, NULL);
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (5, 20, '2022-06-01', 'Secondary', NULL);
+
+-- Customer 5: 3 accounts
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (6, 5, '2022-01-01', 'Acc1', 'D1');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (7, 5, '2022-01-02', 'Acc1', 'D1');
+INSERT INTO "Accounts" ("account_id", "customer_id", "date_account_opened", "account_name", "other_account_details") VALUES (8, 5, '2022-01-03', 'Acc2', 'D2');
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple NULL customer_id accounts grouped together and tied with a high count:
+-- 1. Two accounts with NULL customer_id (grouped into a single row with count___ = 2, customer_id = NULL).
+-- 2. Tied with Customer 50 (count___ = 2) and Customer 10 (count___ = 2), ensuring NULLS LAST places NULL after both 10 and 50.
+-- 3. Customer 100 has count___ = 3 (ensuring primary sort is still count___, so count 2 with NULL comes before count 3).
+
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (10, 'Jack', 'Ryan');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (50, 'Kate', 'Austen');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name") VALUES (100, 'Liam', 'Neeson');
+
+-- NULL customer_id: 2 accounts
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (10, NULL, 'Unassigned 1');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (20, NULL, 'Unassigned 2');
+
+-- Customer 50: 2 accounts
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (30, 50, 'Personal');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (40, 50, 'Business');
+
+-- Customer 10: 2 accounts
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (50, 10, 'Personal');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (60, 10, 'Business');
+
+-- Customer 100: 3 accounts
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (70, 100, 'A');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (80, 100, 'B');
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name") VALUES (90, 100, 'C');
+```

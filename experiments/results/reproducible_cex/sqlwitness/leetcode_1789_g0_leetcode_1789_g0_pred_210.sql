@@ -1,0 +1,31 @@
+-- Schema DDL
+CREATE TABLE "Employee" ("employee_id" INTEGER, "department_id" INTEGER, "primary_flag" TEXT(255), PRIMARY KEY ("employee_id", "department_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO employee (employee_id, department_id, primary_flag) VALUES (2, 1, 'N'), (-1, -1, 'Y'), (0, 0, 'Y'), (-1, 0, 'Y'), (1, 0, 'Y'), (-1, 2, 'Y');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT EMPLOYEE_ID, DEPARTMENT_ID FROM EMPLOYEE GROUP BY EMPLOYEE_ID HAVING COUNT(*) = 1 UNION SELECT EMPLOYEE_ID, DEPARTMENT_ID FROM EMPLOYEE WHERE PRIMARY_FLAG = 'Y';
+
+/*
+Gold Result:
+(-1, -1)
+(-1, 0)
+(-1, 2)
+(0, 0)
+(1, 0)
+(2, 1)
+*/
+
+-- Prediction Query
+SELECT Y.EMPLOYEE_ID AS EMPLOYEE_ID, Y.DEPARTMENT_ID AS DEPARTMENT_ID FROM (SELECT X.EMPLOYEE_ID AS EMPLOYEE_ID, (CASE WHEN X.NUM_DEP = 1 THEN X.DI WHEN X.NUM_DEP > 1 AND X.PRIMARY_FLAG = 'Y' THEN X.DI ELSE 0 END) AS DEPARTMENT_ID FROM (SELECT EMPLOYEE_ID, DEPARTMENT_ID AS DI, PRIMARY_FLAG, COUNT(EMPLOYEE_ID) OVER (PARTITION BY EMPLOYEE_ID) AS NUM_DEP FROM EMPLOYEE) AS X) AS Y WHERE Y.DEPARTMENT_ID <> 0;
+
+/*
+Prediction Result:
+(-1, -1)
+(-1, 2)
+(2, 1)
+*/

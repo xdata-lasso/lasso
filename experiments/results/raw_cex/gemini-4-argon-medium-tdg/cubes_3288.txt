@@ -1,0 +1,45 @@
+```sql
+-- DATASET 1
+-- Empty user_profiles table: Window function over empty table returns 0 rows, whereas aggregate COUNT(*) without GROUP BY returns 1 row with 0.
+DELETE FROM follows;
+DELETE FROM tweets;
+DELETE FROM user_profiles;
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows with NULLs, duplicate attribute values, and unreferenced users in child tables.
+-- Tests DISTINCT (collapsing 4 rows into 1), COUNT(*) vs COUNT(col) / COUNT(DISTINCT col),
+-- erroneous JOINs with follows/tweets, and OVER(PARTITION BY ... / ORDER BY ...).
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, NULL, NULL, NULL, NULL);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'Alice', 'alice@example.com', 10, 5);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'Alice', 'alice@example.com', 10, 5);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (4, 'Bob', NULL, 20, 0);
+
+INSERT INTO follows (f1, f2) VALUES (2, 3);
+
+INSERT INTO tweets (id, uid, text, createdate) VALUES (101, 2, 'Hello world', '2023-01-01 10:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (102, 2, 'Second tweet', '2023-01-02 10:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Single row with values different from 1 (e.g., 0 or negative/large numbers) and multiple child records.
+-- Catches mutants replacing COUNT with SUM/MAX/MIN of columns, or joining with child tables without DISTINCT on uid.
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (10, 'Charlie', 'charlie@example.com', 0, 100);
+
+INSERT INTO follows (f1, f2) VALUES (10, 10);
+
+INSERT INTO tweets (id, uid, text, createdate) VALUES (1, 10, 'Tweet 1', '2023-05-01 00:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (2, 10, 'Tweet 2', '2023-05-02 00:00:00');
+INSERT INTO tweets (id, uid, text, createdate) VALUES (3, 10, 'Tweet 3', '2023-05-03 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Multiple users with zero tweets and zero follows.
+-- Catches any INNER JOIN with tweets or follows.
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (1, 'User1', 'u1@example.com', 1, 10);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (2, 'User2', 'u2@example.com', 2, 20);
+INSERT INTO user_profiles (uid, name, email, partitionid, followers) VALUES (3, 'User3', 'u3@example.com', 1, 30);
+```

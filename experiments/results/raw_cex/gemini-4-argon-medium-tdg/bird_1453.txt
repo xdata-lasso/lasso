@@ -1,0 +1,89 @@
+```sql
+-- DATASET 1
+-- Tests basic inner joins, category equality ('Parking' vs others), strict inequality (< vs <=) against AVG(cost), and global AVG(cost) vs category-restricted AVG(cost).
+-- Global AVG(cost) = (10 + 20 + 30) / 3 = 20.0.
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Event_Match');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Event_At_Boundary');
+INSERT INTO event (event_id, event_name) VALUES ('E3', 'Event_Wrong_Category');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, link_to_event) VALUES ('B1', 'Parking', 100.0, 100.0, 100, 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, link_to_event) VALUES ('B2', 'Parking', 100.0, 100.0, 100, 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, link_to_event) VALUES ('B3', 'Food', 100.0, 100.0, 100, 'E3');
+
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X1', 'Valid Expense', 10.0, 'B1');
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X2', 'Boundary Expense', 20.0, 'B2');
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X3', 'High Non-Parking Expense', 30.0, 'B3');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate retention (SELECT vs SELECT DISTINCT) and multiple qualifying expenses for the same event/budget.
+-- Also tests column confusion (T3.cost vs T2.spent, T2.remaining, T2.amount).
+-- Global AVG(cost) = (10 + 15 + 65) / 3 = 30.0.
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Duplicate_Event');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Anchor_Event');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, link_to_event) VALUES ('B1', 'Parking', 500.0, 500.0, 500, 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, link_to_event) VALUES ('B2', 'Food', 5.0, 5.0, 5, 'E2');
+
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X1', 'Low 1', 10.0, 'B1');
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X2', 'Low 2', 15.0, 'B1');
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X3', 'High Anchor', 65.0, 'B2');
+```
+
+```sql
+-- DATASET 3
+-- Tests unlinked/dangling foreign keys (NULL link_to_budget in expense, NULL link_to_event in budget) and NULL cost handling in AVG(cost).
+-- Also refutes mutants that compute AVG(cost) over joined tables instead of the full expense table, or replace INNER JOIN with LEFT JOIN.
+-- Global AVG(cost) in expense = (50 + 250) / 2 = 150.0 (since X4 has NULL cost).
+-- Joined AVG(cost) would be 50.0.
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Target_Event');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'No_Expense_Event');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, link_to_event) VALUES ('B1', 'Parking', 50.0, 50.0, 100, 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, link_to_event) VALUES ('B2', 'Parking', 0.0, 100.0, 100, 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, link_to_event) VALUES ('B3', 'Parking', 10.0, 90.0, 100, NULL);
+
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X1', 'Joined Expense', 50.0, 'B1');
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X2', 'Unlinked High Expense', 250.0, NULL);
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X3', 'Expense on Unlinked Budget', 10.0, 'B3');
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X4', 'Null Cost Expense', NULL, 'B1');
+```
+
+```sql
+-- DATASET 4
+-- Tests floating-point precision in AVG(cost) vs integer division, and case-sensitivity / substring matching on 'Parking'.
+-- Global AVG(cost) = (10 + 10 + 11) / 3 = 10.3333... (Integer division would yield 10).
+-- X1 has cost 10.2, which is < 10.3333... but > 10.
+INSERT INTO event (event_id, event_name, type) VALUES ('E1', 'Precision_Event', 'Parking');
+INSERT INTO event (event_id, event_name, type) VALUES ('E2', 'Case_Mismatch_Event', 'Parking');
+INSERT INTO event (event_id, event_name, type) VALUES ('E3', 'Substring_Mismatch_Event', 'Parking');
+
+INSERT INTO budget (budget_id, category, link_to_event) VALUES ('B1', 'Parking', 'E1');
+INSERT INTO budget (budget_id, category, link_to_event) VALUES ('B2', 'parking', 'E2');
+INSERT INTO budget (budget_id, category, link_to_event) VALUES ('B3', 'Parking Lot', 'E3');
+
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X1', 'Float Test', 10.2, 'B1');
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X2', 'Case Test', 9.9, 'B2');
+INSERT INTO expense (expense_id, expense_description, cost, link_to_budget) VALUES ('X3', 'Substring Test', 10.9, 'B3');
+```
+
+```sql
+-- DATASET 5
+-- Tests Logical OR vs AND in the WHERE clause, and tests aggregate confusion (AVG vs MIN, MAX, SUM, COUNT).
+-- Costs: 5.0, 20.0, 95.0.
+-- MIN = 5.0, AVG = 40.0, MAX = 95.0, SUM = 120.0, COUNT = 3.
+-- X2 (cost 20.0) is > MIN and > COUNT, but < AVG.
+-- X1 (cost 5.0) is at MIN, so if mutant uses T3.cost < MIN(cost), X1 is excluded.
+INSERT INTO event (event_id, event_name) VALUES ('E1', 'Min_Cost_Parking');
+INSERT INTO event (event_id, event_name) VALUES ('E2', 'Mid_Cost_Parking');
+INSERT INTO event (event_id, event_name) VALUES ('E3', 'High_Cost_Parking');
+
+INSERT INTO budget (budget_id, category, link_to_event) VALUES ('B1', 'Parking', 'E1');
+INSERT INTO budget (budget_id, category, link_to_event) VALUES ('B2', 'Parking', 'E2');
+INSERT INTO budget (budget_id, category, link_to_event) VALUES ('B3', 'Parking', 'E3');
+
+INSERT INTO expense (expense_id, cost, link_to_budget) VALUES ('X1', 5.0, 'B1');
+INSERT INTO expense (expense_id, cost, link_to_budget) VALUES ('X2', 20.0, 'B2');
+INSERT INTO expense (expense_id, cost, link_to_budget) VALUES ('X3', 95.0, 'B3');
+```

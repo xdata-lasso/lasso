@@ -1,0 +1,52 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT necessity (Player A has multiple attribute records with the max overall_rating).
+-- 2. Ties at the maximum overall_rating (both Player A and Player B have 95, catching LIMIT 1 mutations).
+-- 3. MAX vs MIN/AVG/other ratings (Player C has a lower rating of 80).
+-- 4. Column confusion: overall_rating vs potential (Player C has potential 99 > max overall_rating 95, and potential 95 = max overall_rating).
+-- 5. Join condition confusion: joining on player_api_id vs id or player_fifa_api_id (IDs are intentionally misaligned across tables).
+-- 6. Left Join vs Inner Join (Player D has no attributes).
+-- 7. NULL handling in overall_rating (attribute row with NULL overall_rating).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 101, 'Lionel Messi', 1001);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 102, 'Cristiano Ronaldo', 1002);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (3, 103, 'Neymar', 1003);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (4, 104, 'Unrated Player', 1004);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (10, 1002, 101, 95, 95);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (11, 1002, 101, 95, 96);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (12, 1001, 101, 90, 95);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (1, 1003, 102, 95, 95);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (2, 1001, 103, 80, 99);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (3, 1003, 103, NULL, 95);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Subquery scope / Unmatched Foreign Key: An orphan row in Player_Attributes has the global maximum overall_rating (99), 
+--    while matched players only have a max of 90.
+--    The Reference Query evaluates MAX(overall_rating) across ALL of Player_Attributes (99), resulting in an empty set,
+--    whereas a mutant that computes the MAX after joining with Player will erroneously return 'Matched Player'.
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 201, 'Matched Player', 2001);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 202, 'Second Player', 2002);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (1, 2001, 201, 90, 92);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (2, 2002, 202, 85, 88);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (3, NULL, 999, 99, 99);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Two distinct players sharing the exact same player_name ('Common Name'), where only one has the max rating, 
+--    or both have the max rating (tests GROUP BY player_api_id vs SELECT DISTINCT player_name).
+-- 2. Single winner scenario (to contrast with tie scenarios and test sorting/direction mutants).
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 301, 'Common Name', 3001);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 302, 'Common Name', 3002);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (3, 303, 'Lower Player', 3003);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (1, 3001, 301, 92, 90);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (2, 3002, 302, 92, 91);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, overall_rating, potential) VALUES (3, 3003, 303, 88, 92);
+```

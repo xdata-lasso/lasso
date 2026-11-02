@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests basic AVG calculation, duplicate prices (AVG vs AVG(DISTINCT)), fractional division, NULL price handling, and filtering vs other product types.
+-- Also includes orphaned Products (not in Order_Items or Product_Suppliers) to kill mutants with unnecessary INNER JOINs.
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'Clothes', 'Shirt', 10.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'Clothes', 'Pants', 10.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, 'Clothes', 'Jacket', 23.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (4, 'Clothes', 'Socks', NULL);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (5, 'Hardware', 'Hammer', 100.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (6, 'Books', 'Novel', 15.5);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set when 'Clothes' does not exist (kills mutants without GROUP BY that return a single row with NULL instead of 0 rows, or mutants with wrong WHERE predicates).
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'Hardware', 'Wrench', 25.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'Books', 'Textbook', 50.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, NULL, 'Mystery', 10.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests join fan-out (1-to-many relationships with Order_Items and Product_Suppliers) and column confusion (product_price vs total_value_purchased).
+-- Product 1 is ordered multiple times; a mutant joining Order_Items or Product_Suppliers without deduplicating will compute a skewed average.
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (1, 'Supplier A', '111-2222');
+INSERT INTO "Suppliers" ("supplier_id", "supplier_name", "supplier_phone") VALUES (2, 'Supplier B', '333-4444');
+INSERT INTO "Customers" ("customer_id", "payment_method_code", "customer_code", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (1, 'Card', 'C01', 'Alice', '123 St', '555-0101', 'alice@example.com');
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'Clothes', 'Cheap Hat', 10.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'Clothes', 'Expensive Coat', 100.0);
+INSERT INTO "Customer_Orders" ("order_id", "customer_id", "order_status_code", "order_date") VALUES (1, 1, 'Completed', '2023-01-01 10:00:00');
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id") VALUES (1, 1, 1);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id") VALUES (2, 1, 1);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id") VALUES (3, 1, 1);
+INSERT INTO "Order_Items" ("order_item_id", "product_id", "order_id") VALUES (4, 2, 1);
+INSERT INTO "Product_Suppliers" ("product_id", "supplier_id", "date_supplied_from", "date_supplied_to", "total_amount_purchased", "total_value_purchased") VALUES (1, 1, '2022-01-01', '2022-12-31', '100', 500.0);
+INSERT INTO "Product_Suppliers" ("product_id", "supplier_id", "date_supplied_from", "date_supplied_to", "total_amount_purchased", "total_value_purchased") VALUES (1, 2, '2022-01-01', '2022-12-31', '200', 900.0);
+INSERT INTO "Product_Suppliers" ("product_id", "supplier_id", "date_supplied_from", "date_supplied_to", "total_amount_purchased", "total_value_purchased") VALUES (2, 1, '2022-01-01', '2022-12-31', '50', 2000.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests string matching sensitivity (case sensitivity 'clothes' vs 'Clothes', substring/LIKE '%Clothes%', and confusion between product_type_code and product_name).
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'Clothes', 'Winter Shirt', 40.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'clothes', 'Summer Shirt', 200.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, 'Clothes_Mens', 'Suit', 500.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (4, 'Hardware', 'Clothes', 1000.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests single row for 'Clothes' where AVG equals SUM/MIN/MAX, contrasted with another group having multiple rows, plus a 'Clothes' row with NULL price.
+-- Specifically targets mutants that use COUNT(*) instead of COUNT(product_price) when computing average manually, or COALESCE(product_price, 0).
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'Clothes', 'Scarf', 50.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (2, 'Clothes', 'Free Sample', NULL);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (3, 'Electronics', 'Phone', 300.0);
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (4, 'Electronics', 'Laptop', 900.0);
+```

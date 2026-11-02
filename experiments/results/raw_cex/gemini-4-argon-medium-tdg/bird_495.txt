@@ -1,0 +1,68 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, WHERE filter, JOIN condition (avoiding id=id or cross join), and column confusion (e.g., originalReleaseDate vs releaseDate, asciiName/faceName vs name, mtgoCode/parentCode vs code).
+INSERT INTO sets (id, code, name, releaseDate, mtgoCode, keyruneCode, parentCode) VALUES (10, 'STH', 'Stronghold', '1998-03-02', 'WRONG_CODE1', 'WRONG_CODE2', 'WRONG_CODE3');
+INSERT INTO sets (id, code, name, releaseDate, mtgoCode, keyruneCode, parentCode) VALUES (1, 'TMP', 'Tempest', '1997-10-14', 'STH', 'STH', 'STH');
+INSERT INTO sets (id, code, name, releaseDate, mtgoCode, keyruneCode, parentCode) VALUES (20, 'Evacuation', 'Wrong Set Name', '2099-12-31', 'EVO', 'EVO', 'EVO');
+
+INSERT INTO cards (id, uuid, name, asciiName, faceName, flavorName, setCode, originalReleaseDate) VALUES (1, 'uuid-1', 'Evacuation', 'WrongAscii', 'WrongFace', 'WrongFlavor', 'STH', '1900-01-01');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, flavorName, setCode, originalReleaseDate) VALUES (10, 'uuid-2', 'Counterspell', 'Evacuation', 'Evacuation', 'Evacuation', 'TMP', '1997-10-14');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, flavorName, setCode, originalReleaseDate) VALUES (3, 'uuid-3', 'Evacuation Promo', 'Evacuation', 'Evacuation', 'Evacuation', 'TMP', '1997-10-14');
+INSERT INTO cards (id, uuid, name, asciiName, faceName, flavorName, setCode, originalReleaseDate) VALUES (4, 'uuid-4', 'evacuation', 'Evacuation', 'Evacuation', 'Evacuation', 'TMP', '1997-10-14');
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN (dangling setCode andNULL setCode) and duplicate releaseDate preservation (SELECT vs SELECT DISTINCT).
+INSERT INTO sets (id, code, name, releaseDate) VALUES (1, '7ED', 'Seventh Edition', '2001-04-11');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (2, '8ED', 'Eighth Edition', '2003-07-28');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (3, 'UNMATCHED', 'Evacuation', '2020-01-01');
+
+INSERT INTO cards (id, uuid, name, setCode, originalReleaseDate) VALUES (1, 'uuid-101', 'Evacuation', '7ED', '2001-04-11');
+INSERT INTO cards (id, uuid, name, setCode, originalReleaseDate) VALUES (2, 'uuid-102', 'Evacuation', '7ED', '2001-04-11');
+INSERT INTO cards (id, uuid, name, setCode, originalReleaseDate) VALUES (3, 'uuid-103', 'Evacuation', '8ED', '2003-07-28');
+INSERT INTO cards (id, uuid, name, setCode, originalReleaseDate) VALUES (4, 'uuid-104', 'Evacuation', 'MISSING_SET', '2005-01-01');
+INSERT INTO cards (id, uuid, name, setCode, originalReleaseDate) VALUES (5, 'uuid-105', 'Evacuation', NULL, '2006-01-01');
+```
+
+```sql
+-- DATASET 3
+-- Tests queries that mistakenly join or filter using foreign_data, rulings, legalities, or set_translations, and tests NULL releaseDate handling.
+INSERT INTO sets (id, code, name, releaseDate) VALUES (1, '9ED', 'Ninth Edition', NULL);
+INSERT INTO sets (id, code, name, releaseDate) VALUES (2, '10E', 'Tenth Edition', '2007-07-13');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (3, 'M10', 'Magic 2010', '2009-07-17');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-201', 'Evacuation', '9ED');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (2, 'uuid-202', 'Evacuation', '10E');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (3, 'uuid-203', 'Other Card', 'M10');
+
+INSERT INTO foreign_data (id, name, language, uuid) VALUES (1, 'Evacuation', 'French', 'uuid-203');
+INSERT INTO rulings (id, date, text, uuid) VALUES (1, '2004-10-04', 'Evacuation ruling', 'uuid-201');
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Legacy', 'Legal', 'uuid-201');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'French', '9ED', 'Evacuation');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when cards and sets exist, and when 'Evacuation' exists in sets.name or foreign_data.name, or as a substring in cards.name, but no exact match in cards.name with a valid set.
+INSERT INTO sets (id, code, name, releaseDate) VALUES (1, 'EXO', 'Evacuation', '1998-06-15');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (2, 'USG', 'Urzas Saga', '1998-10-12');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-301', 'Mass Evacuation', 'EXO');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (2, 'uuid-302', 'Evacuation Plan', 'USG');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (3, 'uuid-303', 'Evacuation', 'NON_EXISTENT');
+
+INSERT INTO foreign_data (id, name, language, uuid) VALUES (1, 'Evacuation', 'German', 'uuid-301');
+```
+
+```sql
+-- DATASET 5
+-- Tests cardinality, ordering, and aggregation/LIMIT mutants by having multiple distinct sets with different release dates for 'Evacuation'.
+INSERT INTO sets (id, code, name, releaseDate) VALUES (1, 'C16', 'Commander 2016', '2016-11-11');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (2, 'DPA', 'Duels of the Planeswalkers', '2010-06-04');
+INSERT INTO sets (id, code, name, releaseDate) VALUES (3, 'TPR', 'Tempest Remastered', '2015-05-06');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-401', 'Evacuation', 'C16');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (2, 'uuid-402', 'Evacuation', 'DPA');
+INSERT INTO cards (id, uuid, name, setCode) VALUES (3, 'uuid-403', 'Evacuation', 'TPR');
+```

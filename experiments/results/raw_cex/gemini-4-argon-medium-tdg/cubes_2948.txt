@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Unordered insertion of master_customer_id (including negative, 0, and positive) to kill missing ORDER BY, ORDER BY DESC, or ORDER BY cmi_details.
+-- 2. Customers with 0, 1, and multiple cross-references to kill mutants with extraneous INNER JOIN or un-grouped LEFT JOIN to CMI_Cross_References.
+-- 3. Duplicate cmi_details to kill mutants that group by or select distinct cmi_details.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (10, 'Zebra Corp');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (-5, 'Zebra Corp');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (2, 'Alpha Inc');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (0, 'Beta LLC');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (100, 10, 'SYS_A');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (101, 10, 'SYS_B');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (102, 2, 'SYS_A');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. NULL and empty string in cmi_details to kill mutants with WHERE cmi_details IS NOT NULL or WHERE cmi_details != ''.
+-- 2. Customers linked to some downstream tables (Council_Tax, Business_Rates) and not others to kill mutants that join with child tables.
+-- 3. Numeric strings in cmi_details that differ from master_customer_id to kill column swap or type-cast sorting mutants.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (30, NULL);
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (10, '');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (20, '5');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (5, '100');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (1, 30, 'Tax');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (2, 10, 'Rates');
+
+INSERT INTO "Council_Tax" ("council_tax_id", "cmi_cross_ref_id") VALUES (500, 1);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (600, 2);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Larger row count (6 rows) to kill mutants with arbitrary LIMIT clauses (e.g., LIMIT 1, LIMIT 3, LIMIT 5).
+-- 2. Full population of all child tables for a single customer to kill any mutant attempting to join any of the 6 leaf tables.
+-- 3. Orphaned CMI_Cross_References (NULL master_customer_id) to kill RIGHT/FULL OUTER JOIN mutants or subqueries selecting from CMI_Cross_References.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (6, 'Cust F');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (5, 'Cust E');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (4, 'Cust D');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (3, 'Cust C');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (2, 'Cust B');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (1, 'Cust A');
+
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (10, 1, 'ALL');
+INSERT INTO "CMI_Cross_References" ("cmi_cross_ref_id", "master_customer_id", "source_system_code") VALUES (20, NULL, 'ORPHAN');
+
+INSERT INTO "Council_Tax" ("council_tax_id", "cmi_cross_ref_id") VALUES (1, 10);
+INSERT INTO "Business_Rates" ("business_rates_id", "cmi_cross_ref_id") VALUES (1, 10);
+INSERT INTO "Benefits_Overpayments" ("council_tax_id", "cmi_cross_ref_id") VALUES (1, 10);
+INSERT INTO "Parking_Fines" ("council_tax_id", "cmi_cross_ref_id") VALUES (1, 10);
+INSERT INTO "Rent_Arrears" ("council_tax_id", "cmi_cross_ref_id") VALUES (1, 10);
+INSERT INTO "Electoral_Register" ("electoral_register_id", "cmi_cross_ref_id") VALUES (1, 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Integer vs Lexicographical sorting on master_customer_id (1, 2, 10, 20, 100) to kill mutants that CAST master_customer_id to TEXT before ordering.
+-- 2. Inverse alphabetical order of cmi_details relative to master_customer_id to ensure sorting is strictly on master_customer_id.
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (100, 'A');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (20, 'B');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (10, 'C');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (2, 'D');
+INSERT INTO "Customer_Master_Index" ("master_customer_id", "cmi_details") VALUES (1, 'E');
+```

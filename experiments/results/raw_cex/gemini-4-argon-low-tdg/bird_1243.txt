@@ -1,0 +1,101 @@
+```sql
+-- DATASET 1
+-- Tests basic calculation, fractional percentage (CAST AS REAL), 1-to-many join cardinality, and CASE vs WHERE filtering.
+-- Total rows matching WHERE: 3. Numerator: 1. Expected result: 33.333333333333336.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', '1960-05-15');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'M', '1950-01-01');
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2020-01-01', 15.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2020-01-02', 12.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (2, '2020-01-01', 16.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary of PT >= 14 (exact 14.0 vs 13.9) and boolean logic (AND vs OR) in CASE expression.
+-- Total rows: 3. Numerator: 1 (ID 1). Expected result: 33.333333333333336.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', '1960-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '1960-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'M', '1960-01-01');
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2021-01-01', 14.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (2, '2021-01-01', 13.9);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (3, '2021-01-01', 15.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests age boundary (> 55 vs >= 55) relative to 2025.
+-- 1970 -> 2025 - 1970 = 55 (Excluded). 1969 -> 2025 - 1969 = 56 (Included).
+-- Also includes a younger patient (1980) with qualifying PT/SEX to ensure WHERE clause is applied.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', '1970-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '1969-12-31');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'M', '1969-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (4, 'F', '1980-06-15');
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2021-01-01', 15.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (2, '2021-01-01', 15.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (3, '2021-01-01', 10.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (4, '2021-01-01', 20.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling (COUNT(*) vs COUNT(PT), NULL SEX, NULL Birthday) and INNER JOIN vs LEFT JOIN.
+-- Patient 4 has no Laboratory records. Patient 1 has NULL PT.
+-- Total rows in join matching WHERE: 3. Numerator: 1 (ID 2). Expected result: 33.333333333333336.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', '1960-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '1960-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, NULL, '1960-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (4, 'F', '1960-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (5, 'F', NULL);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2021-01-01', NULL);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (2, '2021-01-01', 15.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (3, '2021-01-01', 15.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (5, '2021-01-01', 15.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple Lab records for the SAME qualifying patient (catches COUNT(DISTINCT T1.ID) vs COUNT(*) and SUM(DISTINCT ...)).
+-- Patient 1 has two qualifying labs (PT >= 14). Both should contribute to numerator and denominator.
+-- Total rows: 3. Numerator: 2. Expected result: 66.66666666666667.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', '1955-03-10');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'M', '1955-03-10');
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2021-01-01', 14.5);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2021-02-01', 18.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (2, '2021-01-01', 11.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests 0% result (when no rows match the CASE condition, ensuring ELSE 0 is used rather than ELSE NULL or ELSE 1).
+-- Total rows: 2. Numerator: 0. Expected result: 0.0.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', '1950-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'M', '1950-01-01');
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2022-05-01', 12.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (2, '2022-05-01', 16.0);
+```
+
+```sql
+-- DATASET 7
+-- Tests confusion with other date columns in Patient ("First Date", Description) or Laboratory (Date) or Examination ("Examination Date").
+-- Only Birthday should be used for the age calculation.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (1, 'F', '1960-01-01', '2020-01-01', '2020-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (2, 'F', '2000-01-01', '1960-01-01', '1960-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (3, 'M', '1960-01-01', '2020-01-01', '2020-01-01');
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2020-01-01', 15.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (2, '1960-01-01', 15.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (3, '2020-01-01', 10.0);
+INSERT INTO Examination (ID, "Examination Date") VALUES (1, '2020-01-01');
+```
+
+```sql
+-- DATASET 8
+-- Tests exact date diff vs year diff (STRFTIME('%Y', '2025-01-01') - STRFTIME('%Y', Birthday) > 55).
+-- A patient born on '1969-12-31' has year diff 2025 - 1969 = 56 > 55, even if compared against a reference date earlier in the year in some mutated logic.
+-- Also tests a patient with multiple Examination rows to catch unnecessary joins to Examination.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', '1969-12-31');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'M', '1960-01-01');
+INSERT INTO Laboratory (ID, Date, PT) VALUES (1, '2021-01-01', 14.0);
+INSERT INTO Laboratory (ID, Date, PT) VALUES (2, '2021-01-01', 10.0);
+INSERT INTO Examination (ID, "Examination Date") VALUES (1, '2021-01-01');
+INSERT INTO Examination (ID, "Examination Date") VALUES (1, '2021-01-02');
+```

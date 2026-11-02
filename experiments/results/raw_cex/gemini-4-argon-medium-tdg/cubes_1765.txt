@@ -1,0 +1,40 @@
+```sql
+-- DATASET 1
+-- Tests standard filtering, COUNT(*) vs COUNT(column) with NULLs, COUNT(DISTINCT customer_id), and unnecessary INNER JOINs with Customers/Accounts/Financial_Transactions (including orphan customer_id and 1-to-many joins).
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name", "customer_address", "customer_phone", "customer_email", "other_customer_details") VALUES (1, 'John', 'Doe', '123 Elm St', '555-0100', 'john@example.com', 'Active');
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name", "customer_address", "customer_phone", "customer_email", "other_customer_details") VALUES (2, 'Jane', 'Smith', '456 Oak St', '555-0200', 'jane@example.com', 'Active');
+
+INSERT INTO "Accounts" ("account_id", "customer_id", "account_name", "other_account_details") VALUES (10, 1, 'Checking', 'Main');
+
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (101, 1, 'Debit', '1111222233334444', '2020-01-01 00:00:00', '2025-01-01 00:00:00', 'Details 1');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (102, 1, 'Debit', NULL, NULL, NULL, NULL);
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (103, 999, 'Debit', '5555666677778888', '2021-01-01 00:00:00', '2026-01-01 00:00:00', 'Orphan Customer');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (104, NULL, 'Debit', '9999000011112222', '2022-01-01 00:00:00', '2027-01-01 00:00:00', 'Null Customer');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (105, 2, 'Credit', '1234123412341234', '2020-05-01 00:00:00', '2024-05-01 00:00:00', 'Credit Card');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (106, 2, 'debit', '4321432143214321', '2020-06-01 00:00:00', '2024-06-01 00:00:00', 'Lowercase debit');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (107, 1, 'Debit Card', '8765876587658765', '2020-07-01 00:00:00', '2024-07-01 00:00:00', 'Prefix match');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (108, 1, NULL, '0000111122223333', '2020-08-01 00:00:00', '2024-08-01 00:00:00', 'Null type');
+
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (10, 101, 1001, NULL, 'Purchase', '2023-01-01 10:00:00', 50.0, 'Grocery', NULL);
+INSERT INTO "Financial_Transactions" ("account_id", "card_id", "transaction_id", "previous_transaction_id", "transaction_type", "transaction_date", "transaction_amount", "transaction_comment", "other_transaction_details") VALUES (10, 101, 1002, 1001, 'Purchase', '2023-01-02 11:00:00', 25.0, 'Gas', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set vs 0 count when 'Debit' is absent (GROUP BY + WHERE returns 0 rows, whereas COUNT(*) WHERE without GROUP BY returns 1 row with 0).
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name", "customer_address", "customer_phone", "customer_email", "other_customer_details") VALUES (1, 'Alice', 'Brown', '789 Pine St', '555-0300', 'alice@example.com', NULL);
+
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (201, 1, 'Credit', '1111222233339999', '2021-01-01 00:00:00', '2025-01-01 00:00:00', 'Only Credit');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (202, 1, 'Prepaid', '2222333344440000', '2021-01-01 00:00:00', '2025-01-01 00:00:00', 'Only Prepaid');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (203, 1, NULL, '3333444455551111', '2021-01-01 00:00:00', '2025-01-01 00:00:00', 'Null Card Type');
+```
+
+```sql
+-- DATASET 3
+-- Tests single 'Debit' card and multiple non-Debit cards, catching mutants with inverted conditions (!= 'Debit'), missing GROUP BY, or wrong aggregation (e.g., SUM/MAX of card_id or customer_id).
+INSERT INTO "Customers" ("customer_id", "customer_first_name", "customer_last_name", "customer_address", "customer_phone", "customer_email", "other_customer_details") VALUES (50, 'Bob', 'White', '321 Maple St', '555-0400', 'bob@example.com', NULL);
+
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (301, 50, 'Debit', '9999888877776666', '2022-03-01 00:00:00', '2026-03-01 00:00:00', 'Single Debit');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (302, 50, 'Credit', '8888777766665555', '2022-03-01 00:00:00', '2026-03-01 00:00:00', 'Credit 1');
+INSERT INTO "Customers_Cards" ("card_id", "customer_id", "card_type_code", "card_number", "date_valid_from", "date_valid_to", "other_card_details") VALUES (303, 50, 'Credit', '7777666655554444', '2022-03-01 00:00:00', '2026-03-01 00:00:00', 'Credit 2');
+```

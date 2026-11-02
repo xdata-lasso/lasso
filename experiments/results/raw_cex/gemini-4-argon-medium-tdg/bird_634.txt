@@ -1,0 +1,100 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. SUM(T3.ViewCount) vs MAX(T3.ViewCount) vs AVG(T3.ViewCount) vs COUNT(*) vs T3.ViewCount without aggregation.
+-- 2. Join path: T2.UserId vs T3.OwnerUserId vs T3.LastEditorUserId.
+-- 3. WHERE clause filtering out a third user ('Alice') who has the highest ViewCount.
+-- 4. GROUP BY T1.DisplayName vs GROUP BY T1.Id (two 'Noah Snyder' users combined beat 'Harvey Motulsky').
+-- 5. ORDER BY DESC vs ASC.
+-- 6. Users.Views vs Posts.ViewCount vs Posts.Score.
+INSERT INTO users (Id, DisplayName, Views, Reputation) VALUES (1, 'Harvey Motulsky', 5000, 5000);
+INSERT INTO users (Id, DisplayName, Views, Reputation) VALUES (2, 'Noah Snyder', 10, 10);
+INSERT INTO users (Id, DisplayName, Views, Reputation) VALUES (3, 'Noah Snyder', 10, 10);
+INSERT INTO users (Id, DisplayName, Views, Reputation) VALUES (4, 'Alice', 9000, 9000);
+
+INSERT INTO posts (Id, ViewCount, Score, OwnerUserId, LastEditorUserId) VALUES (101, 100, 500, 2, 2);
+INSERT INTO posts (Id, ViewCount, Score, OwnerUserId, LastEditorUserId) VALUES (102, 70, 10, 1, 1);
+INSERT INTO posts (Id, ViewCount, Score, OwnerUserId, LastEditorUserId) VALUES (103, 70, 10, 1, 1);
+INSERT INTO posts (Id, ViewCount, Score, OwnerUserId, LastEditorUserId) VALUES (104, 1000, 1000, 4, 4);
+
+INSERT INTO postHistory (Id, PostId, UserId, UserDisplayName) VALUES (201, 101, 1, 'Noah Snyder');
+INSERT INTO postHistory (Id, PostId, UserId, UserDisplayName) VALUES (202, 102, 2, 'Harvey Motulsky');
+INSERT INTO postHistory (Id, PostId, UserId, UserDisplayName) VALUES (203, 103, 3, 'Harvey Motulsky');
+INSERT INTO postHistory (Id, PostId, UserId, UserDisplayName) VALUES (204, 104, 4, 'Alice');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Multiple postHistory rows for the same PostId and UserId: tests SUM(T3.ViewCount) over the 3-table join vs joining posts directly to users or SUM(DISTINCT T3.ViewCount).
+-- 2. Missing 'Noah Snyder' in WHERE clause (only Harvey has multiple history entries on the same post that multiply its ViewCount in the join).
+-- 3. Inner Join requirement: 'Noah Snyder' owns a post with huge ViewCount (500) that has NO postHistory, testing INNER JOIN vs LEFT JOIN / direct user-post join.
+INSERT INTO users (Id, DisplayName, Views) VALUES (1, 'Harvey Motulsky', 10);
+INSERT INTO users (Id, DisplayName, Views) VALUES (2, 'Noah Snyder', 1000);
+
+INSERT INTO posts (Id, ViewCount, Score, OwnerUserId) VALUES (101, 60, 100, 1);
+INSERT INTO posts (Id, ViewCount, Score, OwnerUserId) VALUES (102, 100, 10, 2);
+INSERT INTO posts (Id, ViewCount, Score, OwnerUserId) VALUES (103, 500, 500, 2);
+
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (201, 101, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (202, 101, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (203, 102, 2);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Tie-breaker on ORDER BY SUM(T3.ViewCount) DESC, T1.DisplayName (ASC). Both users have SUM(ViewCount) = 100; 'Harvey Motulsky' must win alphabetically over 'Noah Snyder'.
+-- 2. LIMIT 1 enforcement (without LIMIT 1, 2 rows are returned).
+-- 3. Negative and NULL ViewCounts handling in SUM.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Noah Snyder');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Harvey Motulsky');
+
+INSERT INTO posts (Id, ViewCount) VALUES (101, 100);
+INSERT INTO posts (Id, ViewCount) VALUES (102, 120);
+INSERT INTO posts (Id, ViewCount) VALUES (103, -20);
+INSERT INTO posts (Id, ViewCount) VALUES (104, NULL);
+
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (201, 101, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (202, 104, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (203, 102, 2);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (204, 103, 2);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. OR condition in WHERE clause when only 'Harvey Motulsky' has valid joined records and 'Noah Snyder' has none (kills AND mutants, kills missing 'Harvey Motulsky' condition).
+-- 2. INNER JOIN vs LEFT JOIN when 'Noah Snyder' has a postHistory row with PostId = NULL or a user row with no postHistory.
+-- 3. Case sensitivity / exact string match on 'Harvey Motulsky'.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Noah Snyder');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Harvey Motulsky');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'harvey motulsky');
+
+INSERT INTO posts (Id, ViewCount, OwnerUserId) VALUES (101, 50, 2);
+INSERT INTO posts (Id, ViewCount, OwnerUserId) VALUES (102, 999, 3);
+
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (201, NULL, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (202, 101, 2);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (203, 102, 3);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. COUNT(*) vs SUM(T3.ViewCount): 'Harvey Motulsky' has 3 postHistory rows with small ViewCount (10 each = 30), while 'Noah Snyder' has 1 postHistory row with large ViewCount (100).
+-- 2. MIN(T3.ViewCount) vs SUM(T3.ViewCount): 'Noah Snyder' also has a second post with ViewCount = 5 (so Noah's MIN is 5, AVG is 52.5, SUM is 105; Harvey's MIN is 10, AVG is 10, SUM is 30).
+-- 3. Kills mutants using MIN(T3.ViewCount) or COUNT(T3.Id).
+INSERT INTO users (Id, DisplayName) VALUES (1, 'Harvey Motulsky');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'Noah Snyder');
+
+INSERT INTO posts (Id, ViewCount) VALUES (101, 10);
+INSERT INTO posts (Id, ViewCount) VALUES (102, 100);
+INSERT INTO posts (Id, ViewCount) VALUES (103, 5);
+
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (201, 101, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (202, 101, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (203, 101, 1);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (204, 102, 2);
+INSERT INTO postHistory (Id, PostId, UserId) VALUES (205, 103, 2);
+```

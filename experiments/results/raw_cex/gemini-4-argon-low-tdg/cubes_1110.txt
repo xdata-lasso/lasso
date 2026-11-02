@@ -1,0 +1,51 @@
+```sql
+-- DATASET 1
+-- Single row in journalist, empty event and news_report tables.
+-- Tests basic execution and refutes mutants that require INNER JOINs with news_report or event, or WHERE clauses filtering on Age/Years_working.
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (1, 'Alice Smith', 'USA', '35', 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Nationality.
+-- Since journalist_ID is the Primary Key, COUNT(*) per (journalist_id, nationality) is always 1.
+-- Mutants that use COUNT(nationality) instead of COUNT(*) will evaluate n=0 for the NULL nationality row and n=1 for the 'Canada' row, sorting 'Canada' first under ORDER BY n DESC.
+-- Meanwhile, under SQLite's default scanning by PK, the Reference Query sees n=1 for all rows and picks the first row (journalist_ID = 1, Nationality = NULL).
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (1, 'Bob Jones', NULL, '40', 15);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (2, 'Charlie Brown', 'Canada', '28', 4);
+```
+
+```sql
+-- DATASET 3
+-- Tests grouping granularity: GROUP BY journalist_id, nationality vs GROUP BY nationality.
+-- In the Reference Query, every row has n=1, so journalist_ID=1 ('UK') is returned first.
+-- A mutant that groups only by 'nationality' will compute n=2 for 'France' and n=1 for 'UK', returning 'France'.
+-- Also includes multiple news_report rows for journalist 3 ('Germany') to catch mutants that mistakenly join news_report to count reports instead of journalists.
+INSERT INTO "event" ("Event_ID", "Date", "Venue", "Name", "Event_Attendance") VALUES (101, '2023-01-01', 'Stadium A', 'Final', 50000);
+INSERT INTO "event" ("Event_ID", "Date", "Venue", "Name", "Event_Attendance") VALUES (102, '2023-01-02', 'Arena B', 'Semi', 30000);
+INSERT INTO "event" ("Event_ID", "Date", "Venue", "Name", "Event_Attendance") VALUES (103, '2023-01-03', 'Hall C', 'Quarter', 10000);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (1, 'David', 'UK', '25', 2);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (2, 'Eve', 'France', '50', 25);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (3, 'Frank', 'France', '30', 5);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (4, 'Grace', 'Germany', '45', 20);
+INSERT INTO "news_report" ("journalist_ID", "Event_ID", "Work_Type") VALUES (4, 101, 'Broadcast');
+INSERT INTO "news_report" ("journalist_ID", "Event_ID", "Work_Type") VALUES (4, 102, 'Print');
+INSERT INTO "news_report" ("journalist_ID", "Event_ID", "Work_Type") VALUES (4, 103, 'Online');
+```
+
+```sql
+-- DATASET 4
+-- Tests mutants that replace COUNT(*) with SUM(Years_working), MAX(Years_working), MAX(Age), or ORDER BY nationality / Years_working / journalist_ID DESC.
+-- Also tests mutants that drop LIMIT 1.
+-- Journalist 1 has the lowest Years_working, lowest Age, and 'Brazil' (not alphabetically first or last compared to 'Australia' and 'Zimbabwe').
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (1, 'Hannah', 'Brazil', '21', 1);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (2, 'Ian', 'Zimbabwe', '65', 40);
+INSERT INTO "journalist" ("journalist_ID", "Name", "Nationality", "Age", "Years_working") VALUES (3, 'Jack', 'Australia', '35', 12);
+```
+
+```sql
+-- DATASET 5
+-- Empty journalist table.
+-- Ensures mutants using aggregates without GROUP BY (which might return 1 row with NULL) vs GROUP BY (which returns 0 rows) are distinguished.
+INSERT INTO "event" ("Event_ID", "Date", "Venue", "Name", "Event_Attendance") VALUES (1, '2023-05-05', 'Main Hall', 'Opening', 1000);
+```

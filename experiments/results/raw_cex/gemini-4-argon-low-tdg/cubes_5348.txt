@@ -1,0 +1,103 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Grouping by (classroom, grade) vs grouping by ONLY classroom or ONLY grade.
+-- 2. Ties for maximum (classroom, grade) count across different classrooms (102 and 103 both have max count 3).
+-- 3. Ordering of results (inserted in reverse order of classroom numbers).
+-- 4. Unmatched classrooms in 'teachers' vs 'list' (tests erroneous JOINs with 'teachers').
+-- 5. Classroom 101 has total 4 students (2+2), which is greater than the max (classroom, grade) count of 3.
+-- 6. Grade 2 has total 4 students (2+2), which is also greater than 3.
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T1', 'F1', 102);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T2', 'F2', 999);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S1', 'A', 4, 103);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S2', 'A', 4, 103);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S3', 'A', 4, 103);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S4', 'A', 3, 102);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S5', 'A', 3, 102);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S6', 'A', 3, 102);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S7', 'A', 1, 101);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S8', 'A', 1, 101);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S9', 'A', 2, 101);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S10', 'A', 2, 101);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S11', 'A', 2, 104);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('S12', 'A', 2, 104);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. DISTINCT keyword necessity: A single classroom (201) achieves the maximum count in TWO different grades (Grade 1 has 2, Grade 2 has 2). Without DISTINCT, 201 would appear multiple times.
+-- 2. Partitioning mutations in window function: MAX(n) OVER (PARTITION BY grade) or (PARTITION BY classroom).
+--    Here, Grade 3 has a max of 1 (in Classroom 202), whereas global max is 2.
+--    Classroom 202 has a local max of 1, whereas global max is 2.
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T1', 'F1', 201);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T2', 'F2', 202);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L1', 'F1', 1, 201);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L2', 'F1', 1, 201);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L3', 'F1', 2, 201);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L4', 'F1', 2, 201);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('L5', 'F1', 3, 202);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Handling of NULL values in Grade and Classroom.
+-- 2. COUNT(*) vs COUNT(Grade) or COUNT(Classroom).
+--    (Classroom 301, Grade NULL) has 3 rows -> COUNT(*) is 3, COUNT(Grade) is 0.
+--    (Classroom 302, Grade 1) has 2 rows -> COUNT(*) is 2, COUNT(Grade) is 2.
+--    Global max for COUNT(*) is 3 (returns 301). For COUNT(Grade) it would be 2 (returns 302).
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T1', 'F1', 301);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T2', 'F2', 302);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('N1', 'F1', NULL, 301);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('N2', 'F1', NULL, 301);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('N3', 'F1', NULL, 301);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('N4', 'F1', 1, 302);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('N5', 'F1', 1, 302);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('N6', 'F1', 1, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. COUNT(DISTINCT LastName) or COUNT(DISTINCT FirstName) vs COUNT(*).
+--    Classroom 401 (Grade 1) has 3 students all sharing the same LastName ('Smith'), whereas Classroom 402 (Grade 1) has 2 students with distinct LastNames and FirstNames.
+-- 2. Single winner without ties ( tests LIMIT 1 vs ties when compared with Dataset 1).
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T1', 'F1', 401);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T2', 'F2', 402);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Smith', 'Alice', 1, 401);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Smith', 'Bob', 1, 401);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Smith', 'Charlie', 1, 401);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Doe', 'John', 1, 402);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Roe', 'Jane', 1, 402);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Aggregation function mutations: SUM(grade), MAX(grade), MIN(grade), AVG(grade) instead of COUNT(*).
+--    Classroom 501 (Grade 0) has 3 students: COUNT(*) = 3, SUM(Grade) = 0, MAX(Grade) = 0.
+--    Classroom 502 (Grade 10) has 1 student: COUNT(*) = 1, SUM(Grade) = 10, MAX(Grade) = 10.
+-- 2. Having a single classroom with both a max group and a non-max group (Classroom 501 has Grade 0 with 3 students, and Grade 5 with 1 student).
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T1', 'F1', 501);
+INSERT INTO teachers (LastName, FirstName, Classroom) VALUES ('T2', 'F2', 502);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Z1', 'A', 0, 501);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Z2', 'A', 0, 501);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Z3', 'A', 0, 501);
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Z4', 'A', 5, 501);
+
+INSERT INTO list (LastName, FirstName, Grade, Classroom) VALUES ('Z5', 'A', 10, 502);
+```

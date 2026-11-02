@@ -1,0 +1,47 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, boundary values around 31, and duplicate NCESDist values (kills DISTINCT, >, <, >=, <=, !=, and wrong column projections).
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('10000000000001', '0600001', '00001', 'Active', 'Alameda', 'Dist1', '31', 'TypeA', '31', 'SOCType1', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('10000000000002', '0600001', '00002', 'Closed', 'Alameda', 'Dist1', '54', 'TypeB', '31', 'SOCType2', '2020-01-02');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('10000000000003', '0600002', '00003', 'Active', 'Butte', 'Dist2', '31', 'TypeA', '30', '31', '2020-01-03');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('10000000000004', '0600003', '00004', 'Active', 'Glenn', 'Dist3', '54', 'TypeB', '32', 'SOCType1', '2020-01-04');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('10000000000005', '0600004', '00005', 'Active', 'Kern', 'Dist4', '54', 'TypeB', NULL, 'SOCType1', '2020-01-05');
+```
+
+```sql
+-- DATASET 2
+-- Tests inner join mutations (by leaving frpm and satscores empty or only populating them for non-matching SOC rows) and NULL NCESDist handling (kills WHERE NCESDist IS NOT NULL or COUNT(NCESDist) vs COUNT(*)).
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('20000000000001', NULL, '10001', 'Active', 'Fresno', 'DistA', '10', 'DocA', '31', 'SocA', '2021-05-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('20000000000002', '0699999', '10002', 'Active', 'Fresno', 'DistB', '10', 'DocA', '31', 'SocA', '2021-05-02');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('20000000000003', '0688888', '10003', 'Active', 'Fresno', 'DistC', '10', 'DocA', '65', 'SocB', '2021-05-03');
+INSERT INTO frpm (CDSCode, "Academic Year", "District Code") VALUES ('20000000000003', '2014-2015', 31);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr) VALUES ('20000000000003', 'S', 100, 31);
+```
+
+```sql
+-- DATASET 3
+-- Tests SQLite type affinity and string-vs-integer comparison nuances (e.g., SOC = 31 vs SOC = '31' vs LIKE '%31%').
+-- In SQLite, since SOC has TEXT affinity, `SOC = 31` converts 31 to '31' and performs a text comparison.
+-- Therefore '031' or '31.0' or '310' will NOT match `SOC = 31`, killing mutants using CAST(SOC AS INTEGER) = 31 or SOC LIKE '%31%'.
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('30000000000001', 'Dist_Exact', '20001', 'Active', 'Marin', 'D1', '00', 'T1', '31', 'ST1', '2022-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('30000000000002', 'Dist_LeadingZero', '20002', 'Active', 'Marin', 'D2', '00', 'T1', '031', 'ST1', '2022-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('30000000000003', 'Dist_Substr', '20003', 'Active', 'Marin', 'D3', '00', 'T1', '131', 'ST1', '2022-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('30000000000004', 'Dist_Decimal', '20004', 'Active', 'Marin', 'D4', '00', 'T1', '31.0', 'ST1', '2022-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, SOCType, LastUpdate) VALUES ('30000000000005', 'Dist_Space', '20005', 'Active', 'Marin', 'D5', '00', 'T1', ' 31 ', 'ST1', '2022-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when no rows match SOC = 31, and checks against other columns having '31' (e.g., CharterNum, EdOpsCode, EILCode, GSoffered, Virtual, Magnet).
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, Charter, CharterNum, DOC, DOCType, SOC, SOCType, EdOpsCode, EILCode, GSoffered, Magnet, LastUpdate) VALUES ('40000000000001', '0611111', '31', 'Active', 'Napa', '31', '31', 1, '0031', '31', '31', '60', '31', '31', '31', '31', 31, '2023-01-01');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple distinct matching rows with varied ordering and LIMIT 1 / ORDER BY mutations.
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, LastUpdate) VALUES ('50000000000001', '9999999', '01', 'Active', 'Yolo', 'D_Z', '11', 'DT', '31', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, LastUpdate) VALUES ('50000000000002', '1111111', '02', 'Closed', 'Yolo', 'D_A', '11', 'DT', '31', '2020-01-01');
+INSERT INTO schools (CDSCode, NCESDist, NCESSchool, StatusType, County, District, DOC, DOCType, SOC, LastUpdate) VALUES ('50000000000003', '5555555', '03', 'Merged', 'Yolo', 'D_M', '11', 'DT', '31', '2020-01-01');
+INSERT INTO frpm (CDSCode, "Academic Year", "Charter School (Y/N)") VALUES ('50000000000001', '2014-2015', 1);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr) VALUES ('50000000000002', 'S', 50, 25);
+```

@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Core logic, filter boundary conditions, and cross-join / missing predicate traps.
+INSERT INTO sets (id, code, name, mcmName) VALUES (1, '8ED', 'Eighth Edition', 'Not Eighth Edition');
+INSERT INTO sets (id, code, name, mcmName) VALUES (2, '9ED', 'Ninth Edition', 'Eighth Edition');
+INSERT INTO sets (id, code, name, mcmName) VALUES (3, '10E', 'Tenth Edition', 'Tenth Edition');
+
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (10, '8ED', 'Chinese Simplified', 'Target Translation');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (20, '8ED', 'Chinese Traditional', 'Wrong Language');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (30, '9ED', 'Chinese Simplified', 'Wrong Set Name');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (40, '10E', 'French', 'Wrong Both');
+```
+
+```sql
+-- DATASET 2
+-- Tests JOIN key confusion (e.g., T1.id = T2.id, T1.parentCode = T2.setCode, T1.mtgoCode = T2.setCode).
+INSERT INTO sets (id, code, name, parentCode, mtgoCode, keyruneCode) VALUES (1, '8ED', 'Eighth Edition', '9ED', '9ED', '9ED');
+INSERT INTO sets (id, code, name, parentCode, mtgoCode, keyruneCode) VALUES (2, '9ED', 'Ninth Edition', '8ED', '8ED', '8ED');
+
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (1, '9ED', 'Chinese Simplified', 'Joined on ID or wrong code column');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (2, '8ED', 'Chinese Simplified', 'Correct Translation');
+```
+
+```sql
+-- DATASET 3
+-- Tests DISTINCT vs ALL (duplicate translation values) and multiple matches.
+INSERT INTO sets (id, code, name) VALUES (1, '8ED_A', 'Eighth Edition');
+INSERT INTO sets (id, code, name) VALUES (2, '8ED_B', 'Eighth Edition');
+
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (1, '8ED_A', 'Chinese Simplified', 'Duplicate Translation');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (2, '8ED_B', 'Chinese Simplified', 'Duplicate Translation');
+```
+
+```sql
+-- DATASET 4
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN and NULL handling when no translation matches.
+INSERT INTO sets (id, code, name) VALUES (1, '8ED', 'Eighth Edition');
+INSERT INTO sets (id, code, name) VALUES (2, '7ED', NULL);
+
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (1, '7ED', 'Chinese Simplified', 'Orphaned by NULL set name');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (2, NULL, 'Chinese Simplified', 'Orphaned by NULL setCode');
+```
+
+```sql
+-- DATASET 5
+-- Tests LIKE / Contains / Case-sensitivity mutations on string literals, plus NULL projection.
+INSERT INTO sets (id, code, name) VALUES (1, '8ED', 'Eighth Edition');
+INSERT INTO sets (id, code, name) VALUES (2, '8ED_LOW', 'eighth edition');
+INSERT INTO sets (id, code, name) VALUES (3, '8ED_PRE', 'The Eighth Edition');
+
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (1, '8ED', 'Chinese Simplified', NULL);
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (2, '8ED', 'chinese simplified', 'Lowercase Language');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (3, '8ED', 'Chinese Simplified Extra', 'Prefix Language');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (4, '8ED_LOW', 'Chinese Simplified', 'Lowercase Set Name');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (5, '8ED_PRE', 'Chinese Simplified', 'Prefix Set Name');
+```
+
+```sql
+-- DATASET 6
+-- Tests unnecessary joins with other tables (e.g., cards, foreign_data) that might filter out valid sets.
+-- Here, cards and foreign_data are intentionally left empty or populated only for a non-matching set.
+INSERT INTO sets (id, code, name) VALUES (1, '8ED', 'Eighth Edition');
+INSERT INTO sets (id, code, name) VALUES (2, 'OTHER', 'Other Edition');
+
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (1, '8ED', 'Chinese Simplified', 'Eighth Edition Simplified');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (2, 'OTHER', 'Chinese Simplified', 'Other Simplified');
+
+INSERT INTO cards (id, uuid, name, setCode) VALUES (1, 'uuid-1', 'Sample Card', 'OTHER');
+INSERT INTO foreign_data (id, uuid, language, name) VALUES (1, 'uuid-1', 'Chinese Simplified', 'Card Translation Trap');
+```

@@ -1,0 +1,78 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering, NULL labels, and Join/Cardinality anomalies (e.g., if a mutant query unnecessarily INNER JOINs with atom, bond, or connected without DISTINCT).
+-- m1: '+' with 0 atoms/bonds (tests missing row in INNER JOIN)
+-- m2: '+' with 3 atoms and 2 bonds (tests row multiplication in JOIN without DISTINCT)
+-- m3, m4: '-' and NULL labels with child rows (tests WHERE clause mutations like != '+', IS NULL, or missing WHERE)
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m4', NULL);
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm2', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm2', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', 'o');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm3', 'n');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a5', 'm4', 's');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm2', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm2', '2');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm3', '1');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a1', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a3', 'b2');
+```
+
+```sql
+-- DATASET 2
+-- Tests zero-match behavior and string boundary conditions (whitespace, substrings, repeating characters).
+-- Refutes mutants using LIKE '%+%', TRIM(), or failing to return 0 when no exact '+' exists.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '++');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', ' + ');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m4', '+-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m5', '');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m6', NULL);
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'c');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '1');
+```
+
+```sql
+-- DATASET 3
+-- Tests column confusion and value-swapping mutants (e.g., WHERE molecule_id = '+' or counting/filtering on element/bond_type = '+').
+-- Also tests when ALL valid labels in the table are '+' (to catch mutants that might filter out valid rows based on other columns).
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('+', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '+');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', '+', '+');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', 'h');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm3', '+');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', '+', '+');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm1', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b3', 'm2', '+');
+
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a1', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a2', 'b2');
+```
+
+```sql
+-- DATASET 4
+-- Tests GROUP BY / HAVING / DISTINCT mutations and orphan child rows (NULL foreign keys).
+-- If a mutant uses GROUP BY label without WHERE, or RIGHT/FULL JOIN from atom/bond, the counts will diverge.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m3', '-');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m4', '-');
+
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', NULL, 'c');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm2', 'h');
+
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', NULL, '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm2', '1');
+```

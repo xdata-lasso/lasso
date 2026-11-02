@@ -1,0 +1,67 @@
+-- Schema DDL
+CREATE TABLE "STUDENTS" (
+    "STUDENT_ID" INT,
+    "FIRST_NAME" TEXT,
+    "LAST_NAME" TEXT,
+    "ENROLLMENT_YEAR" INT,
+    "MAJOR" TEXT,
+    PRIMARY KEY ("STUDENT_ID")
+);
+CREATE TABLE "COURSES" (
+    "COURSE_ID" INT,
+    "COURSE_CODE" TEXT,
+    "COURSE_NAME" TEXT,
+    "CREDITS" INT,
+    "DEPARTMENT" TEXT,
+    PRIMARY KEY ("COURSE_ID")
+);
+CREATE TABLE "ENROLLMENTS" (
+    "ENROLLMENT_ID" INT,
+    "STUDENT_ID" INT,
+    "COURSE_ID" INT,
+    "SEMESTER" TEXT,
+    "GRADE" TEXT,
+    PRIMARY KEY ("ENROLLMENT_ID"),
+    FOREIGN KEY ("COURSE_ID") REFERENCES "COURSES"("COURSE_ID"),
+    FOREIGN KEY ("STUDENT_ID") REFERENCES "STUDENTS"("STUDENT_ID")
+);
+CREATE TABLE "PROFESSORS" (
+    "PROFESSOR_ID" INT,
+    "NAME" TEXT,
+    "DEPARTMENT" TEXT,
+    "HIRE_DATE" DATE,
+    "SALARY" FLOAT,
+    PRIMARY KEY ("PROFESSOR_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO STUDENTS VALUES (1, 0, 0, 0, 0);
+INSERT INTO STUDENTS VALUES (0, 0, 0, 0, 0);
+INSERT INTO COURSES VALUES (0, 11, 12, 0, 13);
+INSERT INTO COURSES VALUES (-1, 16, 17, 0, 18);
+INSERT INTO ENROLLMENTS VALUES (-1, 1, 0, 14, 15);
+INSERT INTO ENROLLMENTS VALUES (0, 1, 0, 19, 20);
+INSERT INTO PROFESSORS VALUES (0, 0, 0, '0001-01-01', 0);
+INSERT INTO PROFESSORS VALUES (1, 0, 0, '0001-01-01', 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT c.course_name, e.semester FROM Courses AS c LEFT JOIN Enrollments AS e ON c.course_id = e.course_id;
+
+/*
+Gold Result:
+('12', '14')
+('12', '19')
+('17', None)
+*/
+
+-- Prediction Query
+SELECT c.course_name, e.semester FROM Courses AS c INNER JOIN Enrollments AS e ON c.course_id = e.course_id;
+
+/*
+Prediction Result:
+('12', '14')
+('12', '19')
+*/

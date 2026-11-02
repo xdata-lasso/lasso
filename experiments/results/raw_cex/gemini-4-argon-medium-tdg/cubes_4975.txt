@@ -1,0 +1,106 @@
+```sql
+-- DATASET 1
+-- Tests basic join semantics vs standard FK join (Lots.lot_id = Transactions.transaction_id = Transactions_Lots.transaction_id)
+-- Also tests transaction_type_code filtering ('PUR' vs 'SAL')
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor A');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (2, 'Investor B');
+
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PUR', 'Purchase');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('SAL', 'Sale');
+
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (10, 1, 'Lot_10_Matched_By_Weird_Join');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (20, 2, 'Lot_20_Target_Of_TL');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (30, 1, 'Lot_30_Sale_Type');
+
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (10, 'PUR', 2, '2023-01-01 10:00:00', 100.50, '10', 'Trans 10');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (30, 'SAL', 1, '2023-01-02 10:00:00', 200.00, '20', 'Trans 30');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (40, 'PUR', 1, '2023-01-03 10:00:00', 300.00, '30', 'Trans 40 No Matching Lot ID');
+
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (10, 20);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (30, 30);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (40, 20);
+
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (10, 'Purchase 10');
+INSERT INTO "Sales" ("sales_transaction_id", "sales_details") VALUES (30, 'Sale 30');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate preservation (SELECT vs SELECT DISTINCT), ordering, and NULLS LAST behavior
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Investor 1');
+
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PUR', 'Purchase');
+
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (1, 1, 'Zebra_Lot');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (2, 1, 'Alpha_Lot');
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (3, 1, NULL);
+
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'PUR', 1, '2023-05-01', 50.0, '5', 'T1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'PUR', 1, '2023-05-02', 60.0, '6', 'T2');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (3, 'PUR', 1, '2023-05-03', 70.0, '7', 'T3');
+
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (1, 2);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (1, 3);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (2, 1);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (3, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT OUTER JOIN by omitting matching rows in each joined table
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (1, 'Inv 1');
+
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PUR', 'Purchase');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('OTHER', 'Other');
+
+-- Lot 100 has matching Transaction 100, but NO entry in Transactions_Lots
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (100, 1, 'Lot_100_No_TL');
+-- Lot 200 has NO matching Transaction 200
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (200, 1, 'Lot_200_No_Trans');
+-- Lot 300 has matching Transaction 300 and matching Transactions_Lots
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (300, 1, 'Lot_300_Complete');
+-- Lot 400 has matching Transaction 400 with NULL transaction_type_code
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (400, 1, 'Lot_400_Null_Type');
+
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (100, 'PUR', 1, '2023-01-01', 10.0, '1', 'D1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (300, 'PUR', 1, '2023-01-01', 30.0, '3', 'D3');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (400, NULL, 1, '2023-01-01', 40.0, '4', 'D4');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (500, 'PUR', 1, '2023-01-01', 50.0, '5', 'D5_No_Lot_500');
+
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (300, 300);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (400, 400);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (500, 200);
+```
+
+```sql
+-- DATASET 4
+-- Tests case sensitivity on 'PUR', accidental filtering on investor_id equality, and confusion between Purchases table and 'PUR' code
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (10, 'Inv 10');
+INSERT INTO "Investors" ("investor_id", "Investor_details") VALUES (20, 'Inv 20');
+
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PUR', 'Purchase Upper');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('pur', 'Purchase Lower');
+INSERT INTO "Ref_Transaction_Types" ("transaction_type_code", "transaction_type_description") VALUES ('PURCHASE', 'Purchase Full');
+
+-- Lot 1: Different investor_id than Transaction 1, 'PUR', NOT in Purchases table
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (1, 10, 'Lot_Diff_Investor_No_Purchases_Row');
+-- Lot 2: Same investor_id as Transaction 2, lowercase 'pur', IS in Purchases table
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (2, 10, 'Lot_Lower_pur');
+-- Lot 3: 'PURCHASE' code
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (3, 10, 'Lot_PURCHASE_prefix');
+-- Lot 4: Same investor_id, 'PUR', in Purchases table
+INSERT INTO "Lots" ("lot_id", "investor_id", "lot_details") VALUES (4, 20, 'Lot_Same_Investor_With_Purchases_Row');
+
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (1, 'PUR', 20, '2023-06-01', 100.0, '10', 'Other_1');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (2, 'pur', 10, '2023-06-02', 200.0, '20', 'Other_2');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (3, 'PURCHASE', 10, '2023-06-03', 300.0, '30', 'Other_3');
+INSERT INTO "Transactions" ("transaction_id", "transaction_type_code", "investor_id", "date_of_transaction", "amount_of_transaction", "share_count", "other_details") VALUES (4, 'PUR', 20, '2023-06-04', 400.0, '40', 'Other_4');
+
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (1, 1);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (2, 2);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (3, 3);
+INSERT INTO "Transactions_Lots" ("transaction_id", "lot_id") VALUES (4, 4);
+
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (2, 'Pur Details 2');
+INSERT INTO "Purchases" ("purchase_transaction_id", "purchase_details") VALUES (4, 'Pur Details 4');
+```

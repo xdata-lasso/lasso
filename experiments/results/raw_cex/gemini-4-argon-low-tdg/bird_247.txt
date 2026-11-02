@@ -1,0 +1,84 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Element level exclusion vs Atom level exclusion (C has one connected atom and one disconnected atom; C should be excluded).
+-- 2. Join condition on atom_id vs atom_id2 (O only appears in atom_id2 of connected; O should NOT be excluded).
+-- 3. Disconnected elements with multiple atoms (H appears twice, never in connected.atom_id; H should be returned once due to DISTINCT).
+-- 4. Referential integrity with molecule and bond tables.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '1');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'C');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'C');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', 'H');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm1', 'H');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a5', 'm1', 'O');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a5', 'b1');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Empty "connected" table (Subquery returns empty set; all non-null elements should be returned).
+-- 2. Atoms with NULL molecule_id.
+-- 3. Atoms with NULL element in outer query when subquery is empty.
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', NULL, 'N');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', NULL, 'S');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Three-valued logic (3VL) with NOT IN when the subquery returns a NULL element.
+-- Because 'a1' is in "connected" and has element NULL, the subquery returns ('C', NULL).
+-- In SQL, `x NOT IN ('C', NULL)` evaluates to UNKNOWN for all x, so the query must return 0 rows (differs from NOT EXISTS).
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', NULL, NULL);
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', NULL, 'C');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', NULL, 'H');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', NULL);
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a1', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. NULL element in outer table only (not in connected).
+-- Subquery returns ('Cl'). Outer query checks 'F' NOT IN ('Cl') -> TRUE, and NULL NOT IN ('Cl') -> UNKNOWN.
+-- Ensures NULL element is not returned by outer query when subquery has no NULLs.
+-- 2. Also tests molecule with no bonds, and connected with NULL bond_id.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '-');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'Cl');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'F');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm1', NULL);
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Cross-molecule element exclusion (Element 'P' is connected in molecule m1, but disconnected in molecule m2).
+-- Since the query does not correlate by molecule_id, 'P' must be excluded globally.
+-- 2. Molecule with bonds in the "bond" table, even if an atom of that molecule is not in "connected" (tests against erroneous joins with "bond").
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m2', '-');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '1');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b2', 'm2', '2');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'P');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'O');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a3', 'm2', 'P');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a4', 'm2', 'Br');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+```
+
+```sql
+-- DATASET 6
+-- Tests:
+-- 1. Case where ALL elements are connected (Query should return an empty result set).
+-- 2. Symmetric connections in "connected" table.
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('m1', '+');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('b1', 'm1', '1');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a1', 'm1', 'C');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('a2', 'm1', 'N');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a1', 'a2', 'b1');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('a2', 'a1', 'b1');
+```

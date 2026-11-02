@@ -1,0 +1,44 @@
+-- Schema DDL
+CREATE TABLE "cinema" ("seat_id" INTEGER PRIMARY KEY, "free" INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: cinema --
+INSERT INTO "cinema" ("seat_id", "free") VALUES (1, -55602865);
+
+INSERT INTO "cinema" ("seat_id", "free") VALUES (2, -59984348);
+
+INSERT INTO "cinema" ("seat_id", "free") VALUES (3, -664303813);
+
+INSERT INTO "cinema" ("seat_id", "free") VALUES (-2147483645, 1);
+
+INSERT INTO "cinema" ("seat_id", "free") VALUES (4, -1022641847);
+
+INSERT INTO "cinema" ("seat_id", "free") VALUES (5, -1726781632);
+
+INSERT INTO "cinema" ("seat_id", "free") VALUES (-2147483642, 1);
+
+INSERT INTO "cinema" ("seat_id", "free") VALUES (6, 247012447);
+
+INSERT INTO "cinema" ("seat_id", "free") VALUES (7, -1980249628);
+
+INSERT INTO "cinema" ("seat_id", "free") VALUES (-2147483639, 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT a.seat_id FROM cinema AS a JOIN cinema AS b ON ABS(a.seat_id - b.seat_id) = 1 AND a.free = TRUE AND b.free = TRUE ORDER BY a.seat_id;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH CTE AS (SELECT SEAT_ID, FREE, LAG(SEAT_ID) OVER (ORDER BY SEAT_ID) AS PREVIOUS_SEAT, LEAD(SEAT_ID) OVER (ORDER BY SEAT_ID) AS NEXT_SEAT FROM CINEMA), PREVIOUS_FREE AS (SELECT CTE.SEAT_ID, C1.FREE AS PREVIOUS_FREE_SEAT FROM CINEMA AS C1 INNER JOIN CTE ON C1.SEAT_ID = CTE.PREVIOUS_SEAT), NEXT_FREE AS (SELECT CTE.SEAT_ID, C1.FREE AS NEXT_FREE_SEAT FROM CINEMA AS C1 INNER JOIN CTE ON C1.SEAT_ID = CTE.NEXT_SEAT), FINAL_RESULT AS (SELECT CTE.SEAT_ID, CTE.FREE, CTE.NEXT_SEAT, N1.NEXT_FREE_SEAT, CTE.PREVIOUS_SEAT, P1.PREVIOUS_FREE_SEAT FROM CTE LEFT JOIN PREVIOUS_FREE AS P1 ON P1.SEAT_ID = CTE.SEAT_ID LEFT JOIN NEXT_FREE AS N1 ON N1.SEAT_ID = CTE.SEAT_ID) SELECT SEAT_ID FROM FINAL_RESULT WHERE FREE = 1 AND (NEXT_FREE_SEAT = 1 OR PREVIOUS_FREE_SEAT);
+
+/*
+Prediction Result:
+(-2147483645,)
+(-2147483642,)
+(-2147483639,)
+*/

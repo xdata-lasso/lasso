@@ -1,0 +1,57 @@
+-- Schema DDL
+CREATE TABLE "ARTIST" (
+    "ARTIST_ID" INT,
+    "ARTIST" TEXT,
+    "AGE" INT,
+    "FAMOUS_TITLE" TEXT,
+    "FAMOUS_RELEASE_DATE" TEXT,
+    PRIMARY KEY ("ARTIST_ID")
+);
+CREATE TABLE "VOLUME" (
+    "VOLUME_ID" INT,
+    "ARTIST_ID" INT,
+    "VOLUME_ISSUE" TEXT,
+    "ISSUE_DATE" TEXT,
+    "WEEKS_ON_TOP" FLOAT,
+    "SONG" TEXT,
+    PRIMARY KEY ("VOLUME_ID"),
+    FOREIGN KEY ("ARTIST_ID") REFERENCES "ARTIST"("ARTIST_ID")
+);
+CREATE TABLE "MUSIC_FESTIVAL" (
+    "ID" INT,
+    "VOLUME" INT,
+    "MUSIC_FESTIVAL" TEXT,
+    "DATE_OF_CEREMONY" TEXT,
+    "CATEGORY" TEXT,
+    "RESULT" TEXT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("VOLUME") REFERENCES "VOLUME"("VOLUME_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ARTIST VALUES (1, 0, 0, 0, 0);
+INSERT INTO ARTIST VALUES (0, 0, 0, 0, 0);
+INSERT INTO VOLUME VALUES (-1, 1, 0, 0, 0, 0);
+INSERT INTO VOLUME VALUES (0, 1, 0, 0, 0, 0);
+INSERT INTO MUSIC_FESTIVAL VALUES (1, 0, 18, 14, 0, 19);
+INSERT INTO MUSIC_FESTIVAL VALUES (0, -1, 11, 12, 0, 13);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT category, n AS count___ FROM (SELECT category, date_of_ceremony, COUNT(*) AS n FROM music_festival GROUP BY category, date_of_ceremony) ORDER BY category, count___ NULLS LAST;
+
+/*
+Gold Result:
+('0', 1)
+('0', 1)
+*/
+
+-- Prediction Query
+SELECT Category, COUNT(*) FROM music_festival GROUP BY Category;
+
+/*
+Prediction Result:
+('0', 2)
+*/

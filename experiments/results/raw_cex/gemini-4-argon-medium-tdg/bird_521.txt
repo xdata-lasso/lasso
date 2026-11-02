@@ -1,0 +1,92 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT keyword (duplicate 'Legal' status for matching records)
+-- 2. Single-condition violations (each filter condition tested independently by failing exactly one condition)
+-- 3. Type affinity for frameVersion ('1997' vs '2003' vs '1993')
+-- 4. Boolean check for hasContentWarning (1 vs 0)
+-- 5. String match for artist ('D. Alexander Gregory' vs others)
+-- 6. String match for format ('legacy' vs 'vintage', 'modern')
+
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (1, 'uuid-match-1', '1997', 1, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (2, 'uuid-match-2', '1997', 1, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (3, 'uuid-wrong-frame-1', '2003', 1, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (4, 'uuid-wrong-frame-2', '1993', 1, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (5, 'uuid-wrong-warning', '1997', 0, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (6, 'uuid-wrong-artist', '1997', 1, 'John Avon');
+
+INSERT INTO legalities (id, uuid, format, status) VALUES (1, 'uuid-match-1', 'legacy', 'Legal');
+INSERT INTO legalities (id, uuid, format, status) VALUES (2, 'uuid-match-2', 'legacy', 'Legal');
+INSERT INTO legalities (id, uuid, format, status) VALUES (3, 'uuid-match-1', 'vintage', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (4, 'uuid-wrong-frame-1', 'legacy', 'Banned');
+INSERT INTO legalities (id, uuid, format, status) VALUES (5, 'uuid-wrong-frame-2', 'legacy', 'Not Legal');
+INSERT INTO legalities (id, uuid, format, status) VALUES (6, 'uuid-wrong-warning', 'legacy', 'Commander');
+INSERT INTO legalities (id, uuid, format, status) VALUES (7, 'uuid-wrong-artist', 'legacy', 'Future');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Join condition integrity (T1.uuid = T2.uuid vs T1.id = T2.id or cross join)
+-- 2. Orphaned parent/child records (testing INNER JOIN vs LEFT/RIGHT JOIN)
+-- 3. NULL handling in filter columns and target output column
+
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (10, 'uuid-card-10', '1997', 1, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (20, 'uuid-card-20', '2015', 0, 'Other Artist');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (30, 'uuid-no-legality', '1997', 1, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (40, 'uuid-nulls', NULL, 1, NULL);
+
+-- Intentionally mismatched id (10) vs uuid ('uuid-card-20') to catch mutants joining on id = id
+INSERT INTO legalities (id, uuid, format, status) VALUES (10, 'uuid-card-20', 'legacy', 'WrongIdJoinStatus');
+INSERT INTO legalities (id, uuid, format, status) VALUES (20, 'uuid-card-10', 'legacy', 'Banned');
+INSERT INTO legalities (id, uuid, format, status) VALUES (30, 'uuid-nulls', NULL, 'NullFormatStatus');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple distinct valid statuses returned simultaneously
+-- 2. Case sensitivity and substring/LIKE mutations on artist and format ('legacy' vs 'Legacy', 'D. Alexander Gregory' vs prefix/suffix)
+-- 3. Numeric boundary mutations on frameVersion (1996, 1997, 1998) and hasContentWarning (0, 1, 2)
+
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (1, 'u1', '1997', 1, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (2, 'u2', '1997', 1, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (3, 'u3', '1996', 1, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (4, 'u4', '1998', 1, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (5, 'u5', '1997', 2, 'D. Alexander Gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (6, 'u6', '1997', 1, 'd. alexander gregory');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist) VALUES (7, 'u7', '1997', 1, 'D. Alexander');
+
+INSERT INTO legalities (id, uuid, format, status) VALUES (1, 'u1', 'legacy', 'Banned');
+INSERT INTO legalities (id, uuid, format, status) VALUES (2, 'u2', 'legacy', 'Restricted');
+INSERT INTO legalities (id, uuid, format, status) VALUES (3, 'u1', 'Legacy', 'CaseMutantStatus');
+INSERT INTO legalities (id, uuid, format, status) VALUES (4, 'u1', 'legacy_plus', 'SubstringMutantStatus');
+INSERT INTO legalities (id, uuid, format, status) VALUES (5, 'u3', 'legacy', 'Frame1996Status');
+INSERT INTO legalities (id, uuid, format, status) VALUES (6, 'u4', 'legacy', 'Frame1998Status');
+INSERT INTO legalities (id, uuid, format, status) VALUES (7, 'u5', 'legacy', 'Warning2Status');
+INSERT INTO legalities (id, uuid, format, status) VALUES (8, 'u6', 'legacy', 'ArtistCaseStatus');
+INSERT INTO legalities (id, uuid, format, status) VALUES (9, 'u7', 'legacy', 'ArtistPrefixStatus');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Empty result set when all conditions are partially met across different rows (kills OR replacements for AND)
+-- 2. Other tables populated to ensure no unintended cross-table interference
+
+INSERT INTO sets (id, code, name) VALUES (1, 'TMP', 'Tempest');
+INSERT INTO set_translations (id, language, setCode, translation) VALUES (1, 'French', 'TMP', 'Tempête');
+
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist, setCode) VALUES (1, 'c1', '1997', 1, 'Wrong Artist', 'TMP');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist, setCode) VALUES (2, 'c2', '1997', 0, 'D. Alexander Gregory', 'TMP');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist, setCode) VALUES (3, 'c3', '2015', 1, 'D. Alexander Gregory', 'TMP');
+INSERT INTO cards (id, uuid, frameVersion, hasContentWarning, artist, setCode) VALUES (4, 'c4', '1997', 1, 'D. Alexander Gregory', 'TMP');
+
+INSERT INTO legalities (id, uuid, format, status) VALUES (1, 'c1', 'legacy', 'Status1');
+INSERT INTO legalities (id, uuid, format, status) VALUES (2, 'c2', 'legacy', 'Status2');
+INSERT INTO legalities (id, uuid, format, status) VALUES (3, 'c3', 'legacy', 'Status3');
+INSERT INTO legalities (id, uuid, format, status) VALUES (4, 'c4', 'modern', 'Status4');
+
+INSERT INTO rulings (id, date, text, uuid) VALUES (1, '2020-01-01', 'Sample ruling', 'c4');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (1, 'German', 'Beispiel', 'c4');
+```

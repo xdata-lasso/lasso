@@ -1,0 +1,63 @@
+DELETE FROM RJ;
+DELETE FROM RI;
+DELETE FROM RH;
+DELETE FROM RG;
+DELETE FROM RF;
+DELETE FROM RE;
+DELETE FROM RD;
+DELETE FROM RC;
+DELETE FROM RB;
+DELETE FROM RA;
+
+-- Group 1: 5 rows in RA with B='1' (satisfies count(RA.B) > 3)
+INSERT INTO RA (A1, B) VALUES ('a1', '1');
+INSERT INTO RA (A1, B) VALUES ('a2', '1');
+INSERT INTO RA (A1, B) VALUES ('a3', '1');
+INSERT INTO RA (A1, B) VALUES ('a4', '1');
+INSERT INTO RA (A1, B) VALUES ('a5', '1');
+
+-- Group 2: 4 rows in RA with B='2' (satisfies count(RA.B) > 3)
+INSERT INTO RA (A1, B) VALUES ('b1', '2');
+INSERT INTO RA (A1, B) VALUES ('b2', '2');
+INSERT INTO RA (A1, B) VALUES ('b3', '2');
+INSERT INTO RA (A1, B) VALUES ('b4', '2');
+
+-- Group 3: 1 row in RA with B='3' (count(RA.B) = 1 <= 3, tests filter)
+INSERT INTO RA (A1, B) VALUES ('c1', '3');
+
+-- Tables RB to RJ
+INSERT INTO RB (A2, B) VALUES ('1', 'a1');
+INSERT INTO RB (A2, B) VALUES ('2', 'b1');
+INSERT INTO RB (A2, B) VALUES ('3', 'c1');
+
+INSERT INTO RC (A3, B) VALUES ('a1', '1');
+INSERT INTO RC (A3, B) VALUES ('b1', '2');
+INSERT INTO RC (A3, B) VALUES ('c1', '3');
+
+INSERT INTO RD (A4, B) VALUES ('1', 'a1');
+INSERT INTO RD (A4, B) VALUES ('2', 'b1');
+INSERT INTO RD (A4, B) VALUES ('3', 'c1');
+
+INSERT INTO RE (A5, B) VALUES ('a1', '1');
+INSERT INTO RE (A5, B) VALUES ('b1', '2');
+INSERT INTO RE (A5, B) VALUES ('c1', '3');
+
+INSERT INTO RF (A6, B) VALUES ('1', 'a1');
+INSERT INTO RF (A6, B) VALUES ('2', 'b1');
+INSERT INTO RF (A6, B) VALUES ('3', 'c1');
+
+INSERT INTO RG (A7, B) VALUES ('a1', '1');
+INSERT INTO RG (A7, B) VALUES ('b1', '2');
+INSERT INTO RG (A7, B) VALUES ('c1', '3');
+
+INSERT INTO RH (A8, B) VALUES ('1', 'a1');
+INSERT INTO RH (A8, B) VALUES ('2', 'b1');
+INSERT INTO RH (A8, B) VALUES ('3', 'c1');
+
+INSERT INTO RI (A9, B) VALUES ('a1', '1');
+INSERT INTO RI (A9, B) VALUES ('b1', '2');
+INSERT INTO RI (A9, B) VALUES ('c1', '3');
+
+INSERT INTO RJ (A10, B) VALUES ('1', 'a1');
+INSERT INTO RJ (A10, B) VALUES ('2', 'b1');
+INSERT INTO RJ (A10, B) VALUES ('3', 'c1');

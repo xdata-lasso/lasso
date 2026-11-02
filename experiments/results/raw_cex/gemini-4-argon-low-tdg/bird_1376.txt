@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests basic ratio calculation (T1.spent / T1.amount DESC) vs ordering by raw spent, raw amount, or remaining.
+-- Also tests T2.status = 'Closed' vs T1.event_status = 'Closed' or missing WHERE clause.
+INSERT INTO event (event_id, event_name, status) VALUES ('E1', 'Target_Event', 'Closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E2', 'High_Spent_Event', 'Closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E3', 'Open_Event_Higher_Ratio', 'Open');
+
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 90.0, 10.0, 100, 'Open', 'E1');
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 500.0, 500.0, 1000, 'Closed', 'E2');
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 99.0, 1.0, 100, 'Closed', 'E3');
+```
+
+```sql
+-- DATASET 2
+-- Tests aggregate vs individual row evaluation (SUM(spent)/SUM(amount) or MAX(spent)/MAX(amount) with GROUP BY).
+-- Event E2 has a single budget with ratio 0.85 (winner).
+-- Event E1 has two budgets: one with 0.80, and one with 0.90 on a tiny amount, or vice-versa, to break aggregate mutants.
+-- Specifically, E1 has B1 (spent 80, amount 100 -> 0.8) and B2 (spent 10, amount 10 -> 1.0? No, if E1 has 0.8 and 0.8, SUM is 0.8, MAX is 0.8).
+-- To make SUM(spent)/SUM(amount) pick E1 while individual row picks E2:
+-- E2: B3 (spent 90, amount 100 -> ratio 0.90) AND B4 (spent 0, amount 1000 -> ratio 0.0). Individual max for E2 is 0.90, but SUM ratio for E2 is 90/1100 = 0.081.
+-- E1: B1 (spent 80, amount 100 -> ratio 0.80). Individual max for E1 is 0.80, SUM ratio for E1 is 0.80.
+-- Gold query picks E2 (ratio 0.90). A mutant grouping by event and using SUM(spent)/SUM(amount) or AVG(spent/amount) will pick E1 (0.80 > 0.081 and 0.80 > 0.45).
+INSERT INTO event (event_id, event_name, status) VALUES ('E1', 'Consistent_Event', 'Closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E2', 'Peak_Budget_Event', 'Closed');
+
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 80.0, 20.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 90.0, 10.0, 100, 'Closed', 'E2');
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 0.0, 1000.0, 1000, 'Closed', 'E2');
+```
+
+```sql
+-- DATASET 3
+-- Tests MAX(spent)/MAX(amount) or MIN(spent)/MIN(amount) when grouped by event.
+-- E1 has B1 (spent 100, amount 200 -> 0.50) and B2 (spent 10, amount 15 -> 0.66). Max(spent)/Max(amount) for E1 = 100/200 = 0.5.
+-- What if E1 has B1 (spent 100, amount 1000 -> 0.10) and B2 (spent 1, amount 10 -> 0.10)?
+-- Wait: if E1 has B1 (spent 95, amount 1000 -> 0.095) and B2 (spent 10, amount 100 -> 0.10). MAX(spent)=95, MIN(amount)=100.
+-- What if someone writes SUM(spent) DESC? Covered in Dataset 1.
+-- Let's test tie-breaking on T1.budget_id ASC (NULLS LAST) when T1.spent / T1.amount is tied.
+INSERT INTO event (event_id, event_name, status) VALUES ('E1', 'Second_By_Budget_ID', 'Closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E2', 'First_By_Budget_ID', 'Closed');
+
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B_Z', 50.0, 50.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B_A', 100.0, 100.0, 200, 'Closed', 'E2');
+```
+
+```sql
+-- DATASET 4
+-- Tests floating point division vs integer division (In SQLite, T1.spent is REAL and T1.amount is INTEGER, so spent/amount is float division, whereas CAST(spent AS INT)/amount would be integer division).
+-- Also tests ASC vs DESC on the primary sort key when all ratios are < 1.0.
+INSERT INTO event (event_id, event_name, status) VALUES ('E1', 'High_Fraction_Event', 'Closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E2', 'Low_Fraction_Event', 'Closed');
+
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 85.5, 14.5, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 15.0, 85.0, 100, 'Closed', 'E2');
+```
+
+```sql
+-- DATASET 5
+-- Tests handling of NULL values in spent or amount, and INNER JOIN vs LEFT JOIN.
+-- In SQLite, NULL / amount is NULL, and in ORDER BY ... DESC, NULLs are considered the smallest possible values (so they sort last in DESC).
+-- If a mutant uses NULLS FIRST on DESC, or COALESCE, or if a LEFT JOIN on event/budget introduces NULLs, this dataset catches it.
+-- Also tests case-sensitivity of 'Closed' vs 'closed'.
+INSERT INTO event (event_id, event_name, status) VALUES ('E1', 'Null_Spent_Event', 'Closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E2', 'Valid_Ratio_Event', 'Closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E3', 'Lowercase_Closed_Event', 'closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E4', 'No_Budget_Event', 'Closed');
+
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', NULL, 100.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 20.0, 80.0, 100, 'Closed', 'E2');
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 99.0, 1.0, 100, 'Closed', 'E3');
+```
+
+```sql
+-- DATASET 6
+-- Tests division by T1.amount vs T1.remaining, and T1.spent / T1.amount vs (T1.amount - T1.remaining) / T1.amount when spent != amount - remaining.
+INSERT INTO event (event_id, event_name, status) VALUES ('E1', 'True_Spent_Ratio_Winner', 'Closed');
+INSERT INTO event (event_id, event_name, status) VALUES ('E2', 'Remaining_Ratio_Trap', 'Closed');
+
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 80.0, 50.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 60.0, 5.0, 100, 'Closed', 'E2');
+```

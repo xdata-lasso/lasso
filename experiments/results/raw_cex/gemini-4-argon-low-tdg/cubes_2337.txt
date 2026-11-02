@@ -1,0 +1,53 @@
+```sql
+-- DATASET 1
+-- Tests standard aggregation over multiple rows with duplicate Amount_Settled values, differing Amount_Claimed, differing Claims.Amount_Settled, and multiple Payments per Settlement (kills missing DISTINCT, SUM(DISTINCT), wrong column/table selection, and unintended JOINs).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Alice Smith');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (10, 1, 'AUTO', '2022-01-01', '2023-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (100, 10, '2022-05-01', '2022-05-15', 5000, 4500);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1001, 100, '2022-05-01', '2022-05-10', 2000, 100, 10);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1002, 100, '2022-05-02', '2022-05-12', 2000, 100, 10);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (1003, 100, '2022-05-03', '2022-05-15', 1000, 250, 10);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (5001, 1001, 'CARD', '2022-05-11', 50);
+INSERT INTO "Payments" ("Payment_ID", "Settlement_ID", "Payment_Method_Code", "Date_Payment_Made", "Amount_Payment") VALUES (5002, 1001, 'CARD', '2022-05-12', 50);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty Settlements table while parent tables are populated (distinguishes window function SUM OVER() returning 0 rows vs scalar aggregate SELECT SUM() returning 1 row with NULL).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Bob Jones');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (20, 1, 'HOME', '2021-01-01', '2022-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (200, 20, '2021-06-01', '2021-06-20', 3000, 2500);
+```
+
+```sql
+-- DATASET 3
+-- Tests Settlements with NULL in Amount_Settled, NULL in foreign keys (Claim_ID), and no child rows in Payments (kills INNER JOIN mutants and COALESCE/NULL-filtering errors).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Charlie Brown');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (30, 1, 'LIFE', '2020-01-01', '2030-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (300, 30, '2022-01-10', '2022-02-10', 1000, 800);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (3001, NULL, '2022-01-15', '2022-01-20', 500, 300, NULL);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (3002, 300, '2022-01-10', '2022-02-10', 500, NULL, 30);
+```
+
+```sql
+-- DATASET 4
+-- Tests Settlements where all Amount_Settled values are NULL (ensures query returns a single row with NULL rather than 0 or empty set).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Dana White');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (40, 1, 'HEALTH', '2022-03-01', '2023-03-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (400, 40, '2022-04-01', '2022-04-05', 1500, 1500);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (4001, 400, '2022-04-01', NULL, 700, NULL, 40);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (4002, 400, '2022-04-02', NULL, 800, NULL, 40);
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple Claims and Policies with zero and negative values, and non-matching Customer_Policy_ID vs Claims.Policy_ID (kills PARTITION BY mutants and improper join conditions).
+INSERT INTO "Customers" ("Customer_ID", "Customer_Details") VALUES (1, 'Eve Black');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (50, 1, 'AUTO', '2021-01-01', '2022-01-01');
+INSERT INTO "Customer_Policies" ("Policy_ID", "Customer_ID", "Policy_Type_Code", "Start_Date", "End_Date") VALUES (51, 1, 'HOME', '2021-01-01', '2022-01-01');
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (500, 50, '2021-05-01', '2021-05-10', 1000, 900);
+INSERT INTO "Claims" ("Claim_ID", "Policy_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled") VALUES (501, 51, '2021-06-01', '2021-06-10', 2000, 1800);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (5001, 500, '2021-05-01', '2021-05-10', 1000, 0, 50);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (5002, 500, '2021-05-02', '2021-05-10', 500, -50, 999);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Date_Claim_Made", "Date_Claim_Settled", "Amount_Claimed", "Amount_Settled", "Customer_Policy_ID") VALUES (5003, 501, '2021-06-01', '2021-06-10', 2000, 425, 51);
+```

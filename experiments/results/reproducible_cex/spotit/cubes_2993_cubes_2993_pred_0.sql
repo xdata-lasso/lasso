@@ -1,0 +1,69 @@
+-- Schema DDL
+CREATE TABLE "STUDENT" (
+    "STUID" INT,
+    "LNAME" TEXT,
+    "FNAME" TEXT,
+    "AGE" INT,
+    "SEX" TEXT,
+    "MAJOR" INT,
+    "ADVISOR" INT,
+    "CITY_CODE" TEXT,
+    PRIMARY KEY ("STUID")
+);
+CREATE TABLE "DORM" (
+    "DORMID" INT,
+    "DORM_NAME" TEXT,
+    "STUDENT_CAPACITY" INT,
+    "GENDER" TEXT,
+    UNIQUE ("DORMID")
+);
+CREATE TABLE "DORM_AMENITY" (
+    "AMENID" INT,
+    "AMENITY_NAME" TEXT,
+    UNIQUE ("AMENID")
+);
+CREATE TABLE "HAS_AMENITY" (
+    "AMENID" INT,
+    "DORMID" INT,
+    FOREIGN KEY ("AMENID") REFERENCES "DORM_AMENITY"("AMENID"),
+    FOREIGN KEY ("DORMID") REFERENCES "DORM"("DORMID")
+);
+CREATE TABLE "LIVES_IN" (
+    "DORMID" INT,
+    "STUID" INT,
+    "ROOM_NUMBER" INT,
+    FOREIGN KEY ("DORMID") REFERENCES "DORM"("DORMID"),
+    FOREIGN KEY ("STUID") REFERENCES "STUDENT"("STUID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO STUDENT VALUES (-1, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO STUDENT VALUES (0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO DORM VALUES (0, 0, 300, 14);
+INSERT INTO DORM VALUES (1, -1, 301, 15);
+INSERT INTO DORM_AMENITY VALUES (0, 0);
+INSERT INTO DORM_AMENITY VALUES (1, 0);
+INSERT INTO HAS_AMENITY VALUES (1, 1);
+INSERT INTO HAS_AMENITY VALUES (0, 1);
+INSERT INTO LIVES_IN VALUES (0, 0, 0);
+INSERT INTO LIVES_IN VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT dorm_name, gender FROM dorm WHERE (student_capacity >= 300 OR student_capacity < 100) ORDER BY dorm_name, dorm.dormid NULLS LAST;
+
+/*
+Gold Result:
+('-1', '15')
+('0', '14')
+*/
+
+-- Prediction Query
+SELECT dorm_name, gender FROM dorm WHERE student_capacity > 300 OR student_capacity < 100;
+
+/*
+Prediction Result:
+('-1', '15')
+*/

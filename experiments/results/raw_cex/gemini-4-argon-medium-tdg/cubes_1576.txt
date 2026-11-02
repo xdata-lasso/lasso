@@ -1,0 +1,110 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(DISTINCT employee_id) vs COUNT(employee_id) within a single (document_id, draft_number) across multiple copy_numbers,
+-- and tests Documents/Drafts/Copies that have no entries in Circulation_History (catching INNER JOIN vs LEFT JOIN mutants).
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('R1', 'Role 1');
+
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (101, 'R1', 'Alice', 'D1');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (102, 'R1', 'Bob', 'D2');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (103, 'R1', 'Charlie', 'D3');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (1, 'A1', 'S1', 'T1', '2023-01-01', 'R100', 'Doc 1');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (2, 'A1', 'S1', 'T1', '2023-01-02', 'R101', 'Doc 2');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (3, 'A1', 'S1', 'T1', '2023-01-03', 'R102', 'Doc 3 Uncirculated');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (1, 10, 'Draft 10');
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (2, 20, 'Draft 20');
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (3, 30, 'Draft 30');
+
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (1, 10, 1);
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (2, 20, 2);
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (3, 30, 3);
+
+-- Document 1, Draft 10 circulated across copy 1 and copy 2 to employee 101 twice, and employee 102 once.
+-- COUNT(DISTINCT employee_id) = 2, whereas COUNT(*) or COUNT(employee_id) = 3.
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (1, 10, 1, 101);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (1, 10, 2, 101);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (1, 10, 1, 102);
+
+-- Document 2, Draft 20 circulated to 3 distinct employees.
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (2, 20, 2, 101);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (2, 20, 2, 102);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (2, 20, 2, 103);
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY (document_id, draft_number) vs GROUP BY document_id alone,
+-- tests SELECT DISTINCT vs SELECT ALL when multiple drafts of the same document have the same or different counts,
+-- and tests ORDER BY document_id, count_distinct_employee_id_ sorting order.
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('R1', 'Role 1');
+
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (1, 'R1', 'Emp 1', 'D1');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (2, 'R1', 'Emp 2', 'D2');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (3, 'R1', 'Emp 3', 'D3');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (10, 'A1', 'S1', 'T1', '2023-01-01', 'R1', 'Doc 10');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (20, 'A1', 'S1', 'T1', '2023-01-02', 'R2', 'Doc 20');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (30, 'A1', 'S1', 'T1', '2023-01-03', 'R3', 'Doc 30');
+
+-- Each row in Document_Drafts and Draft_Copies has unique columns to satisfy UNIQUE constraints while providing valid FK targets for Circulation_History
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (10, 1, 'D1');
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (20, 2, 'D2');
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (30, 3, 'D3');
+
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (10, 1, 100);
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (20, 2, 200);
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (30, 3, 300);
+
+-- Document 10 has three drafts in Circulation_History:
+-- Draft 1 has 3 distinct employees ( inserted first to test secondary sort on count_distinct_employee_id_ )
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (10, 1, 100, 1);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (10, 1, 100, 2);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (10, 1, 100, 3);
+
+-- Draft 2 of Document 10 has 1 distinct employee
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (10, 2, 200, 1);
+
+-- Draft 3 of Document 10 also has 1 distinct employee (tests duplicate output rows (10, 1) and (10, 1) vs SELECT DISTINCT)
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (10, 3, 300, 2);
+
+-- Document 20 has 2 distinct employees
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (20, 2, 200, 1);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (20, 2, 200, 2);
+```
+
+```sql
+-- DATASET 3
+-- Tests grouping by (document_id, draft_number) vs grouping by draft_number alone (two different documents sharing the same draft_number in Circulation_History),
+-- and tests NULL values in Circulation_History (employee_id NULL, document_id NULL) to verify NULLS LAST and COUNT(DISTINCT employee_id) ignoring NULLs.
+INSERT INTO "Ref_Document_Types" ("document_type_code", "document_type_description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Document_Status" ("document_status_code", "document_status_description") VALUES ('S1', 'Status 1');
+INSERT INTO "Ref_Shipping_Agents" ("shipping_agent_code", "shipping_agent_name", "shipping_agent_description") VALUES ('A1', 'Agent 1', 'Desc 1');
+INSERT INTO "Roles" ("role_code", "role_description") VALUES ('R1', 'Role 1');
+
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (50, 'R1', 'Emp 50', 'D1');
+INSERT INTO "Employees" ("employee_id", "role_code", "employee_name", "other_details") VALUES (60, 'R1', 'Emp 60', 'D2');
+
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (5, 'A1', 'S1', 'T1', '2023-05-01', 'R5', 'Doc 5');
+INSERT INTO "Documents" ("document_id", "shipping_agent_code", "document_status_code", "document_type_code", "receipt_date", "receipt_number", "other_details") VALUES (1, 'A1', 'S1', 'T1', '2023-05-02', 'R1', 'Doc 1');
+
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (5, 1, 'Draft 1');
+INSERT INTO "Document_Drafts" ("document_id", "draft_number", "draft_details") VALUES (1, 2, 'Draft 2');
+
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (5, 1, 10);
+INSERT INTO "Draft_Copies" ("document_id", "draft_number", "copy_number") VALUES (1, 2, 20);
+
+-- Both Document 5 and Document 1 use draft_number = 1 in Circulation_History (tests GROUP BY draft_number alone mutant)
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (5, 1, 10, 50);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (1, 1, 10, 50);
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (1, 1, 10, 60);
+
+-- Document 5, Draft 2 has a NULL employee_id (in SQLite, PK columns other than INTEGER PRIMARY KEY allow NULL; COUNT(DISTINCT employee_id) should be 0, while COUNT(*) is 1)
+INSERT INTO "Circulation_History" ("document_id", "draft_number", "copy_number", "employee_id") VALUES (5, 2, 20, NULL);
+```

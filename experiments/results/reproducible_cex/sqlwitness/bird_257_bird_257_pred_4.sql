@@ -1,0 +1,36 @@
+-- Schema DDL
+CREATE TABLE "atom" ("atom_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "element" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "bond" ("bond_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "bond_type" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "connected" ("atom_id" TEXT NOT NULL, "atom_id2" TEXT NOT NULL, "bond_id" TEXT DEFAULT NULL, PRIMARY KEY ("atom_id", "atom_id2"), FOREIGN KEY ("atom_id") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("atom_id2") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("bond_id") REFERENCES "bond" ("bond_id") ON DELETE CASCADE ON UPDATE CASCADE);
+
+CREATE TABLE "molecule" ("molecule_id" TEXT NOT NULL PRIMARY KEY, "label" TEXT DEFAULT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO molecule (molecule_id, label) VALUES ('default1', NULL), ('default2', NULL), ('s', 's'), ('unique_3', 'default1'), ('unique_4', NULL), ('unique_5', 'default1'), ('unique_6', 's'), ('unique_7', 'default2'), ('unique_8', 's'), ('unique_9', 's'), ('unique_10', 's'), ('unique_11', 'default1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('s', 's', 'default1'), ('default1', NULL, 'default2'), ('default2', 'unique_10', 'default2'), ('unique_3', 'unique_4', NULL), ('unique_4', 'unique_9', 's'), ('unique_5', 's', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('s', 'unique_9', 'default1'), ('default1', 'unique_7', 's'), ('default2', 'unique_6', 's'), ('unique_3', 'unique_8', 'default1'), ('unique_4', 'default2', 'default1'), ('unique_5', NULL, 'default2'), ('unique_6', 'unique_8', 'default1'), ('unique_7', 'unique_3', 's'), ('unique_8', 'unique_9', 'default2'), ('unique_9', 's', 's'), ('unique_10', 'unique_7', 'default1'), ('unique_11', 'unique_7', 's'), ('unique_12', 'unique_11', 's'), ('unique_13', 'default1', NULL), ('unique_14', 'unique_4', 'default2'), ('unique_15', 'default2', 's'), ('unique_16', 'unique_10', 's'), ('unique_17', 'unique_11', NULL);
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('unique_17', 's', 'unique_3'), ('unique_13', 'unique_17', 'unique_4'), ('s', 'default2', 'default2'), ('unique_7', 'unique_6', 'default1'), ('unique_3', 'unique_7', 'default2'), ('unique_12', 'unique_6', 'unique_3'), ('unique_13', 'unique_14', NULL), ('unique_16', 'default1', 's');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT T2.atom_id2 FROM atom AS T1 INNER JOIN connected AS T2 ON T1.atom_id = T2.atom_id WHERE T1.element = 's';
+
+/*
+Gold Result:
+('unique_6',)
+('default1',)
+*/
+
+-- Prediction Query
+SELECT T1.atom_id2 FROM connected AS T1 INNER JOIN atom AS T2 ON T1.atom_id = T2.atom_id WHERE T2.element = 's';
+
+/*
+Prediction Result:
+('unique_6',)
+('unique_6',)
+('default1',)
+*/

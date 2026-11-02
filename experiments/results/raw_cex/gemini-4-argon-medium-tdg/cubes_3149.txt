@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests: Multiple customers named 'Dayana Robel' (kills DISTINCT vs non-DISTINCT on window function, kills COUNT(DISTINCT customer_name) vs COUNT(*)), customers without policies (kills RIGHT/LEFT JOIN mutations), and policies for other customers (kills missing WHERE filter).
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (1, 'Dayana Robel');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (2, 'Dayana Robel');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (3, 'Dayana Robel');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (4, 'John Doe');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (101, 'LIFE', '555-0101');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (102, 'AUTO', '555-0102');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (103, 'HOME', '555-0103');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (104, 'RENT', '555-0104');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (1, 101, '2020-01-01', '2021-01-01');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (2, 102, '2020-02-01', NULL);
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (4, 103, '2020-03-01', '2022-03-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests: Zero matching rows after WHERE filter (kills plain aggregate COUNT(*) vs window function COUNT(*) OVER (), as plain COUNT(*) returns 0 while window function returns empty set).
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (1, 'Dayana Robel');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (2, 'Alice Smith');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (101, 'AUTO', '555-0101');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (2, 101, '2021-05-10', '2022-05-10');
+```
+
+```sql
+-- DATASET 3
+-- Tests: Join condition mutations (e.g., ON LHS.policy_id = RHS.customer_id or LHS.customer_id != RHS.customer_id) and NULL values in date columns (kills COUNT(date_opened) or COUNT(date_closed) mutations).
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (10, 'Dayana Robel');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (20, 'Bob Jones');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (10, 'LIFE', '555-1010');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (20, 'HOME', '555-2020');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (10, 20, NULL, NULL);
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (20, 10, '2019-01-01', '2020-01-01');
+```
+
+```sql
+-- DATASET 4
+-- Tests: String matching edge cases (case sensitivity, substring/LIKE mutations, leading/trailing spaces) and extra rows in downstream tables (FNOL, Claims, Settlements) to kill unnecessary joins.
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (1, 'Dayana Robel');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (2, 'dayana robel');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (3, 'Dayana Robel Jr.');
+INSERT INTO "Services" ("Service_ID", "Service_name") VALUES (1, 'Towing');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (1, 'AUTO', '555-0001');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (2, 'AUTO', '555-0002');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (3, 'AUTO', '555-0003');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (1, 1, '2021-01-01', '2021-12-31');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (2, 2, '2021-01-01', '2021-12-31');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (3, 3, '2021-01-01', '2021-12-31');
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (10, 1, 1, 1);
+INSERT INTO "First_Notification_of_Loss" ("FNOL_ID", "Customer_ID", "Policy_ID", "Service_ID") VALUES (11, 1, 1, 1);
+INSERT INTO "Claims" ("Claim_ID", "FNOL_ID", "Effective_Date") VALUES (100, 10, '2021-06-01');
+INSERT INTO "Claims" ("Claim_ID", "FNOL_ID", "Effective_Date") VALUES (101, 10, '2021-06-02');
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Effective_Date", "Settlement_Amount") VALUES (1000, 100, '2021-07-01', 500.0);
+INSERT INTO "Settlements" ("Settlement_ID", "Claim_ID", "Effective_Date", "Settlement_Amount") VALUES (1001, 100, '2021-07-02', 1500.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests: Identical Date_Opened and Date_Closed across multiple 'Dayana Robel' policies (kills COUNT(DISTINCT date_opened) or COUNT(DISTINCT date_closed) mutations).
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (1, 'Dayana Robel');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (2, 'Dayana Robel');
+INSERT INTO "Customers" ("Customer_ID", "Customer_name") VALUES (3, 'Dayana Robel');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (10, 'LIFE', '555-1111');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (20, 'LIFE', '555-1111');
+INSERT INTO "Available_Policies" ("Policy_ID", "policy_type_code", "Customer_Phone") VALUES (30, 'LIFE', '555-1111');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (1, 10, '2022-01-01', '2023-01-01');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (2, 20, '2022-01-01', '2023-01-01');
+INSERT INTO "Customers_Policies" ("Customer_ID", "Policy_ID", "Date_Opened", "Date_Closed") VALUES (3, 30, '2022-01-01', '2023-01-01');
+```

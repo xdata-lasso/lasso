@@ -1,0 +1,123 @@
+```sql
+-- DATASET 1
+-- Core logic, floating-point division (1/3 = 33.3333...), COUNT(DISTINCT raceId) vs COUNT(raceId), and boundary year filtering (2006, 2007, 2008, 2009, 2010) + nationality filtering.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished'), (2, 'Collision');
+
+INSERT INTO seasons (year, url) VALUES (2006, 'http://s2006'), (2007, 'http://s2007'), (2008, 'http://s2008'), (2009, 'http://s2009'), (2010, 'http://s2010');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES 
+(1, 'd1', 'Takuma', 'Sato', 'Japanese', 'http://d1'),
+(2, 'd2', 'Kazuki', 'Nakajima', 'Japanese', 'http://d2'),
+(3, 'd3', 'Lewis', 'Hamilton', 'British', 'http://d3');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES 
+(1, 2006, 1, 1, 'R2006', '2006-05-01', 'http://r1'),
+(2, 2007, 1, 1, 'R2007', '2007-05-01', 'http://r2'),
+(3, 2008, 1, 1, 'R2008', '2008-05-01', 'http://r3'),
+(4, 2009, 1, 1, 'R2009', '2009-05-01', 'http://r4'),
+(5, 2010, 1, 1, 'R2010', '2010-05-01', 'http://r5');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES 
+-- Valid rows (Japanese, 2007-2009): 3 rows total, 1 with non-null time, 2 sharing same raceId (2)
+(1, 2, 1, 1, 1, '1', 1, 10, 50, '1:30:00.000', 1),
+(2, 2, 2, 1, 2, 'R', 2, 0, 20, NULL, 2),
+(3, 4, 1, 1, 3, 'R', 3, 0, 10, NULL, 2),
+-- Out of bounds years (2006, 2010) for Japanese driver (both have non-null time to skew results if included)
+(4, 1, 1, 1, 1, '1', 1, 10, 50, '1:25:00.000', 1),
+(5, 5, 1, 1, 1, '1', 1, 10, 50, '1:28:00.000', 1),
+-- Non-Japanese driver in valid year 2008 (has non-null time to skew results if included)
+(6, 3, 3, 1, 1, '1', 1, 10, 50, '1:32:00.000', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests table column disambiguation (T1.time vs T2.time) and year 2007 lower boundary exclusion vs inclusion.
+-- Here T1.time is NULL while T2.time is NOT NULL, and vice versa.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO seasons (year, url) VALUES (2007, 'http://s2007'), (2008, 'http://s2008');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES 
+(1, 'd1', 'Kamui', 'Kobayashi', 'Japanese', 'http://d1');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES 
+(1, 2007, 1, 1, 'R2007_1', '2007-03-01', NULL, 'http://r1'),
+(2, 2007, 2, 1, 'R2007_2', '2007-04-01', NULL, 'http://r2'),
+(3, 2008, 1, 1, 'R2008_1', '2008-03-01', '14:00:00', 'http://r3');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES 
+(1, 1, 1, 1, 1, '1', 1, 10, 50, '1:30:00', 1),
+(2, 2, 1, 1, 2, '2', 2, 8, 50, '1:31:00', 1),
+(3, 3, 1, 1, 3, 'R', 3, 0, 15, NULL, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests year 2009 upper boundary (e.g., year < 2009 vs year <= 2009), empty string '' vs NULL in T1.time, and 0% vs >0% edge cases.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO seasons (year, url) VALUES (2008, 'http://s2008'), (2009, 'http://s2009');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES 
+(1, 'd1', 'Sakon', 'Yamamoto', 'Japanese', 'http://d1');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES 
+(1, 2008, 1, 1, 'R2008', '2008-05-01', 'http://r1'),
+(2, 2009, 1, 1, 'R2009', '2009-05-01', 'http://r2');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES 
+(1, 1, 1, 1, 1, 'R', 1, 0, 10, NULL, 1),
+(2, 2, 1, 1, 2, '1', 1, 10, 50, '1:40:00', 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests OUTER JOIN mutants (unmatched races in 2007-2009 and unmatched Japanese drivers without results) and other nullable result columns (milliseconds, fastestLapTime, position).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO seasons (year, url) VALUES (2008, 'http://s2008');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES 
+(1, 'd1', 'Takuma', 'Sato', 'Japanese', 'http://d1'),
+(2, 'd2', 'Unmatched', 'Driver', 'Japanese', 'http://d2');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES 
+(1, 2008, 1, 1, 'R1', '2008-05-01', '14:00:00', 'http://r1'),
+(2, 2008, 2, 1, 'R2_Unmatched', '2008-06-01', '14:00:00', 'http://r2');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLapTime, statusId) VALUES 
+-- Row 1: time is NOT NULL, but milliseconds, position, fastestLapTime are NULL
+(1, 1, 1, 1, 1, NULL, '1', 1, 10, 50, '1:30:00', NULL, NULL, 1),
+-- Row 2: time is NULL, but milliseconds, position, fastestLapTime are NOT NULL
+(2, 1, 1, 1, 2, 2, '2', 2, 8, 50, NULL, 5400000, '1:25.000', 1),
+-- Row 3: time is NOT NULL
+(3, 1, 1, 1, 3, 3, '3', 3, 6, 50, '1:31:00', 5460000, '1:26.000', 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests all NULL T1.time values (0.0 result) vs NULL result if WHERE filters everything or if COUNT(T1.time) is used as denominator (division by zero -> NULL).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1');
+INSERT INTO status (statusId, status) VALUES (1, 'DNF');
+
+INSERT INTO seasons (year, url) VALUES (2007, 'http://s2007');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES 
+(1, 'd1', 'Takuma', 'Sato', 'Japanese', 'http://d1');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES 
+(1, 2007, 1, 1, 'R1', '2007-05-01', 'http://r1');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, statusId) VALUES 
+(1, 1, 1, 1, 1, 'R', 1, 0, 5, NULL, 1),
+(2, 1, 1, 1, 2, 'R', 2, 0, 12, NULL, 1);
+```

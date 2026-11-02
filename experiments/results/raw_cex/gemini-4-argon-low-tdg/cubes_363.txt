@@ -1,0 +1,58 @@
+```sql
+-- DATASET 1
+-- Tests standard filtering with multiple matches for both 'CD' and 'DVD', 
+-- kills mutants missing DISTINCT, omitting one of the OR branches, 
+-- using COUNT(DISTINCT Major_Record_Format), or doing unnecessary inner joins with conductor/performance.
+INSERT INTO "conductor" ("Conductor_ID", "Name", "Age", "Nationality", "Year_of_Work") VALUES (1, 'John Williams', 88, 'USA', 60);
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (1, 1, 'London Symphony', 'Sony', 1904.0, 'CD');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (2, NULL, 'Boston Pops', 'BMG', 1885.0, 'CD');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (3, 1, 'Vienna Philharmonic', 'DG', 1842.0, 'DVD');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (4, 1, 'Berlin Philharmonic', 'EMI', 1882.0, 'Vinyl');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (5, 1, 'Chicago Symphony', NULL, NULL, NULL);
+INSERT INTO "performance" ("Performance_ID", "Orchestra_ID", "Type", "Date", "Official_ratings_(millions)", "Weekly_rank", "Share") VALUES (1, 1, 'Live', '2020-01-01', 5.5, '1', '10%');
+INSERT INTO "performance" ("Performance_ID", "Orchestra_ID", "Type", "Date", "Official_ratings_(millions)", "Weekly_rank", "Share") VALUES (2, 1, 'Concert', '2020-01-02', 6.0, '2', '12%');
+INSERT INTO "show" ("Performance_ID", "Show_ID", "If_first_show", "Result", "Attendance") VALUES (1, 1, 1, 'Success', 1000.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set (0 matching rows).
+-- Crucial for distinguishing the window function `COUNT(*) OVER ()` (which returns 0 rows when WHERE matches nothing) 
+-- from standard aggregate `COUNT(*)` without GROUP BY (which returns 1 row with value 0).
+INSERT INTO "conductor" ("Conductor_ID", "Name", "Age", "Nationality", "Year_of_Work") VALUES (1, 'Hans Zimmer', 63, 'Germany', 40);
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (1, 1, 'Hollywood Studio Symphony', 'Varèse Sarabande', 2001.0, 'Vinyl');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (2, 1, 'Metro Voices', 'Decca', 1995.0, 'Cassette');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (3, NULL, 'Remote Control Orchestra', 'Sony', 2005.0, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary conditions, case sensitivity ('cd', 'dvd'), substring matching ('CD/DVD', 'Super CD'),
+-- and only 'CD' matching (0 'DVD' rows) to kill mutants that require both formats to exist or use LIKE/ILIKE.
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (1, NULL, 'Orchestra A', 'Label A', 1990.0, 'CD');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (2, NULL, 'Orchestra B', 'Label B', 1991.0, 'cd');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (3, NULL, 'Orchestra C', 'Label C', 1992.0, 'dvd');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (4, NULL, 'Orchestra D', 'Label D', 1993.0, 'CD/DVD');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (5, NULL, 'Orchestra E', 'Label E', 1994.0, 'Super CD');
+```
+
+```sql
+-- DATASET 4
+-- Tests when only 'DVD' matches and 'CD' has 0 rows, 
+-- plus NULL values in other columns to kill `COUNT(column)` vs `COUNT(*)` mutants.
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (1, NULL, NULL, NULL, NULL, 'DVD');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (2, NULL, 'Philharmonia', NULL, 1945.0, 'DVD');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (3, NULL, 'Royal Philharmonic', 'Decca', 1946.0, 'Digital');
+```
+
+```sql
+-- DATASET 5
+-- Tests window function partitioning/ordering mutations (e.g., `COUNT(*) OVER (ORDER BY ...)` or `PARTITION BY ...`)
+-- where multiple rows have varying attributes across all columns.
+INSERT INTO "conductor" ("Conductor_ID", "Name", "Age", "Nationality", "Year_of_Work") VALUES (1, 'Conductor 1', 50, 'UK', 20);
+INSERT INTO "conductor" ("Conductor_ID", "Name", "Age", "Nationality", "Year_of_Work") VALUES (2, 'Conductor 2', 60, 'US', 30);
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (10, 1, 'Orch 1', 'Comp 1', 1900.0, 'CD');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (20, 2, 'Orch 2', 'Comp 2', 1950.0, 'DVD');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (30, 1, 'Orch 3', 'Comp 1', 2000.0, 'DVD');
+INSERT INTO "orchestra" ("Orchestra_ID", "Conductor_ID", "Orchestra", "Record_Company", "Year_of_Founded", "Major_Record_Format") VALUES (40, 2, 'Orch 4', 'Comp 3', 1980.0, 'CD');
+```

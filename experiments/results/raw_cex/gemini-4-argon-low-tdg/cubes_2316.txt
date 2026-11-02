@@ -1,0 +1,86 @@
+```sql
+-- DATASET 1
+-- Tests GROUP BY attributes (project_id AND document_description), boundary conditions on n >= 2 (n=0, n=1, n=2, n=3), and duplicate output rows when a single project has multiple document_descriptions with >= 2 documents.
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (1, 'Project Zero Docs');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (2, 'Project Diff Descs');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (3, 'Project Boundary Two');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (4, 'Project Multi Groups');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (5, 'Project Shared Desc');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (6, 'Project Shared Desc Two');
+
+-- Project 2: 2 documents, but different descriptions (n=1 for each). Should NOT be returned unless mutant forgets to group by document_description.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (201, 2, 'NameSame', 'Desc_A');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (202, 2, 'NameSame', 'Desc_B');
+
+-- Project 3: 2 documents with exact same description (n=2). Boundary condition test for n >= 2 vs n > 2.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (301, 3, 'Name1', 'Desc_C');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (302, 3, 'Name2', 'Desc_C');
+
+-- Project 4: Two separate description groups that both meet n >= 2 (one has n=2, one has n=3). Tests SELECT vs SELECT DISTINCT.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (401, 4, 'N1', 'Desc_D1');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (402, 4, 'N2', 'Desc_D1');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (403, 4, 'N3', 'Desc_D2');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (404, 4, 'N4', 'Desc_D2');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (405, 4, 'N5', 'Desc_D2');
+
+-- Projects 5 and 6: Share the exact same document_description ('Desc_Shared'), 1 doc each. Tests if mutant forgets to group by project_id.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (501, 5, 'N6', 'Desc_Shared');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Name, Document_Description) VALUES (601, 6, 'N7', 'Desc_Shared');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY (NULL document_description), COUNT(*) vs COUNT(column), NULLs in Project_Details (ORDER BY NULLS LAST), and orphaned documents (NULL project_id).
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (10, NULL);
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (20, 'Alpha Project');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (30, 'Beta Project');
+
+-- Project 10: Has NULL Project_Details, and 2 documents with NULL Document_Description.
+-- In SQL, GROUP BY groups NULLs together, and COUNT(*) counts them (n=2), whereas COUNT(document_description) would yield 0.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, 10, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, 10, NULL, NULL, NULL, NULL, NULL);
+
+-- Project 20: Has 2 documents with same description, but all other optional columns are NULL.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (3, 20, NULL, NULL, NULL, 'Valid_Desc', NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (4, 20, NULL, NULL, NULL, 'Valid_Desc', NULL);
+
+-- Project 30: 1 document with NULL description, 1 with non-NULL description. Should not match.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Description) VALUES (5, 30, NULL);
+INSERT INTO Documents (Document_ID, Project_ID, Document_Description) VALUES (6, 30, 'Single_Desc');
+
+-- Orphaned Documents: Project_ID is NULL, 2 documents with same description. Tests INNER JOIN vs RIGHT/FULL JOIN.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Description) VALUES (7, NULL, 'Orphan_Desc');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Description) VALUES (8, NULL, 'Orphan_Desc');
+```
+
+```sql
+-- DATASET 3
+-- Tests ordering (ASC vs DESC on project_id and project_details), column confusion in Documents (e.g., grouping by Document_Name, Document_Type_Code, or Other_Details instead of Document_Description), and child table independence.
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T1', 'Type1', 'Same_Type_Desc');
+INSERT INTO Ref_Document_Types (Document_Type_Code, Document_Type_Name, Document_Type_Description) VALUES ('T2', 'Type2', 'Same_Type_Desc');
+
+INSERT INTO Ref_Budget_Codes (Budget_Type_Code, Budget_Type_Description) VALUES ('B1', 'Budget1');
+
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (100, 'Zebra');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (200, 'Apple');
+INSERT INTO Projects (Project_ID, Project_Details) VALUES (300, 'Mango');
+
+-- Project 100: 2 documents with same Document_Description, but different Document_Name, Document_Type_Code, Document_Date, Other_Details.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (1, 100, 'T1', '2023-01-01', 'DocA', 'Target_Desc', 'Other1');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (2, 100, 'T2', '2023-01-02', 'DocB', 'Target_Desc', 'Other2');
+
+-- Project 200: 2 documents with DIFFERENT Document_Description, but SAME Document_Type_Code, Document_Date, Document_Name, Other_Details.
+-- Kills mutants that group by the wrong column in Documents.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (3, 200, 'T1', '2023-05-05', 'SameName', 'Unique_Desc_1', 'SameOther');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (4, 200, 'T1', '2023-05-05', 'SameName', 'Unique_Desc_2', 'SameOther');
+
+-- Project 300: 3 documents with same Document_Description. Also linked to Statements and Documents_with_Expenses to kill mutants that unnecessarily inner-join child tables.
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (5, 300, 'T1', '2023-01-01', 'D5', 'Three_Desc', 'O5');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (6, 300, 'T1', '2023-01-01', 'D6', 'Three_Desc', 'O6');
+INSERT INTO Documents (Document_ID, Project_ID, Document_Type_Code, Document_Date, Document_Name, Document_Description, Other_Details) VALUES (7, 300, 'T1', '2023-01-01', 'D7', 'Three_Desc', 'O7');
+
+-- Only 1 of the documents is in Statements / Documents_with_Expenses
+INSERT INTO Statements (Statement_ID, Statement_Details) VALUES (5, 'Stmt 5');
+INSERT INTO Accounts (Account_ID, Statement_ID, Account_Details) VALUES (1, 5, 'Acct 1');
+INSERT INTO Documents_with_Expenses (Document_ID, Budget_Type_Code, Document_Details) VALUES (5, 'B1', 'Exp 5');
+```

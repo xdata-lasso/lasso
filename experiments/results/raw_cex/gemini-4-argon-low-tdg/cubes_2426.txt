@@ -1,0 +1,64 @@
+```sql
+-- DATASET 1
+-- Tests basic join conditions, WHERE clause filtering on customer_name, ordering, NULLs last, and duplicate preservation (bag vs set semantics).
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (1, '789 Pine Rd', 'Gotham', '10001', 'NY', 'USA', 'Suite 1');
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (2, '123 Maple St', 'Metropolis', '20002', 'IL', 'USA', 'Apt 4B');
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (3, NULL, 'Star City', '30003', 'CA', 'USA', 'Unknown');
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (4, '999 Unlinked Ave', 'Central City', '40004', 'MO', 'USA', 'None');
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (5, '555 Other Cust Blvd', 'Coast City', '50005', 'CA', 'USA', 'Floor 2');
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Credit Card', 'Maudie Kertzmann', '2020-01-15 10:00:00', 'VIP');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'PayPal', 'John Doe', '2021-06-20 12:30:00', 'Regular');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Cash', 'maudie kertzmann', '2022-03-10 08:15:00', 'Case sensitivity test');
+
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (1, 1, '2020-01-15 00:00:00', 'Billing', '2021-01-15 00:00:00');
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (1, 2, '2021-01-16 00:00:00', 'Shipping', NULL);
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (1, 2, '2022-01-16 00:00:00', 'Billing', NULL);
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (1, 3, '2023-01-01 00:00:00', 'Temporary', NULL);
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (2, 5, '2021-06-20 00:00:00', 'Home', NULL);
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (3, 4, '2022-03-10 00:00:00', 'Work', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple customers with the exact same name 'Maudie Kertzmann', shared addresses between different customers, and column confusion (e.g. selecting city or other_address_details instead of address_content, or joining on wrong ID columns).
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (10, 'Zebra Crossing 1', 'Alpha City', '11111', 'StateA', 'CountryA', 'Detail A');
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (20, 'Alpha Way 2', 'Zebra City', '22222', 'StateB', 'CountryB', 'Detail B');
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (30, 'Beta Street 3', 'Beta City', '33333', 'StateC', 'CountryC', 'Maudie Kertzmann');
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (10, 'Debit', 'Maudie Kertzmann', '2019-05-01 00:00:00', 'First Maudie');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (20, 'Credit', 'Maudie Kertzmann', '2020-05-01 00:00:00', 'Second Maudie');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (30, 'Maudie Kertzmann', 'Other Person', '2021-05-01 00:00:00', 'Maudie Kertzmann');
+
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (10, 20, '2019-05-01 00:00:00', 'Home', NULL);
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (20, 10, '2020-05-01 00:00:00', 'Work', NULL);
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (30, 10, '2021-05-01 00:00:00', 'Home', NULL);
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (30, 30, '2021-05-01 00:00:00', 'Shipping', NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests empty result set edge cases: 'Maudie Kertzmann' exists in Customers, and addresses exist in Customer_Addresses, but Maudie has no linked addresses in Customer_Addresses (kills LEFT JOIN mutants and missing join predicate mutants).
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (1, '100 Main St', 'Springfield', '12345', 'IL', 'USA', 'None');
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (2, '200 Oak Ave', 'Shelbyville', '54321', 'IL', 'USA', 'None');
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Cash', 'Maudie Kertzmann', '2020-01-01 00:00:00', 'No addresses linked');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Card', 'Homer Simpson', '2020-01-02 00:00:00', 'Has addresses');
+
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (2, 1, '2020-01-02 00:00:00', 'Home', NULL);
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (2, 2, '2020-01-02 00:00:00', 'Work', NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests duplicate address_content across distinct address_id records, NULLs inCustomer_Addresses columns, and kills mutants that use DISTINCT or GROUP BY address_content or filter out NULL date_address_to.
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (101, 'Duplicate Street 10', 'City One', '00001', 'State1', 'USA', 'First ID with same content');
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (102, 'Duplicate Street 10', 'City Two', '00002', 'State2', 'USA', 'Second ID with same content');
+INSERT INTO "Addresses" ("address_id", "address_content", "city", "zip_postcode", "state_province_county", "country", "other_address_details") VALUES (103, 'Unique Boulevard 5', NULL, NULL, NULL, NULL, NULL);
+
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (50, NULL, 'Maudie Kertzmann', NULL, NULL);
+
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (50, 101, NULL, NULL, NULL);
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (50, 102, '2023-01-01 00:00:00', 'Active', '2023-12-31 00:00:00');
+INSERT INTO "Customer_Addresses" ("customer_id", "address_id", "date_address_from", "address_type", "date_address_to") VALUES (50, 103, NULL, 'Active', NULL);
+```

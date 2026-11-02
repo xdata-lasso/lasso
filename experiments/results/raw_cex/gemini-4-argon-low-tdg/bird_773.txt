@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match and pairwise colour equality mutants (e.g., missing one equality condition or using OR instead of AND)
+INSERT INTO colour (id, colour) VALUES (1, 'Red');
+INSERT INTO colour (id, colour) VALUES (2, 'Blue');
+INSERT INTO colour (id, colour) VALUES (3, 'Green');
+
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'DC Comics');
+
+-- Matches: eye = hair = skin = 1
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (10, 'Red Hero', 'John Red', 1, 1, 1, 1);
+
+-- Fails: eye = hair, but skin differs
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (20, 'Partial Red 1', 'Jane Red', 1, 1, 2, 1);
+
+-- Fails: eye = skin, but hair differs
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (30, 'Partial Red 2', 'Jack Red', 1, 2, 1, 2);
+
+-- Fails: hair = skin, but eye differs
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (40, 'Partial Blue', 'Jill Blue', 1, 2, 2, 2);
+
+-- Fails: all three are different
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (50, 'Rainbow Hero', 'Jim Rainbow', 1, 2, 3, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN, wrong join keys (e.g., T1.id = T2.id), and column swaps (e.g., race_id or alignment_id instead of colour_id)
+INSERT INTO colour (id, colour) VALUES (10, 'Silver');
+INSERT INTO colour (id, colour) VALUES (20, 'Gold');
+
+INSERT INTO race (id, race) VALUES (10, 'Mutant');
+INSERT INTO alignment (id, alignment) VALUES (10, 'Good');
+INSERT INTO gender (id, gender) VALUES (10, 'Male');
+
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Image Comics');
+INSERT INTO publisher (id, publisher_name) VALUES (2, 'Dark Horse');
+INSERT INTO publisher (id, publisher_name) VALUES (3, 'Unused Publisher');
+
+-- Valid match where superhero.id (2) != publisher_id (1) to kill T1.id = T2.id join mutants
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (2, 'Silver Surfer', 'Norrin Radd', 10, 10, 10, 10, 10, 1, 10, 193, 101);
+
+-- Superhero with matching colours but NULL publisher_id (kills LEFT JOIN mutants)
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (3, 'Indie Hero', 'No Pub', 10, 10, 10, NULL);
+
+-- Superhero where race_id, alignment_id, gender_id, height, weight all equal 10, and eye/hair equal 10, but skin_colour_id is 20 (kills column substitution mutants)
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) VALUES (1, 'Decoy Hero', 'Fake Match', 10, 10, 10, 20, 10, 2, 10, 10, 10);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in colour attributes (kills IS NOT DISTINCT FROM or COALESCE mutants) and duplicate output rows (kills DISTINCT mutants)
+INSERT INTO colour (id, colour) VALUES (5, 'Black');
+INSERT INTO colour (id, colour) VALUES (6, 'White');
+
+INSERT INTO publisher (id, publisher_name) VALUES (10, 'Dynamite');
+
+-- Two distinct superheroes with the exact same name and publisher, both matching the criteria (tests SELECT vs SELECT DISTINCT)
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (1, 'Shadow', 'Shadow One', 5, 5, 5, 10);
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (2, 'Shadow', 'Shadow Two', 6, 6, 6, 10);
+
+-- All three colours are NULL (SQL '=' evaluates to UNKNOWN, should not be returned)
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (3, 'Null Man', 'Nobody', NULL, NULL, NULL, 10);
+
+-- Two colours are 5, one is NULL
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (4, 'Skinless', 'No Skin', 5, 5, NULL, 10);
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (5, 'Hairless', 'No Hair', 5, NULL, 5, 10);
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (6, 'Eyeless', 'No Eyes', NULL, 5, 5, 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests colour name vs colour id confusion (same colour string with different IDs) and unnecessary joins to hero_power / hero_attribute
+INSERT INTO colour (id, colour) VALUES (1, 'Green');
+INSERT INTO colour (id, colour) VALUES (2, 'Green');
+INSERT INTO colour (id, colour) VALUES (3, 'Purple');
+
+INSERT INTO publisher (id, publisher_name) VALUES (100, 'Shueisha');
+INSERT INTO publisher (id, publisher_name) VALUES (200, 'IDW Publishing');
+
+-- Matches IDs (all 3), and has NO entries in hero_power or hero_attribute (kills mutants that INNER JOIN those tables)
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (1, 'Purple Man', 'Zebediah Killgrave', 3, 3, 3, 100);
+
+-- Same colour name ('Green') for all three, but different colour IDs (1 and 2). Should NOT match T1.eye_colour_id = T1.hair_colour_id
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (2, 'Green Trick', 'Different IDs', 1, 2, 1, 200);
+
+-- Another valid match with different IDs and names to test ordering and projection
+INSERT INTO superhero (id, superhero_name, full_name, eye_colour_id, hair_colour_id, skin_colour_id, publisher_id) VALUES (3, 'True Green', 'Same IDs', 1, 1, 1, 200);
+```

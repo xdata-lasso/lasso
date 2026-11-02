@@ -1,0 +1,70 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions (>= 6000.0 vs > 6000.0 vs < 6000.0), SUM aggregation across multiple rows vs MAX/MIN/AVG, and INNER JOIN vs LEFT JOIN (organisations without grants).
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('TYPE1', 'Research Inst');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'TYPE1', 'Org Boundary Exact');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (2, 'TYPE1', 'Org Multi-Grant Sum');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (3, 'TYPE1', 'Org Just Below Boundary');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (4, 'TYPE1', 'Org No Grants');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (101, 1, 6000.0, '2023-01-01', '2023-12-31', 'Exact boundary single grant');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (102, 2, 2500.0, '2023-01-01', '2023-06-30', 'Part 1');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (103, 2, 3500.5, '2023-07-01', '2023-12-31', 'Part 2');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (104, 3, 5999.99, '2023-01-01', '2023-12-31', 'Just under 6000');
+```
+
+```sql
+-- DATASET 2
+-- Tests GROUP BY composite key (organisation_details, organisation_id) where multiple organisations share the exact same organisation_details, plus ordering by organisation_id.
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('TYPE1', 'University');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (10, 'TYPE1', 'Shared Name');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (5, 'TYPE1', 'Shared Name');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (20, 'TYPE1', 'Shared Name');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (201, 10, 3500.0, '2023-01-01', '2023-12-31', 'Below 6000 alone, but >= 6000 if grouped only by details');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (202, 5, 6500.0, '2023-01-01', '2023-12-31', 'Above 6000');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (203, 20, 6000.0, '2023-01-01', '2023-12-31', 'At 6000');
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL handling in organisation_details, NULLs in grant_amount, NULLs in Grants.organisation_id (dangling FK), and SUM(DISTINCT grant_amount) vs SUM(grant_amount) with identical grant amounts.
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('TYPE1', 'Corp');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'TYPE1', NULL);
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (2, 'TYPE1', 'Duplicate Grant Amounts');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (3, 'TYPE1', 'Null Grant Amount');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (301, 1, 7000.0, '2023-01-01', '2023-12-31', 'Org with NULL details');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (302, 2, 3000.0, '2023-01-01', '2023-06-30', 'Twin grant 1');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (303, 2, 3000.0, '2023-07-01', '2023-12-31', 'Twin grant 2');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (304, 3, 6500.0, '2023-01-01', '2023-06-30', 'Valid grant');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (305, 3, NULL, '2023-07-01', '2023-12-31', 'Null grant amount');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (306, NULL, 9000.0, '2023-01-01', '2023-12-31', 'Unassigned grant');
+```
+
+```sql
+-- DATASET 4
+-- Tests WHERE vs HAVING filtering (individual grants < 6000 vs sum >= 6000, and positive grant >= 6000 offset by negative adjustment grant resulting in sum < 6000), and inverse ordering between organisation_id and organisation_details.
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('TYPE1', 'Lab');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'TYPE1', 'Zeta Org');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (2, 'TYPE1', 'Alpha Org');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (3, 'TYPE1', 'Beta Org');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (401, 1, 2000.0, '2023-01-01', '2023-04-01', 'Small 1');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (402, 1, 2000.0, '2023-04-02', '2023-08-01', 'Small 2');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (403, 1, 2000.0, '2023-08-02', '2023-12-31', 'Small 3');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (404, 2, 8000.0, '2023-01-01', '2023-12-31', 'Large single');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (405, 3, 7000.0, '2023-01-01', '2023-06-30', 'Initial large');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (406, 3, -1500.0, '2023-07-01', '2023-12-31', 'Clawback adjustment');
+```
+
+```sql
+-- DATASET 5
+-- Tests mutations that confuse tables (e.g. joining Projects or Research_Staff instead of Grants, or unnecessary joins to Documents/Projects that filter out valid Grants or multiply grant amounts).
+INSERT INTO Organisation_Types (organisation_type, organisation_type_description) VALUES ('TYPE1', 'Gov');
+INSERT INTO Document_Types (document_type_code, document_description) VALUES ('DOC1', 'Report');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (1, 'TYPE1', 'Org With Multiple Docs Per Grant');
+INSERT INTO Organisations (organisation_id, organisation_type, organisation_details) VALUES (2, 'TYPE1', 'Org With Grant But No Docs Or Projects');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (501, 1, 4000.0, '2023-01-01', '2023-12-31', '4000 * 2 docs = 8000 if joined with Documents');
+INSERT INTO Grants (grant_id, organisation_id, grant_amount, grant_start_date, grant_end_date, other_details) VALUES (502, 2, 6500.0, '2023-01-01', '2023-12-31', 'Valid grant without docs/projects');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (1, 501, 'DOC1', '2023-02-01', '2023-02-15', 'Doc 1');
+INSERT INTO Documents (document_id, grant_id, document_type_code, sent_date, response_received_date, other_details) VALUES (2, 501, 'DOC1', '2023-03-01', '2023-03-15', 'Doc 2');
+INSERT INTO Projects (project_id, organisation_id, project_details) VALUES (1, 1, 'Proj 1');
+INSERT INTO Projects (project_id, organisation_id, project_details) VALUES (2, 1, 'Proj 2');
+```

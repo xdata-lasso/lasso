@@ -1,0 +1,37 @@
+-- Schema DDL
+CREATE TABLE "player" ("Player_ID" INTEGER PRIMARY KEY, "Sponsor_name" TEXT, "Player_name" TEXT, "Gender" TEXT, "Residence" TEXT, "Occupation" TEXT, "Votes" INTEGER, "Rank" TEXT);
+
+CREATE TABLE "club" ("Club_ID" INTEGER PRIMARY KEY, "Club_name" TEXT, "Region" TEXT, "Start_year" INTEGER);
+
+CREATE TABLE "coach" ("Coach_ID" INTEGER PRIMARY KEY, "Club_ID" INTEGER, "Coach_name" TEXT, "Gender" TEXT, "Rank" INTEGER, FOREIGN KEY ("Club_ID") REFERENCES "club" ("Club_ID"));
+
+CREATE TABLE "player_coach" ("Player_ID" INTEGER, "Coach_ID" INTEGER, "Starting_year" INTEGER, PRIMARY KEY ("Player_ID", "Coach_ID"), FOREIGN KEY ("Coach_ID") REFERENCES "coach" ("Coach_ID"), FOREIGN KEY ("Player_ID") REFERENCES "player" ("Player_ID"));
+
+CREATE TABLE "match_result" ("Rank" INTEGER, "Club_ID" INTEGER, "Gold" INTEGER, "Big_Silver" INTEGER, "Small_Silver" INTEGER, "Bronze" INTEGER, "Points" INTEGER, PRIMARY KEY ("Rank", "Club_ID"), FOREIGN KEY ("Club_ID") REFERENCES "club" ("Club_ID"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "player" ("player_id", "sponsor_name", "player_name", "gender", "residence", "occupation", "votes", "rank") VALUES (0, '29', '30', '31', '32', '33', 35, '36');
+INSERT INTO "player" ("player_id", "sponsor_name", "player_name", "gender", "residence", "occupation", "votes", "rank") VALUES (18, '0', '0', '0', '0', '34', 0, '0');
+INSERT INTO "club" ("club_id", "club_name", "region", "start_year") VALUES (20, '0', '0', 0);
+INSERT INTO "club" ("club_id", "club_name", "region", "start_year") VALUES (19, '0', '0', 0);
+INSERT INTO "coach" ("coach_id", "club_id", "coach_name", "gender", "rank") VALUES (21, 20, '0', '0', 0);
+INSERT INTO "match_result" ("rank", "club_id", "gold", "big_silver", "small_silver", "bronze", "points") VALUES (26, 19, 0, 0, 0, 0, 0);
+INSERT INTO "match_result" ("rank", "club_id", "gold", "big_silver", "small_silver", "bronze", "points") VALUES (25, 19, 0, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT occupation FROM (SELECT LHS.player_id AS player_id, LHS.sponsor_name AS sponsor_name, LHS.player_name AS player_name, LHS.gender AS gender, LHS.residence AS residence, LHS.occupation AS occupation, LHS.votes AS votes, LHS.rank AS rank, RHS.player_id AS player_id_other, RHS.sponsor_name AS sponsor_name_other, RHS.player_name AS player_name_other, RHS.gender AS gender_other, RHS.residence AS residence_other, RHS.occupation AS occupation_other, RHS.votes AS votes_other, RHS.rank AS rank_other, RHS.n AS n FROM player AS LHS INNER JOIN (SELECT player_id, sponsor_name, player_name, gender, residence, occupation, votes, rank, n, MAX(n) OVER () AS maxn FROM (SELECT player_id, sponsor_name, player_name, gender, residence, occupation, votes, rank, COUNT(*) OVER () AS n FROM player)) AS RHS ON (LHS.player_id = RHS.maxn)) ORDER BY occupation;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT Occupation FROM player GROUP BY Occupation ORDER BY COUNT(*) DESC, Occupation NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('33',)
+*/

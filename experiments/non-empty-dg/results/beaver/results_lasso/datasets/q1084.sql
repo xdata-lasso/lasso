@@ -1,0 +1,2 @@
+INSERT INTO "space_supervisor_usage" ("mit_id", "dept_count", "dept_names", "num_of_supervisees", "sqft", "research_volume", "sqft_per_supervisee", "sqft_per_res_vol", "res_vol_per_sqft") VALUES ('purpose', 1001.5, 'Patrick Sanchez', 1002.5, 1003.5, 1004.5, 1005.5, 1006.5, 1007.5);
+INSERT INTO "space_unit" ("fclt_organization_key", "space_unit_key", "space_unit_code", "space_unit", "dlc_key", "warehouse_load_date") VALUES ('Doyle Ltd', 'sit', 'wait', 'offer', 'Patrick Sanchez', '1970-01-01');

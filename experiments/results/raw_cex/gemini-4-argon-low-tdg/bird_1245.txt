@@ -1,0 +1,86 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions for T2.Date ('1997-01-01', '1997-01-02', '1996-12-31') 
+-- and T2.APTT (44, 45, 46, NULL). Also tests logical AND vs OR between the two predicates.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1970-01-01', '1995-01-01', '1995-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', '1965-05-05', '1996-01-01', '1996-01-01', '-', 'RA');
+
+-- Boundary: Date = '1997-01-01' (Should be excluded by '>', included if mutated to '>=')
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (1, '1997-01-01', 45);
+-- Boundary: Date = '1997-01-02' and APTT = 45 (Should be included; excluded if APTT mutated to '>')
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (1, '1997-01-02', 45);
+-- Boundary: Date = '1997-01-03' and APTT = 44 (Should be excluded; included if OR used or APTT >= 44)
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (1, '1997-01-03', 44);
+-- Boundary: Date = '1997-01-04' and APTT = 46 (Strictly satisfies both '>' and '>')
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (2, '1997-01-04', 46);
+-- Boundary: Date = '1996-12-31' and APTT = 50 (Should be excluded; included if OR used or Date < '1997-01-01')
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (2, '1996-12-31', 50);
+-- NULL handling: Date > '1997-01-01' and APTT IS NULL (Should be excluded)
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (2, '1998-01-01', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests COUNT(T1.ID) vs COUNT(DISTINCT T1.ID), and verifies that multiple qualifying 
+-- Laboratory records for the same Patient are counted individually.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (10, 'F', '1980-03-15', '1997-05-01', '1997-05-01', '+', 'APS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (20, 'M', '1975-08-20', '1990-01-01', '1990-01-01', '-', 'Healthy');
+
+-- Patient 10 has 3 qualifying Laboratory rows (COUNT should be 3, COUNT(DISTINCT) would be 1)
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (10, '1997-06-01', 45);
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (10, '1997-07-01', 55);
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (10, '1998-01-15', 100);
+```
+
+```sql
+-- DATASET 3
+-- Tests table/column confusion mutations:
+-- 1) Joining or querying Examination instead of Laboratory
+-- 2) Filtering on Patient."First Date", Patient.Description, or Patient.Birthday instead of Laboratory.Date
+-- 3) Filtering on other Laboratory columns (GOT, GPT, PT, PLT) instead of APTT
+-- 4) Using SUM(T1.ID) or AVG(T1.ID) instead of COUNT(T1.ID) (by using ID = 5)
+-- 5) Uncorrelated joins / Cartesian products (Missing ON T1.ID = T2.ID)
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (5, 'F', '1998-01-01', '1998-01-01', '1998-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (6, 'M', '1950-01-01', '1990-01-01', '1990-01-01', '-', 'SLE');
+
+-- Patient 5 has Patient dates > '1997-01-01', but Laboratory.Date <= '1997-01-01'
+INSERT INTO Laboratory (ID, Date, GOT, GPT, PT, PLT, APTT) VALUES (5, '1995-05-05', 50, 50, 50.0, 50, 60);
+
+-- Patient 6 has Patient dates <= '1997-01-01', and Laboratory.Date > '1997-01-01'
+-- Row 1: Other lab metrics >= 45, but APTT < 45
+INSERT INTO Laboratory (ID, Date, GOT, GPT, PT, PLT, APTT) VALUES (6, '1999-05-05', 60, 60, 60.0, 60, 30);
+-- Row 2: Qualifying row (Date > '1997-01-01' and APTT >= 45)
+INSERT INTO Laboratory (ID, Date, GOT, GPT, PT, PLT, APTT) VALUES (6, '1999-06-06', 20, 20, 12.0, 20, 48);
+
+-- Examination records that could cause fan-out if Examination is mistakenly joined, or if Examination Date is used
+INSERT INTO Examination (ID, "Examination Date", "aCL IgG", ANA, Thrombosis) VALUES (5, '1999-01-01', 50.0, 64, 1);
+INSERT INTO Examination (ID, "Examination Date", "aCL IgG", ANA, Thrombosis) VALUES (6, '1999-06-06', 50.0, 64, 1);
+INSERT INTO Examination (ID, "Examination Date", "aCL IgG", ANA, Thrombosis) VALUES (6, '1999-07-07', 60.0, 128, 1);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set (0 qualifying rows) and LEFT JOIN with wrong WHERE placement.
+-- Refutes mutants that return NULL (e.g., SUM), or count unmatched Patient rows in a LEFT JOIN.
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1980-01-01', '1998-01-01', '1998-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', '1982-01-01', '1998-01-01', '1998-01-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'F', '1985-01-01', '1998-01-01', '1998-01-01', '+', 'APS');
+
+-- Patient 1 has Laboratory record failing Date condition
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (1, '1997-01-01', 100);
+-- Patient 2 has Laboratory record failing APTT condition
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (2, '2000-01-01', 44);
+-- Patient 3 has no Laboratory records at all
+```
+
+```sql
+-- DATASET 5
+-- Tests orphan Laboratory rows (in case foreign keys are not enforced during test execution)
+-- and ensures INNER JOIN with Patient is actually performed rather than querying Laboratory alone.
+-- Also tests string comparison nuances on Date (e.g., '1997-1-1' vs '1997-01-01' vs '1997-01-01').
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (100, 'F', '1970-01-01', '1995-01-01', '1995-01-01', '+', 'SLE');
+
+-- Valid joined record with year boundary '1998-01-01' (catches year-only comparison like > '1997' vs >= '1997')
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (100, '1997-01-02', 45);
+INSERT INTO Laboratory (ID, Date, APTT) VALUES (100, '1998-01-01', 45);
+```

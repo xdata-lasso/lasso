@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests standard anti-join, ORDER BY ASC vs DESC vs insertion order, and duplicate document_name preservation (SELECT vs SELECT DISTINCT / EXCEPT).
+INSERT INTO Document_Structures (document_structure_code, parent_document_structure_code, document_structure_description) VALUES ('DS1', NULL, 'Main Structure');
+
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('DOC1', 'DS1', 'T1', 10, 'Zebra Report');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('DOC2', 'DS1', 'T1', 20, 'Alpha Report');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('DOC3', 'DS1', 'T2', 5, 'Alpha Report');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('DOC4', 'DS1', 'T1', 15, 'Beta Report');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('DOC5', 'DS1', 'T3', 30, 'Gamma Report');
+
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (101, 'DOC4', 1, 'S1', 'Intro');
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (102, 'DOC4', 2, 'S2', 'Body');
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (103, 'DOC5', 1, 'S1', 'Summary');
+```
+
+```sql
+-- DATASET 2
+-- Tests NOT IN vs NOT EXISTS semantics when Document_Sections contains a NULL document_code.
+INSERT INTO Document_Structures (document_structure_code, parent_document_structure_code, document_structure_description) VALUES ('DS1', NULL, 'Structure 1');
+
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('DOC1', 'DS1', 'T1', 10, 'Doc Without Section');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('DOC2', 'DS1', 'T1', 20, 'Doc With Section');
+
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (1, 'DOC2', 1, 'SEC1', 'Valid Section');
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (2, NULL, 2, 'SEC2', 'Orphan Section With Null FK');
+```
+
+```sql
+-- DATASET 3
+-- Tests incorrect join conditions (e.g., joining on section_code, section_id, section_title, or document_structure_code instead of document_code) and NULL values in Documents columns.
+INSERT INTO Document_Structures (document_structure_code, parent_document_structure_code, document_structure_description) VALUES ('DS1', NULL, 'Structure 1');
+
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('10', 'DS1', '10', 10, 'Numeric Code Doc');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('20', NULL, NULL, NULL, 'Null Attributes Doc');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('30', 'DS1', '30', 30, NULL);
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('40', 'DS1', '40', 40, 'Matched Doc');
+
+-- Section 10 belongs to '40', but its section_id, section_code, and section_title match '10' and 'Numeric Code Doc' to trap wrong column joins.
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (10, '40', 10, '10', 'Numeric Code Doc');
+```
+
+```sql
+-- DATASET 4
+-- Tests mutants that check the wrong child table (e.g., Document_Functional_Areas instead of Document_Sections) or perform unnecessary INNER JOINs with Document_Structures / Document_Functional_Areas.
+INSERT INTO Document_Structures (document_structure_code, parent_document_structure_code, document_structure_description) VALUES ('DS1', NULL, 'Structure 1');
+INSERT INTO Functional_Areas (functional_area_code, parent_functional_area_code, functional_area_description) VALUES ('FA1', NULL, 'Finance');
+
+-- D1 has a Functional Area and a Structure, but NO Sections (Should be returned).
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D1', 'DS1', 'T1', 5, 'Has FA But No Sections');
+
+-- D2 has NO Functional Area and NO Structure (NULL), and NO Sections (Should be returned; kills mutants doing INNER JOIN on Document_Structures).
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D2', NULL, 'T1', 0, 'No Structure And No Sections');
+
+-- D3 has Sections, but NO Functional Area (Should NOT be returned).
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D3', 'DS1', 'T1', 12, 'Has Sections But No FA');
+
+INSERT INTO Document_Functional_Areas (functional_area_code, document_code) VALUES ('FA1', 'D1');
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (1, 'D3', 1, 'S1', 'Section For D3');
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary condition where Document_Sections is completely empty, and another where a document name is shared between a document WITH sections and a document WITHOUT sections (kills EXCEPT / NOT IN on document_name).
+INSERT INTO Document_Structures (document_structure_code, parent_document_structure_code, document_structure_description) VALUES ('DS1', NULL, 'Structure 1');
+
+-- Both D_WITH and D_WITHOUT share the exact same document_name 'Shared Name'.
+-- D_WITH has a section, D_WITHOUT does not. 'Shared Name' MUST still appear in the output for D_WITHOUT.
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D_WITH', 'DS1', 'T1', 100, 'Shared Name');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D_WITHOUT', 'DS1', 'T2', 50, 'Shared Name');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D_SOLO', 'DS1', 'T1', 1, 'Unique Name');
+
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (500, 'D_WITH', 1, 'S500', 'Only D_WITH has this section');
+```

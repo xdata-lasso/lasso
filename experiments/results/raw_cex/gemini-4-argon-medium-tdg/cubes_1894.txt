@@ -1,0 +1,68 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (WHERE order_status_code = 'Success'), case sensitivity, NULL status codes, and column confusion (actual_order_id vs regular_order_id).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Card', 'Alice', '111-2222', 'alice@example.com', '2023-01-01 00:00:00');
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (100, 1);
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (200, 1);
+
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (10, 100, 'Success', '2023-05-01 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (20, 200, 'Failed', '2023-05-02 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (30, 100, 'success', '2023-05-03 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (40, 200, 'Pending', '2023-05-04 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (50, NULL, NULL, '2023-05-05 10:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (60, NULL, 'Success', '2023-05-06 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY actual_order_id (ASC vs DESC, and ordering by actual_order_id vs regular_order_id or actual_order_date).
+-- Also tests extraneous INNER JOINs with Regular_Orders (via NULL regular_order_id).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Cash', 'Bob', '333-4444', 'bob@example.com', '2022-01-01 00:00:00');
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (10, 1);
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (20, 1);
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (30, 1);
+
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (300, 10, 'Success', '2023-01-01 08:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (100, 30, 'Success', '2023-01-03 08:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (200, 20, 'Success', '2023-01-02 08:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (50, NULL, 'Success', '2023-01-04 08:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests mutants that erroneously JOIN with child tables (Actual_Order_Products, Order_Deliveries) without DISTINCT, or use INNER JOIN excluding unlinked orders, or confuse order_status_code with delivery_status_code.
+INSERT INTO "Products" ("product_id", "product_name", "product_price", "product_description") VALUES (1, 'Widget', 9.99, 'Standard widget');
+INSERT INTO "Products" ("product_id", "product_name", "product_price", "product_description") VALUES (2, 'Gadget', 19.99, 'Standard gadget');
+INSERT INTO "Addresses" ("address_id", "address_details", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '123 Main St', 'Metropolis', '10001', 'NY', 'USA');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Credit', 'Charlie', '555-6666', 'charlie@example.com', '2021-06-15 00:00:00');
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (1, 1);
+INSERT INTO "Delivery_Routes" ("route_id", "route_name", "other_route_details") VALUES (1, 'Route A', 'North');
+INSERT INTO "Delivery_Route_Locations" ("location_code", "route_id", "location_address_id", "location_name") VALUES ('LOC1', 1, 1, 'Warehouse 1');
+INSERT INTO "Trucks" ("truck_id", "truck_licence_number", "truck_details") VALUES (1, 'XYZ-123', 'Big Truck');
+INSERT INTO "Employees" ("employee_id", "employee_address_id", "employee_name", "employee_phone") VALUES (1, 1, 'Dave', '777-8888');
+
+-- Order 1: 'Success' in Actual_Orders, has multiple products and multiple deliveries (tests duplicate rows if joined without DISTINCT), and delivery_status_code is 'Failed'.
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (1, 1, 'Success', '2023-07-01 12:00:00');
+INSERT INTO "Actual_Order_Products" ("actual_order_id", "product_id") VALUES (1, 1);
+INSERT INTO "Actual_Order_Products" ("actual_order_id", "product_id") VALUES (1, 2);
+INSERT INTO "Order_Deliveries" ("driver_employee_id", "location_code", "actual_order_id", "truck_id", "delivery_status_code", "delivery_date") VALUES (1, 'LOC1', 1, 1, 'Failed', '2023-07-02 12:00:00');
+INSERT INTO "Order_Deliveries" ("driver_employee_id", "location_code", "actual_order_id", "truck_id", "delivery_status_code", "delivery_date") VALUES (1, 'LOC1', 1, 1, 'Failed', '2023-07-03 12:00:00');
+
+-- Order 2: 'Failed' in Actual_Orders, but 'Success' in Order_Deliveries (tests confusion between order_status_code and delivery_status_code).
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (2, 1, 'Failed', '2023-07-04 12:00:00');
+INSERT INTO "Order_Deliveries" ("driver_employee_id", "location_code", "actual_order_id", "truck_id", "delivery_status_code", "delivery_date") VALUES (1, 'LOC1', 2, 1, 'Success', '2023-07-05 12:00:00');
+
+-- Order 3: 'Success' in Actual_Orders, but has no products and no deliveries (tests erroneous INNER JOIN with child tables).
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (3, 1, 'Success', '2023-07-06 12:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when rows exist in Actual_Orders but none match 'Success', and boundary string matching (e.g. LIKE '%Success%' vs '=').
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "customer_phone", "customer_email", "date_became_customer") VALUES (1, 'Debit', 'Eve', '999-0000', 'eve@example.com', '2020-01-01 00:00:00');
+INSERT INTO "Regular_Orders" ("regular_order_id", "distributer_id") VALUES (10, 1);
+
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (1, 10, 'Success!', '2023-08-01 09:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (2, 10, ' Cancelled', '2023-08-02 09:00:00');
+INSERT INTO "Actual_Orders" ("actual_order_id", "regular_order_id", "order_status_code", "actual_order_date") VALUES (3, 10, 'Succ', '2023-08-03 09:00:00');
+```

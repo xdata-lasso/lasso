@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "Customers" ("customer_id" INTEGER PRIMARY KEY, "customer_name" TEXT(255));
+
+CREATE TABLE "Orders" ("order_id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "product_name" TEXT(255), FOREIGN KEY ("customer_id") REFERENCES "Customers" ("customer_id"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO customers (customer_id, customer_name) VALUES (0, 'B'), (1, '%B%'), (2, 'C');
+INSERT INTO orders (order_id, customer_id, product_name) VALUES (1, NULL, '%A%'), (0, 1, 'B'), (2, 1, 'A'), (3, 1, 'default1'), (4, 0, '%B%'), (5, NULL, 'C'), (6, 1, 'B');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT CUSTOMER_ID, CUSTOMER_NAME FROM CUSTOMERS WHERE CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'A') AND CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'B') AND NOT CUSTOMER_ID IN (SELECT DISTINCT CUSTOMER_ID FROM ORDERS WHERE PRODUCT_NAME = 'C') ORDER BY CUSTOMER_ID;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT CUSTOMERS.CUSTOMER_ID, CUSTOMERS.CUSTOMER_NAME FROM CUSTOMERS LEFT JOIN (SELECT CUSTOMER_ID, GROUP_CONCAT(PRODUCT_NAME) AS SHOPLIST FROM ORDERS GROUP BY CUSTOMER_ID) AS T1 ON CUSTOMERS.CUSTOMER_ID = T1.CUSTOMER_ID WHERE SHOPLIST LIKE '%A%' AND SHOPLIST LIKE '%B%' AND SHOPLIST NOT LIKE '%C%';
+
+/*
+Prediction Result:
+(1, '%B%')
+*/

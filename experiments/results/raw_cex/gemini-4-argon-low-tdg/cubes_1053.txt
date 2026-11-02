@@ -1,0 +1,50 @@
+```sql
+-- DATASET 1
+-- Tests core query semantics:
+-- 1. Duplicate cities (San Jose appears twice) to refute COUNT(city) or COUNT(*).
+-- 2. NULL city (Station 3) to refute COUNT(*) or GROUP BY city without NULL filtering.
+-- 3. Empty string city (Station 6) to ensure it is counted as a distinct valid string, unlike NULL.
+-- 4. Unreferenced stations in child tables (status, trip) to refute unnecessary INNER JOINs.
+-- 5. Distinct values in other columns (name, dock_count, installation_date) to refute counting the wrong column.
+-- 6. Diverse values in dock_count (including 0 and negative) and installation_date to refute hallucinated WHERE clauses.
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (1, 'San Jose Diridon Caltrain Station', 37.329732, -121.901782, 27, 'San Jose', '8/6/2013');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (2, 'San Jose Civic Center', 37.330698, -121.888979, 15, 'San Jose', '8/5/2013');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (3, 'Unknown Location Station', 37.400000, -122.000000, 0, NULL, '1/1/2014');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (4, 'Mountain View City Hall', 37.389218, -122.081896, 15, 'Mountain View', '8/16/2013');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (5, 'Palo Alto Caltrain Station', 37.443988, -122.164759, -5, 'Palo Alto', NULL);
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (6, 'Ghost Town Station', 37.500000, -122.200000, 10, '', '12/31/2015');
+
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (1, 10, 17, '2013/08/29 12:06:01');
+INSERT INTO "status" ("station_id", "bikes_available", "docks_available", "time") VALUES (1, 11, 16, '2013/08/29 12:07:01');
+
+INSERT INTO "trip" ("id", "duration", "start_date", "start_station_name", "start_station_id", "end_date", "end_station_name", "end_station_id", "bike_id", "subscription_type", "zip_code") VALUES (101, 300, '8/29/2013 14:13', 'San Jose Diridon Caltrain Station', 1, '8/29/2013 14:18', 'San Jose Civic Center', 2, 520, 'Subscriber', 95112);
+```
+
+```sql
+-- DATASET 2
+-- Tests empty station table behavior:
+-- 1. Refutes queries that use GROUP BY city without outer aggregation (which would return 0 rows instead of 1 row with value 0).
+-- 2. Populates weather table to ensure the query does not accidentally query or cross-join with unrelated tables.
+INSERT INTO "weather" ("date", "max_temperature_f", "mean_temperature_f", "min_temperature_f", "max_dew_point_f", "mean_dew_point_f", "min_dew_point_f", "max_humidity", "mean_humidity", "min_humidity", "max_sea_level_pressure_inches", "mean_sea_level_pressure_inches", "min_sea_level_pressure_inches", "max_visibility_miles", "mean_visibility_miles", "min_visibility_miles", "max_wind_Speed_mph", "mean_wind_speed_mph", "max_gust_speed_mph", "precipitation_inches", "cloud_cover", "events", "wind_dir_degrees", "zip_code") VALUES ('8/29/2013', 74, 68, 61, 61, 58, 56, 93, 75, 57, 30.07, 30.02, 29.97, 10, 10, 10, 23, 11, 28, 0, 4, 'Fog', 286, 94107);
+```
+
+```sql
+-- DATASET 3
+-- Tests all-NULL target column behavior and case sensitivity:
+-- 1. All rows have NULL for city (Gold query returns 0, whereas COUNT(*) returns 3).
+-- 2. Refutes COALESCE(city, 'default') mutations which would return 1 instead of 0.
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (10, 'Station Alpha', 37.789625, -122.400811, 19, NULL, '8/25/2013');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (11, 'Station Beta', 37.795001, -122.399970, 23, NULL, '8/25/2013');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (12, 'Station Alpha', 37.795001, -122.399970, 19, NULL, '8/25/2013');
+```
+
+```sql
+-- DATASET 4
+-- Tests case sensitivity, whitespace sensitivity, and numeric-like strings in city:
+-- 1. 'San Francisco', 'san francisco', and 'San Francisco ' are distinct in SQLite default binary collation.
+-- 2. Refutes mutants using LOWER(city), UPPER(city), or TRIM(city).
+-- 3. All stations have the exact same name and dock_count to ensure those columns aren't being counted (which would yield 1 instead of 3).
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (100, 'Central Hub', 37.774929, -122.419416, 20, 'San Francisco', '1/1/2013');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (101, 'Central Hub', 37.774929, -122.419416, 20, 'san francisco', '1/1/2013');
+INSERT INTO "station" ("id", "name", "lat", "long", "dock_count", "city", "installation_date") VALUES (102, 'Central Hub', 37.774929, -122.419416, 20, 'San Francisco ', '1/1/2013');
+```

@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+-- Tests basic matching, non-matching translations, case sensitivity, substring matching, and sets without translations.
+INSERT INTO "sets" (id, code, name, type) VALUES (1, '8ED', 'Eighth Edition', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (2, '7ED', 'Seventh Edition', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (3, '9ED', 'Ninth Edition', 'expansion');
+INSERT INTO "sets" (id, code, name, type) VALUES (4, '10E', 'Tenth Edition', 'funny');
+INSERT INTO "sets" (id, code, name, type) VALUES (5, 'UNH', 'Unhinged', 'starter');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'French', '8ED', 'Huitième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'French', '7ED', 'Septième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'French', '9ED', 'huitième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (4, 'French', '10E', 'Huitième édition ');
+```
+
+```sql
+-- DATASET 2
+-- Tests 1-to-N join multiplicity: a single set has multiple translations matching 'Huitième édition'.
+-- Kills mutants that use INNER JOIN without DISTINCT instead of IN / semi-join.
+INSERT INTO "sets" (id, code, name, type) VALUES (1, '8ED', 'Eighth Edition', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (2, 'ONS', 'Onslaught', 'expansion');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'French', '8ED', 'Huitième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'Canadian French', '8ED', 'Huitième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'German', '8ED', 'Achte Edition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (4, 'French', 'ONS', 'Carnage');
+```
+
+```sql
+-- DATASET 3
+-- Tests projection multiplicity: multiple distinct sets share the same 'type' and both match the translation.
+-- Kills mutants that erroneously add DISTINCT to the outer SELECT (e.g., SELECT DISTINCT type).
+INSERT INTO "sets" (id, code, name, type) VALUES (1, '8ED', 'Eighth Edition', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (2, '8EB', 'Eighth Edition Box', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (3, 'MRD', 'Mirrodin', 'expansion');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'French', '8ED', 'Huitième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'French', '8EB', 'Huitième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'French', 'MRD', 'Mirrodin');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in both target column (sets.type) and join/filter columns, plus wrong join keys (id vs code).
+-- Kills mutants joining on sets.id = set_translations.id, or filtering out NULL types, or using NOT IN.
+INSERT INTO "sets" (id, code, name, type) VALUES (1, 'LEA', 'Limited Edition Alpha', 'core');
+INSERT INTO "sets" (id, code, name, type) VALUES (2, '8ED', 'Eighth Edition', NULL);
+INSERT INTO "sets" (id, code, name, type) VALUES (3, 'Huitième édition', 'Trap Set Name', 'masters');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'French', '8ED', 'Huitième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'French', 'LEA', 'Alpha');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (3, 'French', NULL, 'Huitième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (4, 'French', '8ED', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests column confusion (e.g., matching sets.name, sets.block, or cards/foreign_data instead of set_translations.translation)
+-- Also tests empty result set when the translation exists in other tables but not in set_translations.
+INSERT INTO "sets" (id, code, name, block, mcmName, type) VALUES (1, '8ED', 'Huitième édition', 'Huitième édition', 'Huitième édition', 'core');
+INSERT INTO "sets" (id, code, name, block, mcmName, type) VALUES (2, 'FEM', 'Fallen Empires', 'Ice Age', 'Fallen Empires', 'Huitième édition');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (1, 'Huitième édition', '8ED', 'Eighth Edition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (2, 'French', 'FEM', 'Empires déchus');
+
+INSERT INTO "cards" (id, uuid, name, setCode, type) VALUES (1, 'uuid-1', 'Huitième édition', '8ED', 'Creature');
+INSERT INTO "foreign_data" (id, uuid, language, name, type) VALUES (1, 'uuid-1', 'French', 'Huitième édition', 'Huitième édition');
+```
+
+```sql
+-- DATASET 6
+-- Tests multiple distinct matching sets with different types to verify no LIMIT 1 or aggregation is applied, and checks join key confusion with parentCode / keyruneCode / mtgoCode.
+INSERT INTO "sets" (id, code, keyruneCode, mtgoCode, parentCode, name, type) VALUES (1, '8ED', 'DEFAULT', '8ED_MTGO', '7ED', 'Eighth Edition', 'core');
+INSERT INTO "sets" (id, code, keyruneCode, mtgoCode, parentCode, name, type) VALUES (2, 'P8ED', '8ED', '8ED', '8ED', 'Eighth Edition Promos', 'promo');
+INSERT INTO "sets" (id, code, keyruneCode, mtgoCode, parentCode, name, type) VALUES (3, '8ED_ALT', '8ED', '8ED', '8ED', 'Eighth Edition Alternate', 'box');
+
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (10, 'French', '8ED', 'Huitième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (20, 'French', '8ED_ALT', 'Huitième édition');
+INSERT INTO "set_translations" (id, language, setCode, translation) VALUES (30, 'French', 'P8ED', 'Promo Huitième édition');
+```

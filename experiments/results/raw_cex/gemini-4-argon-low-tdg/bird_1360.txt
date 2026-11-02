@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests basic calculation, fractional division (CAST AS REAL), and filtering on event_name and category.
+-- Also tests column confusion (spent vs remaining vs amount) and COUNT vs SUM mutations.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'November Speaker', '2023-11-15', 'Speaker', 'Keynote', 'Hall A', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'October Workshop', '2023-10-10', 'Workshop', 'Hands-on', 'Room 101', 'Closed');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Parking', 10.5, 19.5, 30, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 25.0, 25.0, 50, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Parking', 100.0, 0.0, 100, 'Closed', 'E2');
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple 'Parking' rows and multiple non-Parking rows for the same event,
+-- plus multiple events sharing the same event_name ('November Speaker').
+-- Catches DISTINCT mutations, GROUP BY event_id errors, and missing SUM aggregations.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'November Speaker', '2022-11-15', 'Speaker', '2022 Event', 'Hall A', 'Closed');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'November Speaker', '2023-11-15', 'Speaker', '2023 Event', 'Hall B', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Parking', 5.0, 20.0, 25, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Parking', 15.0, 10.0, 25, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Food', 50.0, 50.0, 100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Advertisement', 20.0, 30.0, 50, 'Open', 'E2');
+```
+
+```sql
+-- DATASET 3
+-- Tests when 'November Speaker' exists and has budgets, but NO 'Parking' category exists.
+-- Gold query returns 0.0. If a mutant omits ELSE 0 in the CASE statement, SUM becomes NULL and returns NULL.
+-- If a mutant filters WHERE category = 'Parking' instead of CASE WHEN, it returns NULL (due to empty set).
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'November Speaker', '2023-11-15', 'Speaker', 'No parking needed', 'Online', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'December Gala', '2023-12-15', 'Social', 'Has parking', 'Ballroom', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 40.0, 60.0, 100, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Gifts', 20.0, 30.0, 50, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Parking', 50.0, 50.0, 100, 'Open', 'E2');
+```
+
+```sql
+-- DATASET 4
+-- Tests case sensitivity, substring matching (LIKE '%Parking%', LIKE '%November Speaker%'),
+-- and NULL handling in link_to_event, category, and amount.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'November Speaker', '2023-11-15', 'Speaker', 'Exact Match', 'Hall A', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'November Speakers', '2023-11-16', 'Speaker', 'Substring Match', 'Hall B', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E3', 'november speaker', '2023-11-17', 'Speaker', 'Lowercase Match', 'Hall C', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Parking', 10.0, 20.0, 30, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'parking', 10.0, 40.0, 50, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'VIP Parking', 10.0, 60.0, 70, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', NULL, 0.0, 0.0, 50, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Parking', 0.0, 0.0, NULL, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B6', 'Parking', 50.0, 50.0, 100, 'Open', NULL);
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B7', 'Parking', 50.0, 50.0, 100, 'Open', 'E2');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B8', 'Parking', 50.0, 50.0, 100, 'Open', 'E3');
+```
+
+```sql
+-- DATASET 5
+-- Tests when all budget items for 'November Speaker' are 'Parking' (100% result),
+-- and includes an event with no budget items at all to test OUTER JOIN vs INNER JOIN mutations.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'November Speaker', '2023-11-15', 'Speaker', 'Has budget', 'Hall A', 'Open');
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E2', 'November Speaker', '2023-11-20', 'Speaker', 'No budget', 'Hall B', 'Open');
+
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Parking', 15.0, 25.0, 40, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Parking', 30.0, 30.0, 60, 'Open', 'E1');
+```

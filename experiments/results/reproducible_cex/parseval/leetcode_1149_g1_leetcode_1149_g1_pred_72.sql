@@ -1,0 +1,76 @@
+-- Schema DDL
+CREATE TABLE "Views" ("article_id" INTEGER, "author_id" INTEGER, "viewer_id" INTEGER, "view_date" DATE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: views --
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, NULL, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, NULL, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, NULL, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (NULL, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (NULL, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (NULL, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, NULL);
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, NULL);
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, NULL);
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, NULL, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, NULL, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, NULL, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+
+INSERT INTO "views" ("article_id", "author_id", "viewer_id", "view_date") VALUES (1, 1, 1, '2024-06-15');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT V1.VIEWER_ID AS ID FROM VIEWS AS V1 JOIN VIEWS AS V2 ON (V1.VIEW_DATE = V2.VIEW_DATE OR (V1.VIEW_DATE IS NULL AND V2.VIEW_DATE IS NULL)) AND V1.VIEWER_ID = V2.VIEWER_ID AND V1.ARTICLE_ID <> V2.ARTICLE_ID ORDER BY 1, ID NULLS LAST;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT DISTINCT VIEWER_ID AS ID FROM (SELECT VIEWER_ID, COUNT(ARTICLE_ID) OVER (PARTITION BY VIEW_DATE, VIEWER_ID) AS TCOUNT FROM (SELECT * FROM VIEWS GROUP BY ARTICLE_ID, AUTHOR_ID, VIEWER_ID, VIEW_DATE) AS T) AS T1 WHERE TCOUNT > 1 ORDER BY ID;
+
+/*
+Prediction Result:
+(1,)
+*/

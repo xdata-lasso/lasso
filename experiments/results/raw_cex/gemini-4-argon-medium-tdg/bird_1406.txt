@@ -1,0 +1,62 @@
+```sql
+-- DATASET 1
+-- Tests basic functionality, ties for the maximum amount, and filtering by category = 'Food'.
+-- Kills mutants using LIMIT 1, MIN instead of MAX, OR instead of AND, or selecting wrong columns.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Annual Gala', '2023-05-01', 'Social', 'Notes', 'Hall A', 'Planned');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 100.0, 900.0, 1000, 'Planned', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 200.0, 800.0, 1000, 'Planned', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Food', 1000.0, 1000.0, 500, 'Planned', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Advertisement', 50.0, 950.0, 1000, 'Planned', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Parking', 10.0, 90.0, 100, 'Planned', 'E1');
+```
+
+```sql
+-- DATASET 2
+-- Tests the crucial distinction between global MAX(amount) vs MAX(amount) filtered by 'Food'.
+-- Here, the global max is in 'Equipment' (2000), while the max for 'Food' is 1500.
+-- Reference query should return an empty result. Kills mutants that do:
+-- SELECT budget_id FROM budget WHERE category = 'Food' ORDER BY amount DESC LIMIT 1
+-- or WHERE category = 'Food' AND amount = (SELECT MAX(amount) FROM budget WHERE category = 'Food').
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Tech Talk', '2023-06-15', 'Academic', 'None', 'Room 101', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 500.0, 1000.0, 1500, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 200.0, 300.0, 500, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Equipment', 1800.0, 200.0, 2000, 'Closed', 'E1');
+```
+
+```sql
+-- DATASET 3
+-- Tests string matching edge cases (case sensitivity, substring matching with LIKE '%Food%'),
+-- NULL handling in category and amount, and negative/zero amounts.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Club Fair', '2023-09-01', 'Recruitment', 'Notes', 'Quad', 'Open');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'food', 0.0, 0.0, 500, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food & Drink', 0.0, 0.0, 500, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Fast Food', 0.0, 0.0, 500, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B4', 'Food', 600.0, 600.0, 500, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B5', 'Food', 0.0, 0.0, NULL, 'Open', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B6', NULL, 0.0, 0.0, 500, 'Open', 'E1');
+```
+
+```sql
+-- DATASET 4
+-- Tests unnecessary INNER JOINs with parent table (event) or child table (expense),
+-- and tests column confusion between budget.amount and income.amount / expense.cost.
+-- B1 is a 'Food' budget with NULL link_to_event and no expenses.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Workshop', '2023-10-10', 'Meeting', 'None', 'Lab', 'Planned');
+INSERT INTO zip_code (zip_code, type, city, county, state, short_state) VALUES (12345, 'Standard', 'Town', 'County', 'State', 'ST');
+INSERT INTO major (major_id, major_name, department, college) VALUES ('M1', 'CS', 'Eng', 'Tech');
+INSERT INTO member (member_id, first_name, last_name, email, position, t_shirt_size, phone, zip, link_to_major) VALUES ('MEM1', 'John', 'Doe', 'j@d.com', 'Member', 'M', '123', 12345, 'M1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 10.0, 40.0, 800, 'Planned', NULL);
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 900.0, 900.0, 200, 'Planned', 'E1');
+INSERT INTO expense (expense_id, expense_description, expense_date, cost, approved, link_to_member, link_to_budget) VALUES ('EXP1', 'Snacks', '2023-10-11', 200.0, 'true', 'MEM1', 'B2');
+INSERT INTO income (income_id, date_received, amount, source, notes, link_to_member) VALUES ('INC1', '2023-10-01', 5000, 'Dues', 'None', 'MEM1');
+```
+
+```sql
+-- DATASET 5
+-- Tests negative numbers and zero as the maximum amount, and single-row / all-negative scenarios.
+-- Kills mutants using > 0 filters or COALESCE(..., 0) logic errors.
+INSERT INTO event (event_id, event_name, event_date, type, notes, location, status) VALUES ('E1', 'Deficit Event', '2023-11-01', 'Social', 'None', 'Room B', 'Closed');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B1', 'Food', 100.0, 100.0, -50, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B2', 'Food', 200.0, 200.0, -100, 'Closed', 'E1');
+INSERT INTO budget (budget_id, category, spent, remaining, amount, event_status, link_to_event) VALUES ('B3', 'Supplies', 50.0, 50.0, -200, 'Closed', 'E1');
+```

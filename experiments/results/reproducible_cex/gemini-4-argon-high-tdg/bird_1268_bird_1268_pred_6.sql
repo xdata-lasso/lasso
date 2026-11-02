@@ -1,0 +1,49 @@
+-- Schema DDL
+CREATE TABLE Examination (ID INTEGER NULL, "Examination Date" DATE NULL, "aCL IgG" REAL NULL, "aCL IgM" REAL NULL, ANA INTEGER NULL, "ANA Pattern" TEXT NULL, "aCL IgA" INTEGER NULL, Diagnosis TEXT NULL, KCT TEXT NULL, RVVT TEXT NULL, LAC TEXT NULL, Symptoms TEXT NULL, Thrombosis INTEGER NULL, FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+CREATE TABLE Patient (ID INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, SEX TEXT NULL, Birthday DATE NULL, Description DATE NULL, "First Date" DATE NULL, Admission TEXT NULL, Diagnosis TEXT NULL);
+
+CREATE TABLE Laboratory (ID INTEGER DEFAULT 0 NOT NULL, Date DATE DEFAULT '0000-00-00' NOT NULL, GOT INTEGER NULL, GPT INTEGER NULL, LDH INTEGER NULL, ALP INTEGER NULL, TP REAL NULL, ALB REAL NULL, UA REAL NULL, UN INTEGER NULL, CRE REAL NULL, "T-BIL" REAL NULL, "T-CHO" INTEGER NULL, TG INTEGER NULL, CPK INTEGER NULL, GLU INTEGER NULL, WBC REAL NULL, RBC REAL NULL, HGB REAL NULL, HCT REAL NULL, PLT INTEGER NULL, PT REAL NULL, APTT INTEGER NULL, FG REAL NULL, PIC INTEGER NULL, TAT INTEGER NULL, TAT2 INTEGER NULL, "U-PRO" TEXT NULL, IGG INTEGER NULL, IGA INTEGER NULL, IGM INTEGER NULL, CRP TEXT NULL, RA TEXT NULL, RF TEXT NULL, C3 INTEGER NULL, C4 INTEGER NULL, RNP TEXT NULL, SM TEXT NULL, SC170 TEXT NULL, SSA TEXT NULL, SSB TEXT NULL, CENTROMEA TEXT NULL, DNA TEXT NULL, "DNA-II" INTEGER NULL, PRIMARY KEY (ID, Date), FOREIGN KEY (ID) REFERENCES Patient (ID) ON update CASCADE ON delete CASCADE);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- DATASET 1
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'F', '1999-12-01', '2005-01-01', '2005-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'M', '1998-11-01', '2005-01-01', '2005-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'F', '1997-10-01', '2005-01-01', '2005-01-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (4, 'F', '1995-08-15', '2005-01-01', '2005-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (5, 'M', '1990-06-20', '2005-01-01', '2005-01-01', '-', 'APS');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (6, 'F', '1985-04-10', '2005-01-01', '2005-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (7, 'F', '1980-02-05', '2005-01-01', '2005-01-01', '-', 'MCTD');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (8, 'M', '1970-01-01', '2005-01-01', '2005-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (9, 'F', '2000-05-05', '2005-01-01', '2005-01-01', '+', 'SLE');
+INSERT INTO Laboratory (ID, Date, SM) VALUES (1, '2005-02-01', 'negative');
+INSERT INTO Laboratory (ID, Date, SM) VALUES (2, '2005-02-01', '0');
+INSERT INTO Laboratory (ID, Date, SM) VALUES (3, '2005-02-01', NULL);
+INSERT INTO Laboratory (ID, Date, SM) VALUES (4, '2005-02-01', '+');
+INSERT INTO Laboratory (ID, Date, SM) VALUES (5, '2005-02-01', 'positive');
+INSERT INTO Laboratory (ID, Date, SM) VALUES (6, '2005-02-01', '1.5');
+INSERT INTO Laboratory (ID, Date, SM) VALUES (7, '2005-02-01', '+-');
+INSERT INTO Laboratory (ID, Date, SM) VALUES (8, '2005-02-01', '2');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT T1.ID FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE NOT T2.SM IN ('negative', '0') ORDER BY T1.Birthday DESC, T1.id NULLS LAST, T2.id NULLS LAST, T2.date NULLS LAST LIMIT 3;
+
+/*
+Gold Result:
+(4,)
+(5,)
+(6,)
+*/
+
+-- Prediction Query
+SELECT DISTINCT t2.id FROM laboratory AS t1 INNER JOIN patient AS t2 ON t1.id = t2.id WHERE NOT t1.sm IN ('negative', '0') ORDER BY t2.birthday ASC, t2.id NULLS LAST LIMIT 3;
+
+/*
+Prediction Result:
+(8,)
+(7,)
+(6,)
+*/

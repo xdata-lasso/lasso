@@ -1,0 +1,112 @@
+```sql
+-- DATASET 1
+-- Tests basic filtering (race name, lap = 3), ORDER BY T1.time DESC vs ASC, and T1.time vs T1.milliseconds/position/T2.time
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'magny_cours', 'Circuit de Nevers Magny-Cours', 'http://en.wikipedia.org/wiki/Circuit_de_Nevers_Magny-Cours');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://en.wikipedia.org/wiki/2020_Formula_One_season');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (10, 'gasly', 'Pierre', 'Gasly', 'http://en.wikipedia.org/wiki/Pierre_Gasly');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (20, 'ocon', 'Esteban', 'Ocon', 'http://en.wikipedia.org/wiki/Esteban_Ocon');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (30, 'prost', 'Alain', 'Prost', 'http://en.wikipedia.org/wiki/Alain_Prost');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (40, 'senna', 'Ayrton', 'Senna', 'http://en.wikipedia.org/wiki/Ayrton_Senna');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (50, 'mansell', 'Nigel', 'Mansell', 'http://en.wikipedia.org/wiki/Nigel_Mansell');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (100, 2020, 1, 1, 'French Grand Prix', '2020-07-01', '14:00:00', 'http://en.wikipedia.org/wiki/2020_French_Grand_Prix_1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (101, 2020, 2, 1, 'French Grand Prix', '2020-07-08', '16:00:00', 'http://en.wikipedia.org/wiki/2020_French_Grand_Prix_2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (102, 2020, 3, 1, 'British Grand Prix', '2020-07-15', '15:00:00', 'http://en.wikipedia.org/wiki/2020_British_Grand_Prix');
+
+-- Target Winner: French GP, lap 3, highest T1.time ('01:40.000'), deliberately given lower milliseconds and lower race time to catch column confusion mutants
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (100, 10, 3, 2, '01:40.000', 80000);
+-- Lower T1.time ('01:35.000'), higher milliseconds, higher race time ('16:00:00')
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (101, 20, 3, 1, '01:35.000', 95000);
+-- Wrong race ('British Grand Prix'), but lap 3 and even higher T1.time ('01:59.000')
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (102, 30, 3, 3, '01:59.000', 119000);
+-- Wrong lap (lap 2), French GP, higher T1.time ('01:58.000')
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (100, 40, 2, 4, '01:58.000', 118000);
+-- Wrong lap (lap 4), French GP, higher T1.time ('01:57.000')
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (100, 50, 4, 5, '01:57.000', 117000);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T1.raceId ASC when T1.time is identical across different French Grand Prix races
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'paul_ricard', 'Circuit Paul Ricard', 'http://en.wikipedia.org/wiki/Circuit_Paul_Ricard');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://en.wikipedia.org/wiki/2021_Formula_One_season');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://en.wikipedia.org/wiki/2022_Formula_One_season');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (101, 'leclerc', 'Charles', 'Leclerc', 'http://en.wikipedia.org/wiki/Charles_Leclerc');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (102, 'verstappen', 'Max', 'Verstappen', 'http://en.wikipedia.org/wiki/Max_Verstappen');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (10, 2021, 1, 1, 'French Grand Prix', '2021-06-20', '15:00:00', 'http://en.wikipedia.org/wiki/2021_French_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (20, 2022, 1, 1, 'French Grand Prix', '2022-07-24', '15:00:00', 'http://en.wikipedia.org/wiki/2022_French_Grand_Prix');
+
+-- Tied on T1.time ('01:38.500'). raceId 10 < raceId 20, so driverId 102 must win (even though driverId 101 < 102)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (20, 101, 3, 1, '01:38.500', 98500);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 102, 3, 2, '01:38.500', 98500);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T1.driverId ASC when both T1.time and T1.raceId are identical
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'paul_ricard', 'Circuit Paul Ricard', 'http://en.wikipedia.org/wiki/Circuit_Paul_Ricard');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://en.wikipedia.org/wiki/2021_Formula_One_season');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (5, 'vettel', 'Sebastian', 'Vettel', 'http://en.wikipedia.org/wiki/Sebastian_Vettel');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (15, 'alonso', 'Fernando', 'Alonso', 'http://en.wikipedia.org/wiki/Fernando_Alonso');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (50, 2021, 1, 1, 'French Grand Prix', '2021-06-20', '15:00:00', 'http://en.wikipedia.org/wiki/2021_French_Grand_Prix');
+
+-- Tied on T1.time ('01:36.123') and T1.raceId (50). T1.driverId 5 < 15, so driverId 5 must be returned
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (50, 15, 3, 1, '01:36.123', 96123);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (50, 5, 3, 2, '01:36.123', 96123);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in T1.time (in SQLite, DESC places non-NULL values before NULLs) and confuses other tables (results, qualifying, pitStops)
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'French Grand Prix', 'French Grand Prix', 'http://en.wikipedia.org/wiki/Circuit_1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (2, 'dijon', 'Dijon-Prenois', 'http://en.wikipedia.org/wiki/Dijon-Prenois');
+INSERT INTO seasons (year, url) VALUES (2023, 'http://en.wikipedia.org/wiki/2023_Formula_One_season');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'ferrari', 'Ferrari', 'http://en.wikipedia.org/wiki/Scuderia_Ferrari');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, url) VALUES (7, 'raikkonen', 3, 'Kimi', 'Raikkonen', 'http://en.wikipedia.org/wiki/Kimi_Raikkonen');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, url) VALUES (8, 'grosjean', 8, 'Romain', 'Grosjean', 'http://en.wikipedia.org/wiki/Romain_Grosjean');
+INSERT INTO drivers (driverId, driverRef, number, forename, surname, url) VALUES (9, 'bottas', 77, 'Valtteri', 'Bottas', 'http://en.wikipedia.org/wiki/Valtteri_Bottas');
+
+-- Race 200 has circuit named 'French Grand Prix', but race name is 'Monaco Grand Prix' (tests T2.name vs circuit.name)
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (200, 2023, 3, 1, 'Monaco Grand Prix', '2023-05-28', '15:00:00', 'http://en.wikipedia.org/wiki/2023_Monaco_Grand_Prix');
+-- Race 201 is the actual 'French Grand Prix'
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (201, 2023, 3, 2, 'French Grand Prix', '2023-07-24', '15:00:00', 'http://en.wikipedia.org/wiki/2023_French_Grand_Prix');
+
+-- Driver 7 has NULL time on lap 3 in French Grand Prix
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (201, 7, 3, 1, NULL, 999999);
+-- Driver 8 has non-NULL time on lap 3 in French Grand Prix (Winner: driver 8)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (201, 8, 3, 3, '01:32.000', 92000);
+-- Driver 9 is in Monaco GP (where circuit name is 'French Grand Prix' and round is 3) with a huge time
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (200, 9, 3, 1, '02:50.000', 170000);
+
+-- Decoy rows in pitStops and results for driver 7 & 9 to catch wrong table joins
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (201, 7, 1, 3, '15:10:00', '25.000', 25000);
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, statusId) VALUES (1, 201, 7, 1, 3, 1, 3, '3', 3, 15, 3, '03:00.000', 180000, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests lexicographical string sorting of T1.time vs numeric milliseconds, and case/substring sensitivity on 'French Grand Prix'
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'reims', 'Reims-Gueux', 'http://en.wikipedia.org/wiki/Reims-Gueux');
+INSERT INTO seasons (year, url) VALUES (1950, 'http://en.wikipedia.org/wiki/1950_Formula_One_season');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (31, 'fangio', 'Juan', 'Fangio', 'http://en.wikipedia.org/wiki/Juan_Manuel_Fangio');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (32, 'farina', 'Nino', 'Farina', 'http://en.wikipedia.org/wiki/Nino_Farina');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (33, 'ascari', 'Alberto', 'Ascari', 'http://en.wikipedia.org/wiki/Alberto_Ascari');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (301, 1950, 1, 1, 'French Grand Prix', '1950-07-02', '14:00:00', 'http://en.wikipedia.org/wiki/1950_French_Grand_Prix');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (302, 1950, 2, 1, 'French Grand Prix Historic', '1950-07-03', '14:00:00', 'http://en.wikipedia.org/wiki/1950_French_Grand_Prix_H');
+
+-- Lexicographically '9:05.000' > '10:05.000', even though 9 minutes (545000 ms) < 10 minutes (605000 ms).
+-- Gold query orders by T1.time DESC, so driver 31 ('9:05.000') must beat driver 32 ('10:05.000').
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (301, 31, 3, 2, '9:05.000', 545000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (301, 32, 3, 1, '10:05.000', 605000);
+-- Driver 33 in 'French Grand Prix Historic' (catches LIKE 'French Grand Prix%' mutants)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (302, 33, 3, 1, '9:59.000', 599000);
+```

@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Inner Join vs Exists (Course 101 has multiple enrolments; INNER JOIN without DISTINCT will return duplicate 'Algorithms').
+-- 2. Left Join vs Exists (Course 103 has 0 enrolments; LEFT JOIN will include 'Compilers').
+-- 3. Duplicate course_name across different course_ids (Courses 102 and 104 are both named 'Databases' and both enrolled; SELECT DISTINCT course_name will collapse them to 1 row, whereas the Gold Query returns 2 rows).
+-- 4. ORDER BY course_name (Courses inserted in reverse alphabetical order relative to course_id to kill missing ORDER BY, ORDER BY DESC, or ORDER BY course_id).
+-- 5. Wrong column projection (course_description and other_details differ from course_name).
+-- 6. Wrong table/column join (e.g., joining on student_course_id or student_enrolment_id, or checking Sections instead of Student_Enrolment_Courses).
+
+INSERT INTO Addresses (address_id, line_1, city, country) VALUES (1, '123 Main St', 'Metropolis', 'USA');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'Computer Science');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (1, 1, 'BSc CS');
+INSERT INTO Semesters (semester_id, semester_name) VALUES (1, 'Fall 2023');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (1, 1, 1, 'Alice', 'Smith');
+
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES (101, 'Zoology', 'Desc Z', 'Detail Z');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES (102, 'Databases', 'Desc D1', 'Detail D1');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES (103, 'Compilers', 'Desc C', 'Detail C');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES (104, 'Databases', 'Desc D2', 'Detail D2');
+INSERT INTO Courses (course_id, course_name, course_description, other_details) VALUES (105, 'Algorithms', 'Desc A', 'Detail A');
+
+INSERT INTO Sections (section_id, course_id, section_name) VALUES (1, 103, 'Section 1');
+
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (500, 1, 1, 1);
+
+INSERT INTO Student_Enrolment_Courses (student_course_id, student_enrolment_id, course_id) VALUES (901, 500, 101);
+INSERT INTO Student_Enrolment_Courses (student_course_id, student_enrolment_id, course_id) VALUES (902, 500, 101);
+INSERT INTO Student_Enrolment_Courses (student_course_id, student_enrolment_id, course_id) VALUES (903, 500, 102);
+INSERT INTO Student_Enrolment_Courses (student_course_id, student_enrolment_id, course_id) VALUES (904, 500, 104);
+INSERT INTO Student_Enrolment_Courses (student_course_id, student_enrolment_id, course_id) VALUES (905, 500, 105);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Accidental join on LHS.course_id = RHS.student_course_id or LHS.course_id = RHS.student_enrolment_id (Here IDs overlap with unenrolled courses).
+-- 2. Handling of NULL in Student_Enrolment_Courses.course_id (kills NOT IN subqueries or improper NULL handling).
+-- 3. Transcripts vs Enrolments (Some enrolled courses have no transcript contents; kills mutants that over-join to Transcript_Contents).
+
+INSERT INTO Addresses (address_id, line_1) VALUES (1, '456 Oak Ave');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'Mathematics');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (1, 1, 'BSc Math');
+INSERT INTO Semesters (semester_id, semester_name) VALUES (1, 'Spring 2024');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (1, 1, 1, 'Bob', 'Jones');
+
+INSERT INTO Courses (course_id, course_name, course_description) VALUES (1, 'Unenrolled_Matches_StudentCourseID', 'Desc 1');
+INSERT INTO Courses (course_id, course_name, course_description) VALUES (2, 'Unenrolled_Matches_EnrolmentID', 'Desc 2');
+INSERT INTO Courses (course_id, course_name, course_description) VALUES (3, 'Calculus', 'Desc 3');
+INSERT INTO Courses (course_id, course_name, course_description) VALUES (4, 'Algebra', 'Desc 4');
+
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (2, 1, 1, 1);
+
+INSERT INTO Student_Enrolment_Courses (student_course_id, student_enrolment_id, course_id) VALUES (1, 2, 3);
+INSERT INTO Student_Enrolment_Courses (student_course_id, student_enrolment_id, course_id) VALUES (10, 2, 4);
+INSERT INTO Student_Enrolment_Courses (student_course_id, student_enrolment_id, course_id) VALUES (11, 2, NULL);
+
+INSERT INTO Transcripts (transcript_id, other_details) VALUES (1, 'Official');
+INSERT INTO Transcript_Contents (transcript_id, student_course_id) VALUES (1, 1);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty Student_Enrolment_Courses table while Courses is non-empty (kills mutants that omit the WHERE EXISTS clause or use NOT EXISTS).
+-- 2. Courses with NULL course_name when enrolled vs unenrolled.
+
+INSERT INTO Courses (course_id, course_name, course_description) VALUES (10, 'Physics', 'Intro to Physics');
+INSERT INTO Courses (course_id, course_name, course_description) VALUES (20, 'Chemistry', 'Intro to Chemistry');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Same course_name shared between an enrolled course and an unenrolled course (Course 1 is 'Biology' and enrolled; Course 2 is 'Biology' and NOT enrolled).
+--    Kills mutants that rewrite the query as: SELECT course_name FROM Courses WHERE course_name IN (SELECT C.course_name FROM Courses C JOIN Student_Enrolment_Courses S ON C.course_id = S.course_id)
+-- 2. NULL course_name in an enrolled course (ensures WHERE course_name IS NOT NULL wasn't hallucinated).
+
+INSERT INTO Addresses (address_id, line_1) VALUES (1, '789 Pine Rd');
+INSERT INTO Departments (department_id, department_name) VALUES (1, 'Biology Dept');
+INSERT INTO Degree_Programs (degree_program_id, department_id, degree_summary_name) VALUES (1, 1, 'BSc Bio');
+INSERT INTO Semesters (semester_id, semester_name) VALUES (1, 'Summer 2024');
+INSERT INTO Students (student_id, permanent_address_id, current_address_id, first_name, last_name) VALUES (1, 1, 1, 'Charlie', 'Brown');
+
+INSERT INTO Courses (course_id, course_name, course_description) VALUES (1, 'Biology', 'Bio I');
+INSERT INTO Courses (course_id, course_name, course_description) VALUES (2, 'Biology', 'Bio II');
+INSERT INTO Courses (course_id, course_name, course_description) VALUES (3, NULL, 'Unknown Course');
+
+INSERT INTO Student_Enrolment (student_enrolment_id, student_id, semester_id, degree_program_id) VALUES (1, 1, 1, 1);
+
+INSERT INTO Student_Enrolment_Courses (student_course_id, student_enrolment_id, course_id) VALUES (1, 1, 1);
+INSERT INTO Student_Enrolment_Courses (student_course_id, student_enrolment_id, course_id) VALUES (2, 1, 3);
+```

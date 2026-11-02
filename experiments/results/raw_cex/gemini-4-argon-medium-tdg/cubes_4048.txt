@@ -1,0 +1,75 @@
+```sql
+-- DATASET 1
+-- Tests standard case: multiple channels, multiple tied max ratings with same and different owners, multiple non-max ratings, and column swap resistance (Share_in_percent vs Rating_in_percent, Owner vs Name).
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'Ch_Z', 'Owner_B', 10.0, 90.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'Ch_A', 'Owner_A', 95.0, 90.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (3, 'Ch_M', 'Owner_A', 50.0, 90.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (4, 'Ch_X', 'Owner_C', 99.0, 50.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (5, 'Ch_Y', 'Owner_D', 80.0, 20.0);
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (1, 'Prog_1', 'US', 2000.0, 'Prog_Owner_1');
+```
+
+```sql
+-- DATASET 2
+-- Tests edge case: all channels have the exact same Rating_in_percent. 
+-- The condition (rating_in_percent_other <> maxrating_in_percent_other) must evaluate to FALSE for all pairs, returning an empty result set.
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'Channel_1', 'Owner_A', 30.0, 75.5);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'Channel_2', 'Owner_B', 60.0, 75.5);
+```
+
+```sql
+-- DATASET 3
+-- Tests edge case: single row in channel table.
+-- No other channel has a lower rating, so the query must return an empty result set.
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'Solo_Channel', 'Solo_Owner', 50.0, 80.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in Rating_in_percent and Owner, plus negative and zero ratings.
+-- Max rating is 0.0 (compared against -10.5 and NULL). Also includes a NULL Owner with max rating.
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'Null_Rating_Ch', 'Owner_Null_Rating', 50.0, NULL);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'Zero_Rating_Ch', 'Owner_Zero', 20.0, 0.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (3, 'Neg_Rating_Ch', 'Owner_Neg', 80.0, -10.5);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (4, 'Null_Owner_Ch', NULL, 40.0, 0.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests mutant queries that mistakenly inner join channel with broadcast, broadcast_share, or program.
+-- The channel with the maximum rating has no entries in broadcast or broadcast_share, while the lower-rated channel does.
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (10, 'Morning_Show', 'UK', 2010.0, 'MediaCorp');
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (100, 'Unlinked_Max_Ch', 'Independent_Owner', 15.0, 88.8);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (200, 'Linked_Low_Ch', 'MediaCorp', 45.0, 22.2);
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (200, 10, 'Morning');
+INSERT INTO "broadcast_share" ("Channel_ID", "Program_ID", "Date", "Share_in_percent") VALUES (200, 10, '2023-01-01', 45.0);
+```
+
+```sql
+-- DATASET 6
+-- Tests the exact complement of Dataset 5: the channel with the maximum rating IS linked in broadcast/broadcast_share, 
+-- while the ONLY channel with a non-max rating is NOT linked in broadcast/broadcast_share.
+INSERT INTO "program" ("Program_ID", "Name", "Origin", "Launch", "Owner") VALUES (10, 'Evening_News', 'CA', 2015.0, 'NewsGroup');
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (100, 'Linked_Max_Ch', 'NewsGroup', 60.0, 95.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (200, 'Unlinked_Low_Ch', 'IndieGroup', 10.0, 12.0);
+INSERT INTO "broadcast" ("Channel_ID", "Program_ID", "Time_of_day") VALUES (100, 10, 'Evening');
+INSERT INTO "broadcast_share" ("Channel_ID", "Program_ID", "Date", "Share_in_percent") VALUES (100, 10, '2023-05-05', 60.0);
+```
+
+```sql
+-- DATASET 7
+-- Tests partitioning mutants (e.g., MAX(rating_in_percent) OVER (PARTITION BY Owner)) and self-join conditions.
+-- Owner_X has both the global max rating (100.0) and a lower rating (40.0).
+-- Owner_Y only has a single channel with a non-max rating (60.0).
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'Ch_X1', 'Owner_X', 30.0, 100.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'Ch_X2', 'Owner_X', 25.0, 40.0);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (3, 'Ch_Y1', 'Owner_Y', 35.0, 60.0);
+```
+
+```sql
+-- DATASET 8
+-- Tests floating-point precision boundaries and strict inequality vs non-strict inequality.
+-- Max rating is 50.0001, second highest is 50.0000.
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (1, 'Ch_Precise_1', 'Owner_Z', 10.0, 50.0001);
+INSERT INTO "channel" ("Channel_ID", "Name", "Owner", "Share_in_percent", "Rating_in_percent") VALUES (2, 'Ch_Precise_2', 'Owner_A', 20.0, 50.0000);
+```

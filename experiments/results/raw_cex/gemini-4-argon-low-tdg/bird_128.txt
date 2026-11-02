@@ -1,0 +1,114 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. GROUP BY T2.district_id, T2.A2 vs GROUP BY T2.A2 only (Districts 1 and 2 share A2 = 'SameName')
+-- 2. INNER JOIN vs LEFT JOIN on district (District 3 has only 'M' clients, District 4 has 0 clients)
+-- 3. WHERE gender = 'F' vs no filter or gender = 'M' (District 2 has 'M' clients that would inflate its count if unfiltered)
+-- 4. ORDER BY COUNT DESC vs ASC, and tie-breaking on T2.A2 ASC vs DESC (Districts 5 and 6 both have count 2, named 'Alpha' and 'Beta')
+-- 5. Confounding path via account/disp (Client 1 is in District 1, but has an account in District 5)
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'SameName', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 100, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'SameName', 'R2', '100', '1', '1', '1', 1, 1, 1.0, 100, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'OnlyMale', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 100, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (4, 'NoClient', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 100, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (5, 'Beta', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 100, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (6, 'Alpha', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 100, 1.0, 1.0, 1, 1, 1);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1980-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1981-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'F', '1982-01-01', 1);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'F', '1983-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (5, 'M', '1984-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (6, 'M', '1985-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (7, 'M', '1986-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (8, 'M', '1987-01-01', 2);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (9, 'M', '1988-01-01', 3);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'F', '1989-01-01', 5);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (11, 'F', '1990-01-01', 5);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (12, 'F', '1991-01-01', 6);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (13, 'F', '1992-01-01', 6);
+
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (101, 5, 'POPLATEK MESICNE', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (102, 5, 'POPLATEK MESICNE', '1995-01-02');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (201, 1, 101, 'OWNER');
+INSERT INTO disp (disp_id, client_id, account_id, type) VALUES (202, 1, 102, 'DISPONENT');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. LIMIT 10 boundary condition (12 districts with 'F' clients; checks that exactly 10 are returned, not 9, 11, or all 12)
+-- 2. Tie-breaking right at the LIMIT 10 boundary (Positions 9, 10, 11 all have count = 1, with A2 names 'Dist_I', 'Dist_J', 'Dist_K')
+-- 3. COUNT(T1.client_id) vs COUNT(DISTINCT T1.birth_date) or COUNT(DISTINCT T1.gender)
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'Dist_A', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'Dist_B', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'Dist_C', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (4, 'Dist_D', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (5, 'Dist_E', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (6, 'Dist_F', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (7, 'Dist_G', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (8, 'Dist_H', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (9, 'Dist_K', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'Dist_J', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (11, 'Dist_I', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (12, 'Dist_L', 'R', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'F', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'F', '1970-01-01', 1);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (5, 'F', '1970-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (6, 'F', '1970-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (7, 'F', '1970-01-01', 2);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (8, 'F', '1970-01-01', 3);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (9, 'F', '1970-01-01', 3);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'F', '1970-01-01', 4);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (11, 'F', '1970-01-01', 4);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (12, 'F', '1970-01-01', 5);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (13, 'F', '1970-01-01', 5);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (14, 'F', '1970-01-01', 6);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (15, 'F', '1970-01-01', 6);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (16, 'F', '1970-01-01', 7);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (17, 'F', '1970-01-01', 7);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (18, 'F', '1970-01-01', 8);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (19, 'F', '1970-01-01', 8);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (20, 'F', '1970-01-01', 9);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (21, 'F', '1970-01-01', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (22, 'F', '1970-01-01', 11);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (23, 'F', '1970-01-01', 12);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Order of district_id vs Order of A2 vs Order of COUNT (inverse correlations)
+-- 2. SUM(client_id) or MAX(client_id) vs COUNT(client_id) (District 30 has 1 client with huge client_id 999; District 10 has 2 clients with small client_ids 1, 2)
+-- 3. Case sensitivity and exact string match on gender = 'F' (tests 'f', 'Female', 'M')
+-- 4. Selecting A3 instead of A2
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (10, 'Zeta', 'Alpha_Region', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (20, 'Mid', 'Mid_Region', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (30, 'Alpha', 'Zeta_Region', '1', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 1.0, 1, 1, 1);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'F', '1990-05-01', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1991-05-01', 10);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'f', '1992-05-01', 10);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (10, 'F', '1985-05-01', 20);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (11, 'F', '1986-05-01', 20);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (12, 'F', '1987-05-01', 20);
+
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (999, 'F', '1980-05-01', 30);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1000, 'Female', '1981-05-01', 30);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1001, 'M', '1982-05-01', 30);
+```

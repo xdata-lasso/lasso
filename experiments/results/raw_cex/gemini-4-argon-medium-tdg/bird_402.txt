@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- Tests WHERE filtering (isStorySpotlight = 1 vs 0), CASE branch evaluation (isTextless = 0 vs 1),
+-- integer vs floating-point division (200 / 3 = 66.666...), and spurious JOINs with child tables.
+INSERT INTO sets (id, code, name) VALUES (1, 'SET1', 'Test Set 1');
+
+INSERT INTO cards (id, uuid, name, setCode, isStorySpotlight, isTextless) VALUES (1, 'uuid-1', 'Spotlight With Text 1', 'SET1', 1, 0);
+INSERT INTO cards (id, uuid, name, setCode, isStorySpotlight, isTextless) VALUES (2, 'uuid-2', 'Spotlight With Text 2', 'SET1', 1, 0);
+INSERT INTO cards (id, uuid, name, setCode, isStorySpotlight, isTextless) VALUES (3, 'uuid-3', 'Spotlight Textless', 'SET1', 1, 1);
+INSERT INTO cards (id, uuid, name, setCode, isStorySpotlight, isTextless) VALUES (4, 'uuid-4', 'Normal With Text', 'SET1', 0, 0);
+INSERT INTO cards (id, uuid, name, setCode, isStorySpotlight, isTextless) VALUES (5, 'uuid-5', 'Normal Textless', 'SET1', 0, 1);
+
+INSERT INTO legalities (id, format, status, uuid) VALUES (1, 'Standard', 'Legal', 'uuid-1');
+INSERT INTO legalities (id, format, status, uuid) VALUES (2, 'Modern', 'Legal', 'uuid-1');
+INSERT INTO rulings (id, date, text, uuid) VALUES (1, '2023-01-01', 'Ruling 1', 'uuid-1');
+INSERT INTO foreign_data (id, language, name, uuid) VALUES (1, 'German', 'German Name', 'uuid-1');
+```
+
+```sql
+-- DATASET 2
+-- Boundary condition: 0% result (All story spotlight cards have isTextless = 1).
+-- Catches mutants that use COUNT(CASE WHEN isTextless = 0 THEN 1 END) without ELSE 0 (which would return NULL instead of 0.0 when no rows match),
+-- or mutants that invert the isTextless condition.
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (1, 'uuid-201', 'Spotlight Textless A', 1, 1);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (2, 'uuid-202', 'Spotlight Textless B', 1, 1);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (3, 'uuid-203', 'Non-Spotlight Text', 0, 0);
+```
+
+```sql
+-- DATASET 3
+-- Boundary condition: 100% result (All story spotlight cards have isTextless = 0).
+-- Also tests column confusion (e.g., confusing isTextless with isFullArt, isPromo, or isTimeshifted).
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless, isFullArt, isPromo, isTimeshifted) VALUES (1, 'uuid-301', 'Spotlight Text A', 1, 0, 1, 1, 0);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless, isFullArt, isPromo, isTimeshifted) VALUES (2, 'uuid-302', 'Spotlight Text B', 1, 0, 0, 1, 1);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless, isFullArt, isPromo, isTimeshifted) VALUES (3, 'uuid-303', 'Non-Spotlight Textless', 0, 1, 0, 0, 0);
+```
+
+```sql
+-- DATASET 4
+-- Empty filtered set: No cards have isStorySpotlight = 1.
+-- Reference query evaluates SUM to NULL and COUNT to 0, resulting in NULL.
+-- Catches mutants that omit the WHERE clause or use COALESCE(..., 0) inappropriately.
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (1, 'uuid-401', 'Normal Card 1', 0, 0);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (2, 'uuid-402', 'Normal Card 2', 0, 1);
+```
+
+```sql
+-- DATASET 5
+-- Non-binary integer values & NULL column traps:
+-- Tests strict equality (isStorySpotlight = 1, isTextless = 0) against values like 2 or -1,
+-- and sets nullable columns (like text, flavorText, setCode) to NULL to kill mutants that
+-- check "text IS NOT NULL" instead of "isTextless = 0" or COUNT(text) instead of COUNT(id).
+INSERT INTO cards (id, uuid, name, text, flavorText, setCode, isStorySpotlight, isTextless) VALUES (1, 'uuid-501', 'Null Text Cols But Not Textless', NULL, NULL, NULL, 1, 0);
+INSERT INTO cards (id, uuid, name, text, flavorText, setCode, isStorySpotlight, isTextless) VALUES (2, 'uuid-502', 'Has Text Col But Marked Textless', 'Some rules text', 'Some flavor', NULL, 1, 1);
+INSERT INTO cards (id, uuid, name, text, flavorText, setCode, isStorySpotlight, isTextless) VALUES (3, 'uuid-503', 'Non-Boolean Textless Flag', 'Rules', 'Flavor', NULL, 1, 2);
+INSERT INTO cards (id, uuid, name, text, flavorText, setCode, isStorySpotlight, isTextless) VALUES (4, 'uuid-504', 'Non-Boolean Spotlight Flag', 'Rules', 'Flavor', NULL, 2, 0);
+```
+
+```sql
+-- DATASET 6
+-- Precision and DISTINCT trap:
+-- 1 card with isTextless = 0, 7 cards with isTextless = 1 (Result: 12.5).
+-- Identical names/attributes across rows to kill mutants that erroneously introduce DISTINCT inside COUNT or SUM, or group by card name.
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (10, 'uuid-601', 'Duplicate Name', 1, 0);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (20, 'uuid-602', 'Duplicate Name', 1, 1);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (30, 'uuid-603', 'Duplicate Name', 1, 1);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (40, 'uuid-604', 'Duplicate Name', 1, 1);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (50, 'uuid-605', 'Duplicate Name', 1, 1);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (60, 'uuid-606', 'Duplicate Name', 1, 1);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (70, 'uuid-607', 'Duplicate Name', 1, 1);
+INSERT INTO cards (id, uuid, name, isStorySpotlight, isTextless) VALUES (80, 'uuid-608', 'Duplicate Name', 1, 1);
+```

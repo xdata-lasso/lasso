@@ -1,0 +1,53 @@
+-- Schema DDL
+CREATE TABLE "DEVICE" (
+    "DEVICE_ID" INT,
+    "DEVICE" TEXT,
+    "CARRIER" TEXT,
+    "PACKAGE_VERSION" TEXT,
+    "APPLICATIONS" TEXT,
+    "SOFTWARE_PLATFORM" TEXT,
+    PRIMARY KEY ("DEVICE_ID")
+);
+CREATE TABLE "SHOP" (
+    "SHOP_ID" INT,
+    "SHOP_NAME" TEXT,
+    "LOCATION" TEXT,
+    "OPEN_DATE" TEXT,
+    "OPEN_YEAR" INT,
+    PRIMARY KEY ("SHOP_ID")
+);
+CREATE TABLE "STOCK" (
+    "SHOP_ID" INT,
+    "DEVICE_ID" INT,
+    "QUANTITY" INT,
+    PRIMARY KEY ("SHOP_ID", "DEVICE_ID"),
+    FOREIGN KEY ("DEVICE_ID") REFERENCES "DEVICE"("DEVICE_ID"),
+    FOREIGN KEY ("SHOP_ID") REFERENCES "SHOP"("SHOP_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO DEVICE VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO DEVICE VALUES (-1, 0, 0, 0, 0, 0);
+INSERT INTO SHOP VALUES (0, 14, 18, 19, -2147482325);
+INSERT INTO SHOP VALUES (-1, 11, 12, 13, -2147482325);
+INSERT INTO STOCK VALUES (0, 0, 0);
+INSERT INTO STOCK VALUES (-1, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT shop_name FROM (SELECT * FROM (SELECT * FROM (SELECT shop_id, shop_name, MAX(open_year) AS maxopen_year FROM shop GROUP BY shop_id, shop_name) ORDER BY shop_id DESC) LIMIT 1);
+
+/*
+Gold Result:
+('14',)
+*/
+
+-- Prediction Query
+SELECT Shop_Name FROM shop ORDER BY Open_Year DESC, shop.shop_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('11',)
+*/

@@ -1,0 +1,73 @@
+-- Schema DDL
+CREATE TABLE "PRODUCT" (
+    "PRODUCT_ID" INT,
+    "PRODUCT" TEXT,
+    "DIMENSIONS" TEXT,
+    "DPI" FLOAT,
+    "PAGES_PER_MINUTE_COLOR" FLOAT,
+    "MAX_PAGE_SIZE" TEXT,
+    "INTERFACE" TEXT,
+    PRIMARY KEY ("PRODUCT_ID")
+);
+CREATE TABLE "STORE" (
+    "STORE_ID" INT,
+    "STORE_NAME" TEXT,
+    "TYPE" TEXT,
+    "AREA_SIZE" FLOAT,
+    "NUMBER_OF_PRODUCT_CATEGORY" FLOAT,
+    "RANKING" INT,
+    PRIMARY KEY ("STORE_ID")
+);
+CREATE TABLE "DISTRICT" (
+    "DISTRICT_ID" INT,
+    "DISTRICT_NAME" TEXT,
+    "HEADQUARTERED_CITY" TEXT,
+    "CITY_POPULATION" FLOAT,
+    "CITY_AREA" FLOAT,
+    PRIMARY KEY ("DISTRICT_ID")
+);
+CREATE TABLE "STORE_PRODUCT" (
+    "STORE_ID" INT,
+    "PRODUCT_ID" INT,
+    PRIMARY KEY ("STORE_ID", "PRODUCT_ID"),
+    FOREIGN KEY ("PRODUCT_ID") REFERENCES "PRODUCT"("PRODUCT_ID"),
+    FOREIGN KEY ("STORE_ID") REFERENCES "STORE"("STORE_ID")
+);
+CREATE TABLE "STORE_DISTRICT" (
+    "STORE_ID" INT,
+    "DISTRICT_ID" INT,
+    PRIMARY KEY ("STORE_ID"),
+    FOREIGN KEY ("DISTRICT_ID") REFERENCES "DISTRICT"("DISTRICT_ID"),
+    FOREIGN KEY ("STORE_ID") REFERENCES "STORE"("STORE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO PRODUCT VALUES (2, 25, NULL, NULL, NULL, 2, NULL);
+INSERT INTO PRODUCT VALUES (3, 25, NULL, NULL, NULL, 1, NULL);
+INSERT INTO STORE VALUES (1, 0, 0, 0, 0, 0);
+INSERT INTO STORE VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO DISTRICT VALUES (-1, 0, 0, 0, 0);
+INSERT INTO DISTRICT VALUES (0, 0, 0, 0, 0);
+INSERT INTO STORE_PRODUCT VALUES (1, 3);
+INSERT INTO STORE_PRODUCT VALUES (1, 2);
+INSERT INTO STORE_DISTRICT VALUES (1, 0);
+INSERT INTO STORE_DISTRICT VALUES (0, -1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT max_page_size FROM (SELECT LHS.product_id AS product_id, LHS.product AS product, LHS.dimensions AS dimensions, LHS.dpi AS dpi, LHS.pages_per_minute_color AS pages_per_minute_color, LHS.max_page_size AS max_page_size, LHS.interface AS interface FROM product AS LHS INNER JOIN (SELECT product, COUNT(*) AS n FROM product GROUP BY product) AS RHS ON (LHS.product_id = RHS.n AND LHS.product = RHS.product)) ORDER BY max_page_size;
+
+/*
+Gold Result:
+('2',)
+*/
+
+-- Prediction Query
+SELECT max_page_size FROM product GROUP BY max_page_size ORDER BY COUNT(*) DESC, max_page_size NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('1',)
+*/

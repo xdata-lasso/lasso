@@ -1,0 +1,25 @@
+-- Schema DDL
+CREATE TABLE "Activity" ("machine_id" INTEGER, "process_id" INTEGER, "activity_type" TEXT(255), "timestamp" REAL, PRIMARY KEY ("machine_id", "process_id", "activity_type"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Activity" ("machine_id", "process_id", "activity_type", "timestamp") VALUES (64, 9, 'end', -184);
+INSERT INTO "Activity" ("machine_id", "process_id", "activity_type", "timestamp") VALUES (69, 8, 'end', -60);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT A1.MACHINE_ID, ROUND(CAST(SUM(A2.TIMESTAMP - A1.TIMESTAMP) AS REAL) / COUNT(*), 3) AS PROCESSING_TIME FROM ACTIVITY AS A1 JOIN ACTIVITY AS A2 ON A1.MACHINE_ID = A2.MACHINE_ID AND A1.PROCESS_ID = A2.PROCESS_ID AND A1.ACTIVITY_TYPE = 'start' AND A2.ACTIVITY_TYPE = 'end' GROUP BY A1.MACHINE_ID;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT MACHINE_ID, ROUND(CAST(SUM(END_TIME - START_TIME) AS REAL) / COUNT(PROCESS_ID), 3) AS PROCESSING_TIME FROM (SELECT SUM(IIF(ACTIVITY_TYPE = 'start', TIMESTAMP, 0)) AS START_TIME, SUM(IIF(ACTIVITY_TYPE = 'end', TIMESTAMP, 0)) AS END_TIME, MACHINE_ID, PROCESS_ID, TIMESTAMP FROM ACTIVITY GROUP BY MACHINE_ID, PROCESS_ID) AS TMP GROUP BY MACHINE_ID;
+
+/*
+Prediction Result:
+(64, -184.0)
+(69, -60.0)
+*/

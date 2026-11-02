@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE "mission" ("Mission_ID" INTEGER PRIMARY KEY, "Ship_ID" INTEGER, "Code" TEXT, "Launched_Year" INTEGER, "Location" TEXT, "Speed_knots" INTEGER, "Fate" TEXT, FOREIGN KEY ("Ship_ID") REFERENCES "ship" ("Ship_ID"));
+
+CREATE TABLE "ship" ("Ship_ID" INTEGER PRIMARY KEY, "Name" TEXT, "Type" TEXT, "Nationality" TEXT, "Tonnage" INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ship (ship_id, name, type, nationality, tonnage) VALUES (0, NULL, 'United Kingdom', 'United States', 0), (1, 'United States', 'United States', 'default1', 1);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT "name" FROM "ship" WHERE ("nationality" <> 'United States' OR "nationality" <> 'United Kingdom') ORDER BY name, ship.ship_id NULLS LAST;
+
+/*
+Gold Result:
+(None,)
+('United States',)
+*/
+
+-- Prediction Query
+SELECT Name FROM ship WHERE Nationality = 'United States' OR Nationality = 'United Kingdom';
+
+/*
+Prediction Result:
+(None,)
+*/

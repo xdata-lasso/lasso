@@ -1,0 +1,71 @@
+```sql
+-- DATASET 1
+-- Tests basic anti-join (filtering out the most recent template because it has a document),
+-- ORDER BY date_effective_from DESC vs ASC, and LIMIT 1 vs no limit.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_A', 'Desc A');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_B', 'Desc B');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_C', 'Desc C');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'TYPE_A', 3, '2025-01-01 00:00:00', '2020-01-01 00:00:00', 'Has documents, latest date');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'TYPE_B', 1, '2023-01-01 00:00:00', '2021-01-01 00:00:00', 'No documents, middle date (Target)');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (3, 'TYPE_C', 2, '2021-01-01 00:00:00', '2026-01-01 00:00:00', 'No documents, earliest date');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (10, 1, 'Doc 1', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (11, 1, 'Doc 2', 'Desc', 'Other');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL values in Documents.Template_ID to kill NOT IN mutants (NOT IN fails when subquery returns NULL, whereas NOT EXISTS succeeds).
+-- Also tests ordering by different columns (Version_Number, Date_Effective_To, Template_ID).
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_X', 'Desc X');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_Y', 'Desc Y');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('TYPE_Z', 'Desc Z');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (10, 'TYPE_X', 1, '2024-06-01 00:00:00', '2024-07-01 00:00:00', 'Target row');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (20, 'TYPE_Y', 99, '2022-06-01 00:00:00', '2029-07-01 00:00:00', 'Higher ID, Higher Version, Higher Date_To, but older Date_From');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (30, 'TYPE_Z', 50, '2025-06-01 00:00:00', '2025-07-01 00:00:00', 'Newest Date_From, but has document');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 30, 'Bound Doc', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (2, NULL, 'Unbound Doc', 'Desc', 'Other');
+```
+
+```sql
+-- DATASET 3
+-- Tests edge case where ALL templates have associated documents (Reference query returns empty set).
+-- Kills mutants that omit the WHERE NOT EXISTS clause or use EXISTS instead.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T1', 'Type 1');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('T2', 'Type 2');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'T1', 1, '2023-01-01 00:00:00', '2024-01-01 00:00:00', 'Details 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'T2', 2, '2024-01-01 00:00:00', '2025-01-01 00:00:00', 'Details 2');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (100, 1, 'D1', 'Desc', 'Other');
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (200, 2, 'D2', 'Desc', 'Other');
+
+INSERT INTO "Paragraphs" ("Paragraph_ID", "Document_ID", "Paragraph_Text", "Other_Details") VALUES (1000, 100, 'Para 1', 'Other');
+```
+
+```sql
+-- DATASET 4
+-- Tests edge case where Documents table is completely empty, and Templates have NULL Date_Effective_From.
+-- In SQLite, DESC ordering places non-NULL values before NULL values.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('CODE_NULL', 'Null Date');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('CODE_VALID', 'Valid Date');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'CODE_NULL', 10, NULL, '2030-01-01 00:00:00', 'Null effective from');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'CODE_VALID', 5, '2020-01-01 00:00:00', '2021-01-01 00:00:00', 'Valid effective from');
+```
+
+```sql
+-- DATASET 5
+-- Tests incorrect join condition mutants (e.g., LHS.Template_ID = RHS.Document_ID) and Ref_Template_Types unused rows.
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('UNUSED_TYPE', 'Unused');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('USED_1', 'Used 1');
+INSERT INTO "Ref_Template_Types" ("Template_Type_Code", "Template_Type_Description") VALUES ('USED_2', 'Used 2');
+
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (1, 'USED_1', 1, '2025-05-05 00:00:00', '2026-05-05 00:00:00', 'Has no doc, but ID matches Document_ID 1');
+INSERT INTO "Templates" ("Template_ID", "Template_Type_Code", "Version_Number", "Date_Effective_From", "Date_Effective_To", "Template_Details") VALUES (2, 'USED_2', 1, '2024-05-05 00:00:00', '2026-05-05 00:00:00', 'Has doc (Doc ID 1)');
+
+INSERT INTO "Documents" ("Document_ID", "Template_ID", "Document_Name", "Document_Description", "Other_Details") VALUES (1, 2, 'Doc with ID 1 for Template 2', 'Desc', 'Other');
+```

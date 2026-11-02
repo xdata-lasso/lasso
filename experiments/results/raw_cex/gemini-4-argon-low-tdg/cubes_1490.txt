@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests core filtering, Major vs Minor_in confusion, inner vs outer joins, and multiple minors per student.
+INSERT INTO Department (DNO, Division, DName, Room, Building, DPhone) VALUES (140, 'EN', 'Computer Science', '101', 'Gates', 1111);
+INSERT INTO Department (DNO, Division, DName, Room, Building, DPhone) VALUES (139, 'EN', 'Electrical Eng', '102', 'Packard', 2222);
+INSERT INTO Department (DNO, Division, DName, Room, Building, DPhone) VALUES (141, 'AS', 'Mathematics', '103', 'Sloan', 3333);
+
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (1, 'Smith', 'Alice', 20, 'F', 139, 10, 'NYC');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (2, 'Jones', 'Bob', 21, 'M', 140, 10, 'LAX');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (3, 'Brown', 'Charlie', 22, 'M', 140, 11, 'CHI');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (4, 'White', 'David', 19, 'M', 141, 12, 'BOS');
+
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 1);
+INSERT INTO Minor_in (DNO, StuID) VALUES (141, 1);
+INSERT INTO Minor_in (DNO, StuID) VALUES (139, 2);
+INSERT INTO Minor_in (DNO, StuID) VALUES (141, 4);
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests ORDER BY fname, lname NULLS LAST, tie-breaking, and NULL handling in sorting columns.
+INSERT INTO Department (DNO, Division, DName, Room, Building, DPhone) VALUES (140, 'EN', 'Computer Science', '101', 'Gates', 1111);
+
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (1, 'Zeta', 'Aaron', 20, 'M', 100, 1, 'NYC');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (2, 'Alpha', 'Aaron', 21, 'M', 100, 1, 'NYC');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (3, NULL, 'Aaron', 22, 'F', 100, 1, 'NYC');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (4, 'Beta', 'Zack', 19, 'M', 100, 1, 'NYC');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (5, 'Gamma', NULL, 23, 'F', 100, 1, 'NYC');
+
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 1);
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 2);
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 3);
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 4);
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 5);
+```
+
+```sql
+-- DATASET 3
+-- Tests bag semantics (multiplicity/duplicates) vs DISTINCT, and identical names across different students.
+INSERT INTO Department (DNO, Division, DName, Room, Building, DPhone) VALUES (140, 'EN', 'Computer Science', '101', 'Gates', 1111);
+INSERT INTO Department (DNO, Division, DName, Room, Building, DPhone) VALUES (150, 'AS', 'Physics', '201', 'Varian', 4444);
+
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (1, 'Doe', 'John', 20, 'M', 150, 1, 'SFO');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (2, 'Doe', 'John', 22, 'M', 140, 2, 'SEA');
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (3, 'Roe', 'Jane', 21, 'F', 150, 3, 'DEN');
+
+-- Student 1 and 2 have the exact same Fname and LName; both minor in 140.
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 1);
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 2);
+
+-- Student 3 has duplicate entries in Minor_in (valid since Minor_in has no PK), testing self-join multiplication (2x2 = 4 rows).
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 3);
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 3);
+```
+
+```sql
+-- DATASET 4
+-- Tests confusion between Minor_in and Enrolled_in (taking a course in DNO 140 vs minoring in DNO 140) or Faculty/Advisor relationships.
+INSERT INTO Department (DNO, Division, DName, Room, Building, DPhone) VALUES (140, 'EN', 'Computer Science', '101', 'Gates', 1111);
+INSERT INTO Department (DNO, Division, DName, Room, Building, DPhone) VALUES (200, 'AS', 'History', '301', 'Main', 5555);
+
+INSERT INTO Faculty (FacID, Lname, Fname, Rank, Sex, Phone, Room, Building) VALUES (10, 'Turing', 'Alan', 'Prof', 'M', 9999, '105', 'Gates');
+INSERT INTO Member_of (DNO, FacID, Appt_Type) VALUES (140, 10, 'Primary');
+
+INSERT INTO Course (CID, DNO, Instructor, CName, Credits, Days, Hours) VALUES ('CS101', 140, 10, 'Intro to CS', 4, 'MWF', '10-11');
+INSERT INTO Gradeconversion (lettergrade, gradepoint) VALUES ('A', 4.0);
+
+-- Student 1: Majors in 140, Advised by Fac 10 (in 140), Enrolled in CS101 (in 140), but Minors in 200. (Should NOT be returned)
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (1, 'Trap', 'Student', 20, 'M', 140, 10, 'NYC');
+INSERT INTO Minor_in (DNO, StuID) VALUES (200, 1);
+INSERT INTO Enrolled_in (Grade, CID, StuID) VALUES ('A', 'CS101', 1);
+
+-- Student 2: Majors in 200, not enrolled in any 140 course, but Minors in 140. (SHOULD be returned)
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (2, 'Target', 'Student', 21, 'F', 200, NULL, 'LAX');
+INSERT INTO Minor_in (DNO, StuID) VALUES (140, 2);
+```
+
+```sql
+-- DATASET 5
+-- Tests boundary case where DNO 140 has no students minoring in it (empty result set verification).
+INSERT INTO Department (DNO, Division, DName, Room, Building, DPhone) VALUES (140, 'EN', 'Computer Science', '101', 'Gates', 1111);
+INSERT INTO Department (DNO, Division, DName, Room, Building, DPhone) VALUES (141, 'AS', 'Mathematics', '103', 'Sloan', 3333);
+
+INSERT INTO Student (StuID, LName, Fname, Age, Sex, Major, Advisor, city_code) VALUES (140, 'Hundred', 'Forty', 20, 'M', 140, 140, '140');
+INSERT INTO Minor_in (DNO, StuID) VALUES (141, 140);
+```

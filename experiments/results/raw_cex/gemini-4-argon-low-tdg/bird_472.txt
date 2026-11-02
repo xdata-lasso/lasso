@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. DISTINCT on T1.id when a single set has multiple valid Italian translations (catches missing DISTINCT or COUNT(*)).
+-- 2. T2.translation IS NOT NULL condition (catches omitted NULL check).
+-- 3. T2.language = 'Italian' condition (catches omitted or altered language filter).
+-- 4. T1.block = 'Ice Age' condition (catches omitted or altered block filter).
+-- 5. INNER JOIN vs LEFT JOIN (catches sets in 'Ice Age' with no translations).
+INSERT INTO sets (id, code, block, name) VALUES (1, 'ICE', 'Ice Age', 'Ice Age');
+INSERT INTO sets (id, code, block, name) VALUES (2, 'ALL', 'Ice Age', 'Alliances');
+INSERT INTO sets (id, code, block, name) VALUES (3, 'CSP', 'Ice Age', 'Coldsnap');
+INSERT INTO sets (id, code, block, name) VALUES (4, 'MIR', 'Mirage', 'Mirage');
+INSERT INTO sets (id, code, block, name) VALUES (5, 'ICE_NO_TRANS', 'Ice Age', 'Ice Age Promo');
+
+-- Valid matches for set 1 (multiple rows to test DISTINCT T1.id)
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (10, 'ICE', 'Italian', 'Era Glaciale');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (11, 'ICE', 'Italian', 'Era Glaciale Alt');
+
+-- Invalid match: NULL translation for set 2
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (12, 'ALL', 'Italian', NULL);
+
+-- Invalid match: Wrong language for set 3
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (13, 'CSP', 'French', 'Souffle glaciaire');
+
+-- Invalid match: Wrong block for set 4, even though language and translation are valid
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (14, 'MIR', 'Italian', 'Miraggio');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Counting T1.id vs T2.translation when two different sets have the exact same Italian translation string (catches COUNT(DISTINCT T2.translation)).
+-- 2. Join condition accuracy (catches cross joins or joins on id = id instead of code = setCode).
+-- 3. Confounding column values (e.g., set name is 'Ice Age' or 'Italian', but block/language are different).
+INSERT INTO sets (id, code, block, name) VALUES (1, 'ICE', 'Ice Age', 'Ice Age');
+INSERT INTO sets (id, code, block, name) VALUES (2, 'ALL', 'Ice Age', 'Alliances');
+INSERT INTO sets (id, code, block, name) VALUES (3, 'FAKE', 'Not Ice Age', 'Ice Age');
+
+-- Both sets 1 and 2 have the exact same translation text, and their IDs (100, 200) do not match set IDs (1, 2)
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (100, 'ICE', 'Italian', 'Era Glaciale');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (200, 'ALL', 'Italian', 'Era Glaciale');
+
+-- Translation with ID 1 matching Set ID 1, but belonging to set 3 (tests wrong join condition T1.id = T2.id)
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (1, 'FAKE', 'Italian', 'Falso');
+
+-- Translation where translation text is 'Italian' but language is 'Spanish' (tests wrong column in WHERE clause)
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (300, 'ICE', 'Spanish', 'Italian');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty result / Zero count edge cases when conditions are only partially met (catches OR instead of AND mutations).
+-- 2. NULLs in T1.block and T2.language.
+-- 3. Case sensitivity and substring matching (e.g., 'Ice Age ' or 'Italian ').
+INSERT INTO sets (id, code, block, name) VALUES (10, 'S1', 'Ice Age', 'Set 1');
+INSERT INTO sets (id, code, block, name) VALUES (20, 'S2', NULL, 'Set 2');
+INSERT INTO sets (id, code, block, name) VALUES (30, 'S3', 'Ice Age Block', 'Set 3');
+
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (1, 'S1', 'Spanish', 'Era Glacial');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (2, 'S1', NULL, 'Era Glaciale');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (3, 'S1', 'Italian', NULL);
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (4, 'S2', 'Italian', 'Era Glaciale');
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (5, 'S3', 'Italian', 'Era Glaciale');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Unrelated tables populated with matching codes/names to catch mutants that join with `cards` or `foreign_data` instead of `sets` / `set_translations`.
+INSERT INTO sets (id, code, block, name) VALUES (1, 'ICE', 'Ice Age', 'Ice Age');
+INSERT INTO sets (id, code, block, name) VALUES (2, 'ALL', 'Ice Age', 'Alliances');
+
+INSERT INTO set_translations (id, setCode, language, translation) VALUES (1, 'ICE', 'Italian', 'Era Glaciale');
+
+-- Card and foreign_data for 'ALL' in 'Italian', which should NOT be counted by the reference query
+INSERT INTO cards (id, uuid, setCode, name) VALUES (1, 'uuid-1', 'ALL', 'Force of Will');
+INSERT INTO foreign_data (id, uuid, language, name, text) VALUES (1, 'uuid-1', 'Italian', 'Forza di Volonta', 'Testo');
+```

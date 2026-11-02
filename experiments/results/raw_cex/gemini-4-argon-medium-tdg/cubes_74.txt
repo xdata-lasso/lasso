@@ -1,0 +1,47 @@
+```sql
+-- DATASET 1
+-- Tests empty AREA_CODE_STATE table (window function over empty table returns 0 rows, whereas regular aggregate COUNT(*) returns 1 row with value 0).
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (1, 'Alice');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (101, 1, NULL, 5550101, '2023-01-01 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests multiple rows in AREA_CODE_STATE with a NULL value in the 'state' column.
+-- Catches mutants that:
+-- 1) Omit DISTINCT (returning multiple rows instead of 1)
+-- 2) Use COUNT(state) instead of COUNT(*)
+-- 3) Add an ORDER BY inside OVER(...) causing cumulative running counts (1, 2, 3) instead of total partition count (3)
+-- 4) Join with VOTES or query the wrong table
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (201, 'NJ');
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (212, 'NY');
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (999, NULL);
+
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (1, 'Alice');
+
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (1, 1, 'NY', 5551234, '2023-01-01 12:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests a single row with NULL state.
+-- Specifically catches COUNT(state) vs COUNT(*) when table size is 1 (where missing DISTINCT wouldn't fail, isolating the NULL check).
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (800, NULL);
+```
+
+```sql
+-- DATASET 4
+-- Tests multiple rows where all states are non-NULL, and VOTES has multiple entries per state.
+-- Catches mutants using inner/outer joins with VOTES without grouping, or querying VOTES/CONTESTANTS directly.
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (310, 'CA');
+INSERT INTO AREA_CODE_STATE (area_code, state) VALUES (512, 'TX');
+
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (10, 'Bob');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (20, 'Charlie');
+INSERT INTO CONTESTANTS (contestant_number, contestant_name) VALUES (30, 'Diana');
+
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (1, 10, 'CA', 5550001, '2023-05-01 08:00:00');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (2, 10, 'CA', 5550002, '2023-05-01 08:01:00');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (3, 20, 'CA', 5550003, '2023-05-01 08:02:00');
+INSERT INTO VOTES (vote_id, contestant_number, state, phone_number, created) VALUES (4, 30, 'TX', 5550004, '2023-05-01 08:03:00');
+```

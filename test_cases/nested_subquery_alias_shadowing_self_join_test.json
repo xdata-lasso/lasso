@@ -1,0 +1,13 @@
+{
+  "id": "nested_subquery_alias_shadowing_self_join_test",
+  "dialect": "sqlite",
+  "schema": "CREATE TABLE organizations (org_id INTEGER PRIMARY KEY, org_name TEXT, region TEXT);\nCREATE TABLE staff (staff_id INTEGER PRIMARY KEY, full_name TEXT);\nCREATE TABLE memberships (org_id INTEGER, staff_id INTEGER, role TEXT, FOREIGN KEY (org_id) REFERENCES organizations(org_id), FOREIGN KEY (staff_id) REFERENCES staff(staff_id));",
+  "correct_query": "SELECT full_name FROM (SELECT LHS.staff_id AS staff_id, LHS.full_name AS full_name, RHS.org_id AS org_id, RHS.org_name AS org_name, RHS.region AS region FROM staff AS LHS INNER JOIN (SELECT LHS.org_id AS org_id, LHS.org_name AS org_name, LHS.region AS region, LHS.staff_id AS staff_id FROM (SELECT LHS.org_id AS org_id, LHS.org_name AS org_name, LHS.region AS region, RHS.staff_id AS staff_id FROM organizations AS LHS INNER JOIN memberships AS RHS ON (LHS.org_id = RHS.org_id)) AS LHS INNER JOIN (SELECT * FROM organizations WHERE (org_name = 'Research')) AS RHS ON (LHS.org_id = RHS.org_id AND LHS.org_name = RHS.org_name AND LHS.region = RHS.region)) AS RHS ON (LHS.staff_id = RHS.staff_id))",
+  "expected_semantic_errors_to_be_caught": [
+    {
+      "id": "dropped_nullable_self_join_under_shadowed_aliases",
+      "description": "Mutant flattens the self-join on organizations and drops the equality check on nullable column region (LHS.region = RHS.region), admitting rows where region IS NULL.",
+      "query": "SELECT T2.full_name FROM organizations AS T1 JOIN staff AS T2 ON T1.org_id = T3.org_id JOIN memberships AS T3 ON T2.staff_id = T3.staff_id WHERE T1.org_name = 'Research'"
+    }
+  ]
+}

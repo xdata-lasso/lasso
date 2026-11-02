@@ -1,0 +1,113 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE clause filtering (forename = 'Michael' AND surname = 'Schumacher' vs OR, or missing filter).
+-- 2. ORDER BY T2.milliseconds ASC vs DESC.
+-- 3. ORDER BY T2.milliseconds (INTEGER) vs T2.time (TEXT) where string sorting differs from numeric sorting ('100.0' < '90.0' lexicographically, 90000 < 100000 numerically).
+-- 4. LIMIT 1 vs no limit.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Autodromo Nazionale di Monza', 'http://en.wikipedia.org/wiki/Monza');
+INSERT INTO seasons (year, url) VALUES (2004, 'http://en.wikipedia.org/wiki/2004_F1');
+INSERT INTO seasons (year, url) VALUES (2005, 'http://en.wikipedia.org/wiki/2005_F1');
+INSERT INTO seasons (year, url) VALUES (2006, 'http://en.wikipedia.org/wiki/2006_F1');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'michael_schumacher', 'Michael', 'Schumacher', 'http://en.wikipedia.org/wiki/Michael_Schumacher');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'ralf_schumacher', 'Ralf', 'Schumacher', 'http://en.wikipedia.org/wiki/Ralf_Schumacher');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'michael_andretti', 'Michael', 'Andretti', 'http://en.wikipedia.org/wiki/Michael_Andretti');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2004, 1, 1, 'Italian Grand Prix', '2004-09-12', 'http://en.wikipedia.org/wiki/2004_Italian_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (20, 2005, 1, 1, 'San Marino Grand Prix', '2005-04-24', 'http://en.wikipedia.org/wiki/2005_San_Marino_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (30, 2006, 1, 1, 'German Grand Prix', '2006-07-30', 'http://en.wikipedia.org/wiki/2006_German_GP');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (30, 2, 1, 1, '0:50.000', 50000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (30, 3, 1, 1, '0:55.000', 55000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 1, 1, 1, '90.000', 90000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (20, 1, 1, 2, '100.000', 100000);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Table confusion: querying `results` or `pitStops` instead of `lapTimes`.
+-- 2. Name confusion: selecting `circuits.name` instead of `races.name`.
+-- 3. Join condition integrity across `races`, `lapTimes`, and `drivers`.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone Circuit', 'http://en.wikipedia.org/wiki/Silverstone');
+INSERT INTO seasons (year, url) VALUES (2002, 'http://en.wikipedia.org/wiki/2002_F1');
+INSERT INTO seasons (year, url) VALUES (2003, 'http://en.wikipedia.org/wiki/2003_F1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'ferrari', 'Ferrari', 'http://en.wikipedia.org/wiki/Ferrari');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'michael_schumacher', 'Michael', 'Schumacher', 'http://en.wikipedia.org/wiki/Michael_Schumacher');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2002, 1, 1, 'British Grand Prix', '2002-07-07', 'http://en.wikipedia.org/wiki/2002_British_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2003, 1, 1, 'Austrian Grand Prix', '2003-05-18', 'http://en.wikipedia.org/wiki/2003_Austrian_GP');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '1:20.000', 80000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (2, 1, 1, 1, '1:10.000', 70000);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionOrder, points, laps, milliseconds, statusId) VALUES (1, 1, 1, 1, 1, 1, 10, 60, 10000, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionOrder, points, laps, milliseconds, statusId) VALUES (2, 2, 1, 1, 1, 1, 10, 60, 90000, 1);
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 1, 1, 15, '14:30:00', '20.000', 20000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (2, 1, 1, 15, '14:30:00', '30.000', 30000);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Handling of NULL in `lapTimes.milliseconds` (in SQLite, NULLS are considered smallest in ASC order; a mutant with `WHERE milliseconds IS NOT NULL` or `NULLS LAST` on milliseconds will return a different row).
+-- 2. Tie-breaking on `T1.raceId` ASC when `T2.milliseconds` is tied.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Circuit de Spa-Francorchamps', 'http://en.wikipedia.org/wiki/Spa');
+INSERT INTO seasons (year, url) VALUES (2000, 'http://en.wikipedia.org/wiki/2000_F1');
+INSERT INTO seasons (year, url) VALUES (2001, 'http://en.wikipedia.org/wiki/2001_F1');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'michael_schumacher', 'Michael', 'Schumacher', 'http://en.wikipedia.org/wiki/Michael_Schumacher');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (10, 2000, 1, 1, 'Belgian Grand Prix', '2000-08-27', 'http://en.wikipedia.org/wiki/2000_Belgian_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (20, 2001, 1, 1, 'Monaco Grand Prix', '2001-05-27', 'http://en.wikipedia.org/wiki/2001_Monaco_GP');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (20, 1, 1, 1, '1:15.000', NULL);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (10, 1, 1, 1, '1:15.000', 75000);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Tie-breaking on `T1.raceId` ASC when `T2.milliseconds` are equal (non-NULL).
+-- 2. Grouping/Aggregation mutations (e.g., `AVG(milliseconds)` or `SUM(milliseconds)` per race instead of individual `lapTimes.milliseconds`).
+--    Race 1 has laps (60000, 100000) -> min=60000, avg=80000, sum=160000.
+--    Race 2 has laps (60000, 61000)  -> min=60000, avg=60500, sum=121000.
+--    Gold picks Race 1 (tied min 60000, smaller raceId 1 < 2). AVG or SUM would pick Race 2.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'suzuka', 'Suzuka Circuit', 'http://en.wikipedia.org/wiki/Suzuka');
+INSERT INTO seasons (year, url) VALUES (2001, 'http://en.wikipedia.org/wiki/2001_F1');
+INSERT INTO seasons (year, url) VALUES (2002, 'http://en.wikipedia.org/wiki/2002_F1');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'michael_schumacher', 'Michael', 'Schumacher', 'http://en.wikipedia.org/wiki/Michael_Schumacher');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2001, 1, 1, 'Japanese Grand Prix', '2001-10-14', 'http://en.wikipedia.org/wiki/2001_Japanese_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2002, 1, 1, 'Malaysian Grand Prix', '2002-03-17', 'http://en.wikipedia.org/wiki/2002_Malaysian_GP');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '1:00.000', 60000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 2, 1, '1:40.000', 100000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (2, 1, 1, 1, '1:00.000', 60000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (2, 1, 2, 1, '1:01.000', 61000);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN on `races` and `lapTimes` (a race with no lapTimes would have NULL milliseconds in a LEFT JOIN and sort first in SQLite ASC).
+-- 2. Filtering on `position = 1` or `lap = 1` (mutant adding extra WHERE conditions on lapTimes).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'interlagos', 'Autodromo Jose Carlos Pace', 'http://en.wikipedia.org/wiki/Interlagos');
+INSERT INTO seasons (year, url) VALUES (2006, 'http://en.wikipedia.org/wiki/2006_F1');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://en.wikipedia.org/wiki/2010_F1');
+INSERT INTO seasons (year, url) VALUES (2011, 'http://en.wikipedia.org/wiki/2011_F1');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'michael_schumacher', 'Michael', 'Schumacher', 'http://en.wikipedia.org/wiki/Michael_Schumacher');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2006, 1, 1, 'Brazilian Grand Prix', '2006-10-22', 'http://en.wikipedia.org/wiki/2006_Brazilian_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2010, 1, 1, 'Bahrain Grand Prix', '2010-03-14', 'http://en.wikipedia.org/wiki/2010_Bahrain_GP');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2011, 1, 1, 'Canadian Grand Prix', '2011-06-12', 'http://en.wikipedia.org/wiki/2011_Canadian_GP');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (2, 1, 5, 3, '1:12.000', 72000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (3, 1, 1, 1, '1:25.000', 85000);
+```

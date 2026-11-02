@@ -1,0 +1,107 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary values (74, 75, 77, 80, 81) and NULL attribute_value to catch off-by-one (<, <=, >, >=) and NULL handling mutants.
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Intelligence');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (1, 'Hero_74', 'Full_74');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (2, 'Hero_75', 'Full_75');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (3, 'Hero_77', 'Full_77');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (4, 'Hero_80', 'Full_80');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (5, 'Hero_81', 'Full_81');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (6, 'Hero_NullVal', 'Full_NullVal');
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 74);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 75);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (3, 1, 77);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (4, 1, 80);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (5, 1, 81);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (6, 1, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicate outputs (DISTINCT vs ALL) when a single hero has multiple attributes in the range, and when two different heroes share the same superhero_name.
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Strength');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Speed');
+
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (1, 'MultiAttrHero', 'John Doe');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (2, 'DuplicateNameHero', 'Clone One');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (3, 'DuplicateNameHero', 'Clone Two');
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 76);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 2, 79);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 75);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (3, 2, 80);
+```
+
+```sql
+-- DATASET 3
+-- Tests JOIN conditions and column confusion:
+-- 1. Unmatched superhero (catches LEFT JOIN mutants).
+-- 2. hero_attribute with NULL hero_id (catches RIGHT JOIN / WHERE without join mutants).
+-- 3. Joining on attribute_id instead of hero_id (T1.id = T2.attribute_id).
+-- 4. Filtering on height_cm, weight_kg, hero_id, or attribute_id instead of attribute_value.
+-- 5. Selecting full_name instead of superhero_name, or handling NULL superhero_name.
+INSERT INTO attribute (id, attribute_name) VALUES (10, 'Durability');
+INSERT INTO attribute (id, attribute_name) VALUES (77, 'Power');
+
+INSERT INTO superhero (id, superhero_name, full_name, height_cm, weight_kg) VALUES (10, 'WrongJoinHero', 'Full_WJ', 180, 85);
+INSERT INTO superhero (id, superhero_name, full_name, height_cm, weight_kg) VALUES (20, 'UnmatchedHero', 'Full_UH', 78, 78);
+INSERT INTO superhero (id, superhero_name, full_name, height_cm, weight_kg) VALUES (30, 'DecoyMetricsHero', 'Full_DM', 76, 79);
+INSERT INTO superhero (id, superhero_name, full_name, height_cm, weight_kg) VALUES (78, 'DecoyIdHero', 'Full_DI', 190, 95);
+INSERT INTO superhero (id, superhero_name, full_name, height_cm, weight_kg) VALUES (40, NULL, 'NullNameHero', 175, 70);
+INSERT INTO superhero (id, superhero_name, full_name, height_cm, weight_kg) VALUES (50, 'ValidHero', 'ValidFullName', 185, 90);
+
+-- Links to hero 50, but attribute_id is 10 ( matches hero 10's id if joined on T1.id = T2.attribute_id )
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (50, 10, 78);
+-- Decoy metrics hero has height/weight in [75, 80], and attribute_id=77 in [75, 80], but attribute_value=50
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (30, 77, 50);
+-- Decoy ID hero has hero_id=78 in [75, 80], but attribute_value=100
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (78, 10, 100);
+-- Hero with NULL superhero_name but valid attribute_value
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (40, 10, 75);
+-- Orphaned attribute record with NULL hero_id and valid attribute_value
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (NULL, 10, 79);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set behavior (when all rows fall outside the 75..80 range, both above and below) to catch mutants with inverted predicates (NOT BETWEEN, OR instead of AND).
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Combat');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (1, 'LowStatHero', 'Low Full');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (2, 'HighStatHero', 'High Full');
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (3, 'ZeroStatHero', 'Zero Full');
+
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 74);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 81);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (3, 1, 0);
+```
+
+```sql
+-- DATASET 5
+-- Tests a fully populated schema where a hero has both valid and invalid attributes, plus powers and foreign keys, ensuring mutants that inner-join extra tables (e.g. hero_power, publisher) or use HAVING/GROUP BY aggregations (AVG, MAX, MIN, SUM) fail.
+INSERT INTO alignment (id, alignment) VALUES (1, 'Good');
+INSERT INTO colour (id, colour) VALUES (1, 'Blue');
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO publisher (id, publisher_name) VALUES (1, 'Marvel');
+INSERT INTO race (id, race) VALUES (1, 'Mutant');
+INSERT INTO attribute (id, attribute_name) VALUES (1, 'Intelligence');
+INSERT INTO attribute (id, attribute_name) VALUES (2, 'Strength');
+INSERT INTO superpower (id, power_name) VALUES (1, 'Telepathy');
+
+-- Hero 1 has no powers, no FKs, one attribute=76, one attribute=10 (AVG=43, SUM=86, MIN=10, MAX=76)
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (1, 'SparseHero', 'Sparse Full');
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 1, 76);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (1, 2, 10);
+
+-- Hero 2 has all FKs and power, with attributes 60 and 96 (AVG=78, which is in [75, 80], but neither individual attribute is in [75, 80])
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, eye_colour_id, hair_colour_id, skin_colour_id, race_id, publisher_id, alignment_id, height_cm, weight_kg) 
+VALUES (2, 'AvgTrapHero', 'Avg Full', 1, 1, 1, 1, 1, 1, 1, 170, 60);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 1, 60);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (2, 2, 96);
+INSERT INTO hero_power (hero_id, power_id) VALUES (2, 1);
+
+-- Hero 3 has attributes 35 and 42 (SUM=77, which is in [75, 80], but neither individual attribute is in [75, 80])
+INSERT INTO superhero (id, superhero_name, full_name) VALUES (3, 'SumTrapHero', 'Sum Full');
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (3, 1, 35);
+INSERT INTO hero_attribute (hero_id, attribute_id, attribute_value) VALUES (3, 2, 42);
+```

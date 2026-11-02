@@ -1,0 +1,153 @@
+```sql
+-- DATASET 1
+-- Tests basic threshold boundary (COUNT > 0, > 1) and GROUP BY granularity (year, month_id, day_of_month)
+INSERT INTO carriers (cid, name) VALUES (1, 101);
+INSERT INTO carriers (cid, name) VALUES (2, 102);
+INSERT INTO carriers (cid, name) VALUES (3, 103);
+
+-- Carrier 1: 2 flights on exact same date
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id) VALUES (1, 2020, 1, 1, 1);
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id) VALUES (2, 2020, 1, 1, 1);
+
+-- Carrier 2: 2 flights across different days (tests missing day_of_month in GROUP BY)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id) VALUES (3, 2020, 1, 1, 2);
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id) VALUES (4, 2020, 1, 2, 2);
+
+-- Carrier 3: 2 flights across different months (tests missing month_id in GROUP BY)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id) VALUES (5, 2020, 1, 1, 3);
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id) VALUES (6, 2020, 2, 1, 3);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL FID handling (COUNT(F.FID) vs COUNT(*)), carriers with Same Name but Different CID, and unreferenced carriers (INNER vs LEFT JOIN)
+INSERT INTO carriers (cid, name) VALUES (10, 500);
+INSERT INTO carriers (cid, name) VALUES (20, 500);
+INSERT INTO carriers (cid, name) VALUES (30, 600);
+
+-- Carrier 10 & 20 share name 500, flights on same day (tests missing C.CID in GROUP BY)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id) VALUES (101, 2021, 5, 10, 10);
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id) VALUES (102, 2021, 5, 10, 20);
+
+-- Flights with NULL fid (tests COUNT(F.FID) vs COUNT(*))
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id) VALUES (NULL, 2021, 5, 10, 10);
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id) VALUES (NULL, 2021, 5, 10, 10);
+```
+
+```sql
+-- DATASET 3
+-- Tests exact boundary around 1000 (1000 vs 1001) using multi-row inserts
+INSERT INTO carriers (cid, name) VALUES (1, 888);
+INSERT INTO carriers (cid, name) VALUES (2, 999);
+
+-- Carrier 1: 1001 flights on (2022, 6, 15) -> Should be output by Gold Query
+-- Carrier 2: 1000 flights on (2022, 6, 15) -> Should NOT be output by Gold Query (catches >= 1000)
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 1001
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT x, 2022, 6, 15, 1 FROM cnt;
+
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 1000
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT x + 2000, 2022, 6, 15, 2 FROM cnt;
+```
+
+```sql
+-- DATASET 4
+-- Tests missing GROUP BY columns (YEAR, MONTH_ID, DAY_OF_MONTH, CID) and DISTINCT vs non-DISTINCT output at scale (> 1000)
+INSERT INTO carriers (cid, name) VALUES (1, 777);
+INSERT INTO carriers (cid, name) VALUES (2, 777);
+INSERT INTO carriers (cid, name) VALUES (3, 333);
+
+-- Carrier 1: 1001 flights on Day 1, AND 1001 flights on Day 2 -> Gold outputs 777 twice (catches SELECT DISTINCT C.NAME)
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 1001
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT x, 2022, 1, 1, 1 FROM cnt;
+
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 1001
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT x + 2000, 2022, 1, 2, 1 FROM cnt;
+
+-- Carrier 3: 600 flights on Day 1, 600 flights on Day 2 (Total 1200 > 1000, but per-day is 600 <= 1000; catches missing day_of_month in GROUP BY)
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 600
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT x + 5000, 2022, 1, 1, 3 FROM cnt;
+
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 600
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT x + 6000, 2022, 1, 2, 3 FROM cnt;
+```
+
+```sql
+-- DATASET 5
+-- Tests missing YEAR or MONTH_ID in GROUP BY, and COUNT(DISTINCT F.FID) vs COUNT(F.FID) at scale (> 1000)
+INSERT INTO carriers (cid, name) VALUES (1, 111);
+INSERT INTO carriers (cid, name) VALUES (2, 222);
+INSERT INTO carriers (cid, name) VALUES (3, 444);
+
+-- Carrier 1: 600 flights in Year 2021, 600 in Year 2022 (same month & day) -> catches missing YEAR in GROUP BY
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 600
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT x, 2021, 3, 10, 1 FROM cnt;
+
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 600
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT x + 1000, 2022, 3, 10, 1 FROM cnt;
+
+-- Carrier 2: 600 flights in Month 1, 600 in Month 2 (same year & day) -> catches missing MONTH_ID in GROUP BY
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 600
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT x + 2000, 2022, 1, 10, 2 FROM cnt;
+
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 600
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT x + 3000, 2022, 2, 10, 2 FROM cnt;
+
+-- Carrier 3: 1001 rows on same date, but all have duplicate FID = 1 (catches COUNT(DISTINCT F.FID) vs COUNT(F.FID))
+WITH RECURSIVE cnt(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM cnt WHERE x < 1001
+)
+INSERT INTO flights (fid, year, month_id, day_of_month, carrier_id)
+SELECT 1, 2022, 5, 5, 3 FROM cnt;
+```

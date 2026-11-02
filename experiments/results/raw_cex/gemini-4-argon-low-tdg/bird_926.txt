@@ -1,0 +1,93 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Driver name filtering (forename = 'Lewis' AND surname = 'Hamilton' vs OR, single name check, or cross-join)
+-- 2. NULL filtering on fastestLapTime (NOT IS NULL vs missing NULL check)
+-- 3. Ordering direction (ASC vs DESC) and LIMIT 1
+-- 4. Column confusion (fastestLapTime vs time, fastestLapSpeed, fastestLap, rank)
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://monza');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://2021');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2021, 1, 1, 'Italian GP', '2021-09-12', 'http://race1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mercedes', 'Mercedes', 'http://merc');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://ham');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'lewis_other', 'Lewis', 'Clark', 'http://clark');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (3, 'hamilton_other', 'Duncan', 'Hamilton', 'http://duncan');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (4, 'verstappen', 'Max', 'Verstappen', 'http://max');
+
+-- Lewis Hamilton with NULL fastestLapTime (tests IS NOT NULL filter)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (1, 1, 1, 1, 1, '1', 1, 25.0, 53, '1:10:00.000', 1, 1, NULL, '250.0', 1);
+
+-- Lewis Hamilton with slower fastestLapTime, but Rank 1 and fastest overall race time (tests ASC vs DESC and ordering by rank/fastestLap/time instead of fastestLapTime)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (2, 1, 1, 1, 2, '2', 2, 18.0, 53, '1:15:00.000', 10, 1, '1:25.000', '240.0', 1);
+
+-- Lewis Hamilton with the true fastestLapTime ('1:21.500'), but worse rank/position/lap number (Target row for Gold Query)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (3, 1, 1, 1, 3, '3', 3, 15.0, 53, '1:30:00.000', 50, 3, '1:21.500', '210.0', 1);
+
+-- Other drivers with even faster times (tests forename/surname AND condition and JOIN condition)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (4, 1, 2, 1, 4, '4', 4, 12.0, 53, '1:12:00.000', 40, 1, '1:18.000', '260.0', 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (5, 1, 3, 1, 5, '5', 5, 10.0, 53, '1:12:00.000', 41, 1, '1:19.000', '255.0', 1);
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, time, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) 
+VALUES (6, 1, 4, 1, 6, '6', 6, 8.0, 53, '1:12:00.000', 42, 1, '1:17.000', '265.0', 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Table confusion: querying `lapTimes.time` or `qualifying.q1/q2/q3` or `pitStops.time` instead of `results.fastestLapTime`
+-- 2. Join key confusion: joining `results.resultId = drivers.driverId` or `results.raceId = drivers.driverId` instead of `results.driverId = drivers.driverId`
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (10, 'silverstone', 'Silverstone', 'http://silv');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://2022');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (5, 2022, 1, 10, 'British GP', '2022-07-03', 'http://race5');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (10, 'mercedes', 'Mercedes', 'http://merc');
+INSERT INTO status (statusId, status) VALUES (10, 'Finished');
+
+-- Lewis Hamilton has driverId = 50
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (50, 'hamilton', 'Lewis', 'Hamilton', 'http://ham');
+-- Decoy driver has driverId = 100
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (100, 'russell', 'George', 'Russell', 'http://rus');
+
+-- Decoy result where resultId = 50 (matches Lewis Hamilton's driverId = 50 if join is accidentally ON T2.resultId = T1.driverId)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) 
+VALUES (50, 5, 100, 10, 1, '1', 1, 25.0, 52, '1:05.000', 10);
+
+-- Actual result for Lewis Hamilton (driverId = 50, resultId = 100)
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) 
+VALUES (100, 5, 50, 10, 2, '2', 2, 18.0, 52, '1:28.300', 10);
+
+-- Different times in lapTimes, qualifying, and pitStops for Lewis Hamilton to catch table confusion mutants
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) 
+VALUES (5, 50, 1, 1, '1:11.111', 71111);
+
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) 
+VALUES (1, 5, 50, 10, 44, 1, '1:12.222', '1:12.111', '1:12.000');
+
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) 
+VALUES (5, 50, 1, 20, '14:30:00', '22.500', 22500);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Empty result handling / Aggregation mutation (e.g., MIN(T2.fastestLapTime) without GROUP BY returns 1 row with NULL when no rows match, whereas ORDER BY ... LIMIT 1 returns 0 rows)
+-- 2. Case sensitivity / exact match on 'Lewis' and 'Hamilton'
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://spa');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://2020');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Belgian GP', '2020-08-30', 'http://race_spa');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'mercedes', 'Mercedes', 'http://merc');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'hamilton', 'Lewis', 'Hamilton', 'http://ham');
+
+-- Only row for Lewis Hamilton has NULL fastestLapTime; query should return 0 rows (empty result set), not 1 NULL row
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionText, positionOrder, points, laps, fastestLapTime, statusId) 
+VALUES (1, 1, 1, 1, 1, '1', 1, 25.0, 44, NULL, 1);
+```

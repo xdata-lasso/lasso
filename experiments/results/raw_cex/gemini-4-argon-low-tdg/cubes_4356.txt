@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+-- Ties for maximum count (Z_Loc and A_Loc have 3, M_Loc and B_Loc have 1).
+-- Tests ORDER BY (Z_Loc vs A_Loc), DISTINCT (multiple losers M_Loc, B_Loc), and tie handling (no LIMIT 1).
+INSERT INTO "member" ("Member_ID", "Name", "Nationality", "Role") VALUES ('1', 'Alice', 'USA', 'Violin');
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-01-01', 'HostA', 'Z_Loc', 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, '2023-01-02', 'HostB', 'Z_Loc', 200);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (3.0, '2023-01-03', 'HostC', 'Z_Loc', 150);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (4.0, '2023-01-04', 'HostA', 'A_Loc', 50);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (5.0, '2023-01-05', 'HostB', 'A_Loc', 60);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (6.0, '2023-01-06', 'HostC', 'A_Loc', 70);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (7.0, '2023-01-07', 'HostD', 'M_Loc', 500);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (8.0, '2023-01-08', 'HostE', 'B_Loc', 400);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES ('1', 1.0, 2);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES ('1', 4.0, 3);
+```
+
+```sql
+-- DATASET 2
+-- All locations have the exact same count (2).
+-- Reference query should return EMPTY SET because no location satisfies (n < maxn).
+-- Catches mutants that simply find the max count (e.g., ORDER BY COUNT(*) DESC LIMIT 1 or HAVING COUNT(*) = MAX).
+INSERT INTO "member" ("Member_ID", "Name", "Nationality", "Role") VALUES ('1', 'Bob', 'UK', 'Cello');
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-02-01', 'HostA', 'Loc1', 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, '2023-02-02', 'HostB', 'Loc1', 200);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (3.0, '2023-02-03', 'HostC', 'Loc2', 150);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (4.0, '2023-02-04', 'HostD', 'Loc2', 250);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES ('1', 1.0, 1);
+```
+
+```sql
+-- DATASET 3
+-- Only a single distinct location exists in the table.
+-- Reference query should return EMPTY SET because (n < maxn) is false.
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-03-01', 'HostA', 'OnlyLoc', 300);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, '2023-03-02', 'HostB', 'OnlyLoc', 400);
+```
+
+```sql
+-- DATASET 4
+-- Single unique maximum (WinLoc has 3), others have 2 and 1.
+-- WinLoc has lower Attendance (10) than LoseLoc1 (1000) to kill mutants aggregating Attendance instead of counting rows.
+-- WinLoc has no rows in member_attendance to kill mutants that INNER JOIN with member_attendance.
+INSERT INTO "member" ("Member_ID", "Name", "Nationality", "Role") VALUES ('1', 'Charlie', 'CA', 'Flute');
+INSERT INTO " member" ("Member_ID", "Name", "Nationality", "Role") VALUES ('2', 'Dave', 'CA', 'Oboe');
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-04-01', 'HostA', 'WinLoc', 10);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, '2023-04-01', 'HostA', 'WinLoc', 10);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (3.0, '2023-04-02', 'HostB', 'WinLoc', 10);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (4.0, '2023-04-03', 'HostC', 'LoseLoc1', 1000);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (5.0, '2023-04-04', 'HostD', 'LoseLoc1', 1000);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (6.0, '2023-04-05', 'HostE', 'LoseLoc2', 500);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES ('1', 4.0, 5);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES ('2', 4.0, 5);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES ('1', 5.0, 5);
+INSERT INTO "member_attendance" ("Member_ID", "Performance_ID", "Num_of_Pieces") VALUES ('2', 5.0, 5);
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL handling in Location and COUNT(*) vs COUNT(Location).
+-- NULL location has 3 rows, 'RealLoc' has 2 rows, 'SmallLoc' has 1 row.
+-- In SQLite, GROUP BY groups NULLs together, and COUNT(*) counts 3 for the NULL group, making NULL the winner.
+-- Catches mutants using COUNT(Location) (which evaluates to 0 for the NULL group) or WHERE Location IS NOT NULL.
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-05-01', 'HostA', NULL, 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, '2023-05-02', 'HostB', NULL, 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (3.0, '2023-05-03', 'HostC', NULL, 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (4.0, '2023-05-04', 'HostD', 'RealLoc', 200);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (5.0, '2023-05-05', 'HostE', 'RealLoc', 200);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (6.0, '2023-05-06', 'HostF', 'SmallLoc', 300);
+```
+
+```sql
+-- DATASET 6
+-- Tests NULL as the loser location (n < maxn) while 'TopLoc' is the winner (3 rows).
+-- If only NULL and 'TopLoc' exist, 'TopLoc' is only returned if the NULL group is validly formed and satisfies n < maxn.
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (1.0, '2023-06-01', 'HostA', 'TopLoc', 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (2.0, '2023-06-02', 'HostB', 'TopLoc', 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (3.0, '2023-06-03', 'HostC', 'TopLoc', 100);
+INSERT INTO "performance" ("Performance_ID", "Date", "Host", "Location", "Attendance") VALUES (4.0, '2023-06-04', 'HostD', NULL, 200);
+```

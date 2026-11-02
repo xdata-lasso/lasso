@@ -1,0 +1,129 @@
+```sql
+-- DATASET 1
+-- Tests basic negation, events with no participants, events with non-matching participants,
+-- events with both matching and non-matching participants, and duplicate/multiple matching participants.
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code") VALUES (1, 'TypeA');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code") VALUES (2, 'TypeB');
+
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (1, 'PType1', 'Kenyatta Kuhn');
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (2, 'PType2', 'John Doe');
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (3, 'PType1', 'Jane Smith');
+
+-- Event 10: Attended only by Kenyatta Kuhn (Should be excluded)
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (10, 1, 'Event 10');
+-- Event 20: Attended by Kenyatta Kuhn AND John Doe (Should be excluded; kills != 'Kenyatta Kuhn' mutant)
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (20, 1, 'Event 20');
+-- Event 30: Attended by John Doe and Jane Smith (Should be included; kills missing DISTINCT if joined)
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (30, 2, 'Event 30');
+-- Event 40: Attended by nobody (Should be included; kills INNER JOIN mutants)
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (40, 2, 'Event 40');
+
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (10, 1);
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (20, 1);
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (20, 2);
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (30, 2);
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (30, 3);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL Service_ID in Events (since SQLite NULL = NULL is Unknown/False in the correlated subquery:
+-- LHS.service_id = RHS.service_id).
+-- Also tests sharing the same Service_ID with an event attended by Kenyatta Kuhn.
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code") VALUES (100, 'Svc100');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code") VALUES (200, 'Svc200');
+
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (10, 'PT1', 'Kenyatta Kuhn');
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (20, 'PT2', 'Other Person');
+
+-- Event 1: Has NULL Service_ID and is attended by Kenyatta Kuhn.
+-- In Gold Query, LHS.service_id = RHS.service_id evaluates to NULL, so NOT EXISTS is TRUE! (Included in Gold)
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (1, NULL, 'Null Service Event With Kenyatta');
+
+-- Event 2: Has Service_ID 100 and is attended by Kenyatta Kuhn. (Excluded)
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (2, 100, 'Service 100 With Kenyatta');
+
+-- Event 3: Shares Service_ID 100 with Event 2, but attended by Other Person.
+-- Tests mutants that correlate only on LHS.service_id = RHS.service_id instead of event_id. (Included)
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (3, 100, 'Service 100 Without Kenyatta');
+
+-- Event 4: Has NULL Service_ID and no participants. (Included)
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (4, NULL, 'Null Service Empty');
+
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (1, 10);
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (2, 10);
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (3, 20);
+```
+
+```sql
+-- DATASET 3
+-- Tests string matching sensitivity (case sensitivity, substring/LIKE, NULL details),
+-- multiple participants named 'Kenyatta Kuhn', and ORDER BY event_id (inserting out of order, negative IDs).
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code") VALUES (1, 'S1');
+
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (1, 'T1', 'Kenyatta Kuhn');
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (2, 'T1', 'Kenyatta Kuhn');
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (3, 'T1', 'kenyatta kuhn');
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (4, 'T1', 'Kenyatta Kuhn Jr.');
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (5, 'T1', NULL);
+
+-- Inserted out of order to test ORDER BY event_id
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (50, 1, 'Attended by lowercase');
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (10, 1, 'Attended by both Kenyatta Kuhns');
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (-5, 1, 'Attended by NULL details');
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (30, 1, 'Attended by Jr.');
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (0, 1, 'Kenyatta Kuhn in Event_Details');
+
+-- Event 10 has two different participants both named 'Kenyatta Kuhn' (Excluded)
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (10, 1);
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (10, 2);
+
+-- Event 50 has lowercase 'kenyatta kuhn' (Included)
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (50, 3);
+
+-- Event 30 has 'Kenyatta Kuhn Jr.' (Included)
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (30, 4);
+
+-- Event -5 has NULL participant_details (Included)
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (-5, 5);
+```
+
+```sql
+-- DATASET 4
+-- Tests boundary condition where 'Kenyatta Kuhn' exists in Participants table,
+-- but does not participate in any events, or where ALL events have 'Kenyatta Kuhn' (empty result).
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code") VALUES (10, 'S10');
+
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (100, 'T', 'Kenyatta Kuhn');
+
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (100, 10, 'E100');
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (200, 10, 'E200');
+
+-- Kenyatta Kuhn attends all events -> Result should be empty
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (100, 100);
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (200, 100);
+```
+
+```sql
+-- DATASET 5
+-- Tests ID collision traps (e.g. Participant_ID equals Event_ID or Service_ID)
+-- to catch wrong join condition mutants (such as joining Participant_ID = Event_ID or Service_ID = Event_ID).
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code") VALUES (1, 'S1');
+INSERT INTO "Services" ("Service_ID", "Service_Type_Code") VALUES (2, 'S2');
+
+-- Participant 1 is NOT Kenyatta Kuhn, Participant 2 IS Kenyatta Kuhn
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (1, 'T', 'Alice');
+INSERT INTO "Participants" ("Participant_ID", "Participant_Type_Code", "Participant_Details") VALUES (2, 'T', 'Kenyatta Kuhn');
+
+-- Event 1 has Service_ID 2; Event 2 has Service_ID 1
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (1, 2, 'Event 1');
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (2, 1, 'Event 2');
+INSERT INTO "Events" ("Event_ID", "Service_ID", "Event_Details") VALUES (3, 1, 'Event 3');
+
+-- Event 1 is attended by Participant 1 (Alice).
+-- Note: Event 1 has Service_ID = 2 (which matches Kenyatta Kuhn's Participant_ID = 2).
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (1, 1);
+
+-- Event 3 is attended by Participant 2 (Kenyatta Kuhn).
+INSERT INTO "Participants_in_Events" ("Event_ID", "Participant_ID") VALUES (3, 2);
+```

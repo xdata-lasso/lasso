@@ -1,0 +1,36 @@
+-- Schema DDL
+CREATE TABLE "Users" ("account" INTEGER PRIMARY KEY, "name" TEXT(255), UNIQUE ("name"));
+
+CREATE TABLE "Transactions" ("trans_id" INTEGER PRIMARY KEY, "account" INTEGER, "amount" INTEGER, "transacted_on" DATE, FOREIGN KEY ("account") REFERENCES "Users" ("account"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO Users (account, name) VALUES (1, NULL);
+INSERT INTO Users (account, name) VALUES (2, NULL);
+INSERT INTO Users (account, name) VALUES (3, 'B');
+INSERT INTO Users (account, name) VALUES (4, 'A');
+INSERT INTO Transactions (trans_id, account, amount, transacted_on) VALUES (1, 1, 6000, '2023-01-01');
+INSERT INTO Transactions (trans_id, account, amount, transacted_on) VALUES (2, 2, 6000, '2023-01-01');
+INSERT INTO Transactions (trans_id, account, amount, transacted_on) VALUES (3, 3, 20000, '2023-01-01');
+INSERT INTO Transactions (trans_id, account, amount, transacted_on) VALUES (4, 4, 20000, '2023-01-01');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT u.name, SUM(t.amount) AS balance FROM Users AS u CROSS JOIN Transactions AS t WHERE u.account = t.account GROUP BY t.account HAVING SUM(t.amount) > 10000;
+
+/*
+Gold Result:
+('B', 20000)
+('A', 20000)
+*/
+
+-- Prediction Query
+SELECT U.NAME AS NAME, SUM(T.AMOUNT) AS BALANCE FROM USERS AS U JOIN TRANSACTIONS AS T ON U.ACCOUNT = T.ACCOUNT GROUP BY 1 HAVING SUM(T.AMOUNT) > 10000 ORDER BY 1, NAME NULLS LAST, BALANCE NULLS LAST;
+
+/*
+Prediction Result:
+(None, 12000)
+('A', 20000)
+('B', 20000)
+*/

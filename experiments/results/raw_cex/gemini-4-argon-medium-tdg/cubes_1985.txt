@@ -1,0 +1,66 @@
+```sql
+-- DATASET 1
+-- Tests standard grouping, ordering, COUNT(*) vs COUNT(DISTINCT), and JOIN vs single-table mutants.
+-- Addresses 1, 2, 3 are in 'CA' (3 rows), 4 is in 'NY' (1 row), 5, 6 are in 'TX' (2 rows).
+-- Ordering by state_province_county ('CA', 'NY', 'TX') differs from ordering by count (3, 1, 2).
+-- Customer_Address_History has only a subset of addresses and duplicates one, killing inner join mutants.
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '100 Main St', 'Los Angeles', '90001', 'CA', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (2, '200 Oak Ave', 'Los Angeles', '90001', 'CA', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (3, '300 Pine Rd', 'San Francisco', '94101', 'CA', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (4, '400 Broadway', 'New York', '10001', 'NY', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (5, '500 Elm St', 'Austin', '73301', 'TX', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (6, '500 Elm St', 'Austin', '73301', 'TX', 'USA');
+
+INSERT INTO "Customers" ("customer_id", "payment_method_code", "customer_number", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (1, 'CC', 'C001', 'Alice', '100 Main St, FL', '555-0101', 'alice@example.com');
+INSERT INTO "Customers" ("customer_id", "payment_method_code", "customer_number", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (2, 'CASH', 'C002', 'Bob', '200 Oak Ave, WA', '555-0102', 'bob@example.com');
+
+INSERT INTO "Customer_Address_History" ("address_id", "customer_id", "date_from", "date_to") VALUES (1, 1, '2020-01-01', '2021-01-01');
+INSERT INTO "Customer_Address_History" ("address_id", "customer_id", "date_from", "date_to") VALUES (1, 2, '2021-01-02', '2022-01-01');
+INSERT INTO "Customer_Address_History" ("address_id", "customer_id", "date_from", "date_to") VALUES (4, 1, '2022-01-02', NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY, COUNT(*) vs COUNT(column), and NULLS FIRST/LAST ordering.
+-- Two rows have NULL state_province_county (COUNT(*) = 2, whereas COUNT(state_province_county) = 0).
+-- Other columns also contain NULLs to catch COUNT(other_column) mutants.
+-- Empty string '' is also included to distinguish NULL from empty string.
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (2, '123 Null St', 'NullVille', '00000', NULL, 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (3, NULL, 'Seattle', NULL, 'WA', NULL);
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (4, '456 Blank Ave', 'Nowhere', '11111', '', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (5, '789 Blank Ave', 'Nowhere', '11111', '', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (6, '101Blank Ave', 'Nowhere', '11111', '', 'USA');
+```
+
+```sql
+-- DATASET 3
+-- Tests grouping by wrong column (e.g., city, country, zip_postcode) and case sensitivity / string sorting.
+-- Multiple states share the same country ('USA') and even the same city name ('Springfield') or zip ('12345').
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (10, '1 A St', 'Springfield', '12345', 'IL', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (20, '2 B St', 'Springfield', '12345', 'MA', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (30, '3 C St', 'Springfield', '12345', 'MO', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (40, '4 D St', 'Springfield', '67890', 'IL', 'Canada');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (50, '5 E St', 'Boston', '67890', 'MA', 'USA');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (60, '6 F St', 'Chicago', '67890', 'IL', 'USA');
+```
+
+```sql
+-- DATASET 4
+-- Tests HAVING clause mutants (e.g., HAVING COUNT(*) > 1, HAVING COUNT(*) >= 2) and tie-breaking in ORDER BY.
+-- Multiple groups with count = 1, count = 2, and count = 4, ordered inversely to their alphabetical state names.
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (1, '1 St', 'C1', 'Z1', 'Z_State', 'Country1');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (2, '2 St', 'C1', 'Z1', 'Z_State', 'Country1');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (3, '3 St', 'C1', 'Z1', 'Z_State', 'Country1');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (4, '4 St', 'C1', 'Z1', 'Z_State', 'Country1');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (5, '5 St', 'C2', 'Z2', 'M_State', 'Country1');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (6, '6 St', 'C2', 'Z2', 'M_State', 'Country1');
+INSERT INTO "Addresses" ("address_id", "line_1_number_building", "city", "zip_postcode", "state_province_county", "country") VALUES (7, '7 St', 'C3', 'Z3', 'A_State', 'Country1');
+```
+
+```sql
+-- DATASET 5
+-- Empty Addresses table (with rows in other tables) to test empty result set vs aggregation without GROUP BY (which returns 1 row with 0).
+INSERT INTO "Customers" ("customer_id", "payment_method_code", "customer_number", "customer_name", "customer_address", "customer_phone", "customer_email") VALUES (1, 'CC', 'C100', 'Empty Test', 'No Address', '000-0000', 'none@example.com');
+INSERT INTO "Products" ("product_id", "product_type_code", "product_name", "product_price") VALUES (1, 'BOOK', 'SQL Guide', 29.99);
+```

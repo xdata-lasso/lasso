@@ -1,0 +1,59 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset:
+-- Tests DISTINCT (multiple rows for 'Tillman Ernser'), MAX vs MIN/FIRST/LAST,
+-- active_to_date vs active_from_date/date_became_customer, WHERE filter ('Tillman Ernser' vs others),
+-- and Window Function OVER () vs PARTITION BY channel_code / customer_id.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Tillman Ernser', '2025-12-31 00:00:00', 'VIP');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', 'Tillman Ernser', '2018-01-01 00:00:00', 'Regular');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Card', 'Other Person', '2020-01-01 00:00:00', 'Other');
+
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, 'Email', '2026-01-01 00:00:00', '2021-05-01 00:00:00', '111-2222');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, 'Phone', '2019-01-01 00:00:00', '2023-08-15 00:00:00', '111-3333');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (2, 'SMS', '2019-06-01 00:00:00', '2022-03-10 00:00:00', '222-4444');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (3, 'Email', '2020-01-01 00:00:00', '2029-12-31 00:00:00', '333-5555');
+```
+
+```sql
+-- DATASET 2
+-- Tests empty result set for the target customer when only other customers exist.
+-- Distinguishes Window Function MAX() OVER () (returns 0 rows) vs Aggregate MAX() without GROUP BY (returns 1 row with NULL).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Not Tillman', '2020-01-01 00:00:00', 'Details');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, 'Email', '2020-01-01 00:00:00', '2025-01-01 00:00:00', '123-4567');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT/RIGHT JOIN when 'Tillman Ernser' exists in Customers but has NO contact channels.
+-- Gold query returns 0 rows. A LEFT JOIN from Customers to Channels would return 1 row with NULL.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Tillman Ernser', '2020-01-01 00:00:00', 'No channels');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', 'Other Customer', '2020-01-01 00:00:00', 'Has channels');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (2, 'Phone', '2020-01-01 00:00:00', '2024-01-01 00:00:00', '999-9999');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in active_to_date: one row has NULL active_to_date, another has a valid date.
+-- Also tests string case sensitivity and substring matching for 'Tillman Ernser'.
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Tillman Ernser', '2020-01-01 00:00:00', 'Exact match');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Card', 'tillman ernser', '2020-01-01 00:00:00', 'Lowercase match');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (3, 'Card', 'Tillman Ernser Jr.', '2020-01-01 00:00:00', 'Prefix match');
+
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, 'Email', '2020-01-01 00:00:00', NULL, '111-1111');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, 'Phone', '2020-01-01 00:00:00', '2022-06-15 12:00:00', '111-2222');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (2, 'Email', '2020-01-01 00:00:00', '2028-01-01 00:00:00', '222-2222');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (3, 'Email', '2020-01-01 00:00:00', '2029-01-01 00:00:00', '333-3333');
+```
+
+```sql
+-- DATASET 5
+-- Tests when 'Tillman Ernser' has rows in Customer_Contact_Channels, but all active_to_date values are NULL.
+-- Gold query returns 1 row containing NULL (whereas dataset 3 returned 0 rows).
+-- Also tests join condition mutation (e.g. joining without ON clause or wrong column).
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (1, 'Card', 'Tillman Ernser', '2021-01-01 00:00:00', 'Null dates');
+INSERT INTO "Customers" ("customer_id", "payment_method", "customer_name", "date_became_customer", "other_customer_details") VALUES (2, 'Cash', 'Someone Else', '2021-01-01 00:00:00', 'Valid dates');
+
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, 'Email', '2021-01-01 00:00:00', NULL, '555-0001');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (1, 'Phone', '2021-02-01 00:00:00', NULL, '555-0002');
+INSERT INTO "Customer_Contact_Channels" ("customer_id", "channel_code", "active_from_date", "active_to_date", "contact_number") VALUES (2, 'Email', '2021-01-01 00:00:00', '2025-05-05 00:00:00', '555-9999');
+```

@@ -1,0 +1,90 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering where insertion order, student_id order, registration_date order, and course_id order all conflict.
+-- Also includes unregistered students/courses and attendance records to catch incorrect table usages or inner joins.
+INSERT INTO "People" ("person_id", "first_name", "last_name") VALUES (1, 'Alice', 'Smith');
+INSERT INTO "People" ("person_id", "first_name", "last_name") VALUES (10, 'Bob', 'Jones');
+INSERT INTO "People" ("person_id", "first_name", "last_name") VALUES (20, 'Charlie', 'Brown');
+INSERT INTO "People" ("person_id", "first_name", "last_name") VALUES (30, 'David', 'White');
+
+INSERT INTO "Students" ("student_id", "student_details") VALUES (1, 'Unregistered Student');
+INSERT INTO "Students" ("student_id", "student_details") VALUES (10, 'Student 10');
+INSERT INTO "Students" ("student_id", "student_details") VALUES (20, 'Student 20');
+INSERT INTO "Students" ("student_id", "student_details") VALUES (30, 'Student 30');
+
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('1', 'Unregistered Course');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('100', 'Math');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('200', 'History');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('300', 'Physics');
+
+-- Insertion order: course_id 200, then 300, then 100.
+-- Min student_id is 10 (course 300).
+-- Min registration_date is 2023-01-01 (course 200, student 20).
+-- Min course_id is 100 (student 30) -> Gold query returns 30.
+INSERT INTO "Student_Course_Registrations" ("student_id", "course_id", "registration_date") VALUES (20, 200, '2023-01-01 10:00:00');
+INSERT INTO "Student_Course_Registrations" ("student_id", "course_id", "registration_date") VALUES (10, 300, '2023-02-01 10:00:00');
+INSERT INTO "Student_Course_Registrations" ("student_id", "course_id", "registration_date") VALUES (30, 100, '2023-03-01 10:00:00');
+
+-- Attendance only for student 10 and 20 (student 30 has no attendance, catching mutants that join or query Student_Course_Attendance).
+INSERT INTO "Student_Course_Attendance" ("student_id", "course_id", "date_of_attendance") VALUES (20, 200, '2023-01-02 10:00:00');
+INSERT INTO "Student_Course_Attendance" ("student_id", "course_id", "date_of_attendance") VALUES (10, 300, '2023-02-02 10:00:00');
+```
+
+```sql
+-- DATASET 2
+-- Tests numeric vs lexicographical sorting of course_id (INTEGER affinity in Registrations vs TEXT in Courses).
+-- Also tests ordering by course_name vs course_id.
+INSERT INTO "People" ("person_id", "first_name", "last_name") VALUES (100, 'Eva', 'Green');
+INSERT INTO "People" ("person_id", "first_name", "last_name") VALUES (200, 'Frank', 'Black');
+
+INSERT INTO "Students" ("student_id", "student_details") VALUES (100, 'Student 100');
+INSERT INTO "Students" ("student_id", "student_details") VALUES (200, 'Student 200');
+
+-- Course '9' has name 'Zebra' (lexicographically last by name, last by string '9' vs '10', but first numerically: 9 < 10).
+-- Course '10' has name 'Alpha' (lexicographically first by name, first by string '10' < '9', but second numerically).
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('9', 'Zebra');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('10', 'Alpha');
+
+-- Gold query sorts by course_id (INTEGER affinity in Student_Course_Registrations: 9 < 10), returning 200.
+INSERT INTO "Student_Course_Registrations" ("student_id", "course_id", "registration_date") VALUES (100, 10, '2023-01-01 00:00:00');
+INSERT INTO "Student_Course_Registrations" ("student_id", "course_id", "registration_date") VALUES (200, 9, '2023-05-01 00:00:00');
+```
+
+```sql
+-- DATASET 3
+-- Tests single row boundary condition and negative/zero IDs.
+INSERT INTO "People" ("person_id", "first_name") VALUES (0, 'Zero');
+INSERT INTO "Students" ("student_id", "student_details") VALUES (0, 'Zero Student');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('-5', 'Negative Course');
+INSERT INTO "Student_Course_Registrations" ("student_id", "course_id", "registration_date") VALUES (0, -5, '2020-01-01 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty registrations table (boundary condition where query should return empty set, whereas querying Students or People returns rows).
+INSERT INTO "People" ("person_id", "first_name") VALUES (1, 'OnlyPerson');
+INSERT INTO "Students" ("student_id", "student_details") VALUES (1, 'OnlyStudent');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('1', 'OnlyCourse');
+```
+
+```sql
+-- DATASET 5
+-- Tests alphanumeric course_ids and NULL registration_date handling.
+INSERT INTO "People" ("person_id", "first_name") VALUES (50, 'Grace');
+INSERT INTO "People" ("person_id", "first_name") VALUES (60, 'Hank');
+INSERT INTO "People" ("person_id", "first_name") VALUES (70, 'Ivy');
+
+INSERT INTO "Students" ("student_id", "student_details") VALUES (50, 'S50');
+INSERT INTO "Students" ("student_id", "student_details") VALUES (60, 'S60');
+INSERT INTO "Students" ("student_id", "student_details") VALUES (70, 'S70');
+
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('CS101', 'Intro CS');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('BIO202', 'Intro Bio');
+INSERT INTO "Courses" ("course_id", "course_name") VALUES ('ART303', 'Intro Art');
+
+-- 'ART303' < 'BIO202' < 'CS101'.
+-- Student 70 has NULL registration_date on the winning course 'ART303' (catches mutants filtering WHERE registration_date IS NOT NULL).
+INSERT INTO "Student_Course_Registrations" ("student_id", "course_id", "registration_date") VALUES (50, 'CS101', '2022-01-01');
+INSERT INTO "Student_Course_Registrations" ("student_id", "course_id", "registration_date") VALUES (60, 'BIO202', '2021-01-01');
+INSERT INTO "Student_Course_Registrations" ("student_id", "course_id", "registration_date") VALUES (70, 'ART303', NULL);
+```

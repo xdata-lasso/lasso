@@ -1,0 +1,106 @@
+```sql
+-- DATASET 1
+-- Tests standard ranking with 5 distinct payment methods, anti-correlated lexicographical order vs count order, and child table joins (0, 1, and multiple child records per party) to catch incorrect joins, ASC/DESC inversions, LIMIT mutations, and column selection errors.
+INSERT INTO Addresses (address_id, line_1_number_building, town_city, zip_postcode, state_province_county, country) VALUES (1, '10 Main St', 'London', 'SW1A 1AA', 'Greater London', 'UK');
+INSERT INTO Addresses (address_id, line_1_number_building, town_city, zip_postcode, state_province_county, country) VALUES (2, '20 High St', 'Manchester', 'M1 1AA', 'Greater Manchester', 'UK');
+
+INSERT INTO Services (service_id, service_type_code, service_name, service_descriptio) VALUES (1, 'CONSULT', 'Consulting', 'Basic consulting service');
+
+INSERT INTO Forms (form_id, service_id, form_type_code, form_number, form_name, form_description) VALUES (1, 1, 'TAX', 'F101', 'Tax Form', 'Annual tax return');
+INSERT INTO Forms (form_id, service_id, form_type_code, form_number, form_name, form_description) VALUES (2, 1, 'REG', 'F102', 'Registration', 'New client registration');
+
+-- 'AMEX': 5 rows (Rank 1)
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (1, 'AMEX', '111-001', 'p1@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (2, 'AMEX', '111-002', 'p2@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (3, 'AMEX', '111-003', 'p3@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (4, 'AMEX', '111-004', 'p4@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (5, 'AMEX', '111-005', 'p5@example.com');
+
+-- 'BITCOIN': 4 rows (Rank 2)
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (6, 'BITCOIN', '222-001', 'p6@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (7, 'BITCOIN', '222-002', 'p7@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (8, 'BITCOIN', '222-003', 'p8@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (9, 'BITCOIN', '222-004', 'p9@example.com');
+
+-- 'CASH': 3 rows (Rank 3)
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (10, 'CASH', '333-001', 'p10@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (11, 'CASH', '333-002', 'p11@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (12, 'CASH', '333-003', 'p12@example.com');
+
+-- 'DEBIT': 2 rows (Rank 4 - excluded by LIMIT 3)
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (13, 'DEBIT', '444-001', 'p13@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (14, 'DEBIT', '444-002', 'p14@example.com');
+
+-- 'ECHECK': 1 row (Rank 5 - excluded by LIMIT 3)
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (15, 'ECHECK', '555-001', 'p15@example.com');
+
+-- Child rows skewed toward lower-ranked payment methods to break mutants that unnecessarily INNER JOIN child tables
+INSERT INTO Party_Addresses (party_id, address_id, date_address_from, address_type_code, date_address_to) VALUES (15, 1, '2020-01-01', 'HOME', '2023-01-01');
+INSERT INTO Party_Addresses (party_id, address_id, date_address_from, address_type_code, date_address_to) VALUES (15, 2, '2020-01-01', 'WORK', '2023-01-01');
+INSERT INTO Party_Addresses (party_id, address_id, date_address_from, address_type_code, date_address_to) VALUES (13, 1, '2021-01-01', 'HOME', '2023-01-01');
+INSERT INTO Party_Addresses (party_id, address_id, date_address_from, address_type_code, date_address_to) VALUES (14, 2, '2021-01-01', 'HOME', '2023-01-01');
+INSERT INTO Party_Addresses (party_id, address_id, date_address_from, address_type_code, date_address_to) VALUES (1, 1, '2022-01-01', 'HOME', '2023-01-01');
+
+INSERT INTO Party_Forms (party_id, form_id, date_completion_started, form_status_code, date_fully_completed) VALUES (15, 1, '2022-01-01', 'DONE', '2022-01-02');
+INSERT INTO Party_Forms (party_id, form_id, date_completion_started, form_status_code, date_fully_completed) VALUES (15, 2, '2022-01-03', 'DONE', '2022-01-04');
+INSERT INTO Party_Forms (party_id, form_id, date_completion_started, form_status_code, date_fully_completed) VALUES (10, 1, '2022-02-01', 'OPEN', NULL);
+
+INSERT INTO Party_Services (customer_id, service_id, booking_id, service_datetime, booking_made_date) VALUES (15, 1, 101, '2022-05-01', '2022-04-01');
+INSERT INTO Party_Services (customer_id, service_id, booking_id, service_datetime, booking_made_date) VALUES (15, 1, 102, '2022-06-01', '2022-05-01');
+INSERT INTO Party_Services (customer_id, service_id, booking_id, service_datetime, booking_made_date) VALUES (6, 1, 103, '2022-07-01', '2022-06-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in GROUP BY and COUNT(*) vs COUNT(payment_method_code) or COUNT(party_phone), as well as COUNT(DISTINCT ...) mutations.
+-- NULL group has the highest count (4 rows) so COUNT(*) includes it as Rank 1, whereas COUNT(payment_method_code) yields 0 for it (pushing it to Rank 4, excluded by LIMIT 3).
+-- Also includes duplicate phones/emails within the same payment method to kill COUNT(DISTINCT party_phone) or COUNT(DISTINCT party_email) mutants.
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (1, NULL, '999-999', 'same@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (2, NULL, '999-999', 'same@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (3, NULL, '999-999', 'same@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (4, NULL, '999-999', 'same@example.com');
+
+-- 'VISA': 3 rows, but all have NULL phone and identical email (tests COUNT(party_phone) and COUNT(DISTINCT party_email))
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (5, 'VISA', NULL, 'visa@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (6, 'VISA', NULL, 'visa@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (7, 'VISA', NULL, 'visa@example.com');
+
+-- 'MASTERCARD': 2 rows, with distinct non-null phones and emails
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (8, 'MASTERCARD', '111-222', 'mc1@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (9, 'MASTERCARD', '111-333', 'mc2@example.com');
+
+-- 'PAYPAL': 1 row, with non-null phone and email
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (10, 'PAYPAL', '444-555', 'pp1@example.com');
+```
+
+```sql
+-- DATASET 3
+-- Tests when total distinct groups (2) is strictly less than LIMIT 3, and where ordering by payment_method_code DESC vs n DESC produces inverted results.
+-- Also tests SUM(party_id) vs COUNT(*) by assigning large party_id values to the group with fewer rows.
+-- 'ZELLE': 1 row, but huge party_id (100) and alphabetically last
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (100, 'ZELLE', '800-001', 'z1@example.com');
+
+-- 'APPLEPAY': 2 rows, small party_ids (1, 2) and alphabetically first
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (1, 'APPLEPAY', '800-002', 'a1@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (2, 'APPLEPAY', '800-003', 'a2@example.com');
+```
+
+```sql
+-- DATASET 4
+-- Tests missing GROUP BY mutations, DISTINCT vs GROUP BY mutations, and string-length/numeric-value ordering traps.
+-- '999' has 1 row, '50' has 4 rows, '100' has 3 rows, '20' has 2 rows.
+-- Without GROUP BY, top 3 rows would just be arbitrary/first 3 rows or duplicate values ('50', '50', '50').
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (1, '999', '101', 'u1@example.com');
+
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (2, '20', '102', 'u2@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (3, '20', '103', 'u3@example.com');
+
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (4, '100', '104', 'u4@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (5, '100', '105', 'u5@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (6, '100', '106', 'u6@example.com');
+
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (7, '50', '107', 'u7@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (8, '50', '108', 'u8@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (9, '50', '109', 'u9@example.com');
+INSERT INTO Parties (party_id, payment_method_code, party_phone, party_email) VALUES (10, '50', '110', 'u10@example.com');
+```

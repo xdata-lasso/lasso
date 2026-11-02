@@ -1,0 +1,56 @@
+-- Schema DDL
+CREATE TABLE "ARTIST" (
+    "ARTIST_ID" INT,
+    "ARTIST" TEXT,
+    "AGE" INT,
+    "FAMOUS_TITLE" TEXT,
+    "FAMOUS_RELEASE_DATE" TEXT,
+    PRIMARY KEY ("ARTIST_ID")
+);
+CREATE TABLE "VOLUME" (
+    "VOLUME_ID" INT,
+    "ARTIST_ID" INT,
+    "VOLUME_ISSUE" TEXT,
+    "ISSUE_DATE" TEXT,
+    "WEEKS_ON_TOP" FLOAT,
+    "SONG" TEXT,
+    PRIMARY KEY ("VOLUME_ID"),
+    FOREIGN KEY ("ARTIST_ID") REFERENCES "ARTIST"("ARTIST_ID")
+);
+CREATE TABLE "MUSIC_FESTIVAL" (
+    "ID" INT,
+    "VOLUME" INT,
+    "MUSIC_FESTIVAL" TEXT,
+    "DATE_OF_CEREMONY" TEXT,
+    "CATEGORY" TEXT,
+    "RESULT" TEXT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("VOLUME") REFERENCES "VOLUME"("VOLUME_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO ARTIST VALUES (-1, 0, 0, 0, 0);
+INSERT INTO ARTIST VALUES (0, 0, 0, -1, 0);
+INSERT INTO VOLUME VALUES (0, 0, 0, 0, 0, 0);
+INSERT INTO VOLUME VALUES (-1, 0, 0, 0, 0, 0);
+INSERT INTO MUSIC_FESTIVAL VALUES (-1, 0, 0, 0, 0, 0);
+INSERT INTO MUSIC_FESTIVAL VALUES (0, -1, 0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT famous_title FROM (SELECT * FROM artist AS LHS WHERE NOT EXISTS(SELECT 1 FROM volume AS RHS WHERE (LHS.artist_id = RHS.artist_id))) ORDER BY famous_title;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT Famous_Title FROM artist WHERE NOT Artist_ID IN (SELECT Artist_ID FROM volume);
+
+/*
+Prediction Result:
+('0',)
+*/

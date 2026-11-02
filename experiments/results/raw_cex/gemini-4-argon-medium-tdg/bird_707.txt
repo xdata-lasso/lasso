@@ -1,0 +1,69 @@
+```sql
+-- DATASET 1
+-- Tests lower boundary of ViewCount BETWEEN 100 AND 150 (100 vs 99), and ensures the filter isn't using posts.Score or comments.Score for the range check.
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (1, 99, 120, 'Post body 1');
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (2, 100, 50, 'Post body 2');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (10, 1, 500, 'Comment on ViewCount 99');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (20, 2, 10, 'Comment on ViewCount 100');
+```
+
+```sql
+-- DATASET 2
+-- Tests upper boundary of ViewCount BETWEEN 100 AND 150 (150 vs 151), and ensures the join is on comments.PostId = posts.Id (not comments.Id = posts.Id).
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (1, 151, 120, 'Post body 1');
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (2, 150, 50, 'Post body 2');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (2, 1, 500, 'Comment on ViewCount 151 with Id matching valid Post 2');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (20, 2, 10, 'Comment on ViewCount 150');
+```
+
+```sql
+-- DATASET 3
+-- Tests ORDER BY Score DESC vs ASC, LIMIT 1 vs no limit, and sorting by comments.Score vs posts.Score or posts.ViewCount.
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (1, 140, 999, 'Post with high score and viewcount');
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (2, 110, 1, 'Post with low score and viewcount');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (10, 1, 5, 'Low score comment on high score post');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (20, 2, 50, 'High score comment on low score post');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (30, 2, -10, 'Negative score comment');
+```
+
+```sql
+-- DATASET 4
+-- Tests secondary sort tie-breaker: ORDER BY Score DESC, comments.Id ASC. Also tests tie-breaking on comments.Id vs posts.Id or comments.PostId.
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (10, 125, 10, 'Post 10');
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (20, 125, 20, 'Post 20');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (100, 10, 50, 'Tied score, higher comment Id, lower post Id');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (50, 20, 50, 'Tied score, lower comment Id, higher post Id');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (10, 20, 40, 'Lower score, lowest comment Id');
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL handling in ViewCount, PostId, and comments.Score (in SQLite, NULL is smallest, so in Score DESC, positive/negative integers come before NULL).
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (1, NULL, 100, 'Post with NULL ViewCount');
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (2, 120, 100, 'Valid Post');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (1, NULL, 999, 'Comment with NULL PostId');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (2, 1, 888, 'Comment on NULL ViewCount Post');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (3, 2, NULL, 'Comment with NULL Score on Valid Post');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (4, 2, -5, 'Comment with Negative Score on Valid Post');
+```
+
+```sql
+-- DATASET 6
+-- Tests empty result set when no posts fall in the ViewCount range or valid posts have no comments (catches LEFT JOIN / RIGHT JOIN / missing WHERE clause mutants).
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (1, 50, 10, 'Post below range with comment');
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (2, 125, 20, 'Post in range without comments');
+INSERT INTO posts (Id, ViewCount, Score, Body) VALUES (3, 200, 30, 'Post above range with comment');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (10, 1, 100, 'Should not be selected 1');
+INSERT INTO comments (Id, PostId, Score, Text) VALUES (20, 3, 200, 'Should not be selected 2');
+```
+
+```sql
+-- DATASET 7
+-- Tests user / owner relationship confusion (ensures join is strictly comments.PostId = posts.Id, not via UserId / OwnerUserId).
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (1, 'User1', 100);
+INSERT INTO users (Id, DisplayName, Reputation) VALUES (2, 'User2', 200);
+INSERT INTO posts (Id, ViewCount, OwnerUserId, Score, Body) VALUES (10, 130, 1, 10, 'Valid post owned by User 1');
+INSERT INTO posts (Id, ViewCount, OwnerUserId, Score, Body) VALUES (20, 10, 2, 10, 'Invalid post owned by User 2');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (100, 20, 1, 500, 'Comment by User 1 on invalid post 20');
+INSERT INTO comments (Id, PostId, UserId, Score, Text) VALUES (200, 10, 2, 50, 'Comment by User 2 on valid post 10');
+```

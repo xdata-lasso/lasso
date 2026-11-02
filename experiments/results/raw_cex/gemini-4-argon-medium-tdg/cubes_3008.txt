@@ -1,0 +1,40 @@
+```sql
+-- DATASET 1
+-- Empty Payments table: Window function returns 0 rows, whereas scalar AVG(amount_due) without GROUP BY returns 1 row with NULL.
+INSERT INTO "Discount_Coupons" ("coupon_id", "date_issued", "coupon_amount") VALUES (1, '2023-01-01 00:00:00', 10.0);
+INSERT INTO "Customers" ("customer_id", "coupon_id", "good_or_bad_customer", "first_name", "last_name", "gender_mf", "date_became_customer", "date_last_hire") VALUES (1, 1, 'good', 'John', 'Doe', 'M', '2023-01-02 00:00:00', '2023-01-05 00:00:00');
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (1, 1, 'CONF', 'N', '2023-01-03 00:00:00', '2023-01-04 00:00:00', '1', 100.0, 10.0, 90.0, 0.0);
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows, duplicate amount_due, NULL amount_due, distinct amount_paid, and orphan foreign keys.
+-- Tests: DISTINCT keyword, AVG(DISTINCT ...), NULL handling in AVG, column swaps (amount_paid vs amount_due), and INNER JOIN vs standalone table scan.
+INSERT INTO "Discount_Coupons" ("coupon_id", "date_issued", "coupon_amount") VALUES (1, '2023-01-01 00:00:00', 5.0);
+INSERT INTO "Customers" ("customer_id", "coupon_id", "good_or_bad_customer", "first_name", "last_name", "gender_mf", "date_became_customer", "date_last_hire") VALUES (1, 1, 'good', 'Alice', 'Smith', 'F', '2023-01-01 00:00:00', '2023-01-10 00:00:00');
+INSERT INTO "Customers" ("customer_id", "coupon_id", "good_or_bad_customer", "first_name", "last_name", "gender_mf", "date_became_customer", "date_last_hire") VALUES (2, NULL, 'bad', 'Bob', 'Jones', 'M', '2023-02-01 00:00:00', '2023-02-10 00:00:00');
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (1, 1, 'OPEN', 'N', '2023-01-05 00:00:00', '2023-01-06 00:00:00', '2', 50.0, 5.0, 45.0, 0.0);
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (2, 2, 'CLSD', 'Y', '2023-02-05 00:00:00', '2023-02-06 00:00:00', '1', 80.0, 0.0, 0.0, 0.0);
+INSERT INTO "Payments" ("payment_id", "customer_id", "booking_id", "payment_type_code", "amount_paid_in_full_yn", "payment_date", "amount_due", "amount_paid") VALUES (1, 1, 1, 'CARD', 'Y', '2023-01-05 00:00:00', 10.0, 100.0);
+INSERT INTO "Payments" ("payment_id", "customer_id", "booking_id", "payment_type_code", "amount_paid_in_full_yn", "payment_date", "amount_due", "amount_paid") VALUES (2, 1, 2, 'CASH', 'N', '2023-01-06 00:00:00', 10.0, 200.0);
+INSERT INTO "Payments" ("payment_id", "customer_id", "booking_id", "payment_type_code", "amount_paid_in_full_yn", "payment_date", "amount_due", "amount_paid") VALUES (3, 2, 1, 'CARD', 'Y', '2023-02-05 00:00:00', 40.0, 300.0);
+INSERT INTO "Payments" ("payment_id", "customer_id", "booking_id", "payment_type_code", "amount_paid_in_full_yn", "payment_date", "amount_due", "amount_paid") VALUES (4, NULL, NULL, 'CASH', 'N', '2023-02-06 00:00:00', NULL, 400.0);
+```
+
+```sql
+-- DATASET 3
+-- Single row with amount_due = 1.0: Tests AVG vs COUNT, SUM, MIN, MAX on edge values and checks single-row window behavior.
+-- Also includes a second row with negative/fractional value to test precision and sign handling.
+INSERT INTO "Customers" ("customer_id", "coupon_id", "good_or_bad_customer", "first_name", "last_name", "gender_mf", "date_became_customer", "date_last_hire") VALUES (1, NULL, 'good', 'Eve', 'Adams', 'F', '2023-03-01 00:00:00', '2023-03-02 00:00:00');
+INSERT INTO "Bookings" ("booking_id", "customer_id", "booking_status_code", "returned_damaged_yn", "booking_start_date", "booking_end_date", "count_hired", "amount_payable", "amount_of_discount", "amount_outstanding", "amount_of_refund") VALUES (1, 1, 'CONF', 'N', '2023-03-01 00:00:00', '2023-03-02 00:00:00', '1', 15.5, 0.0, 15.5, 0.0);
+INSERT INTO "Payments" ("payment_id", "customer_id", "booking_id", "payment_type_code", "amount_paid_in_full_yn", "payment_date", "amount_due", "amount_paid") VALUES (1, 1, 1, 'CARD', 'N', '2023-03-01 00:00:00', 0.0, 10.0);
+INSERT INTO "Payments" ("payment_id", "customer_id", "booking_id", "payment_type_code", "amount_paid_in_full_yn", "payment_date", "amount_due", "amount_paid") VALUES (2, 1, 1, 'CARD', 'Y', '2023-03-02 00:00:00', 15.75, 15.75);
+```
+
+```sql
+-- DATASET 4
+-- All rows in Payments have NULL for amount_due.
+-- Tests behavior when AVG over non-empty window evaluates to NULL.
+INSERT INTO "Payments" ("payment_id", "customer_id", "booking_id", "payment_type_code", "amount_paid_in_full_yn", "payment_date", "amount_due", "amount_paid") VALUES (1, NULL, NULL, 'CARD', 'N', '2023-04-01 00:00:00', NULL, 50.0);
+INSERT INTO "Payments" ("payment_id", "customer_id", "booking_id", "payment_type_code", "amount_paid_in_full_yn", "payment_date", "amount_due", "amount_paid") VALUES (2, NULL, NULL, 'CASH', 'Y', '2023-04-02 00:00:00', NULL, 75.0);
+```

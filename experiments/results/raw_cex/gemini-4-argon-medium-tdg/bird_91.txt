@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests AVG(A13) > AVG(A12) vs SUM(A13) > SUM(A12), non-aggregated row-level comparisons (with DISTINCT), MAX/MIN mutations, and inner JOIN mutations (no child rows in account/client).
+-- Here: AVG(A13) = 4.0, AVG(A12) = 5.0 -> AVG(A13) > AVG(A12) is FALSE ('1995').
+-- However, SUM(A13) = 12.0 > SUM(A12) = 10.0 is TRUE ('1996').
+-- Row 1 has A13 > A12 (3.0 > 2.0) and Row 2 has A13 < A12 (1.0 < 8.0), killing row-level IIF.
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 100, 2.0, 3.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 100, 8.0, 1.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D3', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 100, NULL, 8.0, 10, 10, 10);
+```
+
+```sql
+-- DATASET 2
+-- Tests the TRUE branch ('1996') where AVG(A13) > AVG(A12), while SUM(A13) < SUM(A12) and MAX(A13) < MAX(A12).
+-- Here: AVG(A13) = 10.0, AVG(A12) = 9.0 -> AVG(A13) > AVG(A12) is TRUE ('1996').
+-- However, SUM(A13) = 20.0 < SUM(A12) = 18.0 is FALSE? Wait: A13=(15, 5, -2 -> AVG=6).
+-- Let's check values below: A13=(15.0, 15.0, -9.0) -> SUM(A13)=21.0, AVG(A13)=7.0.
+-- A12=(12.0, 12.0, NULL) -> SUM(A12)=24.0, AVG(A12)=12.0.
+-- Wait: To get AVG(A13) > AVG(A12) AND SUM(A13) < SUM(A12) when COUNT(A13) >= COUNT(A12), sums must be negative!
+-- Here: A13=(-4.0, -4.0, -4.0) -> SUM(A13)=-12.0, AVG(A13)=-4.0.
+-- A12=(-5.0, -5.0, NULL) -> SUM(A12)=-10.0, AVG(A12)=-5.0.
+-- AVG(A13) > AVG(A12) (-4.0 > -5.0) is TRUE ('1996'), while SUM(A13) > SUM(A12) (-12.0 > -10.0) is FALSE ('1995').
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 100, -5.0, -4.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 100, -5.0, -4.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D3', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 100, NULL, -4.0, 10, 10, 10);
+```
+
+```sql
+-- DATASET 3
+-- Tests strict boundary equality: AVG(A13) == AVG(A12) with positive non-null values.
+-- Kills mutants changing '>' to '>=' or '=' or '!='.
+-- Also tests AVG(DISTINCT ...) vs AVG(...) by repeating values asymmetrically:
+-- A13: (2.0, 2.0, 8.0) -> AVG(A13) = 4.0, AVG(DISTINCT A13) = 5.0.
+-- A12: (1.0, 4.0, 7.0) -> AVG(A12) = 4.0, AVG(DISTINCT A12) = 4.0.
+-- Gold: 4.0 > 4.0 is FALSE ('1995').
+-- Mutant with >= : 4.0 >= 4.0 is TRUE ('1996').
+-- Mutant with AVG(DISTINCT): 5.0 > 4.0 is TRUE ('1996').
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 100, 1.0, 2.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 100, 4.0, 2.0, 10, 10, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (3, 'D3', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 100, 7.0, 8.0, 10, 10, 10);
+```
+
+```sql
+-- DATASET 4
+-- Tests positive values where AVG(A13) > AVG(A12) is TRUE ('1996'), while testing column swaps (A10, A11, A14, A15, A16), MIN/MAX, and JOIN fan-out.
+-- Row 1: A12=1.0, A13=5.0. Row 2: A12=5.0, A13=3.0.
+-- AVG(A13) = 4.0, AVG(A12) = 3.0 -> 4.0 > 3.0 is TRUE ('1996').
+-- Notice MAX(A13) = 5.0 == MAX(A12) = 5.0 (so MAX(A13) > MAX(A12) is FALSE).
+-- If joined with account or client without deduplication, Row 2 is multiplied 3x:
+-- Joined AVG(A13) = (5 + 3*3)/4 = 3.5; Joined AVG(A12) = (1 + 5*3)/4 = 4.0 -> 3.5 > 4.0 is FALSE ('1995').
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 1.0, 1, 1.0, 5.0, 1, 100, 1);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '200', '2', '2', '2', 2, 2, 2.0, 2, 5.0, 3.0, 2, 200, 2);
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (1, 1, 'MONTHLY', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (2, 2, 'MONTHLY', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (3, 2, 'MONTHLY', '1995-01-01');
+INSERT INTO account (account_id, district_id, frequency, date) VALUES (4, 2, 'MONTHLY', '1995-01-01');
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (1, 'M', '1970-01-01', 1);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (2, 'F', '1970-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (3, 'M', '1970-01-01', 2);
+INSERT INTO client (client_id, gender, birth_date, district_id) VALUES (4, 'F', '1970-01-01', 2);
+```
+
+```sql
+-- DATASET 5
+-- Tests all-NULL A12 handling and COALESCE/IFNULL(A12, 0) mutations.
+-- A12 is NULL in all rows -> AVG(A12) is NULL -> AVG(A13) > NULL evaluates to NULL/FALSE -> returns '1995'.
+-- If a mutant replaces A12 with COALESCE(A12, 0), AVG(A12) becomes 0.0, and since AVG(A13) = 5.0 > 0.0, it would return '1996'.
+-- Also if a mutant uses WHERE A12 IS NOT NULL, the result set becomes empty (or NULL).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 50.0, 1000, NULL, 5.0, 10, NULL, 20);
+```
+
+```sql
+-- DATASET 6
+-- Tests floating-point vs integer division / truncation and GROUP BY region (A3) mutations.
+-- Row 1 (Region R1): A12 = 2.4, A13 = 2.6 (A13 > A12 is TRUE)
+-- Row 2 (Region R2): A12 = 2.8, A13 = 2.2 (A13 > A12 is FALSE)
+-- Overall: AVG(A13) = 2.4, AVG(A12) = 2.6 -> AVG(A13) > AVG(A12) is FALSE ('1995').
+-- If a mutant groups by A3 (or omits AVG), R1 produces '1996' and R2 produces '1995', returning 2 rows even with DISTINCT.
+-- If a mutant casts A12 and A13 to INT before averaging: INT(A13)=(2,2)->AVG=2, INT(A12)=(2,2)->AVG=2 (equal).
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (1, 'D1', 'R1', '100', '1', '1', '1', 1, 1, 10.0, 100, 2.4, 2.6, 10, 5, 10);
+INSERT INTO district (district_id, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) VALUES (2, 'D2', 'R2', '200', '2', '2', '2', 2, 2, 20.0, 200, 2.8, 2.2, 20, 5, 20);
+```

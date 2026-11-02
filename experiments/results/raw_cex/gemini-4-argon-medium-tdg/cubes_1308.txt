@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Unreferenced rows in `grapes` (kills mutants joining `grapes` without INNER JOIN or grouping by `grapes.Grape`).
+-- 2. Ties in `COUNT(*)` with alphabetical ordering on `grape` (kills DESC ordering or missing secondary sort).
+-- 3. `NULL` values in `wine.Grape` (kills `COUNT(Grape)` vs `COUNT(*)`, `WHERE Grape IS NOT NULL`, and `NULLS FIRST` vs `NULLS LAST` when tied on count).
+-- 4. Duplicate values in other `wine` columns (kills `COUNT(DISTINCT ...)` mutants).
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (1, 'Chardonnay', 'White');
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (2, 'Merlot', 'Red');
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (3, 'Pinot Noir', 'Red');
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (4, 'Zinfandel', 'Red');
+
+INSERT INTO "appellations" ("No", "Appelation", "County", "State", "Area", "isAVA") VALUES (1, 'Napa Valley', 'Napa', 'California', 'North Coast', 'Yes');
+
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Merlot', 1, 'Winery A', 'California', 'Wine A', 2020, 50, 90, 100, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Chardonnay', 2, 'Winery A', 'California', 'Wine A', 2020, 50, 90, 100, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', NULL, 3, 'Winery A', 'California', 'Wine A', 2020, 50, 90, 100, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Pinot Noir', 4, 'Winery A', 'California', 'Wine A', 2020, 50, 90, 100, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Pinot Noir', 4, 'Winery A', 'California', 'Wine A', 2020, 50, 90, 100, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Napa Valley', 'Pinot Noir', 4, 'Winery A', 'California', 'Wine A', 2020, 50, 90, 100, 'Now');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Primary sort priority (`ORDER BY count___, grape` vs `ORDER BY grape, count___`).
+--    'Zinfandel' has a smaller count (1) than 'Cabernet' (2) and 'Syrah' (3), forcing count order to conflict with alphabetical order.
+-- 2. Non-null `Grape` values with NULLs in all other `wine` columns (kills `COUNT(No)`, `COUNT(Winery)`, `COUNT(Appelation)`, etc.).
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (1, 'Cabernet', 'Red');
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (2, 'Syrah', 'Red');
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (3, 'Zinfandel', 'Red');
+
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES (NULL, 'Zinfandel', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES (NULL, 'Cabernet', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES (NULL, 'Cabernet', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES (NULL, 'Syrah', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES (NULL, 'Syrah', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES (NULL, 'Syrah', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multiple NULL `Grape` rows resulting in a higher count (2) than a non-null `Grape` (1), ensuring `ORDER BY count___` takes precedence over `grape NULLS LAST`.
+-- 2. Ties at count > 1 between NULL and non-null `Grape` ('Malbec' vs NULL both having count 2) to strictly verify `NULLS LAST` on non-unit counts.
+-- 3. `appellations` join mutations (rows with NULL Appelation vs valid Appelation).
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (1, 'Barberas', 'Red');
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (2, 'Malbec', 'Red');
+INSERT INTO "grapes" ("ID", "Grape", "Color") VALUES (3, 'Riesling', 'White');
+
+INSERT INTO "appellations" ("No", "Appelation", "County", "State", "Area", "isAVA") VALUES (1, 'Sonoma', 'Sonoma', 'California', 'North Coast', 'Yes');
+
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Sonoma', 'Riesling', 10, 'W1', 'CA', 'N1', 2015, 20, 85, 50, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES (NULL, NULL, 20, 'W2', 'CA', 'N2', 2016, 25, 86, 60, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Sonoma', NULL, 30, 'W3', 'CA', 'N3', 2017, 30, 87, 70, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Sonoma', 'Malbec', 40, 'W4', 'CA', 'N4', 2018, 35, 88, 80, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES (NULL, 'Malbec', 50, 'W5', 'CA', 'N5', 2019, 40, 89, 90, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Sonoma', 'Barberas', 60, 'W6', 'CA', 'N6', 2020, 45, 90, 100, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Sonoma', 'Barberas', 70, 'W7', 'CA', 'N7', 2021, 50, 91, 110, 'Now');
+INSERT INTO "wine" ("Appelation", "Grape", "No", "Winery", "State", "Name", "Year", "Price", "Score", "Cases", "Drink") VALUES ('Sonoma', 'Barberas', 80, 'W8', 'CA', 'N8', 2022, 55, 92, 120, 'Now');
+```

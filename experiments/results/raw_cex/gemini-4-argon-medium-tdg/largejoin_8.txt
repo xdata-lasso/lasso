@@ -1,0 +1,132 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. HAVING COUNT(RA.B) > 3 vs >= 3 (Group 'b1' has count 4, 'b2' has count 2).
+-- 2. COUNT(RA.B) vs COUNT(*) (Group NULL has 4 rows, but COUNT(RA.B) is 0).
+-- 3. CROSS JOIN vs NATURAL JOIN / INNER JOIN on Foreign Keys (RB.B is NULL, breaking FK join).
+-- 4. GROUP BY RA.B vs GROUP BY RA.A1 ('b1' is split across two RA.A1 keys, each having 2 rows after join).
+-- 5. Omission of RF from CROSS JOIN (Without RF's 2 rows, 'b1' count drops from 4 to 2).
+-- 6. Selection/Grouping of wrong column (All other B columns have values distinct from RA.B).
+INSERT INTO RA (A1, B) VALUES ('a1', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'b1');
+INSERT INTO RA (A1, B) VALUES ('a3', 'b2');
+INSERT INTO RA (A1, B) VALUES ('a4', NULL);
+INSERT INTO RA (A1, B) VALUES ('a5', NULL);
+
+INSERT INTO RB (A2, B) VALUES ('b_1', NULL);
+
+INSERT INTO RC (A3, B) VALUES ('c_1', 'b_1');
+
+INSERT INTO RD (A4, B) VALUES ('d_1', 'c_1');
+
+INSERT INTO RE (A5, B) VALUES ('e_1', 'd_1');
+
+INSERT INTO RF (A6, B) VALUES ('f_1', 'e_1');
+INSERT INTO RF (A6, B) VALUES ('f_2', 'e_1');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Exact boundary condition COUNT(RA.B) = 3 (Must return empty set; kills >= 3, = 3, < 3, <= 3).
+-- 2. Omission of RB from CROSS JOIN (RB has 3 rows; if omitted, count is 1).
+-- 3. Valid Foreign Key chain from RA to RF, but RA has multiple rows (3 rows in RB all point to 'a1', testing FK join vs Cross Join for 'a2').
+INSERT INTO RA (A1, B) VALUES ('a1', 'val1');
+INSERT INTO RA (A1, B) VALUES ('a2', 'val2');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b3', 'a1');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Multi-table cardinality multiplication (RC has 2 rows, RD has 2 rows -> 2 * 2 = 4 rows per RA row).
+-- 2. Kills mutants that omit RC or RD from the CROSS JOIN (count drops from 4 to 2).
+-- 3. Kills mutants using COUNT(DISTINCT ...) (since all joined columns have at most 2 distinct values, COUNT(DISTINCT ...) <= 2).
+-- 4. Includes extra tables RG, RH, RI, RJ with 0 rows (implicitly) or multiple rows to ensure they aren't accidentally joined.
+INSERT INTO RA (A1, B) VALUES ('a1', 'target');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RC (A3, B) VALUES ('c2', 'b1');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RD (A4, B) VALUES ('d2', 'c1');
+
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+
+INSERT INTO RG (A7, B) VALUES ('g1', 'f1');
+INSERT INTO RG (A7, B) VALUES ('g2', 'f1');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Omission of RE from CROSS JOIN (RE has 4 rows, all other tables have 1 row).
+-- 2. Numeric strings in RA.B ('10', '2') to kill mutants that use SUM(RA.B) or AVG(RA.B) or MAX(RA.B) > 3 instead of COUNT(RA.B) > 3.
+--    For '10': 1 row in RA, 0 in RE if we didn't have 4. Wait: if we have two groups in RA:
+--    Group '0' has 1 row in RA -> 4 rows total -> COUNT is 4 (>3), SUM is 0 (not >3).
+INSERT INTO RA (A1, B) VALUES ('a1', '0');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+INSERT INTO RE (A5, B) VALUES ('e2', 'd1');
+INSERT INTO RE (A5, B) VALUES ('e3', 'd1');
+INSERT INTO RE (A5, B) VALUES ('e4', 'd1');
+
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Empty table in the CROSS JOIN chain (RF is empty, while RA..RE have many rows).
+-- 2. Ensures result is empty when any table in the CROSS JOIN is empty (kills mutants that omit RF or use LEFT JOIN).
+INSERT INTO RA (A1, B) VALUES ('a1', 'x');
+INSERT INTO RA (A1, B) VALUES ('a2', 'x');
+INSERT INTO RA (A1, B) VALUES ('a3', 'x');
+INSERT INTO RA (A1, B) VALUES ('a4', 'x');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+```
+
+```sql
+-- DATASET 6
+-- Tests:
+-- 1. Missing GROUP BY clause (If GROUP BY RA.B is omitted, COUNT(RA.B) across the whole table is 4, returning 1 row instead of 0 rows because each group only has 2 rows).
+-- 2. Kills SUM(RA.B) > 3 when count is <= 3 (Group '9' has 2 rows, SUM is 18 > 3, MAX is 9 > 3, AVG is 9 > 3, but COUNT is 2).
+INSERT INTO RA (A1, B) VALUES ('a1', '9');
+INSERT INTO RA (A1, B) VALUES ('a2', '8');
+
+INSERT INTO RB (A2, B) VALUES ('b1', 'a1');
+INSERT INTO RB (A2, B) VALUES ('b2', 'a2');
+
+INSERT INTO RC (A3, B) VALUES ('c1', 'b1');
+
+INSERT INTO RD (A4, B) VALUES ('d1', 'c1');
+
+INSERT INTO RE (A5, B) VALUES ('e1', 'd1');
+
+INSERT INTO RF (A6, B) VALUES ('f1', 'e1');
+```

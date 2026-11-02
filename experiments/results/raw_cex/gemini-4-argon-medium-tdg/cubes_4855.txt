@@ -1,0 +1,86 @@
+```sql
+-- DATASET 1
+-- Ties for the maximum policy count (C and A tie with 3 policies each; B has 1).
+-- Tests handling of ties (e.g., LIMIT 1 vs all tied maxes), ordering, and JOIN vs Left-only bugs.
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Alice');
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (2, 'Bob');
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (3, 'Charlie');
+
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (101, 1, 'Type_C', '2020-01-01', '2021-01-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (102, 2, 'Type_C', '2020-02-01', '2021-02-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (103, 1, 'Type_C', '2020-03-01', '2021-03-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (104, 1, 'Type_A', '2020-04-01', '2021-04-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (105, 1, 'Type_A', '2020-05-01', '2021-05-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (106, 1, 'Type_A', '2020-06-01', '2021-06-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (107, 3, 'Type_B', '2020-07-01', '2021-07-01');
+
+INSERT INTO Claim_Headers (Claim_Header_ID, Policy_ID, Claim_Status_Code, Claim_Type_Code, Date_of_Claim, Date_of_Settlement, Amount_Claimed, Amount_Piad) VALUES (201, 107, 'Open', 'Fire', '2020-08-01', '2020-09-01', 1000.0, 500.0);
+INSERT INTO Claim_Headers (Claim_Header_ID, Policy_ID, Claim_Status_Code, Claim_Type_Code, Date_of_Claim, Date_of_Settlement, Amount_Claimed, Amount_Piad) VALUES (202, 107, 'Closed', 'Theft', '2020-08-05', '2020-09-05', 2000.0, 2000.0);
+INSERT INTO Claim_Headers (Claim_Header_ID, Policy_ID, Claim_Status_Code, Claim_Type_Code, Date_of_Claim, Date_of_Settlement, Amount_Claimed, Amount_Piad) VALUES (203, 107, 'Pending', 'Water', '2020-08-10', '2020-09-10', 1500.0, 0.0);
+INSERT INTO Claim_Headers (Claim_Header_ID, Policy_ID, Claim_Status_Code, Claim_Type_Code, Date_of_Claim, Date_of_Settlement, Amount_Claimed, Amount_Piad) VALUES (204, 107, 'Open', 'Wind', '2020-08-15', '2020-09-15', 3000.0, 1000.0);
+```
+
+```sql
+-- DATASET 2
+-- Single clear winner where the winning policy type has NO claims, while losing policy types have claims.
+-- Also tests COUNT(*) vs COUNT(DISTINCT Customer_ID) and INNER JOIN Policies with Claim_Headers bugs.
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Cust1');
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (2, 'Cust2');
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (3, 'Cust3');
+
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (1, 1, 'Life', '2021-01-01', '2022-01-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (2, 1, 'Life', '2021-02-01', '2022-02-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (3, 1, 'Life', '2021-03-01', '2022-03-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (4, 1, 'Life', '2021-04-01', '2022-04-01');
+
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (5, 1, 'Auto', '2021-01-01', '2022-01-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (6, 2, 'Auto', '2021-02-01', '2022-02-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (7, 3, 'Auto', '2021-03-01', '2022-03-01');
+
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (8, 2, 'Home', '2021-05-01', '2022-05-01');
+
+INSERT INTO Claim_Headers (Claim_Header_ID, Policy_ID, Claim_Status_Code, Claim_Type_Code, Date_of_Claim, Date_of_Settlement, Amount_Claimed, Amount_Piad) VALUES (10, 5, 'Closed', 'Collision', '2021-06-01', '2021-06-15', 5000.0, 4500.0);
+INSERT INTO Claim_Headers (Claim_Header_ID, Policy_ID, Claim_Status_Code, Claim_Type_Code, Date_of_Claim, Date_of_Settlement, Amount_Claimed, Amount_Piad) VALUES (11, 8, 'Open', 'Theft', '2021-07-01', '2021-07-20', 8000.0, 0.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests NULL values in Policy_Type_Code and Customer_ID.
+-- NULL group has the highest count (3 rows), while 'Health' has 2 rows and 'Travel' has 1 row.
+-- Catches mutants using COUNT(Policy_Type_Code) instead of COUNT(*), COUNT(Customer_ID), or WHERE Policy_Type_Code IS NOT NULL.
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (10, 'John Doe');
+
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (1, 10, NULL, '2019-01-01', '2020-01-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (2, NULL, NULL, '2019-02-01', '2020-02-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (3, 10, NULL, '2019-03-01', '2020-03-01');
+
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (4, NULL, 'Health', '2019-04-01', '2020-04-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (5, 10, 'Health', '2019-05-01', '2020-05-01');
+
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (6, 10, 'Travel', '2019-06-01', '2020-06-01');
+```
+
+```sql
+-- DATASET 4
+-- Non-NULL Policy_Type_Code ('Pet') wins with 3 rows, but NULL Customer_IDs exist in 'Pet', while 'Marine' has 2 rows with non-null Customer_IDs.
+-- Catches mutants that INNER JOIN Policies with Customers or use COUNT(Customer_ID).
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Member A');
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (2, 'Member B');
+
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (10, NULL, 'Pet', '2022-01-01', '2023-01-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (11, NULL, 'Pet', '2022-01-02', '2023-01-02');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (12, 1, 'Pet', '2022-01-03', '2023-01-03');
+
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (13, 1, 'Marine', '2022-02-01', '2023-02-01');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (14, 2, 'Marine', '2022-02-02', '2023-02-02');
+```
+
+```sql
+-- DATASET 5
+-- Single row / all groups have count = 1.
+-- Catches mutants with HAVING COUNT(*) > 1 or strict inequalities (n_other > maxn_other).
+INSERT INTO Customers (Customer_ID, Customer_Details) VALUES (1, 'Solo Customer');
+
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (1, 1, 'Z_Type', '2020-01-01', '2020-12-31');
+INSERT INTO Policies (Policy_ID, Customer_ID, Policy_Type_Code, Start_Date, End_Date) VALUES (2, 1, 'A_Type', '2020-01-01', '2020-12-31');
+```

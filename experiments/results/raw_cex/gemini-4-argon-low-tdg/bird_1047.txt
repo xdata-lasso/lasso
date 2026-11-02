@@ -1,0 +1,82 @@
+```sql
+-- DATASET 1
+-- Tests basic matching row, date substring matching (timestamp vs exact date), wrong player name, and wrong date
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (1, 101, 'Francois Affolter', 1001, '1991-03-13 00:00:00', 185, 172);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (2, 102, 'Other Player', 1002, '1990-01-01 00:00:00', 180, 165);
+
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, crossing, finishing, heading_accuracy, short_passing) VALUES (1, 1001, 101, '2014-09-18 00:00:00', 70, 75, 55, 45, 72, 65);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, crossing, finishing, heading_accuracy, short_passing) VALUES (2, 1001, 101, '2014-09-19 00:00:00', 71, 75, 56, 46, 80, 66);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, overall_rating, potential, crossing, finishing, heading_accuracy, short_passing) VALUES (3, 1002, 102, '2014-09-18 00:00:00', 80, 85, 70, 75, 90, 80);
+```
+
+```sql
+-- DATASET 2
+-- Tests join condition mutations (joining on player_api_id vs id vs player_fifa_api_id)
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (10, 200, 'Francois Affolter', 3000, '1991-03-13', 185, 172);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (20, 10, 'Decoy Player One', 4000, '1992-05-10', 175, 160);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id, birthday, height, weight) VALUES (30, 300, 'Decoy Player Two', 200, '1988-11-20', 190, 185);
+
+-- Matches t1.player_api_id = t2.player_api_id (200 = 200), while FK player_fifa_api_id points to Decoy Player One (4000)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy, overall_rating) VALUES (50, 4000, 200, '2014-09-18 12:30:00', 68, 74);
+
+-- Matches t1.player_fifa_api_id = t2.player_fifa_api_id (3000 = 3000), but player_api_id does not match (999 != 200)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy, overall_rating) VALUES (51, 3000, 999, '2014-09-18 12:30:00', 95, 88);
+
+-- Matches t1.id = t2.id (10 = 10), and t1.id = t2.player_api_id (10 = 10), but not t1.player_api_id = t2.player_api_id
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy, overall_rating) VALUES (10, 4000, 10, '2014-09-18 12:30:00', 42, 60);
+```
+
+```sql
+-- DATASET 3
+-- Tests SUBSTRING boundaries, LIKE '%2014-09-18%' vs SUBSTRING(date, 1, 10), and exact string comparison
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 500, 'Francois Affolter', 5000);
+
+-- Prefix is not at position 1 (Tests LIKE '%2014-09-18%' or SUBSTRING starting at wrong index)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (1, 5000, 500, 'X2014-09-18 00:00:00', 11);
+
+-- Partial date match (Tests SUBSTRING length < 10, e.g., 9 chars '2014-09-1')
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (2, 5000, 500, '2014-09-10 00:00:00', 22);
+
+-- Exact 10-char match without timestamp (Tests if query wrongly expects length > 10)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (3, 5000, 500, '2014-09-18', 33);
+
+-- Standard 10-char prefix with timestamp (Tests if query uses date = '2014-09-18' instead of SUBSTRING)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (4, 5000, 500, '2014-09-18 23:59:59', 44);
+```
+
+```sql
+-- DATASET 4
+-- Tests duplicate heading_accuracy values, multiple rows on the same date, and aggregation/DISTINCT/LIMIT mutations
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 700, 'Francois Affolter', 7000);
+
+-- Two identical heading_accuracy values on same date (Kills DISTINCT mutations)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (1, 7000, 700, '2014-09-18 08:00:00', 65);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (2, 7000, 700, '2014-09-18 18:00:00', 65);
+
+-- A third different heading_accuracy value on same date (Kills MAX/MIN/AVG/SUM/LIMIT 1 mutations)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (3, 7000, 700, '2014-09-18 20:00:00', 71);
+```
+
+```sql
+-- DATASET 5
+-- Tests INNER JOIN vs LEFT JOIN, NULL handling, and case/substring sensitivity on player_name
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (1, 801, 'Francois Affolter', 8001);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (2, 802, 'Francois Affolter', 8002);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (3, 803, 'francois affolter', 8003);
+INSERT INTO Player (id, player_api_id, player_name, player_fifa_api_id) VALUES (4, 804, 'Francois Affolter Jr', 8004);
+
+-- Player 801 has no attributes on 2014-09-18 (Kills LEFT JOIN if date filter is in ON clause)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (1, 8001, 801, '2015-01-01 00:00:00', 50);
+
+-- Player 802 has a matching row, plus a row with NULL date, and a row with NULL heading_accuracy
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (2, 8002, 802, '2014-09-18 00:00:00', 77);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (3, 8002, 802, NULL, 88);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (4, 8002, 802, '2014-09-18 10:00:00', NULL);
+
+-- Player 803 (lowercase) and 804 (superstring) have attributes on target date (Kills LIKE / case-insensitive mutants)
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (5, 8003, 803, '2014-09-18 00:00:00', 91);
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (6, 8004, 804, '2014-09-18 00:00:00', 92);
+
+-- Attribute with NULL player_api_id on target date
+INSERT INTO Player_Attributes (id, player_fifa_api_id, player_api_id, date, heading_accuracy) VALUES (7, 8001, NULL, '2014-09-18 00:00:00', 99);
+```

@@ -1,0 +1,25 @@
+-- Schema DDL
+CREATE TABLE "Product" ("product_id" INTEGER PRIMARY KEY, "product_name" TEXT(255), "unit_price" INTEGER, CHECK ("unit_price" > 0));
+
+CREATE TABLE "Sales" ("product_id" INTEGER, "seller_id" INTEGER, "buyer_id" INTEGER, "sale_date" DATE, "quantity" INTEGER, "price" INTEGER, FOREIGN KEY ("product_id") REFERENCES "Product" ("product_id"), CHECK ("quantity" > 0), CHECK ("price" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "sales" ("product_id", "seller_id", "buyer_id", "sale_date", "quantity", "price") VALUES (NULL, 1110, 1111, '2019-02-14', 1112, 1113);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT P.PRODUCT_ID, P.PRODUCT_NAME FROM PRODUCT AS P INNER JOIN (SELECT PRODUCT_ID FROM SALES GROUP BY PRODUCT_ID HAVING MIN(SALE_DATE) >= '2019-01-01' AND MAX(SALE_DATE) <= '2019-03-31') AS S ON (P.PRODUCT_ID = S.PRODUCT_ID);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH NT1 AS (SELECT PRODUCT.PRODUCT_ID, PRODUCT.PRODUCT_NAME, SALES.SALE_DATE FROM SALES LEFT JOIN PRODUCT ON SALES.PRODUCT_ID = PRODUCT.PRODUCT_ID) SELECT PRODUCT_ID, PRODUCT_NAME FROM NT1 GROUP BY PRODUCT_ID HAVING MIN(NT1.SALE_DATE) >= '2019-01-01' AND MAX(NT1.SALE_DATE) <= '2019-03-31';
+
+/*
+Prediction Result:
+(None, None)
+*/

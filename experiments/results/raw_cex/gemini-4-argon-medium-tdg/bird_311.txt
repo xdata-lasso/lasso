@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests basic positive case and DISTINCT requirement (multiple qualifying atoms and bonds in the same molecule).
+-- Also includes a valid molecule with NO entry in 'connected' to kill mutants that unnecessarily join the 'connected' table.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'h');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '#');
+```
+
+```sql
+-- DATASET 2
+-- Tests mixed attributes within the same molecule to kill mutants that use NOT IN / EXCEPT instead of row-level <> filtering.
+-- m1 has both 's' and 'c' atoms, and both '=' and '-' bonds. It should still be counted because ('c', '-') qualifies.
+-- Also connects the 's' atom to the '=' bond in 'connected' to kill mutants that join atom and bond via 'connected'.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 's');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a1', 'b1');
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary conditions where predicates fail:
+-- m1 fails because all its atoms have element = 's' (kills missing atom predicate or OR instead of AND).
+-- m2 fails because all its bonds have bond_type = '=' (kills missing bond predicate or OR instead of AND).
+-- m3 has a qualifying atom but NO bonds (kills LEFT JOIN mutants or queries omitting the bond table).
+-- m4 has a qualifying bond but NO atoms (kills RIGHT JOIN mutants or queries omitting the atom table).
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('m3', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m4', '+');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 's');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm2', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm2', '=');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm3', 'n');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b4', 'm4', '-');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in join keys and filter columns (kills IS NOT NULL / COALESCE / NOT IN mutants).
+-- m1 has NULL element (NULL <> 's' is UNKNOWN, should not be counted).
+-- m2 has NULL bond_type (NULL <> '=' is UNKNOWN, should not be counted).
+-- Atom and bond with NULL molecule_id should not join or be counted.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm2', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm2', NULL);
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', NULL, 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', NULL, '-');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple molecules where counts of distinct molecule_id (2), distinct atom_id (3), distinct bond_id (4), and distinct element/bond_type (1) all differ.
+-- Kills mutants that count the wrong column or group improperly.
+INSERT INTO molecule (molecule_id, label) VALUES ('m1', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('m2', '-');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a1', 'm1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a2', 'm1', 'o');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('a3', 'm2', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b1', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b2', 'm1', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b3', 'm2', '-');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('b4', 'm2', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a1', 'a2', 'b1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('a2', 'a1', 'b1');
+```

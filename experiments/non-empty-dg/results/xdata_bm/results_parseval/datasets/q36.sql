@@ -1,0 +1,15 @@
+INSERT INTO "department" ("dept_name", "building", "budget") VALUES ('dept_name_1', 'dep_f0958c', 0.01);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('A', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('C', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('Q', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('G', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('@', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('B', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('D', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('`', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('H', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('E', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('a', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('!', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('_', 'cou_aa4396', 'dept_name_1', 2.0);
+INSERT INTO "course" ("course_id", "title", "dept_name", "credits") VALUES ('I', 'cou_aa4396', 'dept_name_1', 2.0);

@@ -1,0 +1,88 @@
+```sql
+-- DATASET 1
+-- General comprehensive dataset: Tests basic joins, filtering on 'Coldsnap', borderColor variations, NULLs, and orphaned cards.
+-- Gold query returns: 2
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'ICE', 'Ice Age');
+INSERT INTO sets (id, code, name) VALUES (3, 'ALL', NULL);
+
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (1, 'u1', 'CSP', 'black', 'Card 1');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (2, 'u2', 'CSP', 'black', 'Card 2');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (3, 'u3', 'CSP', 'white', 'Card 3');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (4, 'u4', 'CSP', NULL, 'Card 4');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (5, 'u5', 'ICE', 'black', 'Card 5');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (6, 'u6', 'ALL', 'black', 'Card 6');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (7, 'u7', NULL, 'black', 'Card 7');
+```
+
+```sql
+-- DATASET 2
+-- Tests behavior when 'Coldsnap' exists and has cards, but none have borderColor = 'black'.
+-- Distinguishes SUM(CASE ... ELSE 0 END) (returns 0) from COUNT(*) WHERE borderColor='black' (returns 0) vs SUM(CASE ... END) without ELSE 0 (returns NULL).
+-- Gold query returns: 0
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'LEA', 'Limited Edition Alpha');
+
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (1, 'u1', 'CSP', 'white', 'White Border Card');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (2, 'u2', 'CSP', 'silver', 'Silver Border Card');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (3, 'u3', 'CSP', NULL, 'Null Border Card');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (4, 'u4', 'LEA', 'black', 'Other Set Black Card');
+```
+
+```sql
+-- DATASET 3
+-- Tests behavior when 'Coldsnap' set has NO matching cards in the cards table.
+-- Distinguishes SUM(...) (returns NULL) from COUNT(...) (returns 0) and tests LEFT JOIN vs INNER JOIN on sets->cards.
+-- Gold query returns: NULL
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'FEM', 'Fallen Empires');
+
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (1, 'u1', 'FEM', 'black', 'Card 1');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (2, 'u2', 'FEM', 'white', 'Card 2');
+```
+
+```sql
+-- DATASET 4
+-- Tests wrong join conditions (e.g., T1.id = T2.id, or T1.name = T2.name, or T1.setCode = T2.name) and case sensitivity ('Black', 'coldsnap').
+-- Gold query returns: 1
+INSERT INTO sets (id, code, name) VALUES (1, 'OTHER', 'Not Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'CSP', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (3, 'Coldsnap', 'Fake Set');
+INSERT INTO sets (id, code, name) VALUES (4, 'CSP2', 'coldsnap');
+
+-- Matches T1.id = T2.id for 'Coldsnap' (id=2), but wrong setCode
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (2, 'u1', 'OTHER', 'black', 'Coldsnap');
+-- Matches T1.setCode = 'Coldsnap' (which is T2.name of id=2 and T2.code of id=3)
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (10, 'u2', 'Coldsnap', 'black', 'Card 2');
+-- Matches 'coldsnap' (case sensitivity test on set name)
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (11, 'u3', 'CSP2', 'black', 'Card 3');
+-- Matches 'CSP', but borderColor is capitalized 'Black' (case sensitivity test on borderColor)
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (12, 'u4', 'CSP', 'Black', 'Card 4');
+-- True positive match
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (13, 'u5', 'CSP', 'black', 'Card 5');
+```
+
+```sql
+-- DATASET 5
+-- Tests multiple sets named 'Coldsnap' (since sets.name is not UNIQUE) and multiple cards with identical attributes to catch DISTINCT misuse.
+-- Gold query returns: 3
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP1', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'CSP2', 'Coldsnap');
+
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (1, 'u1', 'CSP1', 'black', 'Duplicate Name');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (2, 'u2', 'CSP1', 'black', 'Duplicate Name');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (3, 'u3', 'CSP2', 'black', 'Duplicate Name');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (4, 'u4', 'CSP2', 'borderless', 'Duplicate Name');
+```
+
+```sql
+-- DATASET 6
+-- Tests substring/LIKE mutations (e.g., T2.name LIKE '%Coldsnap%' or T1.borderColor LIKE '%black%').
+-- Gold query returns: 1
+INSERT INTO sets (id, code, name) VALUES (1, 'CSP', 'Coldsnap');
+INSERT INTO sets (id, code, name) VALUES (2, 'CST', 'Coldsnap Theme Decks');
+
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (1, 'u1', 'CSP', 'black', 'Exact Match');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (2, 'u2', 'CSP', 'blackish', 'Border Prefix Match');
+INSERT INTO cards (id, uuid, setCode, borderColor, name) VALUES (3, 'u3', 'CST', 'black', 'Set Prefix Match');
+```

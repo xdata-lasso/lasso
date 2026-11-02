@@ -1,0 +1,261 @@
+-- Schema DDL
+CREATE TABLE "PLAYER_ATTRIBUTES" (
+    "ID" INT,
+    "PLAYER_FIFA_API_ID" INT,
+    "PLAYER_API_ID" INT,
+    "DATE" TEXT,
+    "OVERALL_RATING" INT,
+    "POTENTIAL" INT,
+    "PREFERRED_FOOT" TEXT,
+    "ATTACKING_WORK_RATE" TEXT,
+    "DEFENSIVE_WORK_RATE" TEXT,
+    "CROSSING" INT,
+    "FINISHING" INT,
+    "HEADING_ACCURACY" INT,
+    "SHORT_PASSING" INT,
+    "VOLLEYS" INT,
+    "DRIBBLING" INT,
+    "CURVE" INT,
+    "FREE_KICK_ACCURACY" INT,
+    "LONG_PASSING" INT,
+    "BALL_CONTROL" INT,
+    "ACCELERATION" INT,
+    "SPRINT_SPEED" INT,
+    "AGILITY" INT,
+    "REACTIONS" INT,
+    "BALANCE" INT,
+    "SHOT_POWER" INT,
+    "JUMPING" INT,
+    "STAMINA" INT,
+    "STRENGTH" INT,
+    "LONG_SHOTS" INT,
+    "AGGRESSION" INT,
+    "INTERCEPTIONS" INT,
+    "POSITIONING" INT,
+    "VISION" INT,
+    "PENALTIES" INT,
+    "MARKING" INT,
+    "STANDING_TACKLE" INT,
+    "SLIDING_TACKLE" INT,
+    "GK_DIVING" INT,
+    "GK_HANDLING" INT,
+    "GK_KICKING" INT,
+    "GK_POSITIONING" INT,
+    "GK_REFLEXES" INT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("PLAYER_FIFA_API_ID") REFERENCES "PLAYER"("PLAYER_FIFA_API_ID")
+);
+CREATE TABLE "PLAYER" (
+    "ID" INT,
+    "PLAYER_API_ID" INT,
+    "PLAYER_NAME" TEXT,
+    "PLAYER_FIFA_API_ID" INT,
+    "BIRTHDAY" TEXT,
+    "HEIGHT" INT,
+    "WEIGHT" INT,
+    PRIMARY KEY ("ID"),
+    UNIQUE ("PLAYER_FIFA_API_ID")
+);
+CREATE TABLE "LEAGUE" (
+    "ID" INT,
+    "COUNTRY_ID" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("COUNTRY_ID") REFERENCES "COUNTRY"("ID")
+);
+CREATE TABLE "COUNTRY" (
+    "ID" INT,
+    "NAME" TEXT,
+    PRIMARY KEY ("ID")
+);
+CREATE TABLE "TEAM" (
+    "ID" INT,
+    "TEAM_API_ID" INT,
+    "TEAM_FIFA_API_ID" INT,
+    "TEAM_LONG_NAME" TEXT,
+    "TEAM_SHORT_NAME" TEXT,
+    PRIMARY KEY ("ID"),
+    UNIQUE ("TEAM_API_ID"),
+    UNIQUE ("TEAM_FIFA_API_ID")
+);
+CREATE TABLE "TEAM_ATTRIBUTES" (
+    "ID" INT,
+    "TEAM_FIFA_API_ID" INT,
+    "TEAM_API_ID" INT,
+    "DATE" TEXT,
+    "BUILDUPPLAYSPEED" INT,
+    "BUILDUPPLAYSPEEDCLASS" TEXT,
+    "BUILDUPPLAYDRIBBLING" INT,
+    "BUILDUPPLAYDRIBBLINGCLASS" TEXT,
+    "BUILDUPPLAYPASSING" INT,
+    "BUILDUPPLAYPASSINGCLASS" TEXT,
+    "BUILDUPPLAYPOSITIONINGCLASS" TEXT,
+    "CHANCECREATIONPASSING" INT,
+    "CHANCECREATIONPASSINGCLASS" TEXT,
+    "CHANCECREATIONCROSSING" INT,
+    "CHANCECREATIONCROSSINGCLASS" TEXT,
+    "CHANCECREATIONSHOOTING" INT,
+    "CHANCECREATIONSHOOTINGCLASS" TEXT,
+    "CHANCECREATIONPOSITIONINGCLASS" TEXT,
+    "DEFENCEPRESSURE" INT,
+    "DEFENCEPRESSURECLASS" TEXT,
+    "DEFENCEAGGRESSION" INT,
+    "DEFENCEAGGRESSIONCLASS" TEXT,
+    "DEFENCETEAMWIDTH" INT,
+    "DEFENCETEAMWIDTHCLASS" TEXT,
+    "DEFENCEDEFENDERLINECLASS" TEXT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("TEAM_FIFA_API_ID") REFERENCES "TEAM"("TEAM_FIFA_API_ID")
+);
+CREATE TABLE "MATCH" (
+    "ID" INT,
+    "COUNTRY_ID" INT,
+    "LEAGUE_ID" INT,
+    "SEASON" TEXT,
+    "STAGE" INT,
+    "DATE" TEXT,
+    "MATCH_API_ID" INT,
+    "HOME_TEAM_API_ID" INT,
+    "AWAY_TEAM_API_ID" INT,
+    "HOME_TEAM_GOAL" INT,
+    "AWAY_TEAM_GOAL" INT,
+    "HOME_PLAYER_X1" INT,
+    "HOME_PLAYER_X2" INT,
+    "HOME_PLAYER_X3" INT,
+    "HOME_PLAYER_X4" INT,
+    "HOME_PLAYER_X5" INT,
+    "HOME_PLAYER_X6" INT,
+    "HOME_PLAYER_X7" INT,
+    "HOME_PLAYER_X8" INT,
+    "HOME_PLAYER_X9" INT,
+    "HOME_PLAYER_X10" INT,
+    "HOME_PLAYER_X11" INT,
+    "AWAY_PLAYER_X1" INT,
+    "AWAY_PLAYER_X2" INT,
+    "AWAY_PLAYER_X3" INT,
+    "AWAY_PLAYER_X4" INT,
+    "AWAY_PLAYER_X5" INT,
+    "AWAY_PLAYER_X6" INT,
+    "AWAY_PLAYER_X7" INT,
+    "AWAY_PLAYER_X8" INT,
+    "AWAY_PLAYER_X9" INT,
+    "AWAY_PLAYER_X10" INT,
+    "AWAY_PLAYER_X11" INT,
+    "HOME_PLAYER_Y1" INT,
+    "HOME_PLAYER_Y2" INT,
+    "HOME_PLAYER_Y3" INT,
+    "HOME_PLAYER_Y4" INT,
+    "HOME_PLAYER_Y5" INT,
+    "HOME_PLAYER_Y6" INT,
+    "HOME_PLAYER_Y7" INT,
+    "HOME_PLAYER_Y8" INT,
+    "HOME_PLAYER_Y9" INT,
+    "HOME_PLAYER_Y10" INT,
+    "HOME_PLAYER_Y11" INT,
+    "AWAY_PLAYER_Y1" INT,
+    "AWAY_PLAYER_Y2" INT,
+    "AWAY_PLAYER_Y3" INT,
+    "AWAY_PLAYER_Y4" INT,
+    "AWAY_PLAYER_Y5" INT,
+    "AWAY_PLAYER_Y6" INT,
+    "AWAY_PLAYER_Y7" INT,
+    "AWAY_PLAYER_Y8" INT,
+    "AWAY_PLAYER_Y9" INT,
+    "AWAY_PLAYER_Y10" INT,
+    "AWAY_PLAYER_Y11" INT,
+    "HOME_PLAYER_1" INT,
+    "HOME_PLAYER_2" INT,
+    "HOME_PLAYER_3" INT,
+    "HOME_PLAYER_4" INT,
+    "HOME_PLAYER_5" INT,
+    "HOME_PLAYER_6" INT,
+    "HOME_PLAYER_7" INT,
+    "HOME_PLAYER_8" INT,
+    "HOME_PLAYER_9" INT,
+    "HOME_PLAYER_10" INT,
+    "HOME_PLAYER_11" INT,
+    "AWAY_PLAYER_1" INT,
+    "AWAY_PLAYER_2" INT,
+    "AWAY_PLAYER_3" INT,
+    "AWAY_PLAYER_4" INT,
+    "AWAY_PLAYER_5" INT,
+    "AWAY_PLAYER_6" INT,
+    "AWAY_PLAYER_7" INT,
+    "AWAY_PLAYER_8" INT,
+    "AWAY_PLAYER_9" INT,
+    "AWAY_PLAYER_10" INT,
+    "AWAY_PLAYER_11" INT,
+    "GOAL" TEXT,
+    "SHOTON" TEXT,
+    "SHOTOFF" TEXT,
+    "FOULCOMMIT" TEXT,
+    "CARD" TEXT,
+    "CROSS" TEXT,
+    "CORNER" TEXT,
+    "POSSESSION" TEXT,
+    "B365H" FLOAT,
+    "B365D" FLOAT,
+    "B365A" FLOAT,
+    "BWH" FLOAT,
+    "BWD" FLOAT,
+    "BWA" FLOAT,
+    "IWH" FLOAT,
+    "IWD" FLOAT,
+    "IWA" FLOAT,
+    "LBH" FLOAT,
+    "LBD" FLOAT,
+    "LBA" FLOAT,
+    "PSH" FLOAT,
+    "PSD" FLOAT,
+    "PSA" FLOAT,
+    "WHH" FLOAT,
+    "WHD" FLOAT,
+    "WHA" FLOAT,
+    "SJH" FLOAT,
+    "SJD" FLOAT,
+    "SJA" FLOAT,
+    "VCH" FLOAT,
+    "VCD" FLOAT,
+    "VCA" FLOAT,
+    "GBH" FLOAT,
+    "GBD" FLOAT,
+    "GBA" FLOAT,
+    "BSH" FLOAT,
+    "BSD" FLOAT,
+    "BSA" FLOAT,
+    PRIMARY KEY ("ID"),
+    FOREIGN KEY ("HOME_TEAM_API_ID") REFERENCES "TEAM"("TEAM_API_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO PLAYER_ATTRIBUTES VALUES (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO PLAYER_ATTRIBUTES VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO PLAYER VALUES (-1, 2, 106, 0, 63, 0, 0);
+INSERT INTO PLAYER VALUES (0, 0, 111, 1, 112, 0, 0);
+INSERT INTO LEAGUE VALUES (0, 0, 104);
+INSERT INTO LEAGUE VALUES (1, 0, 105);
+INSERT INTO COUNTRY VALUES (0, 697278496232811234);
+INSERT INTO COUNTRY VALUES (1, 697278496232811234);
+INSERT INTO TEAM VALUES (-1, 0, 0, 0, 0);
+INSERT INTO TEAM VALUES (0, -1, 1, 0, 0);
+INSERT INTO TEAM_ATTRIBUTES VALUES (-1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO TEAM_ATTRIBUTES VALUES (0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO MATCH VALUES (0, 2, 0, 64, 0, 65, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 3, 3, 1, 2, 2, 2, 2, 2, 2, 2, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103);
+INSERT INTO MATCH VALUES (1, 1, 2, 113, 0, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, 0, 3, 0, 0, 0, -1, 0, 3, 0, 0, 0, 0, 0, 0, 0, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT t3.player_name FROM Country AS t1 INNER JOIN Match AS t2 ON t1.id = t2.country_id INNER JOIN Player AS t3 ON t2.home_player_1 = t3.player_api_id WHERE t1.name = 'Belgium';
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT DISTINCT player.player_name FROM player INNER JOIN match ON player.player_api_id IN (match.home_player_1, match.home_player_2, match.home_player_3, match.home_player_4, match.home_player_5, match.home_player_6, match.home_player_7, match.home_player_8, match.home_player_9, match.home_player_10, match.home_player_11, match.away_player_1, match.away_player_2, match.away_player_3, match.away_player_4, match.away_player_5, match.away_player_6, match.away_player_7, match.away_player_8, match.away_player_9, match.away_player_10, match.away_player_11) INNER JOIN league ON league.id = match.league_id INNER JOIN country ON country.id = league.country_id WHERE country.name = 'Belgium';
+
+/*
+Prediction Result:
+*/

@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Tests floating-point division (33.3333...), filtering out non-'SVK' and NULL countries, 
+-- handling NULL and non-'Premium' segments, and ensuring COUNT(DISTINCT ChainID) != COUNT(GasStationID).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 10, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 10, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 10, 'SVK', NULL);
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (4, 20, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (5, 20, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (6, 30, NULL, 'Premium');
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary condition where Country = 'SVK' exists, but 0 rows have Segment = 'Premium'.
+-- Catches mutants using COUNT(CASE WHEN Segment = 'Premium' THEN 1 ELSE 0 END) instead of SUM,
+-- or mutants omitting the WHERE Country = 'SVK' filter.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'SVK', 'Value for money');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 2, 'SVK', 'Discount');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 3, 'CZE', 'Premium');
+```
+
+```sql
+-- DATASET 3
+-- Tests boundary condition where Country = 'SVK' matches 0 rows (division by zero -> NULL in SQLite).
+-- Catches mutants that fail to filter by Country = 'SVK' or hardcode non-null defaults.
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 1, 'CZE', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 2, 'HUN', 'Discount');
+```
+
+```sql
+-- DATASET 4
+-- Tests 100% Premium for 'SVK' and checks for mutants that erroneously JOIN with transactions_1k or customers,
+-- or confuse gasstations.Segment with customers.Segment.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'Discount', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'Premium', 'CZK');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (1, 10, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (2, 20, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (3, 30, 'CZE', 'Discount');
+INSERT INTO products (ProductID, Description) VALUES (1, 'Diesel');
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2023-01-01', '10:00:00', 1, 100, 1, 1, 50, 75.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (2, '2023-01-02', '11:00:00', 1, 100, 1, 1, 30, 45.0);
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (3, '2023-01-03', '12:00:00', 2, 200, 3, 1, 40, 60.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests string matching precision (case sensitivity, leading/trailing spaces, substrings) 
+-- and NULL ChainIDs (catches COUNT(ChainID) vs COUNT(GasStationID)).
+-- Also tests integer vs real division (1 / 4 * 100 = 25.0 vs integer division 1 / 4 = 0).
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, NULL, 'SVK', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (20, NULL, 'SVK', 'premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (30, 5, 'SVK', 'PremiumPlus');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (40, 5, 'SVK', 'Other');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (50, 5, 'svk', 'Premium');
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (60, 5, 'SVK ', 'Premium');
+```

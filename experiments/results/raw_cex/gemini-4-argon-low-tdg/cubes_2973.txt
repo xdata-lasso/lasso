@@ -1,0 +1,67 @@
+```sql
+-- DATASET 1
+-- Tests duplicate values, NULL handling, empty strings, case sensitivity, and unreferenced companies/buildings.
+-- Expected Gold Query Result: 4 ('Tech', 'tech', 'Finance', '')
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (1, 'Tower A', 'New York', 300, 60, 'Completed');
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (2, 'Tower B', 'Chicago', 200, 40, 'Under Construction');
+
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'Alpha', 'New York', 'Tech', 10.5, 2.1, 50.0, '100.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'Beta', 'New York', 'Tech', 20.0, -1.5, 40.0, '80.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'Gamma', 'London', 'tech', 15.0, 0.0, 30.0, '60.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (4, 'Delta', 'Chicago', 'Finance', 0.0, 5.0, 100.0, '120.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (5, 'Epsilon', 'Boston', NULL, 5.0, 1.0, 10.0, '20.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (6, 'Zeta', 'Seattle', NULL, 8.0, 2.0, 15.0, '25.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (7, 'Eta', 'Austin', '', 12.0, 3.0, 25.0, '35.0');
+
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (1, 1, 2010);
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (2, 1, 2015);
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (1, 2, 2018);
+```
+
+```sql
+-- DATASET 2
+-- Tests when all companies have NULL industry vs non-NULL other columns.
+-- Catches mutants using COUNT(*), COUNT(id), or failing to return 0 on all-NULL target columns.
+-- Expected Gold Query Result: 0
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'NullCorp 1', 'Metropolis', NULL, 10.0, 1.0, 20.0, '30.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'NullCorp 2', 'Gotham', NULL, 20.0, 2.0, 40.0, '60.0');
+```
+
+```sql
+-- DATASET 3
+-- Tests when the Companies table is completely empty, while other tables have rows.
+-- Catches mutants using GROUP BY industry (which returns 0 rows instead of 1 row with 0) or querying the wrong table.
+-- Expected Gold Query Result: 0
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (1, 'Empty Corp Building', 'Miami', 150, 30, 'Completed');
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (2, 'Second Building', 'Dallas', 250, 50, 'Completed');
+```
+
+```sql
+-- DATASET 4
+-- Tests when multiple companies share the exact same single industry, while having distinct names and headquarters.
+-- Catches mutants that count the wrong column (e.g., Headquarters, name) or omit DISTINCT.
+-- Expected Gold Query Result: 1
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (10, 'Retail Hub', 'Denver', 100, 20, 'Completed');
+
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (10, 'ShopOne', 'Denver', 'Retail', 50.0, 5.0, 80.0, '90.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (20, 'ShopTwo', 'Atlanta', 'Retail', 60.0, 6.0, 90.0, '100.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (30, 'ShopThree', 'Phoenix', 'Retail', 70.0, 7.0, 100.0, '110.0');
+
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (10, 10, 2000);
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (10, 20, 2005);
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (10, 30, 2010);
+```
+
+```sql
+-- DATASET 5
+-- Tests leading/trailing whitespace and numeric strings in Industry, alongside Companies with no Office_locations vs multiple Office_locations.
+-- Catches mutants using TRIM(), CAST(), or INNER JOIN with Office_locations where distinct industries have no offices.
+-- Expected Gold Query Result: 3 ('Healthcare', ' Healthcare ', '123')
+INSERT INTO "buildings" ("id", "name", "City", "Height", "Stories", "Status") VALUES (1, 'Med Tower', 'Boston', 180, 35, 'Completed');
+
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (1, 'HealthCo', 'Boston', 'Healthcare', 100.0, 15.0, 200.0, '300.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (2, 'SpaceHealthCo', 'Boston', ' Healthcare ', 50.0, 5.0, 100.0, '150.0');
+INSERT INTO "Companies" ("id", "name", "Headquarters", "Industry", "Sales_billion", "Profits_billion", "Assets_billion", "Market_Value_billion") VALUES (3, 'NumIndustryCo', 'New York', '123', 10.0, 1.0, 20.0, '30.0');
+
+INSERT INTO "Office_locations" ("building_id", "company_id", "move_in_year") VALUES (1, 1, 2020);
+```

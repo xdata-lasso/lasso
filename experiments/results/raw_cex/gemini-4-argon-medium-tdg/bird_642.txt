@@ -1,0 +1,81 @@
+```sql
+-- DATASET 1
+-- Tests DATETIME vs DATE comparison, COUNT(column) with NULLs, DISTINCT on non-PK columns, and orphaned foreign keys (PostId, UserId as NULL).
+INSERT INTO users (Id, DisplayName, CreationDate) VALUES (1, 'Alice', '2010-07-21 10:00:00');
+INSERT INTO posts (Id, PostTypeId, CreaionDate, OwnerUserId) VALUES (1, 1, '2010-07-21 10:00:00', 1);
+
+-- Row 1: Matches date (with non-zero time), has valid FKs, non-null columns
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) 
+VALUES (1, 1, 1, 'guid-1', '2010-07-21 14:35:20', 1, 'Initial text', 'Initial comment', 'Alice');
+
+-- Row 2: Matches date (end of day), has NULL FKs (kills unnecessary INNER JOIN to posts or users), NULL Text/Comment (kills COUNT(Text)), duplicate PostHistoryTypeId (kills COUNT(DISTINCT PostHistoryTypeId))
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) 
+VALUES (2, 1, NULL, NULL, '2010-07-21 23:59:59', NULL, NULL, NULL, NULL);
+
+-- Row 3: Exact date string without time component (tests strict string equality vs DATE() function)
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) 
+VALUES (3, 2, 1, 'guid-2', '2010-07-21', 1, 'Edited text', 'Edit comment', 'Alice');
+
+-- Row 4: Boundary date before (2010-07-20)
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) 
+VALUES (4, 1, 1, 'guid-3', '2010-07-20 23:59:59', 1, 'Old text', 'Old comment', 'Alice');
+
+-- Row 5: Boundary date after (2010-07-22)
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) 
+VALUES (5, 1, 1, 'guid-4', '2010-07-22 00:00:00', 1, 'New text', 'New comment', 'Alice');
+
+-- Row 6: NULL CreationDate
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, RevisionGUID, CreationDate, UserId, Text, Comment, UserDisplayName) 
+VALUES (6, 1, 1, 'guid-5', NULL, 1, 'Null date', 'Null comment', 'Alice');
+```
+
+```sql
+-- DATASET 2
+-- Tests table confusion (having matching dates in posts, comments, votes, badges, users, postLinks, but 0 matching in postHistory) and empty match set behavior (COUNT returning 0 vs NULL).
+INSERT INTO users (Id, DisplayName, CreationDate, LastAccessDate) 
+VALUES (10, 'Bob', '2010-07-21 08:00:00', '2010-07-21 09:00:00');
+
+INSERT INTO badges (Id, UserId, Name, Date) 
+VALUES (10, 10, 'Student', '2010-07-21 10:00:00');
+
+INSERT INTO posts (Id, PostTypeId, CreaionDate, LasActivityDate, LastEditDate, CommunityOwnedDate, ClosedDate, OwnerUserId) 
+VALUES (10, 1, '2010-07-21 11:00:00', '2010-07-21 11:00:00', '2010-07-21 11:00:00', '2010-07-21 11:00:00', '2010-07-21 11:00:00', 10);
+
+INSERT INTO comments (Id, PostId, Score, Text, CreationDate, UserId) 
+VALUES (10, 10, 5, 'Nice post', '2010-07-21 12:00:00', 10);
+
+INSERT INTO votes (Id, PostId, VoteTypeId, CreationDate, UserId) 
+VALUES (10, 10, 2, '2010-07-21', 10);
+
+INSERT INTO postLinks (Id, CreationDate, PostId, RelatedPostId, LinkTypeId) 
+VALUES (10, '2010-07-21 13:00:00', 10, 10, 1);
+
+-- postHistory has rows, but NONE on 2010-07-21 (tests off-by-one year/month/day extraction mutants)
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, CreationDate, UserId) 
+VALUES (10, 1, 10, '2011-07-21 12:00:00', 10);
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, CreationDate, UserId) 
+VALUES (11, 1, 10, '2010-08-21 12:00:00', 10);
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, CreationDate, UserId) 
+VALUES (12, 1, 10, '2010-07-20 12:00:00', 10);
+```
+
+```sql
+-- DATASET 3
+-- Tests aggregate confusion (COUNT vs SUM(Id) vs MAX(Id) vs MIN(Id) vs AVG(Id)), GROUP BY mutants, and substring/LIKE date traps.
+INSERT INTO users (Id, DisplayName) VALUES (100, 'Charlie');
+INSERT INTO posts (Id, PostTypeId, OwnerUserId) VALUES (100, 1, 100);
+INSERT INTO posts (Id, PostTypeId, OwnerUserId) VALUES (200, 2, 100);
+
+-- High Id values so SUM(Id)=35, MIN(Id)=15, MAX(Id)=20, AVG(Id)=17.5 while COUNT(Id)=2
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, CreationDate, UserId, Text) 
+VALUES (15, 2, 100, '2010-07-21 00:00:00', 100, '2010-07-21');
+
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, CreationDate, UserId, Text) 
+VALUES (20, 3, 200, '2010-07-21 06:15:00.500', 100, 'Some text');
+
+-- Trap for LIKE '%2010-07-21%' if applied to wrong column or malformed date string
+INSERT INTO postHistory (Id, PostHistoryTypeId, PostId, CreationDate, UserId, Text, Comment) 
+VALUES (25, 1, 100, '2012-01-01 00:00:00', 100, '2010-07-21', '2010-07-21');
+```

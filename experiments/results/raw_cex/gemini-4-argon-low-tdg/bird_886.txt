@@ -1,0 +1,104 @@
+```sql
+-- DATASET 1
+-- Tests basic COUNT(round) DESC vs MAX(round), SUM(round), COUNT(DISTINCT round), COUNT(DISTINCT circuitId), and ORDER BY year.
+-- Year 2020 has 3 races (all round=1, circuitId=1) -> COUNT(round)=3, SUM(round)=3, MAX(round)=1, COUNT(DISTINCT round)=1.
+-- Year 2022 has 1 race (round=100, circuitId=2) -> COUNT(round)=1, SUM(round)=100, MAX(round)=100, COUNT(DISTINCT round)=1.
+-- Year 2021 has 2 races (rounds 10, 20, circuits 1, 2) -> COUNT(round)=2, COUNT(DISTINCT round)=2, COUNT(DISTINCT circuitId)=2.
+-- Also includes a season (2019) with 0 races to catch LEFT JOIN seasons mistakes.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (2, 'c2', 'Circuit 2', 'http://c2');
+
+INSERT INTO seasons (year, url) VALUES (2019, 'http://s2019');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://s2020');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://s2021');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://s2022');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (1, 2020, 1, 1, 'R1', '2020-01-01', NULL, NULL);
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (2, 2020, 1, 1, 'R2', '2020-01-02', NULL, NULL);
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (3, 2020, 1, 1, 'R3', '2020-01-03', NULL, NULL);
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (4, 2021, 10, 1, 'R4', '2021-01-01', NULL, 'http://r4');
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (5, 2021, 20, 2, 'R5', '2021-01-02', NULL, 'http://r5');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, time, url) VALUES (6, 2022, 100, 2, 'R6', '2022-01-01', '12:00:00', 'http://r6');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking logic: ORDER BY COUNT(round) DESC, year ASC.
+-- Both 1995 and 2005 have 2 races. Reference query must return 1995 (smaller year wins tie).
+-- Insertion order has 2005 inserted before 1995 to catch missing secondary sort (year ASC) or year DESC mutants.
+-- Also includes 2010 with 1 race to ensure COUNT(round) ASC is still caught.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+
+INSERT INTO seasons (year, url) VALUES (2005, 'http://s2005');
+INSERT INTO seasons (year, url) VALUES (1995, 'http://s1995');
+INSERT INTO seasons (year, url) VALUES (2010, 'http://s2010');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2005, 1, 1, 'R1', '2005-03-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2005, 2, 1, 'R2', '2005-03-08', 'http://r2');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 1995, 1, 1, 'R3', '1995-03-01', 'http://r3');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 1995, 2, 1, 'R4', '1995-03-08', 'http://r4');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (5, 2010, 5, 1, 'R5', '2010-03-01', 'http://r5');
+```
+
+```sql
+-- DATASET 3
+-- Tests unnecessary INNER JOINs with child tables (results, qualifying, lapTimes, pitStops, driverStandings, constructorStandings, constructorResults).
+-- Year 1980 has 3 races, but ZERO child records in any other table.
+-- Year 1981 has 1 race, with 4 results/qualifying/standings rows attached to it.
+-- Mutants that join races with results/etc. will either drop 1980 or inflate 1981's count to 4, returning 1981 instead of 1980.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO constructors (constructorId, constructorRef, name, url) VALUES (1, 'con1', 'Constructor 1', 'http://con1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (1, 'd1', 'John', 'Doe', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, url) VALUES (2, 'd2', 'Jane', 'Smith', 'http://d2');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+INSERT INTO seasons (year, url) VALUES (1980, 'http://s1980');
+INSERT INTO seasons (year, url) VALUES (1981, 'http://s1981');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 1980, 1, 1, 'R1', '1980-01-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 1980, 2, 1, 'R2', '1980-01-02', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 1980, 3, 1, 'R3', '1980-01-03', 'http://r3');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 1981, 1, 1, 'R4', '1981-01-01', 'http://r4');
+
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionOrder, points, laps, statusId) VALUES (1, 4, 1, 1, 1, 1, 10, 50, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionOrder, points, laps, statusId) VALUES (2, 4, 2, 1, 2, 2, 8, 50, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionOrder, points, laps, statusId) VALUES (3, 4, 1, 1, 3, 3, 6, 50, 1);
+INSERT INTO results (resultId, raceId, driverId, constructorId, grid, positionOrder, points, laps, statusId) VALUES (4, 4, 2, 1, 4, 4, 5, 50, 1);
+
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position) VALUES (1, 4, 1, 1, 10, 1);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position) VALUES (2, 4, 2, 1, 20, 2);
+
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (1, 4, 1, 10, 1);
+INSERT INTO driverStandings (driverStandingsId, raceId, driverId, points, wins) VALUES (2, 4, 2, 8, 0);
+
+INSERT INTO constructorStandings (constructorStandingsId, raceId, constructorId, points, wins) VALUES (1, 4, 1, 18, 1);
+INSERT INTO constructorResults (constructorResultsId, raceId, constructorId, points) VALUES (1, 4, 1, 18);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (4, 1, 1, 1, '1:20.000', 80000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time) VALUES (4, 1, 1, 10, '14:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests edge values: round = 0 and negative rounds, and GROUP BY circuitId or name vs GROUP BY year.
+-- Year 2000 has 3 races all with round = 0, and distinct names ('A', 'B', 'C') and circuits (1, 2, 3).
+-- Year 2001 has 2 races with round = 1, same name ('A') and same circuit (1).
+-- If a mutant filters WHERE round > 0, or groups by name or circuitId, or uses SUM(round), it will fail.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'c1', 'Circuit 1', 'http://c1');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (2, 'c2', 'Circuit 2', 'http://c2');
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (3, 'c3', 'Circuit 3', 'http://c3');
+
+INSERT INTO seasons (year, url) VALUES (2000, 'http://s2000');
+INSERT INTO seasons (year, url) VALUES (2001, 'http://s2001');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2000, 0, 1, 'A', '2000-01-01', 'http://r1');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (2, 2000, 0, 2, 'B', '2000-01-02', 'http://r2');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (3, 2000, 0, 3, 'C', '2000-01-03', 'http://r3');
+
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (4, 2001, 1, 1, 'A', '2001-01-01', 'http://r4');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (5, 2001, 1, 1, 'A', '2001-01-02', 'http://r5');
+```

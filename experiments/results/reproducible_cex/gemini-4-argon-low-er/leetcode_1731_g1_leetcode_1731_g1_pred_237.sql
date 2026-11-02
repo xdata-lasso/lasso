@@ -1,0 +1,26 @@
+-- Schema DDL
+CREATE TABLE "Employees" ("employee_id" INTEGER PRIMARY KEY, "name" TEXT(255), "reports_to" INTEGER, "age" INTEGER, FOREIGN KEY ("reports_to") REFERENCES "Employees" ("employee_id"), CHECK ("age" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Employees" ("employee_id", "name", "reports_to", "age") VALUES (1, 'Manager', NULL, 40);
+INSERT INTO "Employees" ("employee_id", "name", "reports_to", "age") VALUES (2, 'Emp1', 1, 20);
+INSERT INTO "Employees" ("employee_id", "name", "reports_to", "age") VALUES (3, 'Emp2', 1, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT A.EMPLOYEE_ID, A.NAME, B.REPORTS_COUNT, B.AVERAGE_AGE FROM EMPLOYEES AS A JOIN (SELECT REPORTS_TO, COUNT(EMPLOYEE_ID) AS REPORTS_COUNT, ROUND(AVG(AGE)) AS AVERAGE_AGE FROM EMPLOYEES GROUP BY REPORTS_TO) AS B ON A.EMPLOYEE_ID = B.REPORTS_TO ORDER BY EMPLOYEE_ID;
+
+/*
+Gold Result:
+(1, 'Manager', 2, 20.0)
+*/
+
+-- Prediction Query
+SELECT E.EMPLOYEE_ID, E.NAME, COUNT(*) AS REPORTS_COUNT, ROUND(CAST(SUM(E1.AGE) AS REAL) / COUNT(*), 0) AS AVERAGE_AGE FROM (SELECT DISTINCT EMPLOYEE_ID, NAME FROM EMPLOYEES) AS E JOIN EMPLOYEES AS E1 ON E.EMPLOYEE_ID = E1.REPORTS_TO GROUP BY E.EMPLOYEE_ID, E.NAME ORDER BY E.EMPLOYEE_ID, E.NAME NULLS LAST, REPORTS_COUNT NULLS LAST, AVERAGE_AGE NULLS LAST;
+
+/*
+Prediction Result:
+(1, 'Manager', 2, 10.0)
+*/

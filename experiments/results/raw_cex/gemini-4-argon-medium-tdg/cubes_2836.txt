@@ -1,0 +1,110 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. Boundary conditions on HAVING/WHERE n <= 2 (groups of size 1, 2, and 3).
+-- 2. Join condition LHS.people_id = RHS.n (distinguishing it from joining on gymnast_id).
+-- 3. DISTINCT hometown (multiple groups of size 1 matching people_id = 1).
+-- 4. ORDER BY hometown (people_id 1 -> 'Zeta', people_id 2 -> 'Alpha').
+-- 5. Unmatched people_id (people_id 3 matches group of size 3 which is filtered out; people_id 4 has no matching group size).
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (1, 'Alice', 20.0, 160.0, 'Zeta');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (2, 'Bob', 22.0, 175.0, 'Alpha');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (3, 'Charlie', 25.0, 180.0, 'Beta');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (4, 'David', 21.0, 170.0, 'Gamma');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (5, 'Eve', 23.0, 165.0, 'Delta');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (6, 'Frank', 24.0, 185.0, 'Epsilon');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (7, 'Grace', 19.0, 155.0, 'Eta');
+
+-- Group (10.0, 10.0): count = 1 (Matches People_ID 1 -> 'Zeta')
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (4, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 60.0);
+
+-- Group (10.0, 20.0): count = 1 (Matches People_ID 1 -> 'Zeta', tests DISTINCT)
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (5, 10.0, 10.0, 10.0, 20.0, 10.0, 10.0, 70.0);
+
+-- Group (20.0, 20.0): count = 2 (Matches People_ID 2 -> 'Alpha')
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (6, 10.0, 10.0, 20.0, 20.0, 10.0, 10.0, 80.0);
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (7, 10.0, 10.0, 20.0, 20.0, 10.0, 10.0, 80.0);
+
+-- Group (30.0, 30.0): count = 3 (Filtered out by n <= 2; would match People_ID 3 -> 'Beta' if filter fails)
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (1, 10.0, 10.0, 30.0, 30.0, 10.0, 10.0, 90.0);
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (2, 10.0, 10.0, 30.0, 30.0, 10.0, 10.0, 90.0);
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (3, 10.0, 10.0, 30.0, 30.0, 10.0, 10.0, 90.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Partial GROUP BY mutations (grouping ONLY by rings_points OR ONLY by vault_points).
+-- Here, each (rings_points, vault_points) pair is unique (n = 1), so n = 2 is never produced.
+-- However, if grouped only by rings_points (15.0 appears 3 times -> filtered out) or only by vault_points (25.0 appears 2 times -> matches People_ID 2), the output changes.
+-- Also tests People_ID 1 NOT existing in the database (only People_ID 2, 3, 4, 5 exist), so n = 1 joins with nothing!
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (2, 'Bob', 22.0, 175.0, 'Boston');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (3, 'Charlie', 25.0, 180.0, 'Chicago');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (4, 'David', 21.0, 170.0, 'Denver');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (5, 'Eve', 23.0, 165.0, 'El Paso');
+
+-- Pairs:
+-- (15.0, 25.0) -> n=1
+-- (15.0, 35.0) -> n=1
+-- (25.0, 25.0) -> n=1
+-- In Reference Query: all groups have n=1. Since People_ID=1 does not exist, Reference Query returns EMPTY result.
+-- If mutant groups only by Rings_Points: 15.0 has n=2 (matches People_ID 2 'Boston'), 25.0 has n=1.
+-- If mutant groups only by Vault_Points: 25.0 has n=2 (matches People_ID 2 'Boston'), 35.0 has n=1.
+-- If mutant uses LEFT JOIN from people: returns all hometowns with NULLs.
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (2, 10.0, 10.0, 15.0, 25.0, 10.0, 10.0, 70.0);
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (3, 10.0, 10.0, 15.0, 35.0, 10.0, 10.0, 80.0);
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (4, 10.0, 10.0, 25.0, 25.0, 10.0, 10.0, 80.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. COUNT(*) vs COUNT(rings_points) / COUNT(vault_points) using NULLs.
+-- 2. Group of 2 NULLs vs Group of 1 NULL.
+-- 3. Joining on people_id = rings_points or vault_points instead of n.
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (1, 'P1', 20.0, 160.0, 'TownOne');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (2, 'P2', 22.0, 170.0, 'TownTwo');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (10, 'P10', 25.0, 180.0, 'TownTen');
+
+-- Group (NULL, NULL): 2 rows -> COUNT(*) is 2, COUNT(rings_points) is 0.
+-- Reference Query gets n=2 -> joins with People_ID 2 ('TownTwo').
+-- Since there are no n=1 groups, 'TownOne' should NOT be returned unless a mutant has an off-by-one or NULL counting bug.
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (1, 10.0, 10.0, NULL, NULL, 10.0, 10.0, 40.0);
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (2, 10.0, 10.0, NULL, NULL, 10.0, 10.0, 40.0);
+
+-- If a mutant joins on LHS.people_id = RHS.rings_points (10.0), it will return 'TownTen'.
+-- To prevent n=1 from matching People_ID 1, we make sure the (10.0, 10.0) group also has 2 rows (so n=2).
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (11, 'P11', 26.0, 182.0, 'TownEleven');
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (10, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 60.0);
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (11, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 60.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Strict inequality mutation: n < 2 vs n <= 2, and n = 2 vs n <= 2.
+-- Here ONLY n = 1 exists, and People_ID = 1 exists.
+-- Reference Query returns 'OnlyOne'. A mutant with n = 2 or n >= 2 will return empty.
+-- Also tests multiple people having the same hometown vs DISTINCT, and NULL hometown handling.
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (1, 'Solo', 19.0, 165.0, 'OnlyOne');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (2, 'Duo', 21.0, 175.0, 'OnlyTwo');
+
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (2, 12.5, 13.5, 14.5, 15.5, 16.5, 17.5, 90.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Ordering and NULL hometowns in the output.
+-- People_ID 1 has NULL hometown, People_ID 2 has 'Rome'.
+-- Both n=1 and n=2 exist in RHS.
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (1, 'NullPerson', 20.0, 160.0, NULL);
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (2, 'Roman', 22.0, 170.0, 'Rome');
+INSERT INTO people (People_ID, Name, Age, Height, Hometown) VALUES (3, 'Greek', 24.0, 180.0, 'Athens');
+
+-- Group 1: n=1 -> matches People_ID 1 (NULL Hometown)
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (1, 10.0, 10.0, 9.5, 9.5, 10.0, 10.0, 59.0);
+
+-- Group 2: n=2 -> matches People_ID 2 ('Rome')
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (2, 10.0, 10.0, 8.5, 8.5, 10.0, 10.0, 57.0);
+INSERT INTO gymnast (Gymnast_ID, Floor_Exercise_Points, Pommel_Horse_Points, Rings_Points, Vault_Points, Parallel_Bars_Points, Horizontal_Bar_Points, Total_Points) VALUES (3, 10.0, 10.0, 8.5, 8.5, 10.0, 10.0, 57.0);
+```

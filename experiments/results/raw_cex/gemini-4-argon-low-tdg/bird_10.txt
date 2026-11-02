@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests standard ordering by AvgScrRead DESC, column selection vs similar columns, and JOIN filtering (unmatched rows in satscores and frpm with higher scores).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_1', 'Active', 'C1', 'D1', '01', 'District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_2', 'Active', 'C1', 'D1', '01', 'District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_3', 'Active', 'C1', 'D1', '01', 'District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_UNMATCHED_SAT', 'Active', 'C1', 'D1', '01', 'District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_UNMATCHED_FRPM', 'Active', 'C1', 'D1', '01', 'District', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_UNMATCHED_SAT', 'S', 100, 50, 800, 400, 400);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_1', 'S', 100, 50, 700, 500, 500);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_2', 'S', 100, 50, 600, 750, 750);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_3', 'S', 100, 50, 500, 600, 600);
+
+INSERT INTO frpm (CDSCode, "FRPM Count (Ages 5-17)", "FRPM Count (K-12)", "Free Meal Count (Ages 5-17)", "Enrollment (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS_UNMATCHED_FRPM', 999.0, 999.0, 999.0, 999.0, 99.9);
+INSERT INTO frpm (CDSCode, "FRPM Count (Ages 5-17)", "FRPM Count (K-12)", "Free Meal Count (Ages 5-17)", "Enrollment (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS_1', 150.0, 200.0, 100.0, 500.0, 30.0);
+INSERT INTO frpm (CDSCode, "FRPM Count (Ages 5-17)", "FRPM Count (K-12)", "Free Meal Count (Ages 5-17)", "Enrollment (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS_2', 250.0, 300.0, 200.0, 600.0, 40.0);
+INSERT INTO frpm (CDSCode, "FRPM Count (Ages 5-17)", "FRPM Count (K-12)", "Free Meal Count (Ages 5-17)", "Enrollment (Ages 5-17)", "Percent (%) Eligible FRPM (Ages 5-17)") VALUES ('CDS_3', 350.0, 400.0, 300.0, 700.0, 50.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in ORDER BY T1.AvgScrRead DESC (in SQLite, DESC places NULLs last by default, so non-NULL 600 must beat NULL) and secondary tie-breaking on T1.cds ASC.
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_A', 'Active', 'C1', 'D1', '01', 'District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_B', 'Active', 'C1', 'D1', '01', 'District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_NULL', 'Active', 'C1', 'D1', '01', 'District', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_NULL', 'S', 100, 50, NULL, 800, 800);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_B', 'S', 100, 50, 600, 600, 600);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_A', 'S', 100, 50, 600, 500, 500);
+
+INSERT INTO frpm (CDSCode, "FRPM Count (Ages 5-17)", "FRPM Count (K-12)", "Free Meal Count (Ages 5-17)") VALUES ('CDS_NULL', 999.0, 999.0, 999.0);
+INSERT INTO frpm (CDSCode, "FRPM Count (Ages 5-17)", "FRPM Count (K-12)", "Free Meal Count (Ages 5-17)") VALUES ('CDS_B', 222.0, 333.0, 444.0);
+INSERT INTO frpm (CDSCode, "FRPM Count (Ages 5-17)", "FRPM Count (K-12)", "Free Meal Count (Ages 5-17)") VALUES ('CDS_A', 111.0, 555.0, 666.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests case where the top-ranked row by AvgScrRead has a NULL value for "FRPM Count (Ages 5-17)" while lower-ranked rows have non-NULL values (kills mutants with IS NOT NULL filters or MAX/MIN aggregates).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_TOP', 'Active', 'C1', 'D1', '01', 'District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_SECOND', 'Active', 'C1', 'D1', '01', 'District', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_TOP', 'S', 120, 80, 750, 700, 700);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_SECOND', 'S', 120, 80, 650, 700, 700);
+
+INSERT INTO frpm (CDSCode, "FRPM Count (Ages 5-17)", "FRPM Count (K-12)", "Free Meal Count (Ages 5-17)") VALUES ('CDS_TOP', NULL, 400.0, 350.0);
+INSERT INTO frpm (CDSCode, "FRPM Count (Ages 5-17)", "FRPM Count (K-12)", "Free Meal Count (Ages 5-17)") VALUES ('CDS_SECOND', 500.0, 450.0, 400.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests join condition specificity (kills mutants joining on sname = School Name, dname = District Name, or cname = County Name instead of cds = CDSCode).
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_10', 'Active', 'CountyA', 'DistA', '01', 'District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, DOC, DOCType, LastUpdate) VALUES ('CDS_20', 'Active', 'CountyB', 'DistB', '01', 'District', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_10', 'S', 'SchoolX', 'DistX', 'CountyX', 200, 150, 720, 680, 690);
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite) VALUES ('CDS_20', 'S', 'SchoolY', 'DistY', 'CountyY', 180, 120, 610, 600, 600);
+
+INSERT INTO frpm (CDSCode, "School Name", "District Name", "County Name", "FRPM Count (Ages 5-17)", "FRPM Count (K-12)") VALUES ('CDS_10', 'SchoolY', 'DistY', 'CountyY', 85.0, 95.0);
+INSERT INTO frpm (CDSCode, "School Name", "District Name", "County Name", "FRPM Count (Ages 5-17)", "FRPM Count (K-12)") VALUES ('CDS_20', 'SchoolX', 'DistX', 'CountyX', 420.0, 450.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests non-standard rtype, Charter school flags, and fractional/zero values to kill mutants adding extraneous WHERE predicates (e.g., rtype='S', Charter=1, or FRPM Count > 0).
+INSERT INTO schools (CDSCode, StatusType, County, District, Charter, DOC, DOCType, LastUpdate) VALUES ('CDS_D1', 'Closed', 'C1', 'D1', 0, '01', 'District', '2020-01-01');
+INSERT INTO schools (CDSCode, StatusType, County, District, Charter, DOC, DOCType, LastUpdate) VALUES ('CDS_S1', 'Active', 'C1', 'D1', 1, '01', 'District', '2020-01-01');
+
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_D1', 'D', 0, 0, 790, 500, 500, 0);
+INSERT INTO satscores (cds, rtype, enroll12, NumTstTakr, AvgScrRead, AvgScrMath, AvgScrWrite, NumGE1500) VALUES ('CDS_S1', 'S', 500, 400, 680, 700, 700, 300);
+
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "FRPM Count (Ages 5-17)", "FRPM Count (K-12)") VALUES ('CDS_D1', 0, 0.0, 10.0);
+INSERT INTO frpm (CDSCode, "Charter School (Y/N)", "FRPM Count (Ages 5-17)", "FRPM Count (K-12)") VALUES ('CDS_S1', 1, 123.0, 150.0);
+```

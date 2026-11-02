@@ -1,0 +1,57 @@
+```sql
+-- DATASET 1
+-- Empty body_builder table (with rows in people to distinguish table selection errors).
+-- Expected output of Reference Query: 0 rows (since COUNT(*) OVER () runs per row, unlike standard COUNT(*) which returns 0).
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (1, 'Alice Smith', 170.0, 65.0, '1990-01-01', 'New York');
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (2, 'Bob Jones', 180.0, 80.0, '1985-05-12', 'Los Angeles');
+```
+
+```sql
+-- DATASET 2
+-- Multiple rows in body_builder with duplicate values, NULLs, and unreferenced people rows.
+-- Tests:
+-- 1. Missing DISTINCT (would return multiple rows of 3 instead of a single row of 3).
+-- 2. COUNT(col) vs COUNT(*) when NULLs are present (People_ID, Snatch, Clean_Jerk, Total have NULLs).
+-- 3. COUNT(DISTINCT col) vs COUNT(*) (People_ID, Snatch, Clean_Jerk, Total have duplicates).
+-- 4. Partitioning mistakes in OVER(PARTITION BY ...) (would return counts of 1 or 2 instead of 3).
+-- 5. Querying the wrong table (people has 4 rows, body_builder has 3 rows).
+-- 6. INNER JOIN with people (would drop the row with NULL People_ID, returning 2 instead of 3).
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (1, 'John Doe', 175.5, 85.0, '1988-03-15', 'Chicago');
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (2, 'Jane Roe', 165.0, 60.5, '1992-07-20', 'Houston');
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (3, 'Jim Beam', 182.0, 95.0, '1980-11-05', 'Dallas');
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (4, 'Unreferenced Person', 160.0, 55.0, '2000-01-01', 'Miami');
+
+INSERT INTO "body_builder" ("Body_Builder_ID", "People_ID", "Snatch", "Clean_Jerk", "Total") VALUES (10, 1, 150.0, 180.0, 330.0);
+INSERT INTO "body_builder" ("Body_Builder_ID", "People_ID", "Snatch", "Clean_Jerk", "Total") VALUES (20, 1, 150.0, 180.0, 330.0);
+INSERT INTO "body_builder" ("Body_Builder_ID", "People_ID", "Snatch", "Clean_Jerk", "Total") VALUES (30, NULL, NULL, NULL, NULL);
+```
+
+```sql
+-- DATASET 3
+-- Single row in body_builder with negative/zero values and IDs not equal to 1.
+-- Tests:
+-- 1. Boundary condition of 1 row.
+-- 2. Selecting a column (like Body_Builder_ID, People_ID, Total) instead of COUNT(*).
+-- 3. Wrong aggregation functions (SUM, AVG, MIN, MAX) instead of COUNT.
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (50, 'Solo Builder', 190.0, 110.0, '1995-12-12', 'Seattle');
+
+INSERT INTO "body_builder" ("Body_Builder_ID", "People_ID", "Snatch", "Clean_Jerk", "Total") VALUES (100, 50, 0.0, 0.0, 0.0);
+```
+
+```sql
+-- DATASET 4
+-- Dataset where all columns in body_builder are strictly distinct and non-null, with different row counts between tables.
+-- Tests:
+-- 1. OVER (ORDER BY ...) without frame specification (default range frame produces running counts 1, 2, 3, 4 instead of 4).
+-- 2. GROUP BY column + COUNT(*) (produces 1s instead of 4).
+-- 3. WHERE filters on numeric thresholds (e.g. Snatch > 100).
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (1, 'Builder One', 170.0, 70.0, '1991-01-01', 'City A');
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (2, 'Builder Two', 172.0, 75.0, '1992-02-02', 'City B');
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (3, 'Builder Three', 174.0, 80.0, '1993-03-03', 'City C');
+INSERT INTO "people" ("People_ID", "Name", "Height", "Weight", "Birth_Date", "Birth_Place") VALUES (4, 'Builder Four', 176.0, 85.0, '1994-04-04', 'City D');
+
+INSERT INTO "body_builder" ("Body_Builder_ID", "People_ID", "Snatch", "Clean_Jerk", "Total") VALUES (1, 1, 80.5, 100.5, 181.0);
+INSERT INTO "body_builder" ("Body_Builder_ID", "People_ID", "Snatch", "Clean_Jerk", "Total") VALUES (2, 2, 110.0, 140.0, 250.0);
+INSERT INTO "body_builder" ("Body_Builder_ID", "People_ID", "Snatch", "Clean_Jerk", "Total") VALUES (3, 3, 135.5, 165.5, 301.0);
+INSERT INTO "body_builder" ("Body_Builder_ID", "People_ID", "Snatch", "Clean_Jerk", "Total") VALUES (4, 4, 160.0, 200.0, 360.0);
+```

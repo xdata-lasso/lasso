@@ -1,0 +1,53 @@
+```sql
+-- DATASET 1
+-- Tests basic selection, duplicate retention (SELECT vs SELECT DISTINCT), ordering by document_type_code, and filtering out non-matching document_name values (case sensitivity, substrings, NULLs).
+INSERT INTO Document_Structures (document_structure_code, parent_document_structure_code, document_structure_description) VALUES ('DS1', NULL, 'Main Structure');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D3', 'DS1', 'TYPE_B', 10, 'David CV');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D1', 'DS1', 'TYPE_A', 20, 'David CV');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D2', 'DS1', 'TYPE_A', 30, 'David CV');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D4', 'DS1', 'TYPE_C', 40, 'david cv');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D5', 'DS1', 'TYPE_D', 50, 'David CV Extra');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D6', 'DS1', 'TYPE_E', 60, NULL);
+```
+
+```sql
+-- DATASET 2
+-- Tests spurious inner joins with parent or child tables (Document_Structures, Document_Sections, Document_Functional_Areas) by leaving foreign keys NULL or child tables empty for matching rows, and populating multiple child rows for another matching row to catch fan-out duplicates.
+INSERT INTO Document_Structures (document_structure_code, parent_document_structure_code, document_structure_description) VALUES ('DS1', NULL, 'Struct 1');
+INSERT INTO Functional_Areas (functional_area_code, parent_functional_area_code, functional_area_description) VALUES ('FA1', NULL, 'HR');
+INSERT INTO Functional_Areas (functional_area_code, parent_functional_area_code, functional_area_description) VALUES ('FA2', NULL, 'IT');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('DOC_NO_STRUCT', NULL, 'T_NULL_FK', 5, 'David CV');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('DOC_WITH_CHILDREN', 'DS1', 'T_CHILDREN', 15, 'David CV');
+INSERT INTO Document_Functional_Areas (functional_area_code, document_code) VALUES ('FA1', 'DOC_WITH_CHILDREN');
+INSERT INTO Document_Functional_Areas (functional_area_code, document_code) VALUES ('FA2', 'DOC_WITH_CHILDREN');
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (1, 'DOC_WITH_CHILDREN', 1, 'S1', 'Intro');
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (2, 'DOC_WITH_CHILDREN', 2, 'S2', 'Body');
+```
+
+```sql
+-- DATASET 3
+-- Tests column confusion (where 'David CV' appears in document_code, document_structure_code, document_type_code, or section_title instead of document_name) and tests NULL values in document_type_code.
+INSERT INTO Document_Structures (document_structure_code, parent_document_structure_code, document_structure_description) VALUES ('David CV', NULL, 'David CV');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('David CV', 'David CV', 'WRONG_COL_1', 1, 'Other Document');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D2', 'David CV', 'David CV', 2, 'Another Document');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D3', NULL, NULL, 3, 'David CV');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D4', NULL, 'VALID_TYPE', 4, 'David CV');
+INSERT INTO Document_Sections (section_id, document_code, section_sequence, section_code, section_title) VALUES (10, 'D2', 1, 'David CV', 'David CV');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when no rows match the WHERE predicate, while other rows exist in the table.
+INSERT INTO Document_Structures (document_structure_code, parent_document_structure_code, document_structure_description) VALUES ('DS1', NULL, 'Structure');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D1', 'DS1', 'CV', 100, 'John CV');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('D2', 'DS1', 'RESUME', 200, 'David Resume');
+```
+
+```sql
+-- DATASET 5
+-- Tests secondary sort order (ORDER BY document_type_code, documents.document_code NULLS LAST) and ensures ordering is not accidentally done by access_count or insertion order.
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('C_DOC', NULL, 'Z_TYPE', 1, 'David CV');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('B_DOC', NULL, 'A_TYPE', 100, 'David CV');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES ('A_DOC', NULL, 'M_TYPE', 50, 'David CV');
+INSERT INTO Documents (document_code, document_structure_code, document_type_code, access_count, document_name) VALUES (NULL, NULL, 'A_TYPE', 10, 'David CV');
+```

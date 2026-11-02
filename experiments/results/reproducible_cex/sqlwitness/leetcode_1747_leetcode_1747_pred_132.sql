@@ -1,0 +1,23 @@
+-- Schema DDL
+CREATE TABLE "LogInfo" ("account_id" INTEGER, "ip_address" INTEGER, "login" DATE, "logout" DATE, CHECK ("login" < 'LogInfo.logout'));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO loginfo (account_id, ip_address, login, logout) VALUES (NULL, 1, '2023-01-01', NULL), (1, 0, '2023-01-01', NULL), (-1, 2, '2023-01-01', NULL), (0, NULL, NULL, '2023-01-01'), (1, NULL, '2023-01-01', '2023-01-02'), (-1, 0, '2023-01-01', NULL), (NULL, -1, '2023-01-02', NULL), (0, 1, '2023-01-01', '2023-01-02');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT I1.ACCOUNT_ID FROM LOGINFO AS I1 JOIN LOGINFO AS I2 ON (I1.ACCOUNT_ID = I2.ACCOUNT_ID AND I1.IP_ADDRESS <> I2.IP_ADDRESS AND I2.LOGIN BETWEEN I1.LOGIN AND I1.LOGOUT);
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+WITH TMP AS (SELECT L1.ACCOUNT_ID, IIF(L2.LOGIN > L1.LOGOUT OR L2.LOGOUT < L1.LOGIN, 0, 1) AS STATUS FROM LOGINFO AS L1 INNER JOIN LOGINFO AS L2 ON L1.ACCOUNT_ID = L2.ACCOUNT_ID AND L1.IP_ADDRESS < L2.IP_ADDRESS) SELECT ACCOUNT_ID FROM TMP GROUP BY ACCOUNT_ID HAVING SUM(STATUS) > 0;
+
+/*
+Prediction Result:
+(-1,)
+*/

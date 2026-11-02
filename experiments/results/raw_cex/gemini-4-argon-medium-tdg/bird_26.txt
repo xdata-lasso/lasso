@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Core Predicate & Boundary Testing:
+-- Row 1: Exact match for all predicates. Also differentiates similar columns (School Name vs School, County vs County Name, Free Meal Count Ages 5-17 vs K-12 vs FRPM Count, Mail address vs physical address).
+-- Row 2: Boundary test for "Free Meal Count (Ages 5-17)" = 800 (should fail > 800).
+-- Row 3: County predicate test (T2.County != 'Monterey', even though T1."County Name" = 'Monterey').
+-- Row 4: School Type predicate test (T1."School Type" != 'High Schools (Public)', even though T2.SOCType = 'High Schools (Public)').
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, City, Zip, State, MailStreet, MailCity, MailZip, MailState, DOC, DOCType, SOCType, LastUpdate) VALUES 
+('CDS001', 'Active', 'Monterey', 'Dist1', 'Schools Table Name 1', '123 Main St', 'Salinas', '93901', 'CA', 'PO Box 1', 'MailCity1', '99991', 'NV', '00', 'District', 'Other Type', '2020-01-01'),
+('CDS002', 'Active', 'Monterey', 'Dist1', 'Schools Table Name 2', '456 Oak St', 'Salinas', '93902', 'CA', 'PO Box 2', 'MailCity2', '99992', 'NV', '00', 'District', 'High Schools (Public)', '2020-01-01'),
+('CDS003', 'Active', 'Santa Cruz', 'Dist2', 'Schools Table Name 3', '789 Pine St', 'watsonville', '95076', 'CA', 'PO Box 3', 'MailCity3', '99993', 'NV', '00', 'District', 'High Schools (Public)', '2020-01-01'),
+('CDS004', 'Active', 'Monterey', 'Dist1', 'Schools Table Name 4', '101 Maple St', 'Monterey', '93940', 'CA', 'PO Box 4', 'MailCity4', '99994', 'NV', '00', 'District', 'High Schools (Public)', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "School Type", "Educational Option Type", "Free Meal Count (Ages 5-17)", "Free Meal Count (K-12)", "FRPM Count (Ages 5-17)", "FRPM Count (K-12)") VALUES 
+('CDS001', 'Not Monterey', 'FRPM School Name 1', 'High Schools (Public)', 'Other Option', 800.5, 500.0, 500.0, 500.0),
+('CDS002', 'Monterey', 'FRPM School Name 2', 'High Schools (Public)', 'High Schools (Public)', 800.0, 900.0, 900.0, 900.0),
+('CDS003', 'Monterey', 'FRPM School Name 3', 'High Schools (Public)', 'High Schools (Public)', 950.0, 950.0, 950.0, 950.0),
+('CDS004', 'Monterey', 'FRPM School Name 4', 'Elementary Schools (Public)', 'High Schools (Public)', 950.0, 950.0, 950.0, 950.0);
+```
+
+```sql
+-- DATASET 2
+-- Join Semantics (INNER JOIN vs LEFT/RIGHT JOIN) and NULL Handling:
+-- Row 1: School in 'Monterey' with no corresponding record in 'frpm' (tests RIGHT JOIN / schools LEFT JOIN frpm).
+-- Row 2: School and FRPM records where "Free Meal Count (Ages 5-17)" is NULL.
+-- Row 3: School and FRPM records where "School Type" is NULL.
+-- Row 4: Valid matching record with integer value 801 to ensure non-empty result set and test >= 801 vs > 800 when compared with Dataset 1.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, City, Zip, State, DOC, DOCType, LastUpdate) VALUES 
+('CDS101', 'Active', 'Monterey', 'DistA', 'Unjoined School', '111 First St', 'Monterey', '93940', 'CA', '00', 'District', '2020-01-01'),
+('CDS102', 'Active', 'Monterey', 'DistA', 'Null Meal School', '222 Second St', 'Monterey', '93940', 'CA', '00', 'District', '2020-01-01'),
+('CDS103', 'Active', 'Monterey', 'DistA', 'Null Type School', '333 Third St', 'Monterey', '93940', 'CA', '00', 'District', '2020-01-01'),
+('CDS104', 'Active', 'Monterey', 'DistA', 'Valid High School', '444 Fourth St', 'Monterey', '93940', 'CA', '00', 'District', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "School Type", "Free Meal Count (Ages 5-17)", "Free Meal Count (K-12)", "FRPM Count (Ages 5-17)") VALUES 
+('CDS102', 'Monterey', 'FRPM Null Meal', 'High Schools (Public)', NULL, 850.0, 850.0),
+('CDS103', 'Monterey', 'FRPM Null Type', NULL, 850.0, 850.0, 850.0),
+('CDS104', 'Monterey', 'FRPM Valid High', 'High Schools (Public)', 801.0, 801.0, 801.0);
+```
+
+```sql
+-- DATASET 3
+-- Duplicate projection values (DISTINCT vs ALL) and Extra Table (satscores) isolation:
+-- Row 1 & Row 2: Two distinct schools (different CDSCode) that happen to have identical projected attributes ("School Name", Zip, Street, City, State). Tests if a mutant erroneously adds DISTINCT.
+-- Row 1 has a matching satscores row, while Row 2 does not. Tests if a mutant unnecessarily joins with satscores.
+-- Row 3: Record with "Free Meal Count (Ages 5-17)" < 800 (799.9) to test < vs > mutations.
+INSERT INTO schools (CDSCode, StatusType, County, District, School, Street, City, Zip, State, DOC, DOCType, LastUpdate) VALUES 
+('CDS201', 'Active', 'Monterey', 'DistB', 'Twin School A', '555 Twin Ave', 'Salinas', '93905', 'CA', '00', 'District', '2020-01-01'),
+('CDS202', 'Active', 'Monterey', 'DistB', 'Twin School B', '555 Twin Ave', 'Salinas', '93905', 'CA', '00', 'District', '2020-01-01'),
+('CDS203', 'Active', 'Monterey', 'DistB', 'Low Meal School', '666 Low St', 'Salinas', '93905', 'CA', '00', 'District', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "County Name", "School Name", "School Type", "Free Meal Count (Ages 5-17)") VALUES 
+('CDS201', 'Monterey', 'Twin High School', 'High Schools (Public)', 900.0),
+('CDS202', 'Monterey', 'Twin High School', 'High Schools (Public)', 1000.0),
+('CDS203', 'Monterey', 'Low Meal High School', 'High Schools (Public)', 799.9);
+
+INSERT INTO satscores (cds, rtype, sname, dname, cname, enroll12, NumTstTakr) VALUES 
+('CDS201', 'S', 'Twin High School', 'DistB', 'Monterey', 500, 300);
+```
+
+```sql
+-- DATASET 4
+-- Case Sensitivity, Substring/LIKE mutations, and Logical Operator (AND vs OR) testing:
+-- Row 1: Fails all 3 conditions, except each individual condition is met by one of the other rows.
+-- Row 2: Only T2.County = 'Monterey' is true (tests OR mutations).
+-- Row 3: Only T1."Free Meal Count (Ages 5-17)" > 800 is true (tests OR mutations).
+-- Row 4: Only T1."School Type" = 'High Schools (Public)' is true (tests OR mutations).
+-- Row 5: Tests case/substring sensitivity on strings ('monterey', 'High Schools').
+INSERT INTO schools (CDSCode, StatusType, County, District, Street, City, Zip, State, DOC, DOCType, LastUpdate) VALUES 
+('CDS301', 'Active', 'Monterey', 'DistC', '10 A St', 'CityA', '90001', 'CA', '00', 'District', '2020-01-01'),
+('CDS302', 'Active', 'Fresno', 'DistC', '20 B St', 'CityB', '90002', 'CA', '00', 'District', '2020-01-01'),
+('CDS303', 'Active', 'Fresno', 'DistC', '30 C St', 'CityC', '90003', 'CA', '00', 'District', '2020-01-01'),
+('CDS304', 'Active', 'Monterey County', 'DistC', '40 D St', 'CityD', '90004', 'CA', '00', 'District', '2020-01-01');
+
+INSERT INTO frpm (CDSCode, "School Name", "School Type", "Free Meal Count (Ages 5-17)") VALUES 
+('CDS301', 'Only Monterey', 'Middle Schools (Public)', 400.0),
+('CDS302', 'Only > 800', 'Middle Schools (Public)', 900.0),
+('CDS303', 'Only High School', 'High Schools (Public)', 400.0),
+('CDS304', 'Substring Test School', 'High Schools (Public) - Charter', 900.0);
+```

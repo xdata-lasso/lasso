@@ -1,0 +1,92 @@
+```sql
+-- DATASET 1
+-- Tests WHERE boundary (credits > 2 vs >= 2), HAVING boundary (SUM > 3 vs >= 3), and COUNT(credits) vs COUNT(DISTINCT credits).
+INSERT INTO department (dept_name, building, budget) VALUES ('Comp. Sci.', 'Taylor', 100000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Physics', 'Watson', 90000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Music', 'Packard', 50000);
+INSERT INTO department (dept_name, building, budget) VALUES ('History', 'Painter', 60000);
+
+-- Comp. Sci.: two courses with 3 credits (tests COUNT vs COUNT DISTINCT, and SUM = 6 > 3) and one with 2 credits (filtered by WHERE credits > '2')
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-101', 'Intro to CS', 'Comp. Sci.', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-102', 'Data Structures', 'Comp. Sci.', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CS-103', 'CS Seminar', 'Comp. Sci.', 2);
+
+-- Physics: one course with 3 credits (passes WHERE, but SUM(credits) = 3, which fails HAVING SUM(credits) > 3)
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('PHY-101', 'Mechanics', 'Physics', 3);
+
+-- Music: two courses with 2 credits (if WHERE is mutated to >= 2 or omitted, SUM = 4 > 3; under Gold Query, filtered out)
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('MUS-101', 'Theory I', 'Music', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('MUS-102', 'Theory II', 'Music', 2);
+
+-- History: one course with 4 credits (passes WHERE and HAVING with count = 1, testing HAVING COUNT > 1 vs HAVING SUM > 3)
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('HIS-101', 'World History', 'History', 4);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in dept_name (GROUP BY NULL) and NULL in credits, as well as departments with no courses (INNER JOIN vs LEFT JOIN mutants).
+INSERT INTO department (dept_name, building, budget) VALUES ('Biology', 'Watson', 80000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Math', 'Taylor', 70000);
+
+-- Biology has no courses at all.
+-- Math has one course with 5 credits and one course with NULL credits.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('MAT-101', 'Calculus', 'Math', 5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('MAT-102', 'Research', 'Math', NULL);
+
+-- Courses with NULL dept_name whose credits sum to > 3
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('GEN-101', 'General Studies I', NULL, 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('GEN-102', 'General Studies II', NULL, 4);
+```
+
+```sql
+-- DATASET 3
+-- Tests fractional credits between 2 and 3 (e.g., 2.5) and interaction between filtered and unfiltered rows within the same department.
+INSERT INTO department (dept_name, building, budget) VALUES ('Elec. Eng.', 'Taylor', 85000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Finance', 'Painter', 120000);
+INSERT INTO department (dept_name, building, budget) VALUES ('English', 'Palmer', 45000);
+
+-- Elec. Eng.: one course with 3 credits, one with 1 credit.
+-- If WHERE is omitted, SUM(credits) = 4 > 3 (falsely included). With WHERE credits > 2, SUM(credits) = 3 (excluded by HAVING > 3).
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('EE-101', 'Circuits', 'Elec. Eng.', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('EE-102', 'Lab', 'Elec. Eng.', 1);
+
+-- Finance: two courses with 2.5 credits (tests > 2 vs >= 3, and SUM = 5 > 3).
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('FIN-101', 'Banking', 'Finance', 2.5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('FIN-102', 'Investments', 'Finance', 2.5);
+
+-- English: one course with 3.5 credits (tests HAVING SUM > 3 vs >= 4, and AVG vs SUM).
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('ENG-101', 'Composition', 'English', 3.5);
+```
+
+```sql
+-- DATASET 4
+-- Tests SUM(credits) vs MAX(credits) / MIN(credits) / AVG(credits) / COUNT(credits) in HAVING and SELECT clauses.
+INSERT INTO department (dept_name, building, budget) VALUES ('Art', 'Packard', 30000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Chemistry', 'Watson', 95000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Statistics', 'Taylor', 65000);
+
+-- Art: two courses with 2.1 credits each. Each is > 2. SUM = 4.2 > 3, but MAX = 2.1 <= 3 and AVG = 2.1 <= 3 and COUNT = 2 <= 3.
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('ART-101', 'Drawing', 'Art', 2.1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('ART-102', 'Painting', 'Art', 2.1);
+
+-- Chemistry: four courses with 2.5 credits each. COUNT(credits) = 4 > 3, SUM(credits) = 10. Differentiates SELECT COUNT(credits) from SELECT SUM(credits).
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CHM-101', 'Organic I', 'Chemistry', 2.5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CHM-102', 'Organic II', 'Chemistry', 2.5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CHM-103', 'Inorganic', 'Chemistry', 2.5);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('CHM-104', 'Physical Chem', 'Chemistry', 2.5);
+
+-- Statistics: one course with 10 credits (if SQLite string comparison '10' > '2' was used instead of numeric affinity 10 > 2, this would fail; tests type affinity).
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('STA-101', 'Advanced Stats', 'Statistics', 10);
+```
+
+```sql
+-- DATASET 5
+-- Tests empty result set when courses exist but none satisfy the combined WHERE and HAVING predicates.
+INSERT INTO department (dept_name, building, budget) VALUES ('Psychology', 'Painter', 55000);
+INSERT INTO department (dept_name, building, budget) VALUES ('Sociology', 'Painter', 50000);
+
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('PSY-101', 'Intro Psych', 'Psychology', 3);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('PSY-102', 'Seminar', 'Psychology', 1);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('SOC-101', 'Intro Soc', 'Sociology', 2);
+INSERT INTO course (course_id, title, dept_name, credits) VALUES ('SOC-102', 'Social Theory', 'Sociology', 2);
+```

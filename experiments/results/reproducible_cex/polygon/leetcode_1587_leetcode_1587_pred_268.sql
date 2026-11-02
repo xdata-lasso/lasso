@@ -1,0 +1,27 @@
+-- Schema DDL
+CREATE TABLE "Users" ("account" INTEGER PRIMARY KEY, "name" TEXT(255), UNIQUE ("name"));
+
+CREATE TABLE "Transactions" ("trans_id" INTEGER PRIMARY KEY, "account" INTEGER, "amount" INTEGER, "transacted_on" DATE, FOREIGN KEY ("account") REFERENCES "Users" ("account"));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "Users" ("account", "name") VALUES (14, '10');
+INSERT INTO "Transactions" ("trans_id", "account", "amount", "transacted_on") VALUES (12, NULL, 19, '1000-01-21');
+INSERT INTO "Transactions" ("trans_id", "account", "amount", "transacted_on") VALUES (11, 14, 10000, NULL);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT u.name, SUM(t.amount) AS balance FROM Users AS u CROSS JOIN Transactions AS t WHERE u.account = t.account GROUP BY t.account HAVING SUM(t.amount) > 10000;
+
+/*
+Gold Result:
+*/
+
+-- Prediction Query
+SELECT USERS.NAME, SUM(T.AMOUNT) AS BALANCE FROM USERS INNER JOIN TRANSACTIONS AS T ON USERS.ACCOUNT = T.ACCOUNT GROUP BY T.ACCOUNT HAVING SUM(T.AMOUNT) >= 10000;
+
+/*
+Prediction Result:
+('10', 10000)
+*/

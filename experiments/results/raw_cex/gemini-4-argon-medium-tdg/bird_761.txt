@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions (<, <=, =, >=, >), constant mutations (78, 79, 80, 100), DISTINCT vs ALL in SELECT, and column selection (full_name vs superhero_name).
+-- Average weight_kg across all 5 superheroes is (78 + 79 + 80 + 80 + 183) / 5 = 500 / 5 = 100.0.
+-- Threshold: weight_kg * 100 > 100.0 * 79 (7900).
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO gender (id, gender) VALUES (2, 'Female');
+
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (1, 'Hero78', 'Full78', 1, 200, 78);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (2, 'Hero79', 'Full79', 1, 200, 79);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (3, 'Hero80A', 'DuplicateFull80', 1, 50, 80);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (4, 'Hero80B', 'DuplicateFull80', 1, 50, 80);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (5, 'HeroHeavy', 'FullHeavy', 1, 50, 183);
+```
+
+```sql
+-- DATASET 2
+-- Tests whether the subquery calculates AVG(weight_kg) over ALL superheroes vs only 'Male' superheroes, or only superheroes with non-null gender_id.
+-- Also tests filtering on T2.gender = 'Male' vs 'Female' or missing gender filter, and AND vs OR in WHERE clause.
+-- Male avg weight: (60 + 100) / 2 = 80.0 (79% is 63.2).
+-- Global avg weight (including Female and NULL gender): (60 + 100 + 20 + 20) / 4 = 50.0 (79% is 39.5).
+-- Hero 1 (weight 60) is > 39.5 (passes global avg check) but < 63.2 (fails male-only avg check).
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+INSERT INTO gender (id, gender) VALUES (2, 'Female');
+
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (1, 'MaleMed', 'Bruce Banner', 1, 175, 60);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (2, 'MaleHeavy', 'Clark Kent', 1, 190, 100);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (3, 'FemaleLight', 'Diana Prince', 2, 170, 20);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (4, 'NoGenderLight', 'Alien Entity', NULL, 150, 20);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (5, 'FemaleHeavy', 'She-Hulk', 2, 200, 100);
+UPDATE superhero SET weight_kg = 0 WHERE id = 4;
+```
+
+```sql
+-- DATASET 3
+-- Tests floating-point vs integer division in AVG, NULL weight_kg handling, and AVG(DISTINCT weight_kg) vs AVG(weight_kg).
+-- Weights: 100, 100, 100, 63, NULL.
+-- True AVG(weight_kg) = 363 / 4 = 90.75. Threshold: 90.75 * 79 = 7169.25.
+-- If integer division is used for AVG (363 / 4 = 90), threshold is 90 * 79 = 7110.
+-- If NULL is counted as 0 in AVG (363 / 5 = 72.6), threshold is 72.6 * 79 = 5735.4.
+-- If AVG(DISTINCT weight_kg) is used ((100 + 63) / 2 = 81.5), threshold is 81.5 * 79 = 6438.5.
+-- Hero with weight 72 (72 * 100 = 7200) passes true threshold (7169.25).
+-- Let's adjust weights so a hero sits strictly between 90*79 (7110) and 90.75*79 (7169.25), e.g., weight = 71.5 is not integer, so let's scale weights by 10!
+-- Weights: 715, 715, 1403. Sum = 2833. Count = 3.
+-- True AVG = 2833 / 3 = 944.333... -> * 79 = 74602.333...
+-- Integer AVG = 944 -> * 79 = 74576.
+-- Hero with weight 746: 746 * 100 = 74600.
+-- 74600 < 74602.333 (fails true query), but 74600 > 74576 (passes integer AVG mutant) and passes AVG(DISTINCT) or NULL-as-0 mutants!
+INSERT INTO gender (id, gender) VALUES (1, 'Male');
+
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (1, 'HeroA', 'Name A', 1, 180, 746);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (2, 'HeroB', 'Name B', 1, 180, 746);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (3, 'HeroC', 'Name C', 1, 180, 1341);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (4, 'HeroNullWeight', 'Name NullWeight', 1, 180, NULL);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, height_cm, weight_kg) VALUES (5, 'HeroNullFullName', NULL, 1, 180, 1341);
+DELETE FROM superhero WHERE id = 5;
+```
+
+```sql
+-- DATASET 4
+-- Tests join condition mutations (e.g., T1.id = T2.id instead of T1.gender_id = T2.id, or joining on race_id/alignment_id) and case sensitivity / string matching on 'Male'.
+-- Also tests NULL full_name handling when the row otherwise qualifies.
+INSERT INTO alignment (id, alignment) VALUES (1, 'Male');
+INSERT INTO race (id, race) VALUES (1, 'Male');
+INSERT INTO gender (id, gender) VALUES (1, 'Female');
+INSERT INTO gender (id, gender) VALUES (2, 'Male');
+INSERT INTO gender (id, gender) VALUES (3, 'male');
+
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, race_id, alignment_id, height_cm, weight_kg) VALUES (1, 'WrongJoinHero', 'Wrong Join', 1, 1, 1, 180, 100);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, race_id, alignment_id, height_cm, weight_kg) VALUES (2, 'RightJoinHero', 'Right Join', 2, NULL, NULL, 180, 100);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, race_id, alignment_id, height_cm, weight_kg) VALUES (3, 'LowercaseMale', 'Lower Case', 3, NULL, NULL, 180, 100);
+INSERT INTO superhero (id, superhero_name, full_name, gender_id, race_id, alignment_id, height_cm, weight_kg) VALUES (4, 'NullFullNameHero', NULL, 2, NULL, NULL, 180, 100);
+```

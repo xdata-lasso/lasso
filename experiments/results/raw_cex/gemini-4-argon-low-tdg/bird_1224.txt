@@ -1,0 +1,74 @@
+```sql
+-- DATASET 1
+-- Tests basic ordering by T-BIL DESC, LIMIT 1, inner join filtering (unmatched patient), and checks against wrong table joins (Examination).
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (1, 'M', '1980-01-01', '2020-01-01', '2020-01-01', '+', 'SLE');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (2, 'F', '1990-05-15', '2021-01-01', '2021-01-01', '-', 'RA');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date", Admission, Diagnosis) VALUES (3, 'M', '1975-12-31', '2019-01-01', '2019-01-01', '+', 'APS');
+
+INSERT INTO Laboratory (ID, Date, "T-BIL", GOT, GPT, TP, ALB) VALUES (1, '2020-02-01', 1.2, 50, 40, 7.5, 4.2);
+INSERT INTO Laboratory (ID, Date, "T-BIL", GOT, GPT, TP, ALB) VALUES (2, '2021-03-01', 3.5, 20, 15, 6.8, 3.9);
+INSERT INTO Laboratory (ID, Date, "T-BIL", GOT, GPT, TP, ALB) VALUES (1, '2020-02-02', 0.5, 100, 90, 8.1, 4.5);
+
+INSERT INTO Examination (ID, "Examination Date", "aCL IgG", Diagnosis) VALUES (3, '2019-05-01', 99.9, 'APS');
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking on T1.ID ASC when maximal T-BIL values are equal across different patients.
+-- Inserted in reverse ID order to catch missing secondary sort keys.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (20, 'F', '1985-06-20');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (10, 'M', '1992-11-11');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (30, 'F', '1970-03-03');
+
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (20, '2022-01-10', 4.8);
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (10, '2022-05-20', 4.8);
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (30, '2022-01-01', 2.1);
+```
+
+```sql
+-- DATASET 3
+-- Tests tie-breaking on T2.Date ASC when both T-BIL and ID are equal (same patient, multiple dates with identical max T-BIL).
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (5, 'F', '1965-08-08');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (6, 'M', '1978-04-12');
+
+INSERT INTO Laboratory (ID, Date, "T-BIL", GOT) VALUES (5, '2021-12-01', 6.0, 30);
+INSERT INTO Laboratory (ID, Date, "T-BIL", GOT) VALUES (5, '2021-01-15', 6.0, 45);
+INSERT INTO Laboratory (ID, Date, "T-BIL", GOT) VALUES (6, '2020-01-01', 5.9, 25);
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling in T-BIL with negative and zero values.
+-- In SQLite, DESC places non-NULLs before NULLs. If a mutant uses NULLS FIRST or COALESCE(T-BIL, 0), it will fail when max non-null T-BIL is negative.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'M', '1950-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'F', '1960-02-02');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'M', '1970-03-03');
+
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (1, '2020-01-01', NULL);
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (2, '2020-01-02', -0.5);
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (3, '2020-01-03', -1.5);
+```
+
+```sql
+-- DATASET 5
+-- Tests when all T-BIL values in the database are NULL, verifying fallback ordering by ID ASC and Date ASC, and distinguishing INNER JOIN from LEFT JOIN.
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (1, 'F', '2000-01-01');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (2, 'M', '1995-05-05');
+INSERT INTO Patient (ID, SEX, Birthday) VALUES (3, 'F', '1988-08-08');
+
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (3, '2021-06-01', NULL);
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (2, '2021-07-01', NULL);
+INSERT INTO Laboratory (ID, Date, "T-BIL") VALUES (2, '2021-03-01', NULL);
+```
+
+```sql
+-- DATASET 6
+-- Tests floating-point precision vs integer casting (e.g., CAST("T-BIL" AS INT)) and string vs numeric sorting (e.g. 10.5 vs 9.2).
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (100, 'M', '1982-04-19', '2010-01-01', '2011-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (200, 'F', '1983-07-22', '2012-01-01', '2013-01-01');
+INSERT INTO Patient (ID, SEX, Birthday, Description, "First Date") VALUES (300, 'M', '1984-09-10', '2014-01-01', '2015-01-01');
+
+INSERT INTO Laboratory (ID, Date, "T-BIL", "T-CHO") VALUES (100, '2022-01-01', 9.8, 250);
+INSERT INTO Laboratory (ID, Date, "T-BIL", "T-CHO") VALUES (200, '2022-01-01', 10.2, 180);
+INSERT INTO Laboratory (ID, Date, "T-BIL", "T-CHO") VALUES (300, '2022-01-01', 10.5, 150);
+```

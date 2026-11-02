@@ -1,0 +1,25 @@
+-- Schema DDL
+CREATE TABLE "user" ("uid" INTEGER, "uname" INTEGER, "city" INTEGER);
+
+CREATE TABLE "picture" ("uid" INTEGER, "size" INTEGER);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "user" ("uid", "uname", "city") VALUES (1, 1, 3);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT UID, UNAME, IIF(CNT IS NULL, 0, CNT) AS CNT FROM (SELECT X.UID AS UID, X.UNAME FROM USER AS X WHERE X.CITY = 3) AS P LEFT JOIN (SELECT Y.UID AS UID, COUNT(*) AS CNT FROM PICTURE AS Y WHERE Y.SIZE > 1000000 GROUP BY Y.UID) AS Q USING (UID);
+
+/*
+Gold Result:
+(1, 1, 0)
+*/
+
+-- Prediction Query
+SELECT X.UID AS UID, X.UNAME AS UNAME, COUNT(*) AS CNT FROM USER AS X CROSS JOIN PICTURE AS Y WHERE X.UID = Y.UID AND Y.SIZE > 1000000 AND X.CITY = 3 GROUP BY X.UID, X.UNAME;
+
+/*
+Prediction Result:
+*/

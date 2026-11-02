@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests basic positive match, DISTINCT requirement (multiple 's' atoms and multiple '=' bonds for the same molecule), 
+-- and negative cases where only one of the two conditions is met (kills OR vs AND mutations, missing WHERE clauses, and missing DISTINCT).
+INSERT INTO molecule (molecule_id, label) VALUES ('TR001', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR002', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR003', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR004', '-');
+
+-- TR001: Matches both conditions multiple times (Tests DISTINCT)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_1', 'TR001', 's');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR001_2', 'TR001', 's');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR001_1_2', 'TR001', '=');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR001_2_3', 'TR001', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR001_1', 'TR001_2', 'TR001_1_2');
+
+-- TR002: Has element 's', but bond_type is '-' (Tests bond_type = '=' filter)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR002_1', 'TR002', 's');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR002_2', 'TR002', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR002_1_2', 'TR002', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR002_1', 'TR002_2', 'TR002_1_2');
+
+-- TR003: Has bond_type '=', but element is 'c' (Tests element = 's' filter)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR003_1', 'TR003', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR003_2', 'TR003', 'o');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR003_1_2', 'TR003', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR003_1', 'TR003_2', 'TR003_1_2');
+
+-- TR004: Matches neither
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR004_1', 'TR004', 'c');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR004_1_2', 'TR004', '-');
+```
+
+```sql
+-- DATASET 2
+-- Tests indirect relationship within the same molecule: The 's' atom and the '=' bond belong to the same molecule,
+-- but the 's' atom is NOT the atom connected by the '=' bond.
+-- Kills mutants that unnecessarily join through the `connected` table requiring the 's' atom itself to have the '=' bond.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR010', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR010_1', 'TR010', 's');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR010_2', 'TR010', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR010_3', 'TR010', 'o');
+
+-- Bond 1 is single bond '-' connected to the 's' atom
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR010_1_2', 'TR010', '-');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR010_1', 'TR010_2', 'TR010_1_2');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR010_2', 'TR010_1', 'TR010_1_2');
+
+-- Bond 2 is double bond '=' connected only between 'c' and 'o'
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('TR010_2_3', 'TR010', '=');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR010_2', 'TR010_3', 'TR010_2_3');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR010_3', 'TR010_2', 'TR010_2_3');
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition strictness (T1.molecule_id = T2.molecule_id) and outer join / missing join mutations.
+-- One molecule has only the 's' atom (no bonds), another has only the '=' bond (no atoms).
+-- Kills Cartesian product mutants (missing ON clause) and LEFT/RIGHT JOIN mutants.
+INSERT INTO molecule (molecule_id, label) VALUES ('M_ATOM_ONLY', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('M_BOND_ONLY', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'M_ATOM_ONLY', 's');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'M_BOND_ONLY', '=');
+```
+
+```sql
+-- DATASET 4
+-- Tests NULL handling, case sensitivity, and wrong column projection (e.g. selecting atom_id or bond_id instead of molecule_id).
+INSERT INTO molecule (molecule_id, label) VALUES ('MOL_VALID', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('MOL_CASE', '-');
+
+-- Valid match where atom_id, bond_id, and molecule_id are clearly distinct strings
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('ATOM_99', 'MOL_VALID', 's');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('BOND_99', 'MOL_VALID', '=');
+
+-- Case sensitivity check ('S' instead of 's')
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('ATOM_100', 'MOL_CASE', 'S');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('BOND_100', 'MOL_CASE', '=');
+
+-- NULL molecule_id and NULL attribute checks (ensures NULL = NULL does not join and NULL attributes don't match)
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('ATOM_NULL_MOL', NULL, 's');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('BOND_NULL_MOL', NULL, '=');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('ATOM_NULL_EL', 'MOL_CASE', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('BOND_NULL_BT', 'MOL_VALID', NULL);
+```

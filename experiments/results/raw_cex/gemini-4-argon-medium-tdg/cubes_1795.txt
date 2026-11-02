@@ -1,0 +1,73 @@
+```sql
+-- DATASET 1
+-- Tests level boundaries (< 6 vs <= 6 vs > 6), pre-filter vs post-filter aggregation per year, and ordering of counts.
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (1, 'C101', 'Alice', 'New York', 5);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (2, 'C102', 'Bob', 'Chicago', 6);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (3, 'C103', 'Charlie', 'Boston', 7);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (4, 'C104', 'Diana', 'Seattle', 1);
+
+INSERT INTO "branch" ("Branch_ID", "Name", "Open_year", "Address_road", "City", "membership_amount") VALUES (10, 'Downtown', '2010', 'Main St', 'New York', '500');
+INSERT INTO "branch" ("Branch_ID", "Name", "Open_year", "Address_road", "City", "membership_amount") VALUES (20, 'Uptown', '2015', 'High St', 'Chicago', '300');
+
+-- Year 2020: 3 total purchases (n=3), but only 1 by a member with Level < 6 (Member 1).
+-- If a mutant filters Level < 6 before counting, n will be 1 instead of 3.
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (1, '10', '2020', 100.5);
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (2, '10', '2020', 200.0);
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (3, '20', '2020', 150.0);
+
+-- Year 2021: 2 total purchases (n=2), both by members with Level < 6 (Members 1 and 4).
+-- Output should have two rows with n=2, testing duplicate retention (SELECT vs SELECT DISTINCT) and ORDER BY (2, 2, 3).
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (1, '20', '2021', 50.0);
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (4, '10', '2021', 75.25);
+
+-- Year 2022: 1 purchase (n=1), by Member 2 (Level 6). Should be completely excluded from final output.
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (2, '20', '2022', 300.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in Year, Level, and Total_pounds, as well as same member making multiple purchases in the same year across different branches.
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (1, 'C201', 'Eve', 'Austin', 4);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (2, 'C202', 'Frank', 'Denver', NULL);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (3, 'C203', 'Grace', 'Miami', 0);
+
+INSERT INTO "branch" ("Branch_ID", "Name", "Open_year", "Address_road", "City", "membership_amount") VALUES (1, 'Branch A', '2000', '1st Ave', 'Austin', '100');
+INSERT INTO "branch" ("Branch_ID", "Name", "Open_year", "Address_road", "City", "membership_amount") VALUES (2, 'Branch B', '2005', '2nd Ave', 'Denver', '200');
+INSERT INTO "branch" ("Branch_ID", "Name", "Open_year", "Address_road", "City", "membership_amount") VALUES (3, 'Branch C', '2010', '3rd Ave', 'Miami', '150');
+
+-- Member 1 makes 2 purchases in 2019 at different branches. Tests COUNT(*) vs COUNT(DISTINCT member_id).
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (1, '1', '2019', NULL);
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (1, '2', '2019', 120.0);
+
+-- Member 2 (Level NULL) makes a purchase in 2019. Count for 2019 is 3, but Member 2 is filtered out later.
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (2, '1', '2019', 80.0);
+
+-- Purchases with NULL Year: GROUP BY Year groups NULLs together (n=2), but INNER JOIN ON LHS.year = RHS.year fails for NULL = NULL.
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (1, '3', NULL, 90.0);
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (3, '1', NULL, 110.0);
+
+-- Member 3 (Level 0) single purchase in 2018 (n=1).
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (3, '3', '2018', 60.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests join condition mutations (e.g., joining on Branch_ID instead of Member_ID, or Open_year instead of Year) and negative/boundary levels.
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (10, '10', 'Hank', 'Dallas', -1);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (20, '20', 'Ivy', 'Atlanta', 5);
+INSERT INTO "member" ("Member_ID", "Card_Number", "Name", "Hometown", "Level") VALUES (30, '30', 'Jack', 'Phoenix', 5);
+
+INSERT INTO "branch" ("Branch_ID", "Name", "Open_year", "Address_road", "City", "membership_amount") VALUES (10, 'South', '2020', 'Oak Rd', 'Dallas', '400');
+INSERT INTO "branch" ("Branch_ID", "Name", "Open_year", "Address_road", "City", "membership_amount") VALUES (99, 'North', '2021', 'Pine Rd', 'Atlanta', '250');
+
+INSERT INTO "membership_register_branch" ("Member_ID", "Branch_ID", "Register_Year") VALUES (10, '99', '2020');
+INSERT INTO "membership_register_branch" ("Member_ID", "Branch_ID", "Register_Year") VALUES (20, '10', '2021');
+INSERT INTO "membership_register_branch" ("Member_ID", "Branch_ID", "Register_Year") VALUES (30, '10', '2020');
+
+-- Member 30 has no purchases (tests INNER JOIN vs RIGHT/LEFT JOIN with member).
+-- Member 20 purchases at Branch 99 (if mutant joins member_id = branch_id, 20 != 99 fails).
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (20, '99', '2020', 10.0);
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (10, '99', '2021', 20.0);
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (20, '10', '2021', 30.0);
+INSERT INTO "purchase" ("Member_ID", "Branch_ID", "Year", "Total_pounds") VALUES (10, '10', '2021', 40.0);
+```

@@ -1,0 +1,121 @@
+```sql
+-- DATASET 1
+-- Tests COUNT(driverId) vs COUNT(DISTINCT driverId), nationality filter, and basic 2-digit minute format ('01:30.500') vs > 120s ('02:05.100').
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monaco', 'Monaco', 'http://url1');
+INSERT INTO seasons (year, url) VALUES (2020, 'http://s2020');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2020, 1, 1, 'Monaco GP', '2020-05-24', 'http://r1');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'gasly', 'Pierre', 'Gasly', 'French', 'http://d1');
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'hamilton', 'Lewis', 'Hamilton', 'British', 'http://d2');
+
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '01:30.500', 90500);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 2, 1, '01:59.990', 119990);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 3, 1, '02:05.100', 125100);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 2, '01:20.000', 80000);
+```
+
+```sql
+-- DATASET 2
+-- Tests boundary conditions around 120 seconds ('02:00.000' vs '02:00.010') and discrepancy between `time` string and `milliseconds` column.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'monza', 'Monza', 'http://url1');
+INSERT INTO seasons (year, url) VALUES (2021, 'http://s2021');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2021, 1, 1, 'Italian GP', '2021-09-12', 'http://r1');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'ocon', 'Esteban', 'Ocon', 'French', 'http://d1');
+
+-- Exact boundary: 2*60 + 0 + 0/1000 = 120.0 (Not < 120, whereas milliseconds is 119000 which is < 120000)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '02:00.000', 119000);
+
+-- Slightly above boundary: 2*60 + 0 + 10/1000 = 120.01 (Kills mutants that omit the fractional part or use <= 120 without fractional part)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 2, 1, '02:00.010', 119000);
+
+-- Time < 120 ('01:50.000' = 110s), but milliseconds > 120000 (130000). Kills mutants using milliseconds < 120000.
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 3, 1, '01:50.000', 130000);
+```
+
+```sql
+-- DATASET 3
+-- Tests standard F1 1-digit minute format ('1:35.200') vs 2-digit minute format, and SUBSTRING(time, 7, 2) vs SUBSTRING(time, 7, 3).
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'spa', 'Spa', 'http://url1');
+INSERT INTO seasons (year, url) VALUES (2022, 'http://s2022');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2022, 1, 1, 'Belgian GP', '2022-08-28', 'http://r1');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'prost', 'Alain', 'Prost', 'French', 'http://d1');
+
+-- Standard F1 format '1:25.300':
+-- In Gold Query: SUBSTRING('1:25.300', 1, 2) -> '1:' (CAST AS INT -> 1) => 60
+-- SUBSTRING('1:25.300', 4, 2) -> '5.' (CAST AS INT -> 5) => 65s
+-- If a mutant assumes 1-digit minutes (e.g., SUBSTRING(time, 3, 2) for seconds), it gets 25s -> 85s.
+-- Let's use '1:59.000': Gold Query gets 1*60 + 9 + 0 = 69s (< 120).
+-- What about '2:30.000'? Gold Query: 2*60 + 0 + 0 = 120.0 (Not < 120).
+-- What about '1:99.000' or '01:59.999'?
+-- Let's test '02:00.005': Gold Query SUBSTRING(time, 7, 2) is '00' -> 120 + 0 + 0/1000 = 120.0.
+-- If mutant uses SUBSTRING(time, 7, 3), it gets '005' -> 120.005.
+-- To distinguish SUBSTRING(7, 2) vs SUBSTRING(7, 3) around < 120:
+-- Suppose seconds is 60 (e.g. '01:59.999' is < 120 for both).
+-- What if time is '01:60.000'? No, what if time is '02:00.-50'? No.
+-- What if we test 1-digit minute '2:05.000'?
+-- Gold Query on '2:05.000': SUBSTRING(1,2)='2:'->2 (120). SUBSTRING(4,2)='5.'->5. Total = 125 (< 120 is False).
+-- What about '1:55.000' vs '01:55.000'?
+-- Wait: on '01:55.000', mutant calibrated for 1-digit minute (SUBSTRING(1,1)*60 + SUBSTRING(3,2)) gets 0*60 + CAST(':5' AS INT)=0 -> 0s.
+-- On '02:10.000', Gold Query gets 2*60 + 10 = 130s (False). A 1-digit minute mutant (SUBSTRING(1,1)*60 + SUBSTRING(3,2)) gets 0*60 + 0 = 0s (< 120 True!).
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '02:10.000', 90000);
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 2, 1, '1:30.000', 90000);
+```
+
+```sql
+-- DATASET 4
+-- Tests OUTER JOIN mutants (French driver with no lapTimes, French driver with NULL time), case sensitivity, and pitStops/results confusion.
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'silverstone', 'Silverstone', 'http://url1');
+INSERT INTO seasons (year, url) VALUES (2023, 'http://s2023');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2023, 1, 1, 'British GP', '2023-07-09', 'http://r1');
+INSERT INTO constructors (constructorId, constructorRef, name, nationality, url) VALUES (1, 'alpine', 'Alpine', 'French', 'http://c1');
+INSERT INTO status (statusId, status) VALUES (1, 'Finished');
+
+-- French driver with NO lapTimes (kills LEFT JOIN + COUNT(T1.driverId))
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'alesi', 'Jean', 'Alesi', 'French', 'http://d1');
+
+-- French driver with NULL time in lapTimes
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (2, 'panis', 'Olivier', 'Panis', 'French', 'http://d2');
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 2, 1, 1, NULL, 85000);
+
+-- Driver with lowercase 'french' or other nationality
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (3, 'leclerc', 'Charles', 'Leclerc', 'Monegasque', 'http://d3');
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 3, 1, 1, '01:20.000', 80000);
+
+-- French driver with a valid lapTime < 120 in results/pitStops/qualifying, but > 120 in lapTimes
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (4, 'verne', 'Jean-Eric', 'Vergne', 'French', 'http://d4');
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 4, 1, 1, '02:30.000', 150000);
+INSERT INTO pitStops (raceId, driverId, stop, lap, time, duration, milliseconds) VALUES (1, 4, 1, 1, '01:15.000', '20.0', 20000);
+INSERT INTO qualifying (qualifyId, raceId, driverId, constructorId, number, position, q1, q2, q3) VALUES (1, 1, 4, 1, 25, 1, '01:15.000', '01:15.000', '01:15.000');
+INSERT INTO results (resultId, raceId, driverId, constructorId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId) VALUES (1, 1, 4, 1, 25, 1, 1, '1', 1, 25, 50, '01:15.000', 80000, 1, 1, '01:15.000', '200.0', 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests arithmetic mistakes in the time formula:
+-- 1) Omitting "* 60" for minutes
+-- 2) Dividing milliseconds by 100 instead of 1000, or not dividing at all
+-- 3) Integer division instead of CAST AS REAL / 1000
+INSERT INTO circuits (circuitId, circuitRef, name, url) VALUES (1, 'suzuka', 'Suzuka', 'http://url1');
+INSERT INTO seasons (year, url) VALUES (2019, 'http://s2019');
+INSERT INTO races (raceId, year, round, circuitId, name, date, url) VALUES (1, 2019, 1, 1, 'Japanese GP', '2019-10-13', 'http://r1');
+
+INSERT INTO drivers (driverId, driverRef, forename, surname, nationality, url) VALUES (1, 'grosjean', 'Romain', 'Grosjean', 'French', 'http://d1');
+
+-- Lap 1: '01:59.500'
+-- Gold: 1*60 + 59 + 50/1000 = 119.05 (< 120 -> True)
+-- If mutant forgets / 1000 (i.e. + 50): 60 + 59 + 50 = 169 (< 120 -> False)
+-- If mutant divides by 10 instead of 1000: 60 + 59 + 5 = 124 (< 120 -> False)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 1, 1, '01:59.500', 119500);
+
+-- Lap 2: '03:10.000'
+-- Gold: 3*60 + 10 + 0 = 190 (< 120 -> False)
+-- If mutant forgets * 60: 3 + 10 + 0 = 13 (< 120 -> True)
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 2, 1, '03:10.000', 190000);
+
+-- Lap 3: '02:00.900'
+-- Gold: 2*60 + 0 + 90/1000 = 120.09 (< 120 -> False)
+-- If mutant uses integer division (CAST AS INT / 1000 -> 0) AND <= 120: 120 <= 120 -> True
+INSERT INTO lapTimes (raceId, driverId, lap, position, time, milliseconds) VALUES (1, 1, 3, 1, '02:00.900', 120900);
+```

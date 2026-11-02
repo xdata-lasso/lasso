@@ -1,0 +1,58 @@
+-- Schema DDL
+CREATE TABLE "AIRCRAFT" (
+    "AIRCRAFT_ID" INT,
+    "ORDER_YEAR" INT,
+    "MANUFACTURER" TEXT,
+    "MODEL" TEXT,
+    "FLEET_SERIES" TEXT,
+    "POWERTRAIN" TEXT,
+    "FUEL_PROPULSION" TEXT,
+    PRIMARY KEY ("AIRCRAFT_ID")
+);
+CREATE TABLE "PILOT" (
+    "PILOT_ID" INT,
+    "PILOT_NAME" TEXT,
+    "RANK" INT,
+    "AGE" INT,
+    "NATIONALITY" TEXT,
+    "POSITION" TEXT,
+    "JOIN_YEAR" INT,
+    "TEAM" TEXT,
+    PRIMARY KEY ("PILOT_ID")
+);
+CREATE TABLE "PILOT_RECORD" (
+    "PILOT_ID" INT,
+    "AIRCRAFT_ID" INT,
+    "DATE" TEXT,
+    "RECORD_ID" INT,
+    PRIMARY KEY ("PILOT_ID", "AIRCRAFT_ID", "DATE"),
+    FOREIGN KEY ("AIRCRAFT_ID") REFERENCES "AIRCRAFT"("AIRCRAFT_ID"),
+    FOREIGN KEY ("PILOT_ID") REFERENCES "PILOT"("PILOT_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO AIRCRAFT VALUES (-1, 0, 0, 0, 0, 0, 0);
+INSERT INTO AIRCRAFT VALUES (0, 0, 0, 0, 0, 0, 0);
+INSERT INTO PILOT VALUES (-1, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO PILOT VALUES (0, -1, 0, 0, 0, 0, 0, 0);
+INSERT INTO PILOT_RECORD VALUES (0, -1, 0, 0);
+INSERT INTO PILOT_RECORD VALUES (0, 0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT pilot_name FROM (SELECT * FROM pilot AS LHS WHERE NOT EXISTS(SELECT 1 FROM pilot_record AS RHS WHERE (LHS.pilot_id = RHS.pilot_id))) ORDER BY pilot_name;
+
+/*
+Gold Result:
+('0',)
+*/
+
+-- Prediction Query
+SELECT Pilot_name FROM pilot WHERE NOT Pilot_ID IN (SELECT Pilot_ID FROM pilot_record);
+
+/*
+Prediction Result:
+('0',)
+*/

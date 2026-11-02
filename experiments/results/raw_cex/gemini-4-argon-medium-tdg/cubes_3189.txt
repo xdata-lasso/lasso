@@ -1,0 +1,56 @@
+```sql
+-- DATASET 1
+-- Tests standard join condition vs accidental natural/FK join (LHS.Room = RHS.RoomId)
+-- and tests partial matches (only CheckIn = RoomId, or only FirstName = decor).
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R1', 'Ocean View', 2, 'Queen', 4, 150, 'Modern');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R2', 'Mountain View', 1, 'King', 2, 200, 'Rustic');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('R3', 'Garden View', 2, 'Twin', 2, 100, 'Modern');
+
+-- Matches exact condition: CheckIn ('R1') = RoomId ('R1') AND FirstName ('Modern') = decor ('Modern'), while Room FK points to 'R2'
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (101, 'R2', 'R1', '2023-01-05', 150.0, 'Smith', 'Modern', 2, 0);
+
+-- Partial match 1: CheckIn ('R1') = RoomId ('R1'), but FirstName ('Rustic') != decor ('Modern')
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (102, 'R1', 'R1', '2023-01-06', 150.0, 'Jones', 'Rustic', 1, 1);
+
+-- Partial match 2: CheckIn ('2023-01-01') != RoomId, but FirstName ('Modern') = decor ('Modern') and Room ('R1') = RoomId ('R1')
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (103, 'R1', '2023-01-01', '2023-01-07', 150.0, 'Taylor', 'Modern', 2, 1);
+```
+
+```sql
+-- DATASET 2
+-- Tests swapped column comparisons (e.g., CheckOut vs CheckIn, LastName vs FirstName, roomName vs RoomId)
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('A1', 'B1', 1, 'King', 2, 120, 'Classic');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('B1', 'A1', 2, 'Queen', 4, 180, 'Vintage');
+
+-- Decoy 1: CheckOut = RoomId ('A1') and LastName = decor ('Classic'), but CheckIn and FirstName do not match
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (201, 'A1', '2023-05-01', 'A1', 120.0, 'Classic', 'John', 2, 0);
+
+-- Decoy 2: CheckIn = roomName ('B1' for Room A1) and FirstName = decor ('Classic')
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (202, 'A1', 'B1', '2023-05-02', 120.0, 'Doe', 'Classic', 1, 0);
+
+-- Decoy 3: Crossed attributes - CheckIn = decor ('Classic') and FirstName = RoomId ('A1')
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (203, 'A1', 'Classic', '2023-05-03', 120.0, 'Doe', 'A1', 1, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests COUNT(*) vs COUNT(DISTINCT ...), duplicate rows in projection, and NULL handling in non-key attributes
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('RM10', NULL, NULL, NULL, NULL, NULL, 'Minimalist');
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('RM20', 'Suite', 3, 'King', 6, 300, NULL);
+
+-- Multiple reservations matching the same room ('RM10') with NULLs in various columns
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (301, NULL, 'RM10', NULL, NULL, NULL, 'Minimalist', NULL, NULL);
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (302, 'RM10', 'RM10', '2023-10-10', 99.5, 'Brown', 'Minimalist', 2, 2);
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (303, 'RM10', 'RM10', '2023-10-10', 99.5, 'Brown', 'Minimalist', 2, 2);
+
+-- NULL equality check: CheckIn = 'RM20' and FirstName is NULL, while RM20 decor is NULL (should NOT match in SQL inner join)
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (304, 'RM20', 'RM20', '2023-10-12', 300.0, 'Green', NULL, 1, 0);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set from join (COUNT(*) should return 1 row with value 0, testing INNER JOIN vs LEFT/RIGHT JOIN)
+INSERT INTO "Rooms" ("RoomId", "roomName", "beds", "bedType", "maxOccupancy", "basePrice", "decor") VALUES ('X1', 'Deluxe', 2, 'Queen', 4, 250, 'Luxury');
+
+INSERT INTO "Reservations" ("Code", "Room", "CheckIn", "CheckOut", "Rate", "LastName", "FirstName", "Adults", "Kids") VALUES (401, 'X1', '2023-12-01', '2023-12-05', 250.0, 'White', 'Alice', 2, 1);
+```

@@ -1,0 +1,61 @@
+```sql
+-- DATASET 1
+-- Tests boundary values for next_entry_id (7, 8, 9, 10, NULL), duplicate catalog_entry_name to verify DISTINCT vs ALL, and ordering by catalog_entry_name.
+INSERT INTO "Catalogs" ("catalog_id", "catalog_name") VALUES (1, 'Main Catalog');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (1, 1, 'Top Level');
+
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (1, 1, 9, 9, 7, 'Boundary Low');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (2, 1, 9, 9, 8, 'Boundary Exact');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (3, 1, 1, 1, 9, 'Zebra Item');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (4, 1, 1, 1, 10, 'Alpha Item');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (5, 1, 1, 1, 12, 'Alpha Item');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (6, 1, 10, 10, NULL, 'Null Next ID');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL catalog_entry_name handling, secondary sort tie-breaking on catalog_entry_id, and missing foreign keys (NULL catalog_level_number) to catch inner joins with Catalog_Structure or Catalog_Contents_Additional_Attributes.
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (10, NULL, 2, 2, 15, 'Beta');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (5, NULL, 2, 2, 20, 'Alpha');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (2, NULL, 2, 2, 25, NULL);
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (1, NULL, 20, 20, 8, 'Excluded Boundary');
+```
+
+```sql
+-- DATASET 3
+-- Tests unwanted joins with child table (Catalog_Contents_Additional_Attributes) that might duplicate rows or filter out entries without attributes, and checks wrong column references in WHERE (e.g., catalog_entry_id > 8 or catalog_level_number > 8).
+INSERT INTO "Catalogs" ("catalog_id", "catalog_name") VALUES (1, 'Catalog A');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (10, 1, 'Level 10');
+INSERT INTO "Attribute_Definitions" ("attribute_id", "attribute_name", "attribute_data_type") VALUES (1, 'Color', 'String');
+INSERT INTO "Attribute_Definitions" ("attribute_id", "attribute_name", "attribute_data_type") VALUES (2, 'Size', 'String');
+
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "price_in_dollars") VALUES (1, 10, 5, 5, 9, 'Single Entry Multiple Attrs', 5.0);
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "price_in_dollars") VALUES (2, 10, 5, 5, 11, 'Entry Without Attrs', 5.0);
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name", "price_in_dollars") VALUES (15, 10, 15, 15, 3, 'High ID Low Next', 20.0);
+
+INSERT INTO "Catalog_Contents_Additional_Attributes" ("catalog_level_number", "catalog_entry_id", "attribute_id", "attribute_value") VALUES (10, 1, 1, 'Red');
+INSERT INTO "Catalog_Contents_Additional_Attributes" ("catalog_level_number", "catalog_entry_id", "attribute_id", "attribute_value") VALUES (10, 1, 2, 'Large');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set when all rows fail the condition (next_entry_id <= 8 or NULL), killing mutants that use >= 8, < 8, IS NOT NULL, or omit the WHERE clause.
+INSERT INTO "Catalogs" ("catalog_id", "catalog_name") VALUES (1, 'Catalog Empty Test');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (1, 1, 'Level 1');
+
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (10, 1, 10, 10, 8, 'Exact Eight');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (11, 1, 10, 10, 0, 'Zero Next');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (12, 1, 10, 10, -15, 'Negative Next');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "parent_entry_id", "previous_entry_id", "next_entry_id", "catalog_entry_name") VALUES (13, 1, 10, 10, NULL, 'Null Next');
+```
+
+```sql
+-- DATASET 5
+-- Tests inverse correlation between catalog_entry_name, catalog_entry_id, and next_entry_id to catch wrong ORDER BY columns or wrong sort directions (ASC vs DESC).
+INSERT INTO "Catalogs" ("catalog_id", "catalog_name") VALUES (1, 'Sort Test Catalog');
+INSERT INTO "Catalog_Structure" ("catalog_level_number", "catalog_id", "catalog_level_name") VALUES (1, 1, 'Level 1');
+
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "next_entry_id", "catalog_entry_name", "product_stock_number") VALUES (100, 1, 50, 'Item A', 'STK-Z');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "next_entry_id", "catalog_entry_name", "product_stock_number") VALUES (50, 1, 100, 'Item B', 'STK-M');
+INSERT INTO "Catalog_Contents" ("catalog_entry_id", "catalog_level_number", "next_entry_id", "catalog_entry_name", "product_stock_number") VALUES (10, 1, 9, 'Item C', 'STK-A');
+```

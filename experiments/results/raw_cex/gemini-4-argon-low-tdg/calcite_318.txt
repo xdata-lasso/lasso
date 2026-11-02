@@ -1,0 +1,53 @@
+```sql
+-- DATASET 1
+-- Tests off-by-one boundary (< 20 vs <= 20) and behavior when EXISTS is FALSE for all rows.
+-- Also includes rows in other tables to catch wrong table name mutants.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (20, 10, 'SMITH', 'CLERK', NULL, '1980-12-17', 800, 0, 0);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (21, 10, 'ALLEN', 'SALESMAN', 20, '1981-02-20', 1600, 300, 1);
+INSERT INTO "EMPNULLABLES" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (5, 10, 'JONES', 'MANAGER', NULL, '1981-04-02', 2975, 0, 0);
+INSERT INTO "EMPNULLABLES_20" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (6, 10, 'MARTIN', 'SALESMAN', NULL, '1981-09-28', 1250, 1400, 1);
+INSERT INTO "EMP_B" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER", "BIRTHDATE") VALUES (7, 10, 'BLAKE', 'MANAGER', NULL, '1981-05-01', 2850, 0, 0, '1950-01-01');
+```
+
+```sql
+-- DATASET 2
+-- Tests mixed rows (< 20, = 20, > 20). Catches correlated subquery mutants (where D evaluates per row instead of globally) and WHERE-filtering mutants (where outer rows >= 20 are dropped).
+-- Also sets DEPTNO, SAL, MGR, COMM, SLACKER < 20 on the >20 row, and >= 20 on the <20 row to catch column substitution mutants in the subquery.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (5, 'RESEARCH');
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (30, 'SALES');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (19, 30, 'WARD', 'SALESMAN', 25, '1981-02-22', 30, 40, 50);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (20, 30, 'FORD', 'ANALYST', 25, '1981-12-03', 30, 40, 50);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (25, 5, 'SCOTT', 'ANALYST', 10, '1982-12-09', 10, 10, 0);
+```
+
+```sql
+-- DATASET 3
+-- Tests multiple rows strictly < 20. Catches scalar subquery mutants (e.g., SELECT (SELECT EMPNO < 20 FROM EMP)) or CROSS JOIN mutants which would fail or duplicate rows when multiple rows match the subquery condition.
+-- All other integer columns are >= 20 to ensure only EMPNO triggers the < 20 condition.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (50, 'OPERATIONS');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (1, 50, 'KING', 'PRESIDENT', 100, '1981-11-17', 5000, 100, 25);
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (15, 50, 'TURNER', 'SALESMAN', 100, '1981-09-08', 1500, 200, 30);
+```
+
+```sql
+-- DATASET 4
+-- Tests when EMPNO is >= 20, but other numeric columns (DEPTNO, MGR, SAL, COMM, SLACKER) are < 20.
+-- In the Gold Query, D will be 0 (FALSE). If a mutant checks the wrong column (e.g. DEPTNO < 20 or SAL < 20), D will erroneously be 1 (TRUE).
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (100, 10, 'ADAMS', 'CLERK', 5, '1983-01-12', 15, 10, 1);
+```
+
+```sql
+-- DATASET 5
+-- Tests negative and zero EMPNO values, and an empty EMP table scenario is implicitly contrasted by having a single boundary row at 19.
+-- Tests < 19 vs < 20 boundary when only 19 is present.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (20, 'RESEARCH');
+INSERT INTO "EMP" ("EMPNO", "DEPTNO", "ENAME", "JOB", "MGR", "HIREDATE", "SAL", "COMM", "SLACKER") VALUES (19, 20, 'MILLER', 'CLERK', NULL, '1982-01-23', 1300, 0, 0);
+```
+
+```sql
+-- DATASET 6
+-- Empty EMP table (only DEPT populated). Catches mutants that use aggregation without GROUP BY (e.g., SELECT EMPNO, COUNT(...) > 0 FROM EMP) which return 1 row with NULLs on an empty table instead of 0 rows.
+INSERT INTO "DEPT" ("DEPTNO", "NAME") VALUES (10, 'ACCOUNTING');
+```

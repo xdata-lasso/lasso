@@ -1,0 +1,49 @@
+-- Schema DDL
+CREATE TABLE "COURSE" (
+    "COURSE_ID" INT,
+    "STARING_DATE" TEXT,
+    "COURSE" TEXT,
+    PRIMARY KEY ("COURSE_ID")
+);
+CREATE TABLE "TEACHER" (
+    "TEACHER_ID" INT,
+    "NAME" TEXT,
+    "AGE" TEXT,
+    "HOMETOWN" TEXT,
+    PRIMARY KEY ("TEACHER_ID")
+);
+CREATE TABLE "COURSE_ARRANGE" (
+    "COURSE_ID" INT,
+    "TEACHER_ID" INT,
+    "GRADE" INT,
+    PRIMARY KEY ("COURSE_ID", "TEACHER_ID", "GRADE"),
+    FOREIGN KEY ("TEACHER_ID") REFERENCES "TEACHER"("TEACHER_ID"),
+    FOREIGN KEY ("COURSE_ID") REFERENCES "COURSE"("COURSE_ID")
+);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO COURSE VALUES (0, 0, 0);
+INSERT INTO COURSE VALUES (-1, 0, 0);
+INSERT INTO TEACHER VALUES (1, 0, 0, 12);
+INSERT INTO TEACHER VALUES (0, 0, -1, 11);
+INSERT INTO COURSE_ARRANGE VALUES (-1, 1, -1);
+INSERT INTO COURSE_ARRANGE VALUES (0, 0, 0);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT hometown FROM (SELECT * FROM (SELECT * FROM teacher ORDER BY age, teacher.teacher_id NULLS LAST) LIMIT 1);
+
+/*
+Gold Result:
+('11',)
+*/
+
+-- Prediction Query
+SELECT Hometown FROM teacher ORDER BY Age ASC, teacher.teacher_id NULLS LAST LIMIT 1;
+
+/*
+Prediction Result:
+('11',)
+*/

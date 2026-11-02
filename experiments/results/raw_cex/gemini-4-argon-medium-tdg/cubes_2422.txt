@@ -1,0 +1,60 @@
+```sql
+-- DATASET 1
+-- Tests exact boundary conditions around customer_id (9, 10, 11, 20, 21) and basic ascending sort order.
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (9, 'Credit Card', 'Alice', '2020-01-01 00:00:00', 'Excluded');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (10, 'PayPal', 'Bob', '2020-05-01 00:00:00', 'Boundary >= 10');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (11, 'Cash', 'Charlie', '2020-04-01 00:00:00', 'Above 10');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (20, 'Debit', 'David', '2020-03-01 00:00:00', 'Boundary 20');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (21, 'Check', 'Eve', '2020-02-01 00:00:00', 'Boundary > 20');
+```
+
+```sql
+-- DATASET 2
+-- Tests duplicates in date_became_customer (catches SELECT DISTINCT mutants) and NULL handling in date_became_customer (catches NULLS LAST/FIRST mutants on the primary sort key).
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (10, 'Card', 'Cust10', '2021-06-15 10:00:00', 'Dup Date 1');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (15, 'Card', 'Cust15', '2021-06-15 10:00:00', 'Dup Date 2');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (22, 'Card', 'Cust22', NULL, 'Null Date 1');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (25, 'Card', 'Cust25', NULL, 'Null Date 2');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (30, 'Card', 'Cust30', '2019-01-01 00:00:00', 'Earliest Date');
+```
+
+```sql
+-- DATASET 3
+-- Tests queries that mistakenly JOIN with other tables (e.g., Customer_Orders, Customer_Addresses, Customer_Contact_Channels) by having qualifying Customers with NO child records, and non-qualifying Customers WITH child records.
+INSERT INTO Addresses (address_id, address_content, city, zip_postcode, state_province_county, country, other_address_details) VALUES (1, '123 Main St', 'Metropolis', '10001', 'NY', 'USA', 'None');
+INSERT INTO Products (product_id, product_details) VALUES (1, 'Widget');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (5, 'Card', 'HasChildren_Excluded', '2018-01-01 00:00:00', 'Should not appear');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (12, 'Cash', 'NoChildren_Included1', '2022-12-31 23:59:59', 'Should appear');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (25, 'Wire', 'NoChildren_Included2', '2022-01-01 00:00:00', 'Should appear');
+INSERT INTO Customer_Addresses (customer_id, address_id, date_address_from, address_type, date_address_to) VALUES (5, 1, '2018-01-01', 'Home', '2020-01-01');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (5, 'Email', '2018-01-01', '2020-01-01', '555-0199');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (100, 5, 'Completed', '2018-05-01', 'First Order');
+INSERT INTO Order_Items (order_id, product_id, order_quantity) VALUES (100, 1, '10');
+```
+
+```sql
+-- DATASET 4
+-- Tests queries that mistakenly JOIN with child tables and cause row multiplication (1-to-many relationships) for qualifying customers.
+INSERT INTO Addresses (address_id, address_content, city, zip_postcode, state_province_county, country, other_address_details) VALUES (10, '456 Oak St', 'Gotham', '20002', 'NJ', 'USA', 'None');
+INSERT INTO Addresses (address_id, address_content, city, zip_postcode, state_province_county, country, other_address_details) VALUES (11, '789 Pine St', 'Gotham', '20003', 'NJ', 'USA', 'None');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (10, 'Card', 'MultiChild_10', '2021-03-15 08:30:00', 'Has multiple orders/addresses');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (21, 'Cash', 'MultiChild_21', '2020-11-20 14:45:00', 'Has multiple channels');
+INSERT INTO Customer_Addresses (customer_id, address_id, date_address_from, address_type, date_address_to) VALUES (10, 10, '2021-01-01', 'Billing', NULL);
+INSERT INTO Customer_Addresses (customer_id, address_id, date_address_from, address_type, date_address_to) VALUES (10, 11, '2021-01-01', 'Shipping', NULL);
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (1, 10, 'Shipped', '2021-04-01 00:00:00', 'Order 1');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (2, 10, 'Pending', '2021-04-02 00:00:00', 'Order 2');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (21, 'Phone', '2020-01-01', NULL, '111-2222');
+INSERT INTO Customer_Contact_Channels (customer_id, channel_code, active_from_date, active_to_date, contact_number) VALUES (21, 'Mobile', '2020-01-01', NULL, '333-4444');
+```
+
+```sql
+-- DATASET 5
+-- Tests negative, zero, and large customer_id values, as well as date vs timestamp chronological sorting and column confusion (e.g., selecting active_from_date or order_date instead of date_became_customer).
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (-50, 'Card', 'NegID', '2010-01-01 00:00:00', 'Negative ID');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (0, 'Card', 'ZeroID', '2015-01-01 00:00:00', 'Zero ID');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (10, 'Card', 'Exact10', '2023-01-01 12:00:01', 'Second later');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (19, 'Card', 'Between10And20', '2023-01-01 12:00:00', 'Second earlier');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (20, 'Card', 'Exact20', '2023-01-01 09:00:00', 'Morning');
+INSERT INTO Customers (customer_id, payment_method, customer_name, date_became_customer, other_customer_details) VALUES (1000, 'Card', 'LargeID', '2022-12-31 23:59:59', 'Previous year');
+INSERT INTO Customer_Orders (order_id, customer_id, order_status, order_date, order_details) VALUES (50, 10, 'Done', '1999-09-09 00:00:00', 'Different date than customer');
+```

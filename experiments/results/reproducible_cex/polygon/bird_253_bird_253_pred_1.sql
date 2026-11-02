@@ -1,0 +1,38 @@
+-- Schema DDL
+CREATE TABLE "atom" ("atom_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "element" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "bond" ("bond_id" TEXT NOT NULL PRIMARY KEY, "molecule_id" TEXT DEFAULT NULL, "bond_type" TEXT DEFAULT NULL, FOREIGN KEY ("molecule_id") REFERENCES "molecule" ("molecule_id"));
+
+CREATE TABLE "connected" ("atom_id" TEXT NOT NULL, "atom_id2" TEXT NOT NULL, "bond_id" TEXT DEFAULT NULL, PRIMARY KEY ("atom_id", "atom_id2"), FOREIGN KEY ("atom_id") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("atom_id2") REFERENCES "atom" ("atom_id") ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY ("bond_id") REFERENCES "bond" ("bond_id") ON DELETE CASCADE ON UPDATE CASCADE);
+
+CREATE TABLE "molecule" ("molecule_id" TEXT NOT NULL PRIMARY KEY, "label" TEXT DEFAULT NULL);
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('#34', '#35', '#46');
+INSERT INTO "atom" ("atom_id", "molecule_id", "element") VALUES ('#33', '#43', '#45');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('#36', NULL, '#44');
+INSERT INTO "bond" ("bond_id", "molecule_id", "bond_type") VALUES ('#44', '#43', '#');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('#33', '#34', '#44');
+INSERT INTO "connected" ("atom_id", "atom_id2", "bond_id") VALUES ('#34', '#34', NULL);
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('#35', '#44');
+INSERT INTO "molecule" ("molecule_id", "label") VALUES ('#43', '#44');
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT DISTINCT T3.element FROM bond AS T1 INNER JOIN connected AS T2 ON T1.bond_id = T2.bond_id INNER JOIN atom AS T3 ON T2.atom_id = T3.atom_id WHERE T1.bond_type = '#';
+
+/*
+Gold Result:
+('#45',)
+*/
+
+-- Prediction Query
+SELECT DISTINCT a.element FROM bond AS b JOIN connected AS c ON b.bond_id = c.bond_id JOIN atom AS a ON c.atom_id = a.atom_id WHERE b.bond_type = '#' UNION SELECT DISTINCT a2.element FROM bond AS b JOIN connected AS c ON b.bond_id = c.bond_id JOIN atom AS a2 ON c.atom_id2 = a2.atom_id WHERE b.bond_type = '#';
+
+/*
+Prediction Result:
+('#45',)
+('#46',)
+*/

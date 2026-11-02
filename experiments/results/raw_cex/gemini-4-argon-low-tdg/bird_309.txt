@@ -1,0 +1,79 @@
+```sql
+-- DATASET 1
+-- Tests basic join, WHERE filtering on molecule_id, GROUP BY on both atom_id and bond_type, and COUNT(DISTINCT bond_type) vs COUNT(*).
+-- Also tests mutants that unnecessarily join the 'connected' table (bonds here are in the same molecule, not necessarily connected to every atom).
+INSERT INTO molecule (molecule_id, label) VALUES ('TR346', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR000', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR346_1', 'TR346', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR346_2', 'TR346', 'h');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR000_1', 'TR000', 'o');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR346', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR346', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR346', '2');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'TR000', '1');
+
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR346_1', 'TR346_2', 'B1');
+INSERT INTO connected (atom_id, atom_id2, bond_id) VALUES ('TR346_2', 'TR346_1', 'B1');
+```
+
+```sql
+-- DATASET 2
+-- Tests NULL handling in bond_type. 
+-- Since GROUP BY includes T2.bond_type, NULL bond_types form their own group, where COUNT(DISTINCT T2.bond_type) evaluates to 0 (whereas COUNT(*) or COUNT(T2.bond_id) would evaluate to > 0).
+INSERT INTO molecule (molecule_id, label) VALUES ('TR346', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR346_1', 'TR346', 'c');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR346', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR346', NULL);
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR346', '1');
+```
+
+```sql
+-- DATASET 3
+-- Tests INNER JOIN vs LEFT JOIN behavior when an atom in 'TR346' has no corresponding bonds in the 'bond' table, and a bond in 'TR346' has no corresponding atoms ( across two datasets or combined with other molecules).
+INSERT INTO molecule (molecule_id, label) VALUES ('TR346', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR347', '-');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR346_1', 'TR346', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR346_2', 'TR346', 'n');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('TR347_1', 'TR347', 'o');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR347', '1');
+```
+
+```sql
+-- DATASET 4
+-- Tests case sensitivity, substring matching (e.g., LIKE '%TR346%'), and boundary conditions on molecule_id.
+-- Also tests when multiple atoms and multiple distinct bond types exist without any rows in 'connected'.
+INSERT INTO molecule (molecule_id, label) VALUES ('TR346', '+');
+INSERT INTO molecule (molecule_id, label) VALUES ('tr346', '-');
+INSERT INTO molecule (molecule_id, label) VALUES ('TR3460', '+');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A1', 'TR346', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A2', 'tr346', 'c');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('A3', 'TR3460', 'c');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B1', 'TR346', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B2', 'TR346', '2');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B3', 'TR346', '3');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B4', 'tr346', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('B5', 'TR3460', '2');
+```
+
+```sql
+-- DATASET 5
+-- Tests queries that mistakenly join on atom.element = bond.bond_type or atom_id = bond_id, or forget the join condition T1.molecule_id = T2.molecule_id while filtering only T1.molecule_id = 'TR346' (or only T2.molecule_id = 'TR346').
+INSERT INTO molecule (molecule_id, label) VALUES ('TR346', '1');
+INSERT INTO molecule (molecule_id, label) VALUES ('OTHER', '2');
+
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('ID_1', 'TR346', '1');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('ID_2', 'OTHER', '2');
+INSERT INTO atom (atom_id, molecule_id, element) VALUES ('ID_3', NULL, '1');
+
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('ID_1', 'OTHER', '3');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('ID_2', 'TR346', '1');
+INSERT INTO bond (bond_id, molecule_id, bond_type) VALUES ('ID_3', NULL, '1');
+```

@@ -1,0 +1,76 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. WHERE condition: ClosedDate IS NOT NULL vs ClosedDate IS NULL vs omitting WHERE clause.
+-- 2. Duplicate preservation (SELECT vs SELECT DISTINCT): One user owns multiple closed posts, and two different users share the same DisplayName.
+-- 3. Column confusion: T2.DisplayName vs T1.OwnerDisplayName vs T1.LastEditorDisplayName.
+-- 4. Join key confusion: T1.OwnerUserId = T2.Id vs T1.LastEditorUserId = T2.Id vs T1.Id = T2.Id.
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (1, 100, '2020-01-01 00:00:00', 'Alice');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (2, 200, '2020-01-02 00:00:00', 'Bob');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (3, 300, '2020-01-03 00:00:00', 'Alice');
+INSERT INTO users (Id, Reputation, CreationDate, DisplayName) VALUES (4, 400, '2020-01-04 00:00:00', 'EditorDiana');
+
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, ClosedDate, OwnerDisplayName, LastEditorDisplayName, Title) VALUES (10, 1, 4, '2021-05-01 12:00:00', 'FakeOwner1', 'FakeEditor1', 'Closed Post 1 by Alice1');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, ClosedDate, OwnerDisplayName, LastEditorDisplayName, Title) VALUES (20, 1, 4, '2021-05-02 12:00:00', 'FakeOwner2', 'FakeEditor2', 'Closed Post 2 by Alice1');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, ClosedDate, OwnerDisplayName, LastEditorDisplayName, Title) VALUES (30, 2, 4, NULL, 'FakeOwner3', 'FakeEditor3', 'Open Post by Bob');
+INSERT INTO posts (Id, OwnerUserId, LastEditorUserId, ClosedDate, OwnerDisplayName, LastEditorDisplayName, Title) VALUES (40, 3, 2, '2021-05-03 12:00:00', 'FakeOwner4', 'FakeEditor4', 'Closed Post by Alice2');
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN (posts LEFT JOIN users): Closed post with OwnerUserId IS NULL.
+-- 2. INNER JOIN vs RIGHT JOIN / FULL JOIN (users LEFT JOIN posts): User with no posts at all.
+-- 3. Accidental filtering on T2.DisplayName IS NOT NULL: User with a closed post has a NULL DisplayName.
+-- 4. Accidental join on T1.Id = T2.Id: User 100 exists, Post 100 exists, but Post 100 is owned by User 102.
+INSERT INTO users (Id, DisplayName) VALUES (100, 'UnrelatedUser100');
+INSERT INTO users (Id, DisplayName) VALUES (101, 'UserWithNoPosts');
+INSERT INTO users (Id, DisplayName) VALUES (102, NULL);
+
+INSERT INTO posts (Id, OwnerUserId, ClosedDate, OwnerDisplayName) VALUES (100, 102, '2022-01-01 10:00:00', 'FallbackName');
+INSERT INTO posts (Id, OwnerUserId, ClosedDate, OwnerDisplayName) VALUES (105, NULL, '2022-01-02 10:00:00', 'OrphanPostOwner');
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. Date column confusion in posts: ClosedDate vs CreaionDate vs LasActivityDate vs LastEditDate vs CommunityOwnedDate.
+-- 2. Boundary / Empty result set test when ClosedDate is NULL for all posts, even though other date columns are populated.
+-- 3. PostTypeId / Score / ViewCount arbitrary filtering mutations (e.g., PostTypeId = 1, Score > 0).
+INSERT INTO users (Id, DisplayName, CreationDate, LastAccessDate) VALUES (1, 'ActiveUser', '2019-01-01 00:00:00', '2023-01-01 00:00:00');
+INSERT INTO users (Id, DisplayName, CreationDate, LastAccessDate) VALUES (2, 'ClosedPostUser', NULL, NULL);
+
+INSERT INTO posts (Id, PostTypeId, Score, ViewCount, OwnerUserId, CreaionDate, LasActivityDate, LastEditDate, CommunityOwnedDate, ClosedDate) VALUES (1, 1, 10, 100, 1, '2020-01-01 00:00:00', '2020-01-02 00:00:00', '2020-01-03 00:00:00', '2020-01-04 00:00:00', NULL);
+INSERT INTO posts (Id, PostTypeId, Score, ViewCount, OwnerUserId, CreaionDate, LasActivityDate, LastEditDate, CommunityOwnedDate, ClosedDate) VALUES (2, 2, -5, 0, 2, NULL, NULL, NULL, NULL, '2020-06-01 00:00:00');
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Self-referential / ParentId / AcceptedAnswerId join confusion: Parent post is closed (owned by User 1), Child post is open (owned by User 2).
+-- 2. Joining through other tables (e.g., comments, votes, postHistory, badges) instead of directly joining posts and users.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'ParentOwner_Closed');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'ChildOwner_Open');
+INSERT INTO users (Id, DisplayName) VALUES (3, 'CommenterAndVoter');
+
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, ParentId, AcceptedAnswerId, ClosedDate) VALUES (10, 1, 1, NULL, 20, '2023-03-15 08:30:00');
+INSERT INTO posts (Id, PostTypeId, OwnerUserId, ParentId, AcceptedAnswerId, ClosedDate) VALUES (20, 2, 2, 10, NULL, NULL);
+
+INSERT INTO comments (Id, PostId, UserId, Text, UserDisplayName) VALUES (1, 10, 3, 'Comment on closed post', 'CommenterAndVoter');
+INSERT INTO votes (Id, PostId, UserId, VoteTypeId) VALUES (1, 10, 3, 2);
+INSERT INTO postHistory (Id, PostId, UserId, PostHistoryTypeId) VALUES (1, 10, 3, 10);
+INSERT INTO badges (Id, UserId, Name) VALUES (1, 2, 'Student');
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Empty result set capability: All posts have ClosedDate IS NULL or no matching OwnerUserId.
+-- 2. Kills mutants that use OR instead of AND/WHERE, or invert the NOT IS NULL condition when no closed posts exist for valid users.
+INSERT INTO users (Id, DisplayName) VALUES (1, 'ZeroClosedUser1');
+INSERT INTO users (Id, DisplayName) VALUES (2, 'ZeroClosedUser2');
+
+INSERT INTO posts (Id, OwnerUserId, ClosedDate) VALUES (1, 1, NULL);
+INSERT INTO posts (Id, OwnerUserId, ClosedDate) VALUES (2, 2, NULL);
+INSERT INTO posts (Id, OwnerUserId, ClosedDate) VALUES (3, NULL, '2021-12-12 00:00:00');
+```

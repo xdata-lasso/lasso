@@ -1,0 +1,87 @@
+```sql
+-- DATASET 1
+-- Tests:
+-- 1. INNER JOIN vs LEFT JOIN (Customer 1 in 'LAM' has no yearmonth records; LEFT JOIN would yield NULL/0 sum for 'LAM').
+-- 2. GROUP BY Segment vs GROUP BY CustomerID (Multiple customers in 'SME' whose individual consumptions are smaller than 'KAM', but combined sum is larger).
+-- 3. SUM(Consumption) vs AVG/MIN/MAX/COUNT ('KAM' has 1 row with 100; 'SME' has 3 rows with 40 each -> SUM is 120, AVG is 40, MIN is 40, MAX is 40).
+-- 4. ORDER BY ASC vs DESC.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'LAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'CZK');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 100.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 40.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201202', 40.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201201', 40.0);
+```
+
+```sql
+-- DATASET 2
+-- Tests:
+-- 1. Tie-breaking in ORDER BY: SUM(Consumption) is tied at 50.0 across segments NULL, 'A_Seg', and 'B_Seg'.
+-- 2. NULLS LAST on T1.Segment: Standard SQLite ASC puts NULL first, so without NULLS LAST, NULL would be returned instead of 'A_Seg'.
+-- 3. Secondary sort direction: 'A_Seg' vs 'B_Seg' tests ASC vs DESC on T1.Segment.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, NULL, 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'A_Seg', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'B_Seg', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 50.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 20.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201202', 30.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 50.0);
+```
+
+```sql
+-- DATASET 3
+-- Tests:
+-- 1. SUM(DISTINCT Consumption) vs SUM(Consumption) ('SME' has two identical consumptions of 60.0 -> SUM=120.0, SUM(DISTINCT)=60.0; 'KAM' has 100.0).
+-- 2. COUNT(*) vs SUM ('SME' has 2 rows, 'KAM' has 4 rows of 25.0 -> SUM=100.0).
+-- 3. Table confusion: Ensures query doesn't erroneously join or filter using gasstations or transactions_1k.
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'SME', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'KAM', 'EUR');
+
+INSERT INTO gasstations (GasStationID, ChainID, Country, Segment) VALUES (10, 1, 'CZE', 'Other');
+INSERT INTO products (ProductID, Description) VALUES (100, 'Diesel');
+INSERT INTO "transactions_1k" (TransactionID, Date, Time, CustomerID, CardID, GasStationID, ProductID, Amount, Price) VALUES (1, '2012-01-01', '10:00', 1, 1, 10, 100, 1, 10.0);
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 60.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201202', 60.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 25.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201202', 25.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201203', 25.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201204', 25.0);
+```
+
+```sql
+-- DATASET 4
+-- Tests:
+-- 1. Handling of NULL and negative/zero values in T2.Consumption.
+-- 2. Segment 'A' has all NULL consumptions -> SUM is NULL (in SQLite, NULL sorts first in ASC unless NULLS LAST is specified on the first ORDER BY expr).
+-- 3. Segment 'B' has negative consumption (-10.0) vs Segment 'C' (5.0).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, 'Seg_A', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, 'Seg_B', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'Seg_C', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', -10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201202', NULL);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 5.0);
+```
+
+```sql
+-- DATASET 5
+-- Tests:
+-- 1. Case where the valid winning Segment is NULL (having the strictly lowest positive sum), ensuring the query does not have an implicit `WHERE T1.Segment IS NOT NULL`.
+-- 2. Multiple customers sharing the NULL segment (tests that NULL segments are grouped together by GROUP BY).
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (1, NULL, 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (2, NULL, 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (3, 'KAM', 'EUR');
+INSERT INTO customers (CustomerID, Segment, Currency) VALUES (4, 'SME', 'EUR');
+
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (1, '201201', 15.5);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (2, '201201', 10.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (3, '201201', 30.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201201', 20.0);
+INSERT INTO yearmonth (CustomerID, Date, Consumption) VALUES (4, '201202', 20.0);
+```

@@ -1,0 +1,80 @@
+```sql
+-- DATASET 1
+-- Tests basic WHERE predicate ('bus' vs other values, substrings, case sensitivity, and NULLs), duplicate names (DISTINCT vs ALL), and NULLS LAST in ORDER BY.
+INSERT INTO "Locations" ("Location_ID", "Location_Name", "Address", "Other_Details") VALUES (1, 'Downtown', '123 Main St', 'Central');
+INSERT INTO "Ref_Attraction_Types" ("Attraction_Type_Code", "Attraction_Type_Description") VALUES ('PARK', 'Public Park');
+
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (1, 'PARK', 1, 'bus', 'Zebra Park', 'bus', '9-5', 'bus');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (2, 'PARK', 1, 'bus', 'Alpha Park', 'Nice park', '9-5', 'None');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (3, 'PARK', 1, 'bus', 'Alpha Park', 'Duplicate name to test DISTINCT mutants', '9-5', 'None');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (4, 'PARK', 1, 'bus', NULL, 'Null name to test NULLS LAST ordering', '9-5', 'None');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (5, 'PARK', 1, 'train', 'Beta Park', 'bus', '9-5', 'bus');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (6, 'PARK', 1, 'take the bus', 'Gamma Park', 'Substring test for LIKE %bus% mutants', '9-5', 'None');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (7, 'PARK', 1, 'BUS', 'Delta Park', 'Case sensitivity test', '9-5', 'None');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (8, 'PARK', 1, NULL, 'Epsilon Park', 'NULL How_to_Get_There test', '9-5', 'None');
+```
+
+```sql
+-- DATASET 2
+-- Tests unnecessary INNER JOINs with parent tables (Locations, Ref_Attraction_Types) by setting foreign keys to NULL on valid rows, and tests unnecessary JOINs with child tables (Visits, Photos, Staff, etc.) by leaving some valid attractions without child records and giving others multiple child records (which would cause fan-out duplicates if joined).
+INSERT INTO "Locations" ("Location_ID", "Location_Name", "Address", "Other_Details") VALUES (10, 'Uptown', '456 High St', 'North');
+INSERT INTO "Ref_Attraction_Types" ("Attraction_Type_Code", "Attraction_Type_Description") VALUES ('MUS', 'Museum');
+INSERT INTO "Visitors" ("Tourist_ID", "Tourist_Details") VALUES (100, 'John Doe');
+INSERT INTO "Features" ("Feature_ID", "Feature_Details") VALUES (200, 'Wheelchair Accessible');
+
+-- Valid attraction with NO parent FKs (NULL Location_ID and Attraction_Type_Code) and NO child records
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (10, NULL, NULL, 'bus', 'Orphan Attraction', 'No FKs and no children', '24/7', 'None');
+
+-- Valid attraction with parent FKs and MULTIPLE child records across various tables (tests join fan-out)
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (20, 'MUS', 10, 'bus', 'Popular Museum', 'Has multiple children', '10-6', 'None');
+
+-- Invalid attraction ('walk') that has child records and 'bus' in other columns/tables
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (30, 'MUS', 10, 'walk', 'bus', 'bus', 'bus', 'bus');
+
+-- Child records for Attraction 20 (multiple in Visits, Photos, Staff to trigger fan-out if joined)
+INSERT INTO "Museums" ("Museum_ID", "Museum_Details") VALUES (20, 'History Museum');
+INSERT INTO "Street_Markets" ("Market_ID", "Market_Details") VALUES (20, 'Museum Market');
+INSERT INTO "Shops" ("Shop_ID", "Shop_Details") VALUES (20, 'Gift Shop');
+INSERT INTO "Royal_Family" ("Royal_Family_ID", "Royal_Family_Details") VALUES (20, 'Royal Wing');
+INSERT INTO "Theme_Parks" ("Theme_Park_ID", "Theme_Park_Details") VALUES (20, 'Mini Theme Park');
+
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (1, 100, 20, '2023-01-01 10:00:00', 'First visit');
+INSERT INTO "Visits" ("Visit_ID", "Tourist_ID", "Tourist_Attraction_ID", "Visit_Date", "Visit_Details") VALUES (2, 100, 20, '2023-01-02 10:00:00', 'Second visit');
+
+INSERT INTO "Photos" ("Photo_ID", "Tourist_Attraction_ID", "Name", "Description", "Filename", "Other_Details") VALUES (1, 20, 'Photo 1', 'Front', 'p1.jpg', 'None');
+INSERT INTO "Photos" ("Photo_ID", "Tourist_Attraction_ID", "Name", "Description", "Filename", "Other_Details") VALUES (2, 20, 'Photo 2', 'Back', 'p2.jpg', 'None');
+
+INSERT INTO "Staff" ("Staff_ID", "Tourist_Attraction_ID", "Name", "Other_Details") VALUES (1, 20, 'Alice', 'Guide');
+INSERT INTO "Staff" ("Staff_ID", "Tourist_Attraction_ID", "Name", "Other_Details") VALUES (2, 20, 'Bob', 'Security');
+
+INSERT INTO "Tourist_Attraction_Features" ("Tourist_Attraction_ID", "Feature_ID") VALUES (20, 200);
+```
+
+```sql
+-- DATASET 3
+-- Tests ordering where insertion order and PRIMARY KEY (Tourist_Attraction_ID) order are strictly opposite to alphabetical Name order, plus decoy 'Name' values in Locations, Photos, and Staff.
+INSERT INTO "Locations" ("Location_ID", "Location_Name", "Address", "Other_Details") VALUES (1, 'Location Name A', 'bus', 'bus');
+INSERT INTO "Ref_Attraction_Types" ("Attraction_Type_Code", "Attraction_Type_Description") VALUES ('bus', 'bus');
+
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (10, 'bus', 1, 'bus', 'C_Attraction', 'Desc C', '9-5', 'Details C');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (20, 'bus', 1, 'bus', 'B_Attraction', 'Desc B', '9-5', 'Details B');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (30, 'bus', 1, 'bus', 'A_Attraction', 'Desc A', '9-5', 'Details A');
+
+INSERT INTO "Photos" ("Photo_ID", "Tourist_Attraction_ID", "Name", "Description", "Filename", "Other_Details") VALUES (1, 10, 'Photo_Name_C', 'bus', 'c.jpg', 'bus');
+INSERT INTO "Photos" ("Photo_ID", "Tourist_Attraction_ID", "Name", "Description", "Filename", "Other_Details") VALUES (2, 20, 'Photo_Name_B', 'bus', 'b.jpg', 'bus');
+INSERT INTO "Photos" ("Photo_ID", "Tourist_Attraction_ID", "Name", "Description", "Filename", "Other_Details") VALUES (3, 30, 'Photo_Name_A', 'bus', 'a.jpg', 'bus');
+
+INSERT INTO "Staff" ("Staff_ID", "Tourist_Attraction_ID", "Name", "Other_Details") VALUES (1, 10, 'Staff_Name_C', 'bus');
+INSERT INTO "Staff" ("Staff_ID", "Tourist_Attraction_ID", "Name", "Other_Details") VALUES (2, 20, 'Staff_Name_B', 'bus');
+INSERT INTO "Staff" ("Staff_ID", "Tourist_Attraction_ID", "Name", "Other_Details") VALUES (3, 30, 'Staff_Name_A', 'bus');
+```
+
+```sql
+-- DATASET 4
+-- Tests empty result set behavior when table is populated but no rows match 'bus'.
+INSERT INTO "Locations" ("Location_ID", "Location_Name", "Address", "Other_Details") VALUES (1, 'City Center', '100 Broadway', 'None');
+INSERT INTO "Ref_Attraction_Types" ("Attraction_Type_Code", "Attraction_Type_Description") VALUES ('SHOP', 'Shopping');
+
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (1, 'SHOP', 1, 'car', 'Mall One', 'bus', '10-9', 'bus');
+INSERT INTO "Tourist_Attractions" ("Tourist_Attraction_ID", "Attraction_Type_Code", "Location_ID", "How_to_Get_There", "Name", "Description", "Opening_Hours", "Other_Details") VALUES (2, 'SHOP', 1, 'subway', 'Mall Two', 'Big mall', '10-9', 'None');
+```

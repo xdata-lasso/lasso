@@ -1,0 +1,154 @@
+```sql
+-- DATASET 1
+-- Core logic, SUM aggregation over same shipdate, ORDER BY l_year, and revenue formula testing (l_extendedprice * (1 - l_discount) vs l_quantity/l_tax mutants)
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'EUROPE', 'Europe region');
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (2, 'AMERICA', 'America region');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (10, 'FRANCE', 1, 'France nation');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (20, 'ARGENTINA', 2, 'Argentina nation');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (100, 'SuppFrance', '10 Rue de Rivoli', 10, '33-123-4567', 5000.00, 'French supplier');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (200, 'CustArgentina', '20 Av Corrientes', 20, '54-987-6543', 3000.00, 'BUILDING', 'Argentinian customer');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'PartOne', 'Mfgr#1', 'Brand#11', 'STANDARD POLISHED TIN', 10, 'SM BOX', 900.00, 'Part 1');
+
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1000, 200, 'O', 5000.00, '1995-01-01', '1-URGENT', 'Clerk#001', 0, 'Order 1');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1001, 200, 'F', 3000.00, '1996-01-01', '2-HIGH', 'Clerk#002', 0, 'Order 2');
+
+-- Two items on 1996-05-15 to test SUM(volume), COUNT vs SUM, AVG vs SUM, and DISTINCT volume mutants
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1000, 1, 100, 1, 5.00, 1000.00, 0.10, 0.05, 'N', 'O', '1996-05-15', '1996-05-10', '1996-05-20', 'NONE', 'TRUCK', 'Group 1 Item 1');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1001, 1, 100, 1, 10.00, 2000.00, 0.25, 0.08, 'R', 'F', '1996-05-15', '1996-05-12', '1996-05-25', 'DELIVER IN PERSON', 'AIR', 'Group 1 Item 2');
+
+-- One item on 1995-06-10 (inserted after 1996-05-15 to test ORDER BY l_year ASC vs DESC)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1000, 1, 100, 2, 2.00, 500.00, 0.05, 0.02, 'A', 'F', '1995-06-10', '1995-06-05', '1995-06-15', 'TAKE BACK RETURN', 'MAIL', 'Group 2 Item 1');
+```
+
+```sql
+-- DATASET 2
+-- Date boundary conditions: strict inequalities (> '1995-01-02' AND < '1996-12-31') and date column confusion (l_shipdate vs l_commitdate/l_receiptdate/o_orderdate)
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'EUROPE', 'Europe');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'FRANCE', 1, 'France');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'ARGENTINA', 1, 'Argentina');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'S1', 'Addr1', 1, '111', 100.0, 'c');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'C1', 'Addr2', 2, '222', 100.0, 'AUTO', 'c');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'P1', 'M1', 'B1', 'T1', 1, 'C1', 10.0, 'c');
+
+-- Order date is outside range while shipdate is inside (tests o_orderdate vs l_shipdate mutant)
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1, 1, 'O', 1000.0, '1994-05-05', '1-URGENT', 'C1', 0, 'c');
+
+-- 1. Exact lower bound: '1995-01-02' (Must be EXCLUDED; kills >= '1995-01-02' mutant)
+-- Note: commitdate and receiptdate are inside valid range to kill column swap mutants
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 1, 1.0, 100.0, 0.0, 0.0, 'N', 'O', '1995-01-02', '1995-06-01', '1995-06-02', 'NONE', 'AIR', 'Exact lower bound');
+
+-- 2. Inside lower bound by 1 day: '1995-01-03' (Must be INCLUDED)
+-- Note: commitdate and receiptdate are outside valid range
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 2, 1.0, 200.0, 0.1, 0.0, 'N', 'O', '1995-01-03', '1994-12-01', '1997-01-05', 'NONE', 'AIR', 'Just above lower bound');
+
+-- 3. Inside upper bound by 1 day: '1996-12-30' (Must be INCLUDED)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 3, 1.0, 400.0, 0.2, 0.0, 'N', 'O', '1996-12-30', '1997-02-01', '1997-02-02', 'NONE', 'AIR', 'Just below upper bound');
+
+-- 4. Exact upper bound: '1996-12-31' (Must be EXCLUDED; kills <= '1996-12-31' and BETWEEN mutants)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 4, 1.0, 800.0, 0.0, 0.0, 'N', 'O', '1996-12-31', '1996-06-01', '1996-06-02', 'NONE', 'AIR', 'Exact upper bound');
+
+-- 5. Standard TPCH Q7 lower bound trap: '1995-01-01' (Must be EXCLUDED)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 5, 1.0, 1600.0, 0.0, 0.0, 'N', 'O', '1995-01-01', '1995-06-01', '1995-06-02', 'NONE', 'AIR', 'Jan 1 1995');
+```
+
+```sql
+-- DATASET 3
+-- Nation filter logic: tests asymmetric condition (n1='FRANCE' AND n2='ARGENTINA') against symmetric TPC-H Q7 OR condition, OR vs AND mutants, and n1/n2 swap mutants
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'R1', 'c');
+
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'FRANCE', 1, 'c');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'ARGENTINA', 1, 'c');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (3, 'GERMANY', 1, 'c');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (10, 'Supp_FR', 'a', 1, '1', 1.0, 'c');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (20, 'Supp_AR', 'a', 2, '1', 1.0, 'c');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (30, 'Supp_DE', 'a', 3, '1', 1.0, 'c');
+
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (100, 'Cust_FR', 'a', 1, '1', 1.0, 'A', 'c');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (200, 'Cust_AR', 'a', 2, '1', 1.0, 'A', 'c');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (300, 'Cust_DE', 'a', 3, '1', 1.0, 'A', 'c');
+
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'P', 'M', 'B', 'T', 1, 'C', 1.0, 'c');
+
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1000, 100, 'O', 1.0, '1995-05-01', '1', 'C', 0, 'Cust FR');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (2000, 200, 'O', 1.0, '1995-05-01', '1', 'C', 0, 'Cust AR');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (3000, 300, 'O', 1.0, '1995-05-01', '1', 'C', 0, 'Cust DE');
+
+-- 1. Valid: Supplier FRANCE (10) -> Customer ARGENTINA (2000) (MUST BE INCLUDED)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (2000, 1, 10, 1, 1.0, 100.0, 0.1, 0.0, 'N', 'O', '1995-07-01', '1995-07-01', '1995-07-01', 'N', 'AIR', 'FR to AR');
+
+-- 2. Reversed nations: Supplier ARGENTINA (20) -> Customer FRANCE (1000) (MUST BE EXCLUDED; kills bidirectional Q7 mutant and s_nationkey/c_nationkey swap)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1000, 1, 20, 1, 1.0, 200.0, 0.1, 0.0, 'N', 'O', '1995-07-01', '1995-07-01', '1995-07-01', 'N', 'AIR', 'AR to FR');
+
+-- 3. Same nation FRANCE: Supplier FRANCE (10) -> Customer FRANCE (1000) (MUST BE EXCLUDED; kills n1.n_name = 'FRANCE' OR n2.n_name = 'ARGENTINA' mutant)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1000, 1, 10, 2, 1.0, 400.0, 0.1, 0.0, 'N', 'O', '1995-07-01', '1995-07-01', '1995-07-01', 'N', 'AIR', 'FR to FR');
+
+-- 4. Supplier FRANCE (10) -> Customer GERMANY (3000) (MUST BE EXCLUDED; kills missing cust_nation filter)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (3000, 1, 10, 1, 1.0, 800.0, 0.1, 0.0, 'N', 'O', '1995-07-01', '1995-07-01', '1995-07-01', 'N', 'AIR', 'FR to DE');
+
+-- 5. Supplier GERMANY (30) -> Customer ARGENTINA (2000) (MUST BE EXCLUDED; kills missing supp_nation filter)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (2000, 1, 30, 2, 1.0, 1600.0, 0.1, 0.0, 'N', 'O', '1995-07-01', '1995-07-01', '1995-07-01', 'N', 'AIR', 'DE to AR');
+```
+
+```sql
+-- DATASET 4
+-- Join key integrity & Accidental key match traps (tests missing join predicates in CROSS JOIN and wrong key equates like o_orderkey = c_custkey or s_suppkey = l_partkey)
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'R1', 'c');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'FRANCE', 1, 'c');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'ARGENTINA', 1, 'c');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (3, 'BRAZIL', 1, 'c');
+
+-- Two suppliers in FRANCE (tests missing s_suppkey = l_suppkey join predicate causing Cartesian fanout)
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (10, 'S_FR_1', 'a', 1, '1', 1.0, 'c');
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (11, 'S_FR_2', 'a', 1, '1', 1.0, 'c');
+-- Supplier in BRAZIL with s_suppkey = 50 (matches p_partkey = 50 to kill s_suppkey = l_partkey mutant)
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (50, 'S_BR_50', 'a', 3, '1', 1.0, 'c');
+
+-- Two customers in ARGENTINA (tests missing c_custkey = o_custkey join predicate causing Cartesian fanout)
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, s_phone, c_acctbal, c_mktsegment, c_comment) VALUES (20, 'C_AR_1', 'a', 2, '1', 1.0, 'A', 'c');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (21, 'C_AR_2', 'a', 2, '1', 1.0, 'A', 'c');
+-- Customer in BRAZIL
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (99, 'C_BR_99', 'a', 3, '1', 1.0, 'A', 'c');
+
+-- Part with p_partkey = 10 (matches S_FR_1 s_suppkey=10) and p_partkey = 50 (matches S_BR_50 s_suppkey=50)
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (10, 'P10', 'M', 'B', 'T', 1, 'C', 1.0, 'c');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (50, 'P50', 'M', 'B', 'T', 1, 'C', 1.0, 'c');
+
+-- Order 500 belongs to Customer 20 (ARGENTINA)
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (500, 20, 'O', 1.0, '1995-05-01', '1', 'C', 0, 'Valid AR order');
+-- Order 21 belongs to Customer 99 (BRAZIL), but o_orderkey=21 matches C_AR_2 (c_custkey=21) to kill o_orderkey = c_custkey mutant
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (21, 99, 'O', 1.0, '1995-05-01', '1', 'C', 0, 'Trap orderkey=21');
+
+-- Valid lineitem: Order 500 (Cust 20 AR), Part 50, Supplier 10 (FR)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (500, 50, 10, 1, 1.0, 300.0, 0.1, 0.0, 'N', 'O', '1996-03-15', '1996-03-15', '1996-03-15', 'N', 'AIR', 'Valid');
+
+-- Trap lineitem 1: Order 500 (Cust 20 AR), Part 10 (matches S_FR_1=10), but Supplier is 50 (BRAZIL)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (500, 10, 50, 2, 1.0, 700.0, 0.1, 0.0, 'N', 'O', '1996-03-15', '1996-03-15', '1996-03-15', 'N', 'AIR', 'Trap partkey=10');
+
+-- Trap lineitem 2: Order 21 (Cust 99 BR), Part 50, Supplier 10 (FR)
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (21, 50, 10, 1, 1.0, 900.0, 0.1, 0.0, 'N', 'O', '1996-03-15', '1996-03-15', '1996-03-15', 'N', 'AIR', 'Trap orderkey=21');
+```
+
+```sql
+-- DATASET 5
+-- Grouping granularity: tests that l_year is exact l_shipdate (not EXTRACT(YEAR FROM l_shipdate) or strftime('%Y', l_shipdate)) and tests multiple distinct shipdates within the same calendar year
+INSERT INTO region (r_regionkey, r_name, r_comment) VALUES (1, 'R1', 'c');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (1, 'FRANCE', 1, 'c');
+INSERT INTO nation (n_nationkey, n_name, n_regionkey, n_comment) VALUES (2, 'ARGENTINA', 1, 'c');
+
+INSERT INTO supplier (s_suppkey, s_name, s_address, s_nationkey, s_phone, s_acctbal, s_comment) VALUES (1, 'S1', 'a', 1, '1', 1.0, 'c');
+INSERT INTO customer (c_custkey, c_name, c_address, c_nationkey, c_phone, c_acctbal, c_mktsegment, c_comment) VALUES (1, 'C1', 'a', 2, '1', 1.0, 'A', 'c');
+INSERT INTO part (p_partkey, p_name, p_mfgr, p_brand, p_type, p_size, p_container, p_retailprice, p_comment) VALUES (1, 'P1', 'M', 'B', 'T', 1, 'C', 1.0, 'c');
+INSERT INTO orders (o_orderkey, o_custkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment) VALUES (1, 1, 'O', 1.0, '1995-02-01', '1', 'C', 0, 'c');
+
+-- Two different dates in 1995, and two different dates in 1996, with inverse revenue order vs chronological order
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 1, 1.0, 900.0, 0.0, 0.0, 'N', 'O', '1995-04-10', '1995-04-10', '1995-04-10', 'N', 'AIR', '1995 date 1 (high rev)');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 2, 1.0, 100.0, 0.0, 0.0, 'N', 'O', '1995-08-20', '1995-08-20', '1995-08-20', 'N', 'AIR', '1995 date 2 (low rev)');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 3, 1.0, 50.0, 0.1, 0.0, 'N', 'O', '1996-02-15', '1996-02-15', '1996-02-15', 'N', 'AIR', '1996 date 1');
+INSERT INTO lineitem (l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment) VALUES (1, 1, 1, 4, 1.0, 1200.0, 0.5, 0.0, 'N', 'O', '1996-11-05', '1996-11-05', '1996-11-05', 'N', 'AIR', '1996 date 2');
+```

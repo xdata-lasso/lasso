@@ -1,0 +1,56 @@
+```sql
+-- DATASET 1
+-- Tests basic single-row execution and column disambiguation where Product_ID in Invoices differs from Order_Items, Invoice_Items, and Products.
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('CC', 'Credit Card');
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('1', '123 Main St', 'Apt 4', 'Springfield', 'IL', 'None');
+INSERT INTO "Marketing_Regions" ("Marketing_Region_Code", "Marketing_Region_Name", "Marketing_Region_Descriptrion", "Other_Details") VALUES ('NA', 'North America', 'North American Region', 'None');
+INSERT INTO "Customers" ("Customer_ID", "Address_ID", "Customer_Name", "Customer_Phone", "Customer_Email_Address", "Other_Details") VALUES ('1', 1, 'John Doe', '555-0100', 'john@example.com', 'None');
+INSERT INTO "Stores" ("Store_ID", "Marketing_Region_Code", "Address_ID", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES ('1', 'NA', 1, 'Main Store', '555-0199', 'store@example.com', 'None');
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID", "Order_Date", "Planned_Delivery_Date", "Actual_Delivery_Date", "Other_Order_Details") VALUES (10, 1, 1, '2023-01-01 10:00:00', '2023-01-05 10:00:00', '2023-01-04 10:00:00', 'First Order');
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('999', 'Decoy Product', 50.0, 'Should not be returned', 'None');
+INSERT INTO "Order_Items" ("Order_Item_ID", "Product_ID", "Order_ID", "Order_Quantity", "Other_Item_Details") VALUES (20, 999, 10, '5', 'Decoy Order Item');
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (100, 'CC', 10, 42, '5', 'Target Invoice', 20);
+```
+
+```sql
+-- DATASET 2
+-- Tests tie-breaking and ordering behavior when multiple rows exist in Invoices (since COUNT(*) OVER () is constant, the first row in primary key / scan order should be selected by LIMIT 1, whereas ORDER BY invoice_id DESC or ORDER BY product_id ASC/DESC mutants will fail).
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('CASH', 'Cash'), ('PAYPAL', 'PayPal');
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('10', '456 Oak Ave', NULL, 'Metropolis', 'NY', NULL);
+INSERT INTO "Marketing_Regions" ("Marketing_Region_Code", "Marketing_Region_Name", "Marketing_Region_Descriptrion", "Other_Details") VALUES ('EU', 'Europe', 'European Region', NULL);
+INSERT INTO "Customers" ("Customer_ID", "Address_ID", "Customer_Name", "Customer_Phone", "Customer_Email_Address", "Other_Details") VALUES ('10', 10, 'Jane Smith', '555-0200', 'jane@example.com', NULL);
+INSERT INTO "Stores" ("Store_ID", "Marketing_Region_Code", "Address_ID", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES ('10', 'EU', 10, 'Euro Store', '555-0299', 'euro@example.com', NULL);
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID", "Order_Date", "Planned_Delivery_Date", "Actual_Delivery_Date", "Other_Order_Details") VALUES (1, 10, 10, '2023-02-01 00:00:00', '2023-02-02 00:00:00', '2023-02-02 00:00:00', NULL), (2, 10, 10, '2023-02-03 00:00:00', '2023-02-04 00:00:00', '2023-02-04 00:00:00', NULL);
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (1, 'PAYPAL', 2, 500, '10', 'First Invoice with middle Product_ID', 300), (2, 'CASH', 1, 100, '99', 'Second Invoice with smallest Product_ID', 100), (3, 'CASH', 1, 900, '1', 'Third Invoice with largest Product_ID', 200);
+```
+
+```sql
+-- DATASET 3
+-- Tests window function partitioning mutants (e.g., PARTITION BY payment_method_code or PARTITION BY order_id) where a smaller group would yield a smaller 'n' and sort before the first row.
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('A', 'Method A'), ('B', 'Method B');
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('1', '1 St', '', 'City', 'State', '');
+INSERT INTO "Marketing_Regions" ("Marketing_Region_Code", "Marketing_Region_Name", "Marketing_Region_Descriptrion", "Other_Details") VALUES ('R1', 'Reg 1', '', '');
+INSERT INTO "Customers" ("Customer_ID", "Address_ID", "Customer_Name", "Customer_Phone", "Customer_Email_Address", "Other_Details") VALUES ('1', 1, 'Cust 1', '', '', '');
+INSERT INTO "Stores" ("Store_ID", "Marketing_Region_Code", "Address_ID", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES ('1', 'R1', 1, 'Store 1', '', '', '');
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID", "Order_Date", "Planned_Delivery_Date", "Actual_Delivery_Date", "Other_Order_Details") VALUES (10, 1, 1, '2023-01-01', '2023-01-02', '2023-01-02', ''), (20, 1, 1, '2023-01-01', '2023-01-02', '2023-01-02', '');
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (1, 'A', 10, 777, '2', 'Group of 2 - Row 1', 10), (2, 'A', 10, 888, '3', 'Group of 2 - Row 2', 20), (3, 'B', 20, 333, '1', 'Group of 1 - Row 3', 30);
+```
+
+```sql
+-- DATASET 4
+-- Tests empty Invoices table while other related tables (Products, Order_Items, Bookings_Services) are populated.
+INSERT INTO "Ref_Payment_Methods" ("payment_method_code", "payment_method_description") VALUES ('CC', 'Credit Card');
+INSERT INTO "Addresses" ("Address_ID", "Line_1", "Line_2", "City_Town", "State_County", "Other_Details") VALUES ('1', '123 Main', NULL, 'Town', 'State', NULL);
+INSERT INTO "Products" ("Product_ID", "Product_Name", "Product_Price", "Product_Description", "Other_Product_Service_Details") VALUES ('101', 'Widget', 9.99, 'Desc', NULL);
+INSERT INTO "Marketing_Regions" ("Marketing_Region_Code", "Marketing_Region_Name", "Marketing_Region_Descriptrion", "Other_Details") VALUES ('M1', 'Region', 'Desc', NULL);
+INSERT INTO "Customers" ("Customer_ID", "Address_ID", "Customer_Name", "Customer_Phone", "Customer_Email_Address", "Other_Details") VALUES ('1', 1, 'Alice', '123', 'a@b.c', NULL);
+INSERT INTO "Stores" ("Store_ID", "Marketing_Region_Code", "Address_ID", "Store_Name", "Store_Phone", "Store_Email_Address", "Other_Details") VALUES ('1', 'M1', 1, 'Shop', '123', 's@b.c', NULL);
+INSERT INTO "Customer_Orders" ("Order_ID", "Store_ID", "Customer_ID", "Order_Date", "Planned_Delivery_Date", "Actual_Delivery_Date", "Other_Order_Details") VALUES (1, 1, 1, '2023-01-01', '2023-01-02', '2023-01-02', NULL);
+INSERT INTO "Order_Items" ("Order_Item_ID", "Product_ID", "Order_ID", "Order_Quantity", "Other_Item_Details") VALUES (1, 101, 1, '1', NULL);
+```
+
+```sql
+-- DATASET 5
+-- Tests NULL handling in Invoices (nullable FKs and attributes) to catch INNER JOIN mutants or COUNT(column) vs COUNT(*) mutants.
+INSERT INTO "Invoices" ("Invoice_ID", "payment_method_code", "Order_ID", "Product_ID", "Order_Quantity", "Other_Item_Details", "Order_Item_ID") VALUES (1, NULL, NULL, 250, NULL, NULL, NULL), (2, NULL, NULL, 750, '10', 'Non-null details', 5);
+```

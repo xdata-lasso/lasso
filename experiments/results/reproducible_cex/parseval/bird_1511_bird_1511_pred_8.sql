@@ -1,0 +1,82 @@
+-- Schema DDL
+CREATE TABLE customers (CustomerID INTEGER UNIQUE NOT NULL PRIMARY KEY, Segment TEXT NULL, Currency TEXT NULL);
+
+CREATE TABLE gasstations (GasStationID INTEGER UNIQUE NOT NULL PRIMARY KEY, ChainID INTEGER NULL, Country TEXT NULL, Segment TEXT NULL);
+
+CREATE TABLE products (ProductID INTEGER UNIQUE NOT NULL PRIMARY KEY, Description TEXT NULL);
+
+CREATE TABLE "transactions_1k" (TransactionID INTEGER PRIMARY KEY AUTOINCREMENT, Date DATE, Time TEXT, CustomerID INTEGER, CardID INTEGER, GasStationID INTEGER, ProductID INTEGER, Amount INTEGER, Price REAL);
+
+CREATE TABLE "yearmonth" (CustomerID INTEGER NOT NULL REFERENCES customers ON update CASCADE ON delete CASCADE REFERENCES customers, Date TEXT NOT NULL, Consumption REAL, PRIMARY KEY (Date, CustomerID));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+-- Inserting into table: customers --
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (1, '5k5swwqcgs', 'EUR');
+
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (3, 'puzhsrw', 'EUR');
+
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (7, 'puzhsrw', 'EUR');
+
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (5, 'b', 'EUR');
+
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (11, 'c4ecigce', 'EUR');
+
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (9, '76nium52', 'EUR');
+
+INSERT INTO "customers" ("customerid", "segment", "currency") VALUES (2, 'qy', 'c_s_8f140b');
+
+-- Inserting into table: transactions_1k --
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483648, '2021-12-04', '9n8c4pgu7v', 1, -1865039888, 1160656988, -992890117, 1914020640, 795.366812);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483647, '2020-05-06', 'p', 2, 13244799, -1659388584, 1526238907, -1377057208, 304.02808);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483646, '2022-01-16', 'n', 2, 462974032, -1137908826, -918961358, -1602639011, 489.397796);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483645, '2022-06-13', '6klfa9', 2, 1620389964, 546571701, 947159877, 1990080517, 827.854302);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483644, '2020-06-05', '4ecigce376n', 2, 1313172851, -761141909, 283598170, 742285925, 21.917736);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (2, '2023-08-27', '4nrq', 1, 418417917, -1031969798, -1106983592, 1884179925, 499.570479);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (3, '2020-03-14', 'p', 1, 882961052, 743312762, -1822992503, -868774469, 138.017996);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483641, '2022-10-26', '1', 1, 2074205376, 274769912, -188151580, 226938182, NULL);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483640, '2022-02-06', '72klex14ji7z', 1, -2081315180, 1909986641, 1485335077, -511185946, NULL);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483639, '2022-12-09', '3pyu78d', 1, -977635379, 1661181156, -1372125820, -2031361952, NULL);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483638, '2024-04-25', 'p5qi2rkf9v', 1, 556727997, 1178000634, 1836127587, -1529584866, NULL);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483637, '2021-02-03', 'd21vy9uxj4hw', 1, -2050247126, -736979194, 2103044118, -1642259219, NULL);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (-2147483636, '2021-03-22', 'dqwn', 1, -1070063173, 555413010, 722884590, 580968159, NULL);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (4, '2025-06-17', '5sw', 7, 1258409369, -1981402255, -890215420, 1610062532, 1.0);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (6, '2025-04-30', 'gu7v', -1865039888, 1160656988, -992890117, 1914020640, 1268590800, 1.0);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (8, '2022-08-24', 'luhvdltti', 11, -1364429300, -1257178728, 1236688122, 2087640001, 1.0);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (10, '2020-07-11', 'posiie5unw6k', 1151980946, 1620389964, 546571701, 947159877, 1990080517, 1.0);
+
+INSERT INTO "transactions_1k" ("transactionid", "date", "time", "customerid", "cardid", "gasstationid", "productid", "amount", "price") VALUES (5, '2024-06-13', 'u', 2, -1179823637, 1119186446, 781505063, 418417917, 220.906948);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT AVG(T1.Price) FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID INNER JOIN customers AS T3 ON T1.CustomerID = T3.CustomerID WHERE T3.Currency = 'EUR';
+
+/*
+Gold Result:
+(None,)
+*/
+
+-- Prediction Query
+SELECT AVG(t.Price) AS average_total_price FROM transactions_1k AS t JOIN customers AS c ON t.CustomerID = c.CustomerID WHERE c.Currency = 'EUR';
+
+/*
+Prediction Result:
+(286.9910574,)
+*/
