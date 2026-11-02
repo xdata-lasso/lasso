@@ -1,8 +1,6 @@
 # LASSO: An LLM-Agent Synthesized System for SQL Validation
 
 - **arXiv Preprint:** [https://arxiv.org/abs/2610.38294](https://arxiv.org/abs/2610.38294)
-- **Project Website & Demo:** [https://shreyas-jadhav.github.io/lasso-public/](https://shreyas-jadhav.github.io/lasso-public/)
-- **Interactive Evaluation Results:** [https://shreyas-jadhav.github.io/lasso-public/results.html](https://shreyas-jadhav.github.io/lasso-public/results.html)
 
 This repository contains the official artifact evaluation reproduction package for **LASSO**, a framework for discovering semantic oversights, validating SQL query equivalence, and synthesizing deterministic counterexample datasets to refute incorrect SQL predictions.
 
@@ -10,10 +8,8 @@ This repository contains the official artifact evaluation reproduction package f
 
 ## 1. Interactive Web Application
 
-The project website and interactive evaluation results viewer are hosted online via GitHub Pages at **[https://shreyas-jadhav.github.io/lasso-public/](https://shreyas-jadhav.github.io/lasso-public/)**.
-
-LASSO also includes a self-contained local web server (`web/server.py`) featuring:
-1. **Interactive Research Home & Live Try-Out (`/`)**: Enter any custom database schema (DDL), reference query, and candidate query to synthesize test datasets and counterexamples in real time.
+LASSO includes a self-contained web application (`web/server.py`) featuring:
+1. **Interactive Research Home & Live Try-Out (`/`)**: Enter a database schema (DDL), reference query, and candidate query to synthesize test datasets and counterexamples in real time.
 2. **Evaluation Results Explorer (`/results`)**: Interactive visual charts, unified benchmark comparison tables, strategy kill breakdowns, and token usage/cost analysis across all 36,634 query pairs.
 
 ### Option A: Run Directly with Python (No Docker Required)

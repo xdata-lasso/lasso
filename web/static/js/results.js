@@ -38,9 +38,9 @@
   } = antd;
 
   const PAPER_URL = "https://arxiv.org/abs/2610.38294";
-  const REPO_URL = "https://github.com/shreyas-jadhav/lasso-public";
-  const CEX_FOLDER_URL = "https://github.com/shreyas-jadhav/lasso-public/tree/main/experiments/results/reproducible_cex";
-  const RESULTS_FOLDER_URL = "https://github.com/shreyas-jadhav/lasso-public/tree/main/experiments/results";
+  const REPO_URL = "https://github.com/shreyas-jadhav/lasso";
+  const CEX_FOLDER_URL = "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/reproducible_cex";
+  const RESULTS_FOLDER_URL = "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results";
 
   function GitHubLogo({ size = 14 }) {
     return e(
@@ -3032,22 +3032,10 @@
       async function loadSummary() {
         setLoading(true);
         try {
-          let loaded = false;
-          try {
-            const sRes = await fetch("static/data/summary.json");
-            if (sRes.ok) {
-              const data = await sRes.json();
-              setSummary(data);
-              loaded = true;
-            }
-          } catch (_) {}
-
-          if (!loaded) {
-            const res = await fetch("api/summary");
-            if (res.ok) {
-              const data = await res.json();
-              setSummary(data);
-            }
+          const res = await fetch("/api/summary");
+          if (res.ok) {
+            const data = await res.json();
+            setSummary(data);
           }
         } catch (err) {
           console.error("Error fetching summary:", err);
@@ -3092,7 +3080,7 @@
             e(
               "div",
               { className: "results-topbar-links" },
-              e("a", { href: "./", className: "topbar-btn" }, "\u2190 Demo (Home)"),
+              e("a", { href: "/", className: "topbar-btn" }, "\u2190 Demo (Home)"),
               e(
                 "a",
                 { href: CEX_FOLDER_URL, target: "_blank", rel: "noopener noreferrer", className: "topbar-btn" },

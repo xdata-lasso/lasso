@@ -28,7 +28,7 @@
   } = antd;
 
   const PAPER_URL = "https://arxiv.org/abs/2610.38294";
-  const REPO_URL = "https://github.com/shreyas-jadhav/lasso-public";
+  const REPO_URL = "https://github.com/shreyas-jadhav/lasso";
 
   function GitHubIcon({ size = 16 }) {
     return e(
@@ -482,61 +482,26 @@
       }
     };
 
-    const presetsCacheRef = useRef(null);
-
     const handleRunLasso = async () => {
       setLoading(true);
       setErrorMsg(null);
       try {
-        // 1. Try live Python server endpoint first when running locally
-        let handledByApi = false;
-        try {
-          const res = await fetch("api/try_lasso", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              mode,
-              schema,
-              gold_sql: goldSql,
-              prediction_sql: mode === "er" ? predSql : "",
-            }),
-          });
-          const ctype = res.headers.get("content-type") || "";
-          if (ctype.includes("application/json")) {
-            handledByApi = true;
-            const data = await res.json();
-            if (!res.ok || data.error) {
-              setErrorMsg(data.error || "Failed to execute LASSO.");
-              setResultData(null);
-            } else {
-              setResultData(data);
-            }
-          }
-        } catch (_) {
-          // Static hosting (GitHub Pages): fall back to precomputed presets
-        }
-
-        if (!handledByApi) {
-          if (!presetsCacheRef.current) {
-            const pRes = await fetch("static/data/presets.json");
-            if (pRes.ok) {
-              presetsCacheRef.current = await pRes.json();
-            }
-          }
-          const matchedSample = SAMPLE_EXAMPLES.find(
-            (s) =>
-              s.schema.trim() === schema.trim() &&
-              s.gold_sql.trim() === goldSql.trim() &&
-              (mode !== "er" || s.prediction_sql.trim() === predSql.trim())
-          );
-          if (matchedSample && presetsCacheRef.current?.[matchedSample.key]?.[mode]) {
-            setResultData(presetsCacheRef.current[matchedSample.key][mode]);
-          } else {
-            setResultData(null);
-            setErrorMsg(
-              "Custom SQL execution requires the local Python server. On GitHub Pages, select one of the 4 Preset Examples above, or clone https://github.com/shreyas-jadhav/lasso-public and run `python3 web/server.py` locally."
-            );
-          }
+        const res = await fetch("/api/try_lasso", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode,
+            schema,
+            gold_sql: goldSql,
+            prediction_sql: mode === "er" ? predSql : "",
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          setErrorMsg(data.error || "Failed to execute LASSO.");
+          setResultData(null);
+        } else {
+          setResultData(data);
         }
       } catch (err) {
         setErrorMsg(String(err));
@@ -619,7 +584,7 @@
               e(
                 "a",
                 {
-                  href: "results.html",
+                  href: "/results",
                   className: "acad-btn acad-btn-primary",
                 },
                 e(ResultsChartIcon, { size: 16 }),
@@ -713,7 +678,7 @@
                 e(
                   "a",
                   {
-                    href: "results.html",
+                    href: "/results",
                     style: { fontWeight: 700, fontSize: "13.5px" },
                   },
                   "View Results \u2192"
