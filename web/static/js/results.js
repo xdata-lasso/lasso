@@ -37,22 +37,23 @@
     message,
   } = antd;
 
-  const PAPER_URL = "";
-  const GITLAB_URL = "https://gitlab.com/xdata/lasso";
+  const PAPER_URL = "https://arxiv.org/abs/2610.38294";
+  const REPO_URL = "https://github.com/shreyas-jadhav/lasso-public";
+  const CEX_FOLDER_URL = "https://github.com/shreyas-jadhav/lasso-public/tree/main/experiments/results/reproducible_cex";
+  const RESULTS_FOLDER_URL = "https://github.com/shreyas-jadhav/lasso-public/tree/main/experiments/results";
 
-  function GitLabLogo({ size = 14 }) {
+  function GitHubLogo({ size = 14 }) {
     return e(
       "svg",
       {
         width: size,
         height: size,
         viewBox: "0 0 24 24",
-        fill: "none",
+        fill: "currentColor",
         style: { verticalAlign: "-2px", marginRight: 4, flexShrink: 0 },
       },
       e("path", {
-        d: "M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z",
-        fill: "#FC6D26",
+        d: "M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z",
       })
     );
   }
@@ -132,7 +133,7 @@
           "span",
           null,
           "Developed as part of this work and available in the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           "."
         ),
     },
@@ -146,7 +147,7 @@
           "span",
           null,
           "Developed as part of this work and available in the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           "."
         ),
     },
@@ -160,7 +161,7 @@
           "span",
           null,
           "Implemented in our evaluation harness in the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           " using the Google Gemini API (gemini-4-argon-high)."
         ),
     },
@@ -174,7 +175,7 @@
           "span",
           null,
           "Implemented in our evaluation harness in the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           " using the Google Gemini API (gemini-4-argon-high)."
         ),
     },
@@ -188,7 +189,7 @@
           "span",
           null,
           "Implemented in our evaluation harness in the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           " using the Google Gemini API (gemini-4-argon-medium)."
         ),
     },
@@ -202,7 +203,7 @@
           "span",
           null,
           "Implemented in our evaluation harness in the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           " using the Google Gemini API (gemini-4-argon-medium)."
         ),
     },
@@ -216,7 +217,7 @@
           "span",
           null,
           "Implemented in our evaluation harness in the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           " using the Google Gemini API (gemini-4-argon-low)."
         ),
     },
@@ -230,7 +231,7 @@
           "span",
           null,
           "Implemented in our evaluation harness in the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           " using the Google Gemini API (gemini-4-argon-low)."
         ),
     },
@@ -504,7 +505,7 @@
           "span",
           null,
           "Constructed in test_cases/ of the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           ", informed by semantic fault categories from the ",
           extLink("NL2SQL-BUGs Taxonomy", "https://doi.org/10.1145/3711896.3737427"),
           "."
@@ -520,7 +521,7 @@
           "span",
           null,
           "Constructed as part of this work in experiments/originals/MM-BM of the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           "."
         ),
     },
@@ -534,7 +535,7 @@
           "span",
           null,
           "Generated via our identifier-obfuscation script in experiments/originals/MM-BM of the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           "."
         ),
     },
@@ -548,7 +549,7 @@
           "span",
           null,
           "Generated via our identifier-obfuscation script in experiments/originals/MM-BM of the ",
-          extLink("LASSO GitLab Repository", "https://gitlab.com/xdata/lasso"),
+          extLink("LASSO GitHub Repository", REPO_URL),
           "."
         ),
     },
@@ -1023,13 +1024,6 @@
       title: "Status & Dialect Breakdown",
       desc: "Consolidated and per-tool execution status breakdown and SQLite vs. PostgreSQL dialect comparison.",
     },
-    {
-      key: "exclusive",
-      num: "7",
-      shortTitle: "LASSO-Exclusive (.sql)",
-      title: "LASSO-Exclusive Refutations (.sql)",
-      desc: "Query pairs where only LASSO proved non-equivalence (NEQ) and all other tools failed, with full reproducible counterexamples.",
-    },
   ];
 
   // ========================================================================
@@ -1143,6 +1137,36 @@
               )
             );
           })
+        )
+      ),
+
+      // 3. Third: Reproducible Counterexamples & Evaluation CSVs in Repository
+      e(
+        "section",
+        { className: "overview-section-block" },
+        e("h3", { className: "overview-col-heading" }, "Reproducible Counterexample Scripts (.sql) & Raw Results"),
+        e(
+          "p",
+          { className: "overview-col-lead" },
+          "All synthesized counterexample database scripts (.sql) and per-tool evaluation CSV files are available directly in the GitHub repository:"
+        ),
+        e(
+          "ul",
+          { className: "overview-prose-list" },
+          e(
+            "li",
+            null,
+            e("span", { className: "overview-item-name" }, "Reproducible Counterexamples (.sql): "),
+            extLink("experiments/results/reproducible_cex/", CEX_FOLDER_URL),
+            " — self-contained SQLite/PostgreSQL database scripts (DDL, INSERT statements, and divergent query outputs) demonstrating query non-equivalence across all tools and benchmarks."
+          ),
+          e(
+            "li",
+            null,
+            e("span", { className: "overview-item-name" }, "Precomputed Benchmark CSVs: "),
+            extLink("experiments/results/", RESULTS_FOLDER_URL),
+            " — per-benchmark evaluation results, dataset generation logs, and cross-checking study outputs."
+          )
         )
       )
     );
@@ -1927,6 +1951,30 @@
     return e(
       "div",
       null,
+      e(Alert, {
+        type: "info",
+        showIcon: true,
+        style: {
+          marginBottom: 18,
+          border: "1px solid #93c5fd",
+          background: "#eff6ff",
+          borderRadius: 6,
+        },
+        message: e(
+          "span",
+          { style: { fontWeight: 700, fontSize: "14px", color: "#1e3a8a" } },
+          "Reproducible Counterexamples (.sql) & Raw Evaluation CSVs"
+        ),
+        description: e(
+          "span",
+          null,
+          "All synthesized counterexample database scripts (.sql) and per-benchmark evaluation CSV files can be browsed directly in the GitHub repository under ",
+          extLink("experiments/results/reproducible_cex/", CEX_FOLDER_URL),
+          " and ",
+          extLink("experiments/results/", RESULTS_FOLDER_URL),
+          "."
+        ),
+      }),
       e(AcademicTableCard, {
         tableObj: byId["refutations-on-the-unified-benchmark"],
         subtitle: "Sorted by highest total confirmed refutations from top.",
@@ -2968,7 +3016,6 @@
       "tokens",
       "strategies",
       "status",
-      "exclusive",
     ];
 
     const initialSection = () => {
@@ -2986,10 +3033,22 @@
       async function loadSummary() {
         setLoading(true);
         try {
-          const res = await fetch("/api/summary");
-          if (res.ok) {
-            const data = await res.json();
-            setSummary(data);
+          let loaded = false;
+          try {
+            const sRes = await fetch("static/data/summary.json");
+            if (sRes.ok) {
+              const data = await sRes.json();
+              setSummary(data);
+              loaded = true;
+            }
+          } catch (_) {}
+
+          if (!loaded) {
+            const res = await fetch("api/summary");
+            if (res.ok) {
+              const data = await res.json();
+              setSummary(data);
+            }
           }
         } catch (err) {
           console.error("Error fetching summary:", err);
@@ -3004,13 +3063,6 @@
       setActiveSection(key);
       window.history.replaceState(null, "", `#${key}`);
       window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-
-    const handlePaperClick = (ev) => {
-      if (!PAPER_URL || PAPER_URL.trim() === "") {
-        ev.preventDefault();
-        message.info("Paper link will be available soon.");
-      }
     };
 
     const currentSectionMeta = ANALYSIS_SECTIONS.find((s) => s.key === activeSection);
@@ -3041,14 +3093,23 @@
             e(
               "div",
               { className: "results-topbar-links" },
-              e("a", { href: "/", className: "topbar-btn" }, "\u2190 Demo (Home)"),
+              e("a", { href: "./", className: "topbar-btn" }, "\u2190 Demo (Home)"),
               e(
                 "a",
-                { href: GITLAB_URL, target: "_blank", rel: "noopener noreferrer", className: "topbar-btn" },
-                e(GitLabLogo, { size: 14 }),
-                "GitLab"
+                { href: CEX_FOLDER_URL, target: "_blank", rel: "noopener noreferrer", className: "topbar-btn" },
+                "Counterexamples (.sql)"
               ),
-              e("a", { href: PAPER_URL || "#paper", onClick: handlePaperClick, className: "topbar-btn" }, "Paper (Coming Soon)")
+              e(
+                "a",
+                { href: REPO_URL, target: "_blank", rel: "noopener noreferrer", className: "topbar-btn" },
+                e(GitHubLogo, { size: 14 }),
+                "GitHub"
+              ),
+              e(
+                "a",
+                { href: PAPER_URL, target: "_blank", rel: "noopener noreferrer", className: "topbar-btn" },
+                "arXiv Preprint"
+              )
             )
           )
         ),

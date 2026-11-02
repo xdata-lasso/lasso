@@ -27,22 +27,21 @@
     message,
   } = antd;
 
-  const PAPER_URL = "";
-  const GITLAB_URL = "https://gitlab.com/xdata/lasso";
+  const PAPER_URL = "https://arxiv.org/abs/2610.38294";
+  const REPO_URL = "https://github.com/shreyas-jadhav/lasso-public";
 
-  function GitLabIcon({ size = 16 }) {
+  function GitHubIcon({ size = 16 }) {
     return e(
       "svg",
       {
         width: size,
         height: size,
         viewBox: "0 0 24 24",
-        fill: "none",
+        fill: "currentColor",
         style: { flexShrink: 0 },
       },
       e("path", {
-        d: "M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z",
-        fill: "#FC6D26",
+        d: "M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z",
       })
     );
   }
@@ -483,26 +482,61 @@
       }
     };
 
+    const presetsCacheRef = useRef(null);
+
     const handleRunLasso = async () => {
       setLoading(true);
       setErrorMsg(null);
       try {
-        const res = await fetch("/api/try_lasso", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode,
-            schema,
-            gold_sql: goldSql,
-            prediction_sql: mode === "er" ? predSql : "",
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok || data.error) {
-          setErrorMsg(data.error || "Failed to execute LASSO.");
-          setResultData(null);
-        } else {
-          setResultData(data);
+        // 1. Try live Python server endpoint first when running locally
+        let handledByApi = false;
+        try {
+          const res = await fetch("api/try_lasso", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mode,
+              schema,
+              gold_sql: goldSql,
+              prediction_sql: mode === "er" ? predSql : "",
+            }),
+          });
+          const ctype = res.headers.get("content-type") || "";
+          if (ctype.includes("application/json")) {
+            handledByApi = true;
+            const data = await res.json();
+            if (!res.ok || data.error) {
+              setErrorMsg(data.error || "Failed to execute LASSO.");
+              setResultData(null);
+            } else {
+              setResultData(data);
+            }
+          }
+        } catch (_) {
+          // Static hosting (GitHub Pages): fall back to precomputed presets
+        }
+
+        if (!handledByApi) {
+          if (!presetsCacheRef.current) {
+            const pRes = await fetch("static/data/presets.json");
+            if (pRes.ok) {
+              presetsCacheRef.current = await pRes.json();
+            }
+          }
+          const matchedSample = SAMPLE_EXAMPLES.find(
+            (s) =>
+              s.schema.trim() === schema.trim() &&
+              s.gold_sql.trim() === goldSql.trim() &&
+              (mode !== "er" || s.prediction_sql.trim() === predSql.trim())
+          );
+          if (matchedSample && presetsCacheRef.current?.[matchedSample.key]?.[mode]) {
+            setResultData(presetsCacheRef.current[matchedSample.key][mode]);
+          } else {
+            setResultData(null);
+            setErrorMsg(
+              "Custom SQL execution requires the local Python server. On GitHub Pages, select one of the 4 Preset Examples above, or clone https://github.com/shreyas-jadhav/lasso-public and run `python3 web/server.py` locally."
+            );
+          }
         }
       } catch (err) {
         setErrorMsg(String(err));
@@ -574,18 +608,18 @@
               e(
                 "a",
                 {
-                  href: GITLAB_URL,
+                  href: REPO_URL,
                   target: "_blank",
                   rel: "noopener noreferrer",
                   className: "acad-btn",
                 },
-                e(GitLabIcon, { size: 16 }),
-                "GitLab Repository"
+                e(GitHubIcon, { size: 16 }),
+                "GitHub Repository"
               ),
               e(
                 "a",
                 {
-                  href: "/results",
+                  href: "results.html",
                   className: "acad-btn acad-btn-primary",
                 },
                 e(ResultsChartIcon, { size: 16 }),
@@ -594,13 +628,13 @@
               e(
                 "a",
                 {
-                  href: PAPER_URL || "#paper",
-                  onClick: handlePaperClick,
+                  href: PAPER_URL,
+                  target: "_blank",
+                  rel: "noopener noreferrer",
                   className: "acad-btn",
-                  style: { color: "#475569" },
                 },
                 e(PaperDocIcon, { size: 16 }),
-                "Paper (Coming Soon)"
+                "arXiv Preprint"
               )
             )
           ),
@@ -679,7 +713,7 @@
                 e(
                   "a",
                   {
-                    href: "/results",
+                    href: "results.html",
                     style: { fontWeight: 700, fontSize: "13.5px" },
                   },
                   "View Results \u2192"
