@@ -1,6 +1,4 @@
 INSERT INTO "mit_student_directory" ("first_name", "middle_name", "last_name", "full_name", "office_location", "office_phone", "email_address", "department", "department_name", "student_year", "full_name_uppercase", "warehouse_load_date") VALUES ('Danielle', 'Donald Walker', 'Doyle', 'Stephanie Miller', '33890 Jennifer Squares
-Robinsonshire, KY 01352', '001-626-254-2351x16155', 'yherrera@example.org', 'old', 'Mark Mcclure', 'high', 'Michele Williams', '1970-01-01');
-INSERT INTO "mit_student_directory" ("first_name", "middle_name", "last_name", "full_name", "office_location", "office_phone", "email_address", "department", "department_name", "student_year", "full_name_uppercase", "warehouse_load_date") VALUES ('Jeremy', 'Bobby Hall', 'Garcia', 'Mark Diaz', '419 Amanda Gardens
-South Noah, SC 90699', '+1-335-503-0564', 'jason76@example.net', '6', 'Derek Wright', 'option', 'Nicole Patterson', '1971-02-02');
-INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES (960451072, 'Heidi Osborn', 'Mark Diaz', 'certainly', 'Sales executive', 'minute', '22691 James Mountain
-Tashatown, TX 94967', 'Electrical Engineering-Computer Science', 'Danny', 'Dyer', 'Patricia Peterson', 'finally');
+Robinsonshire, KY 01352', '001-626-254-2351x16155', 'yherrera@example.org', '6', 'Sandra Montgomery', 'training', 'Corey Jones', '1970-01-01');
+INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES (960451072, 'Patricia Galloway', 'Stephanie Miller', 'top', 'Exhibitions officer, museum/gallery', 'trial', '5255 Elizabeth Squares Apt. 928
+East Steven, KY 84387', 'Electrical Engineering-Computer Science', 'Hailey', 'Robinson', 'Randy Brown', 'term');

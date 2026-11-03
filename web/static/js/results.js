@@ -40,6 +40,8 @@
   const PAPER_URL = "https://arxiv.org/abs/2610.38294";
   const REPO_URL = "https://github.com/shreyas-jadhav/lasso";
   const CEX_FOLDER_URL = "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/reproducible_cex";
+  const LASSO_GOLD_CEX_URL = "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/reproducible_cex/lasso_gold";
+  const LASSO_EXCLUSIVE_CEX_URL = "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/lasso_exclusive";
   const RESULTS_FOLDER_URL = "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results";
 
   function GitHubLogo({ size = 14 }) {
@@ -1968,10 +1970,10 @@
         description: e(
           "span",
           null,
-          "All synthesized counterexample database scripts (.sql) and per-benchmark evaluation CSV files can be browsed directly in the GitHub repository under ",
-          extLink("experiments/results/reproducible_cex/", CEX_FOLDER_URL),
-          " and ",
-          extLink("experiments/results/", RESULTS_FOLDER_URL),
+          "All counterexamples from the evaluation results are available to inspect and reproduce in the repository on ",
+          extLink("GitHub", LASSO_GOLD_CEX_URL),
+          ", and for inspecting LASSO-exclusive counterexamples see ",
+          extLink("GitHub", LASSO_EXCLUSIVE_CEX_URL),
           "."
         ),
       }),

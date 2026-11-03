@@ -1,4 +1,2 @@
 INSERT INTO "space_detail" ("building_key", "floor_key", "space_unit_key", "space_usage_key", "building_room", "building_room_name", "room_number", "room_square_footage", "room_counter", "building_component", "warehouse_load_date") VALUES ('purpose', 'brother', 'ago', 1001.5, 'site', 'Daniel Doyle', 'require', 11, 1002.5, 'sit', '1970-01-01');
-INSERT INTO "space_detail" ("building_key", "floor_key", "space_unit_key", "space_usage_key", "building_room", "building_room_name", "room_number", "room_square_footage", "room_counter", "building_component", "warehouse_load_date") VALUES ('wait', 'offer', 'begin', 1003.5, 'performance', 'Allen Robinson', 'mouth', 11, 1004.5, 'play', '1971-02-02');
-INSERT INTO "space_floor" ("floor_key", "floor", "floor_name", "warehouse_load_date") VALUES ('brother', 'agreement', 'Michelle Miles', '1972-03-03');
-INSERT INTO "space_floor" ("floor_key", "floor", "floor_name", "warehouse_load_date") VALUES ('offer', 'kind', 'Michelle Miles', '1973-04-04');
+INSERT INTO "space_floor" ("floor_key", "floor", "floor_name", "warehouse_load_date") VALUES ('brother', 'wait', 'Leslie Johnson', '1970-01-01');

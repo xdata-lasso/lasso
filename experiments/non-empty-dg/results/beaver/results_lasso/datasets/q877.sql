@@ -1,8 +1,4 @@
 INSERT INTO "mit_student_directory" ("first_name", "middle_name", "last_name", "full_name", "office_location", "office_phone", "email_address", "department", "department_name", "student_year", "full_name_uppercase", "warehouse_load_date") VALUES ('Danielle', 'Donald Walker', 'Doyle', 'Stephanie Miller', '33890 Jennifer Squares
 Robinsonshire, KY 01352', '001-626-254-2351x16155', 'yherrera@example.org', 'old', 'Mark Mcclure', 'G', 'Corey Jones', '1970-01-01');
-INSERT INTO "mit_student_directory" ("first_name", "middle_name", "last_name", "full_name", "office_location", "office_phone", "email_address", "department", "department_name", "student_year", "full_name_uppercase", "warehouse_load_date") VALUES ('Donna', 'Victoria Wyatt', 'Delacruz', 'Jesse Flowers', '41928 Frank Light Suite 835
-East Lydiamouth, MO 35594', '639-453-7672', 'julieryan@example.net', 'pattern', 'Kevin Cox', 'G', 'Brenda Snyder PhD', '1971-02-02');
-INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('traditional', 'Mark Conner', 'Stephanie Miller', 'knowledge', 'Therapist, occupational', 'attack', '480 Erin Plain Suite 514
-Mooretown, VA 94830', 'Stanton-Gill', 'William', 'Rodriguez', 'Sarah Romero', 'decide');
-INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('claim', 'Christopher Ashley', 'Jesse Flowers', 'win', 'Set designer', 'why', '0154 Brian Wells Apt. 171
-East Donna, OH 22144', 'Rose-Obrien', 'Tamara', 'Hickman', 'Melissa Marquez', 'inside');
+INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('recently', 'Dylan Miller', 'Stephanie Miller', 'early', 'Chiropractor', 'husband', '55341 Amanda Gardens Apt. 764
+Lake Mark, WI 07832', 'Underwood LLC', 'Richard', 'Jones', 'Latoya Robbins', 'difference');

@@ -29,6 +29,10 @@
 
   const PAPER_URL = "https://arxiv.org/abs/2610.38294";
   const REPO_URL = "https://github.com/shreyas-jadhav/lasso";
+  const LASSO_GOLD_CEX_URL =
+    "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/reproducible_cex/lasso_gold";
+  const LASSO_EXCLUSIVE_CEX_URL =
+    "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/lasso_exclusive";
 
   function GitHubIcon({ size = 16 }) {
     return e(
@@ -684,6 +688,35 @@
                   "View Results \u2192"
                 ),
                 ")."
+              ),
+              e(
+                "li",
+                null,
+                "All counterexamples from the evaluation results are available to inspect and reproduce in the repository on ",
+                e(
+                  "a",
+                  {
+                    href: LASSO_GOLD_CEX_URL,
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    style: { fontWeight: 600 },
+                  },
+                  "GitHub"
+                ),
+                ", and for inspecting ",
+                e("strong", { style: { color: "#0f172a" } }, "LASSO-exclusive counterexamples"),
+                " see ",
+                e(
+                  "a",
+                  {
+                    href: LASSO_EXCLUSIVE_CEX_URL,
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    style: { fontWeight: 600 },
+                  },
+                  "GitHub"
+                ),
+                "."
               )
             )
           ),

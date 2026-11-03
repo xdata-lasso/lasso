@@ -1,0 +1,30 @@
+-- Schema DDL
+CREATE TABLE "Salaries" ("company_id" INTEGER, "employee_id" INTEGER, "employee_name" TEXT(255), "salary" INTEGER, PRIMARY KEY ("company_id", "employee_id"), CHECK ("salary" > 0));
+
+-- Loading data
+PRAGMA foreign_keys = OFF;
+INSERT INTO "salaries" ("company_id", "employee_id", "employee_name", "salary") VALUES (1053, 1056, 'Lisa Jackson', 0.16887417218543047);
+INSERT INTO "salaries" ("company_id", "employee_id", "employee_name", "salary") VALUES (1054, 1057, 'Carla Gray', 0.16887417218543047);
+INSERT INTO "salaries" ("company_id", "employee_id", "employee_name", "salary") VALUES (1055, 1058, 'Margaret Hawkins DDS', 0.16887417218543047);
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_key_check;
+
+-- Gold Query
+SELECT S.COMPANY_ID, S.EMPLOYEE_ID, S.EMPLOYEE_NAME, ROUND(CASE WHEN X.MAX_SAL BETWEEN 1000 AND 10000 THEN SALARY * 0.76 WHEN X.MAX_SAL > 10000 THEN SALARY * 0.51 ELSE SALARY END, 0) AS SALARY FROM SALARIES AS S INNER JOIN (SELECT COMPANY_ID, MAX(SALARY) AS MAX_SAL FROM SALARIES GROUP BY COMPANY_ID) AS X ON S.COMPANY_ID = X.COMPANY_ID;
+
+/*
+Gold Result:
+(1053, 1056, 'Lisa Jackson', 0.0)
+(1054, 1057, 'Carla Gray', 0.0)
+(1055, 1058, 'Margaret Hawkins DDS', 0.0)
+*/
+
+-- Prediction Query
+WITH MAX_SALARY AS (SELECT COMPANY_ID, MAX(SALARY) AS MAX_SALARY FROM SALARIES GROUP BY COMPANY_ID) SELECT B.COMPANY_ID, B.EMPLOYEE_ID, B.EMPLOYEE_NAME, CASE WHEN A.MAX_SALARY < 1000 THEN B.SALARY WHEN MAX_SALARY BETWEEN 1000 AND 10000 THEN ROUND(B.SALARY * 0.76, 0) WHEN MAX_SALARY > 10000 THEN ROUND(B.SALARY * 0.51, 0) END AS SALARY FROM MAX_SALARY AS A JOIN SALARIES AS B ON A.COMPANY_ID = B.COMPANY_ID;
+
+/*
+Prediction Result:
+(1053, 1056, 'Lisa Jackson', 0.16887417218543047)
+(1054, 1057, 'Carla Gray', 0.16887417218543047)
+(1055, 1058, 'Margaret Hawkins DDS', 0.16887417218543047)
+*/

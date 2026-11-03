@@ -3,4 +3,4 @@ INSERT INTO "networks" ("tenant_id", "id", "name", "status", "admin_state_up", "
 INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('performance', 'purpose', 'Allen Robinson', 'mouth', '863 Lawrence Valleys
 Port Lindachester, MA 36922', 1, 'clearly', 'dinner', 'source', 'Brandon Davis', 1005);
 INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('purpose', 1006);
-INSERT INTO "standardattributes" ("id", "resource_type", "created_at", "updated_at", "description") VALUES (1004, 'throw', '1970-01-01', '1971-02-02', 'Page southern role movie win her.');
+INSERT INTO "standardattributes" ("id", "resource_type", "created_at", "updated_at", "description") VALUES (1004, 'throw', '1970-01-01', '1970-01-01', 'Page southern role movie win her.');

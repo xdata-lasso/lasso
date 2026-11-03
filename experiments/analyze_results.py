@@ -679,7 +679,7 @@ def discover_result_csvs(results_dir: str, filter_dialect: str = "all"):
             })
 
     # 2. Dialect subdirectories
-    ignored_subdirs = {'raw_cex', 'reproducible_cex', 'error_msg', 'arch', 'cross_checking_study', '__pycache__', 'static'}
+    ignored_subdirs = {'raw_cex', 'reproducible_cex', 'lasso_exclusive', 'error_msg', 'arch', 'cross_checking_study', '__pycache__', 'static'}
     if os.path.isdir(results_dir):
         for entry in sorted(os.listdir(results_dir)):
             sub_path = os.path.join(results_dir, entry)
