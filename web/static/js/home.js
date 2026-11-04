@@ -28,11 +28,11 @@
   } = antd;
 
   const PAPER_URL = "https://arxiv.org/abs/2610.38294";
-  const REPO_URL = "https://github.com/shreyas-jadhav/lasso";
+  const REPO_URL = "https://github.com/xdata-lasso/lasso";
   const LASSO_GOLD_CEX_URL =
-    "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/reproducible_cex/lasso_gold";
+    "https://github.com/xdata-lasso/lasso/tree/main/experiments/results/reproducible_cex/lasso_gold";
   const LASSO_EXCLUSIVE_CEX_URL =
-    "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/lasso_exclusive";
+    "https://github.com/xdata-lasso/lasso/tree/main/experiments/results/lasso_exclusive";
 
   function GitHubIcon({ size = 16 }) {
     return e(
@@ -500,13 +500,46 @@
             prediction_sql: mode === "er" ? predSql : "",
           }),
         });
-        const data = await res.json();
-        if (!res.ok || data.error) {
-          setErrorMsg(data.error || "Failed to execute LASSO.");
-          setResultData(null);
-        } else {
-          setResultData(data);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.error) {
+            setErrorMsg(data.error);
+            setResultData(null);
+          } else {
+            setResultData(data);
+          }
+          return;
         }
+        if (res.status === 404 || res.status === 405) {
+          const matchedSample = SAMPLE_EXAMPLES.find(
+            (s) =>
+              s.schema.trim() === schema.trim() &&
+              s.gold_sql.trim() === goldSql.trim() &&
+              (mode !== "er" || s.prediction_sql.trim() === predSql.trim())
+          );
+          if (matchedSample) {
+            let presetRes = await fetch("/static/data/preset_examples.json");
+            if (!presetRes.ok) {
+              presetRes = await fetch("static/data/preset_examples.json");
+            }
+            if (presetRes.ok) {
+              const presets = await presetRes.json();
+              const presetPayload = presets?.[matchedSample.key]?.[mode];
+              if (presetPayload) {
+                setResultData(presetPayload);
+                return;
+              }
+            }
+          }
+          setErrorMsg(
+            "Custom live SQL execution requires the Python backend server. On this static GitHub Pages site, you can run any of the 4 preset examples above, or clone https://github.com/xdata-lasso/lasso and run 'python3 web/server.py' locally to test custom schemas and queries."
+          );
+          setResultData(null);
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        setErrorMsg(data.error || "Failed to execute LASSO.");
+        setResultData(null);
       } catch (err) {
         setErrorMsg(String(err));
       } finally {

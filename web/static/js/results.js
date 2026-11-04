@@ -38,11 +38,11 @@
   } = antd;
 
   const PAPER_URL = "https://arxiv.org/abs/2610.38294";
-  const REPO_URL = "https://github.com/shreyas-jadhav/lasso";
-  const CEX_FOLDER_URL = "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/reproducible_cex";
-  const LASSO_GOLD_CEX_URL = "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/reproducible_cex/lasso_gold";
-  const LASSO_EXCLUSIVE_CEX_URL = "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results/lasso_exclusive";
-  const RESULTS_FOLDER_URL = "https://github.com/shreyas-jadhav/lasso/tree/main/experiments/results";
+  const REPO_URL = "https://github.com/xdata-lasso/lasso";
+  const CEX_FOLDER_URL = "https://github.com/xdata-lasso/lasso/tree/main/experiments/results/reproducible_cex";
+  const LASSO_GOLD_CEX_URL = "https://github.com/xdata-lasso/lasso/tree/main/experiments/results/reproducible_cex/lasso_gold";
+  const LASSO_EXCLUSIVE_CEX_URL = "https://github.com/xdata-lasso/lasso/tree/main/experiments/results/lasso_exclusive";
+  const RESULTS_FOLDER_URL = "https://github.com/xdata-lasso/lasso/tree/main/experiments/results";
 
   function GitHubLogo({ size = 14 }) {
     return e(
@@ -3034,7 +3034,13 @@
       async function loadSummary() {
         setLoading(true);
         try {
-          const res = await fetch("/api/summary");
+          let res = await fetch("/api/summary");
+          if (!res.ok) {
+            res = await fetch("/static/data/summary.json");
+          }
+          if (!res.ok) {
+            res = await fetch("static/data/summary.json");
+          }
           if (res.ok) {
             const data = await res.json();
             setSummary(data);
