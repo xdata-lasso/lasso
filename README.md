@@ -3,7 +3,7 @@
 - **Website:** [https://xdata-lasso.github.io](https://xdata-lasso.github.io) ([Evaluation Results](https://xdata-lasso.github.io/results))
 - **arXiv Preprint:** [https://arxiv.org/abs/2610.38294](https://arxiv.org/abs/2610.38294)
 
-This repository contains the official artifact evaluation reproduction package for **LASSO**, a framework for discovering semantic oversights, validating SQL query equivalence, and synthesizing deterministic counterexample datasets to refute incorrect SQL predictions.
+Test Data Generation framework for catching errors in SQL queries. LASSO takes a database schema and a SQL query as input and generates multiple test datasets to expose subtle semantic bugs and edge cases. Designed to minimize the use of slow constraint solvers, LASSO prioritizes fast heuristics and deploys targeted attack strategies to kill semantic mutations of SQL queries. It was developed using an LLM-based agentic coding approach with structured workflows and regression tests to scale across a wide range of SQL features and query types.
 
 <p align="center">
   <img src="web/static/overall_barchart.svg" alt="Overall Benchmark Suite: Confirmed Refutations and Average Time per Refutation" width="100%" />
