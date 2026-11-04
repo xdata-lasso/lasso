@@ -5,6 +5,10 @@
 
 This repository contains the official artifact evaluation reproduction package for **LASSO**, a framework for discovering semantic oversights, validating SQL query equivalence, and synthesizing deterministic counterexample datasets to refute incorrect SQL predictions.
 
+<p align="center">
+  <img src="web/static/overall_barchart.svg" alt="Overall Benchmark Suite: Confirmed Refutations and Average Time per Refutation" width="100%" />
+</p>
+
 ---
 
 ## 1. Quick Setup & Usage
