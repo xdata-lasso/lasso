@@ -1,8 +1,6 @@
 # LASSO: An LLM-Agent Synthesized System for SQL Validation
 
-- **Project Website & Interactive Results:** [https://xdata-lasso.github.io](https://xdata-lasso.github.io)
-- **Evaluation Results Explorer:** [https://xdata-lasso.github.io/results](https://xdata-lasso.github.io/results)
-- **GitHub Repository:** [https://github.com/xdata-lasso/lasso](https://github.com/xdata-lasso/lasso)
+- **Website:** [https://xdata-lasso.github.io](https://xdata-lasso.github.io) ([Evaluation Results](https://xdata-lasso.github.io/results))
 - **arXiv Preprint:** [https://arxiv.org/abs/2610.38294](https://arxiv.org/abs/2610.38294)
 
 This repository contains the official artifact evaluation reproduction package for **LASSO**, a framework for discovering semantic oversights, validating SQL query equivalence, and synthesizing deterministic counterexample datasets to refute incorrect SQL predictions.
@@ -16,9 +14,6 @@ This repository contains the official artifact evaluation reproduction package f
 chmod +x setup_env.sh
 ./setup_env.sh
 source venv/bin/activate
-
-# Optional: start PostgreSQL (port 54320) and MySQL (port 33060) for multi-engine tests
-docker compose up -d
 ```
 
 ### Example: Dataset Generation & Execution Testing
@@ -52,7 +47,7 @@ for ds in datasets:
         break
 ```
 
-### `generate_test_data(ddl_string, query_string, seed=42)` (`src/main.py`)
+### `generate_test_data(ddl_string, query_string, seed=42)` ([`src/main.py`](src/main.py))
 
 | Parameter / Output Field | Type | Description |
 | :--- | :--- | :--- |
@@ -64,7 +59,7 @@ for ds in datasets:
 | `Dataset.data` (Output) | `dict` | Table-to-rows dictionary (`{table: [{col: val}, ...]}`). |
 | `Dataset.description` (Output) | `str` | Target semantic bug or edge case description. |
 
-### `execution_test(schema, dataset, gold_sql, prediction_sql, dialect="sqlite", ...)` (`sql-execution-tester/`)
+### `execution_test(schema, dataset, gold_sql, prediction_sql, dialect="sqlite", ...)` ([`sql-execution-tester/execution_tester.py`](sql-execution-tester/execution_tester.py))
 
 | Parameter / Output Field | Type | Description |
 | :--- | :--- | :--- |
@@ -81,24 +76,22 @@ for ds in datasets:
 
 ---
 
-## 2. Interactive Web Application
+## 2. Evaluation Results Website
 
-The web interface is hosted at **[https://xdata-lasso.github.io](https://xdata-lasso.github.io)** (demo) and **[https://xdata-lasso.github.io/results](https://xdata-lasso.github.io/results)** (evaluation results). All aggregated benchmark tables, strategy breakdowns, and token/cost statistics shown in the app are stored in `experiments/analysis.txt`, `experiments/analysis_summary.json`, and `experiments/strategy_summary.txt` (with per-benchmark CSVs and `.sql` counterexamples in `experiments/results/`).
+Evaluation results can be viewed online at **[https://xdata-lasso.github.io/results](https://xdata-lasso.github.io/results)** (project page: **[https://xdata-lasso.github.io](https://xdata-lasso.github.io)**). All aggregated benchmark tables, strategy breakdowns, and token/cost statistics are stored in [`experiments/analysis.txt`](experiments/analysis.txt), [`experiments/analysis_summary.json`](experiments/analysis_summary.json), and [`experiments/strategy_summary.txt`](experiments/strategy_summary.txt) (with per-benchmark CSVs and `.sql` counterexamples in [`experiments/results/`](experiments/results/)).
 
-To run the web server locally (port `8000` by default):
+To serve the results viewer locally (port `8000`):
 ```bash
 source venv/bin/activate
 python3 web/server.py
-# Or via Docker: bash experiments/manage_server.sh start
 ```
-- **Home & Live Try-Out:** [http://localhost:8000/](http://localhost:8000/)
-- **Evaluation Results Viewer:** [http://localhost:8000/results](http://localhost:8000/results)
+Then open [http://localhost:8000/results](http://localhost:8000/results).
 
 ---
 
-## 3. Technical Documentation (Paper Appendix Content)
+## 3. Technical Documentation
 
-The extended technical specifications and theoretical foundations from the paper's appendices are in `docs/`:
+Extended technical specifications and theoretical foundations are located in [`docs/`](docs/):
 
 1. **[Base Data Generation Pipeline Details (`docs/pipeline_details.md`)](docs/pipeline_details.md)**
 2. **[Theoretical Foundations & Academic Lineage (`docs/theoretical_foundations.md`)](docs/theoretical_foundations.md)**
@@ -109,11 +102,11 @@ The extended technical specifications and theoretical foundations from the paper
 ## 4. Running the LASSO Test Suite
 
 ```bash
-# Run all test cases
+# Run all test cases (run_all.py)
 python3 run_all.py
 python3 run_all.py --verbose
 
-# Run a single test case JSON
+# Run a single test case JSON (test_runner.py)
 python3 test_runner.py test_cases/join/join_type_mismatch_medium.json --debug
 ```
 
@@ -121,7 +114,7 @@ python3 test_runner.py test_cases/join/join_type_mismatch_medium.json --debug
 
 ## 5. Reproducing Benchmark Results
 
-All evaluation scripts, baseline tools, benchmark datasets (12 benchmarks, 36,634 query pairs), and official experimental results are located in `experiments/` (and symlinked at `results/`).
+All evaluation scripts, baseline tools, benchmark datasets (12 benchmarks, 36,634 query pairs), and official experimental results are located in [`experiments/`](experiments/) (and [`results/`](results/)).
 
 ```bash
 cd experiments
@@ -146,26 +139,8 @@ cd experiments
 
 ## 6. Official Evaluation Results & Analysis
 
-- **Aggregated Benchmark Tables & Summary:** `experiments/analysis.txt` and `experiments/analysis_summary.json` (generated by `python3 experiments/analyze_results.py`).
-- **Attack Strategy Kill Breakdown:** `experiments/strategy_summary.txt` (generated by `python3 experiments/summarize_strategy_results.py`).
-- **Precomputed Benchmark CSVs:** `results/*.csv` (`experiments/results/*.csv`).
-- **Reproducible Counterexamples (`.sql`):** `results/reproducible_cex/` and `results/lasso_exclusive/`.
-- **Cross-Checking Study:** `results/cross_checking_study/`.
-
----
-
-## 7. Repository Layout
-
-```
-.
-├── docs/                         # Extended technical documentation (from paper appendix)
-├── web/                          # Interactive Research & Evaluation Web Application
-├── results/                      # Precomputed evaluation results (symlink to experiments/results)
-├── src/                          # Core LASSO implementation (attacks/, dataset_generator/, main.py)
-├── sql-execution-tester/         # Multi-dialect SQL execution and comparator engine
-├── test_cases/                   # Structured semantic mutation test suites
-├── tests/                        # Unit tests
-├── test_runner.py                # Single test case execution runner
-├── run_all.py                    # Test suite batch runner
-└── experiments/                  # Evaluation reproduction suite, benchmarks & results
-```
+- **Aggregated Benchmark Tables & Summary:** [`experiments/analysis.txt`](experiments/analysis.txt) and [`experiments/analysis_summary.json`](experiments/analysis_summary.json) (generated by [`experiments/analyze_results.py`](experiments/analyze_results.py)).
+- **Attack Strategy Kill Breakdown:** [`experiments/strategy_summary.txt`](experiments/strategy_summary.txt) (generated by [`experiments/summarize_strategy_results.py`](experiments/summarize_strategy_results.py)).
+- **Precomputed Benchmark CSVs:** [`experiments/results/`](experiments/results/).
+- **Reproducible Counterexamples (`.sql`):** [`experiments/results/reproducible_cex/`](experiments/results/reproducible_cex/) and [`experiments/results/lasso_exclusive/`](experiments/results/lasso_exclusive/).
+- **Cross-Checking Study:** [`experiments/results/cross_checking_study/`](experiments/results/cross_checking_study/).
