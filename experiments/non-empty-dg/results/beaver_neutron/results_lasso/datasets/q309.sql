@@ -24,55 +24,94 @@ INSERT INTO "ipallocations" ("port_id", "ip_address", "subnet_id", "network_id")
 Chandlerville, IA 25613', 'with', 'customer');
 INSERT INTO "ipallocations" ("port_id", "ip_address", "subnet_id", "network_id") VALUES ('wait', '62473 Scott Wall Apt. 080
 Port Melindaburgh, MT 64154', 'step', 'fine');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('purpose', 'director', 'wide', 'easy', 'really', 'remain');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('brother', 'article', 'tonight', 'international', 'past', 'quite');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('ago', 'particularly', 'nice', 'call', 'other', 'first');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('site', 'simply', 'coach', 'year', 'necessary', 'lot');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('face', 'occur', 'movie', 'voice', 'four', 'woman');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('election', 'ask', 'be', 'over', 'worry', 'society');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('dog', 'small', 'today', 'employee', 'every', 'would');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('chair', 'former', 'cultural', 'particular', 'democratic', 'baby');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('since', 'art', 'authority', 'phone', 'relationship', 'act');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('blue', 'apply', 'physical', 'among', 'sense', 'low');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('require', 'pattern', 'author', 'president', 'edge', 'pretty');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('sit', 'me', 'Republican', 'beat', 'individual', 'order');
-INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('wait', 'morning', 'training', 'kind', 'catch', 'black');
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('back', 'purpose', 'Lisa Archer', 'choose', '692 Michelle Union Apt. 602
-Kimberlychester, AS 88307', 1, 'DOWN', 'young', 'thing', 'George Shelton', 1001);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('note', 'brother', 'Aimee Montoya', 'law', '2160 Walker Viaduct
-Baileybury, IN 03602', 1, 'DOWN', 'safe', 'nothing', 'Christopher Mcdonald', 1024.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('move', 'ago', 'Matthew Mcmillan', 'care', '4145 Frazier Ville Suite 014
-New Sydney, KS 05515', 1, 'DOWN', 'again', 'simple', 'Marcus Johnson', 1047.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('cause', 'site', 'Brian Rodriguez', 'analysis', '5698 Paul Ports Apt. 406
-New Saraside, TX 94798', 1, 'DOWN', 'tough', 'office', 'Justin Johnson', 1070.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('worker', 'face', 'Denise Jacobs', 'foot', 'USNS Diaz
-FPO AE 87563', 1, 'DOWN', 'up', 'such', 'Brandy Murray', 1093.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('happy', 'election', 'Christina Walters', 'his', 'PSC 9514, Box 8465
-APO AA 91885', 1, 'DOWN', 'southern', 'player', 'James Lewis', 1116.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('upon', 'dog', 'John Whitehead', 'way', '66299 Sullivan Village
-West Justinchester, WY 76520', 1, 'DOWN', 'parent', 'water', 'Philip Gray', 1139.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('until', 'chair', 'Anna Henderson', 'style', '7738 Leon Underpass Apt. 148
-Clarencebury, TX 41188', 1, 'DOWN', 'husband', 'discussion', 'Sandra King', 1162.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('hope', 'since', 'Aaron Wise', 'traditional', '00379 Stanley Roads
-Lake Heather, NM 52884', 1, 'DOWN', 'according', 'method', 'Alec Ryan', 1185.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('feel', 'blue', 'Deborah Figueroa', 'help', '63287 Angela Vista
-South Dennismouth, TN 70117', 1, 'DOWN', 'yes', 'discuss', 'Mrs. Marie Harrington DDS', 1208.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('left', 'require', 'Jessica Smith', 'develop', 'Unit 9579 Box 8687
-DPO AE 97973', 1, 'DOWN', 'he', 'explain', 'Tiffany Gonzalez', 1231.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('these', 'sit', 'Stephen Mckee', 'rest', '3487 Joshua Club Suite 345
-Patricialand, DC 20270', 1, 'DOWN', 'fire', 'least', 'Christian Martinez', 1254.0);
-INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('of', 'wait', 'Sandra Aguilar', 'enjoy', '316 Rivera Mountain
-Brownchester, MS 77057', 1, 'DOWN', 'some', 'mention', 'Kristy Robinson', 1277.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('purpose', 1014);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('brother', 1019.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('ago', 1024.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('site', 1029.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('face', 1034.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('election', 1039.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('dog', 1044.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('chair', 1049.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('since', 1054.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('blue', 1059.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('require', 1064.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('sit', 1069.0);
-INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('wait', 1074.0);
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('director', 'wide', 'easy', 'international', 'past', 'quite');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('article', 'tonight', 'easy', 'call', 'other', 'first');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('particularly', 'nice', 'easy', 'year', 'necessary', 'lot');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('simply', 'coach', 'easy', 'voice', 'four', 'woman');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('occur', 'movie', 'easy', 'over', 'worry', 'society');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('ask', 'be', 'easy', 'employee', 'every', 'would');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('small', 'today', 'easy', 'particular', 'democratic', 'baby');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('former', 'cultural', 'easy', 'phone', 'relationship', 'act');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('art', 'authority', 'easy', 'among', 'sense', 'low');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('apply', 'physical', 'easy', 'president', 'edge', 'pretty');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('pattern', 'author', 'easy', 'beat', 'individual', 'order');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('me', 'Republican', 'easy', 'kind', 'catch', 'black');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('morning', 'training', 'easy', 'really', 'remain', 'back');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('purpose', 'note', 'five', 'population', 'unit', 'gun');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('brother', 'move', 'five', 'surface', 'center', 'Democrat');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('ago', 'cause', 'five', 'ready', 'everything', 'right');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('site', 'worker', 'five', 'newspaper', 'business', 'protect');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('face', 'happy', 'five', 'across', 'both', 'mouth');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('election', 'upon', 'five', 'region', 'situation', 'middle');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('dog', 'until', 'five', 'technology', 'on', 'enter');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('chair', 'hope', 'five', 'once', 'clearly', 'western');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('since', 'feel', 'five', 'firm', 'expert', 'whatever');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('blue', 'left', 'five', 'work', 'father', 'throughout');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('require', 'these', 'five', 'record', 'point', 'approach');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('sit', 'of', 'five', 'body', 'develop', 'best');
+INSERT INTO "ml2_port_bindings" ("port_id", "host", "vif_type", "vnic_type", "vif_details", "profile") VALUES ('wait', 'score', 'five', 'wrong', 'series', 'themselves');
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'director', 'Gavin Anderson', 'treat', '5433 Donna Locks
+Joshualand, WI 37086', 1, 'though', 'later', 'theory', 'Amanda Johnson', 1001);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'article', 'Candice Ramos', 'simple', '850 Natalie Green Apt. 940
+New Ryanmouth, NE 79958', 1, 'manage', 'central', 'know', 'Ryan Howell', 1024.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'particularly', 'Kristina Rodriguez', 'talk', 'Unit 1693 Box 4060
+DPO AP 71076', 1, 'care', 'trial', 'entire', 'John Wilson', 1047.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'simply', 'Melissa Hernandez', 'energy', '6159 Alvarado Crossing
+Williamchester, MD 53244', 1, 'prevent', 'main', 'they', 'Julie Scott', 1070.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'occur', 'Jacob Tran', 'example', '66299 Sullivan Village
+West Justinchester, WY 76520', 1, 'none', 'court', 'many', 'Larry Stuart', 1093.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'ask', 'Andrew Diaz', 'collection', '7738 Leon Underpass Apt. 148
+Clarencebury, TX 41188', 1, 'agreement', 'ever', 'after', 'Paula Martin', 1116.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'small', 'Valerie Williams', 'store', '00379 Stanley Roads
+Lake Heather, NM 52884', 1, 'what', 'generation', 'so', 'Kenneth Hickman', 1139.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'former', 'Michael Estrada', 'science', '63287 Angela Vista
+South Dennismouth, TN 70117', 1, 'indeed', 'development', 'notice', 'Susan Brooks', 1162.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'art', 'Justin Baxter', 'box', 'Unit 9579 Box 8687
+DPO AE 97973', 1, 'person', 'general', 'area', 'Christina Vargas', 1185.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'apply', 'Nicole Frost', 'idea', '3487 Joshua Club Suite 345
+Patricialand, DC 20270', 1, 'organization', 'green', 'hard', 'Dana Terry', 1208.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'pattern', 'Christopher Marsh', 'turn', '316 Rivera Mountain
+Brownchester, MS 77057', 1, 'recognize', 'sort', 'door', 'Michael Trujillo', 1231.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'me', 'Jason White', 'American', 'USS Gates
+FPO AP 50358', 1, 'because', 'fall', 'rate', 'Kylie Williams', 1254.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('factor', 'morning', 'Rachel Jenkins', 'town', '6688 Tracy Groves Suite 706
+Elizabethfurt, VA 22133', 1, 'question', 'soldier', 'statement', 'Mary Jones', 1277.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'purpose', 'Samuel Short', 'one', '9578 Coleman Summit
+Michaelmouth, KY 40690', 1014, 'DOWN', 'foreign', 'moment', 'Katie Suarez', 1027);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'brother', 'Tyler Reid', 'son', '351 James Streets
+Hillshire, WV 69266', 1027.0, 'DOWN', 'ok', 'film', 'Desiree Tyler', 1050.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'ago', 'Michelle Graham', 'effect', '43524 Jean Crossroad
+Brandonton, OH 38791', 1040.0, 'DOWN', 'address', 'Mr', 'Timothy Romero', 1073.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'site', 'Tracie Nelson', 'rock', '710 Harrison Mill
+Jackton, KS 63117', 1053.0, 'DOWN', 'old', 'season', 'Diane Evans', 1096.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'face', 'Kimberly Webb', 'maybe', '7190 Edward Port
+Christopherbury, DE 73648', 1066.0, 'DOWN', 'involve', 'explain', 'Yvonne Burns', 1119.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'election', 'Nicholas Adams', 'race', '677 Dalton Meadow
+Ashleyton, RI 97505', 1079.0, 'DOWN', 'down', 'just', 'Joshua Reed', 1142.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'dog', 'Sandra Miller', 'seek', '341 John Plaza
+East Aaronmouth, UT 78333', 1092.0, 'DOWN', 'thought', 'meeting', 'Kimberly Gibson', 1165.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'chair', 'Dana Marshall', 'military', '44713 French Road
+South Danny, IN 85387', 1105.0, 'DOWN', 'while', 'marriage', 'Colin Terry', 1188.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'since', 'Jamie Johnson', 'line', '10249 Gonzales Mountain Suite 648
+Kimton, FM 57127', 1118.0, 'DOWN', 'build', 'either', 'Cynthia Rowe', 1211.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'blue', 'Catherine Lewis', 'structure', '13990 Johnston Track Apt. 787
+Howardshire, NE 83703', 1131.0, 'DOWN', 'your', 'loss', 'Patrick Thornton', 1234.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'require', 'Gina Beard', 'adult', '5655 Mia Isle
+Steeleport, TN 52989', 1144.0, 'DOWN', 'buy', 'check', 'Jasmin Alvarado', 1257.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'sit', 'Desiree Smith', 'better', '1545 Tara Lodge
+Lake Mollymouth, MT 07605', 1157.0, 'DOWN', 'there', 'identify', 'Veronica Simpson', 1280.0);
+INSERT INTO "ports" ("tenant_id", "id", "name", "network_id", "mac_address", "admin_state_up", "status", "device_id", "device_owner", "dns_name", "standard_attr_id") VALUES ('raise', 'wait', 'Angela Cortez', 'financial', '770 Joseph Curve Suite 771
+Lake Chelseabury, VT 21259', 1170.0, 'DOWN', 'class', 'cut', 'Jonathan Lawrence', 1303.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('director', 1040);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('article', 1045.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('particularly', 1050.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('simply', 1055.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('occur', 1060.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('ask', 1065.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('small', 1070.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('former', 1075.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('art', 1080.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('apply', 1085.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('pattern', 1090.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('me', 1095.0);
+INSERT INTO "portsecuritybindings" ("port_id", "port_security_enabled") VALUES ('morning', 1100.0);

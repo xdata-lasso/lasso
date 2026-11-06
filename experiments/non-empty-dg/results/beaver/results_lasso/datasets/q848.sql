@@ -1,4 +1,8 @@
 INSERT INTO "mit_student_directory" ("first_name", "middle_name", "last_name", "full_name", "office_location", "office_phone", "email_address", "department", "department_name", "student_year", "full_name_uppercase", "warehouse_load_date") VALUES ('Danielle', 'Donald Walker', 'Doyle', 'Stephanie Miller', '33890 Jennifer Squares
 Robinsonshire, KY 01352', '001-626-254-2351x16155', 'yherrera@example.org', 'old', 'Mark Mcclure', 'G', 'Corey Jones', '1970-01-01');
-INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('recently', 'Dylan Miller', 'Stephanie Miller', 'early', 'Chiropractor', 'husband', '55341 Amanda Gardens Apt. 764
-Lake Mark, WI 07832', 'Underwood LLC', 'Richard', 'Jones', 'Latoya Robbins', 'difference');
+INSERT INTO "mit_student_directory" ("first_name", "middle_name", "last_name", "full_name", "office_location", "office_phone", "email_address", "department", "department_name", "student_year", "full_name_uppercase", "warehouse_load_date") VALUES ('Donna', 'Victoria Wyatt', 'Delacruz', 'Jesse Flowers', '41928 Frank Light Suite 835
+East Lydiamouth, MO 35594', '639-453-7672', 'julieryan@example.net', 'pattern', 'Mark Mcclure', 'G', 'Kevin Cox', '1971-02-02');
+INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('certainly', 'Ann Williams', 'Stephanie Miller', 'break', 'Designer, ceramics/pottery', 'product', '166 Rice Plaza Apt. 184
+Danielchester, GA 59971', 'Mckay Ltd', 'Jose', 'Mason', 'Thomas Harrell', 'fire');
+INSERT INTO "se_person" ("mit_id", "krb_name", "full_name", "payroll_rank", "position_title", "is_active", "office_location", "organization", "first_name", "last_name", "middle_name", "employee_type") VALUES ('thought', 'Lisa Hernandez', 'Jesse Flowers', 'sound', 'Designer, television/film set', 'notice', 'USS George
+FPO AA 03053', 'Hickman LLC', 'John', 'Allen', 'Angela Dennis', 'fire');

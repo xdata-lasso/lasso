@@ -1,2 +1,2 @@
 INSERT INTO "space_detail" ("building_key", "floor_key", "space_unit_key", "space_usage_key", "building_room", "building_room_name", "room_number", "room_square_footage", "room_counter", "building_component", "warehouse_load_date") VALUES ('32', 'purpose', 'brother', 1001.5, 'ago', 'Danielle Taylor', 'blue', 101, 1002.5, 'require', '1970-01-01');
-INSERT INTO "space_usage" ("space_usage_key", "space_usage", "warehouse_load_date") VALUES (1001.5, 'RESEARCH CENTER', '1970-01-01');
+INSERT INTO "space_usage" ("space_usage_key", "space_usage", "warehouse_load_date") VALUES (1001.5, 'RESEARCH CENTER', '1971-02-02');
